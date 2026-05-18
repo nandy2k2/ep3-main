@@ -1,0 +1,1356 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { Link as RouterLink } from "react-router-dom";
+import {
+  Alert,
+  Box,
+  Button,
+  Checkbox,
+  Chip,
+  FormControl,
+  Grid,
+  InputLabel,
+  ListItemText,
+  MenuItem,
+  Paper,
+  Select,
+  Stack,
+  Tab,
+  Tabs,
+  TextField,
+  Typography
+} from "@mui/material";
+import { Add, ArrowBack, Delete, Edit, Refresh, Save, UploadFile } from "@mui/icons-material";
+import { DataGrid, GridActionsCellItem, GridToolbar } from "@mui/x-data-grid";
+import ep1 from "../api/ep1";
+import global1 from "./global1";
+
+const blankResource = { title: "", module: "", topic: "", description: "", duedate: "", fullmarks: "", file: null };
+const blankQuiz = { title: "", module: "", topic: "", startdatetime: "", enddatetime: "", status: "Active" };
+const blankQuestion = {
+  sectionid: "",
+  question: "",
+  score: "1",
+  options: [
+    { text: "", iscorrect: false },
+    { text: "", iscorrect: false },
+    { text: "", iscorrect: false },
+    { text: "", iscorrect: false }
+  ]
+};
+const blankAiQuestionForm = { provider: "Gemini", questioncount: "5", difficulty: "Medium", language: "English" };
+const aiProviders = ["Gemini", "ChatGPT", "Claude"];
+const difficultyLevels = ["Easy", "Medium", "Hard"];
+const languages = [
+  "English",
+  "Hindi",
+  "Bengali",
+  "Telugu",
+  "Marathi",
+  "Tamil",
+  "Urdu",
+  "Gujarati",
+  "Kannada",
+  "Malayalam",
+  "Odia",
+  "Punjabi",
+  "Assamese",
+  "Maithili",
+  "Santali",
+  "Kashmiri",
+  "Nepali",
+  "Konkani",
+  "Sindhi",
+  "Dogri",
+  "Manipuri",
+  "Bodo",
+  "Sanskrit"
+];
+const blankClass = {
+  classdate: "",
+  classtime: "",
+  period: "",
+  durationminutes: "",
+  module: "",
+  topic: "",
+  workcompleted: ""
+};
+
+const uniqueSorted = (values = []) => [...new Set(values.map((item) => String(item || "").trim()).filter(Boolean))]
+  .sort((a, b) => a.localeCompare(b));
+const listFromValue = (value) => {
+  if (Array.isArray(value)) return value.map((item) => String(item || "").trim()).filter(Boolean);
+  return String(value || "").split(",").map((item) => item.trim()).filter(Boolean);
+};
+const valueFromList = (value) => listFromValue(value).join(", ");
+const toDateTimeInput = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
+  return offsetDate.toISOString().slice(0, 16);
+};
+const makeTimetableFilter = () => ({ id: `${Date.now()}-${Math.random()}`, field: "academicyear", value: "" });
+
+const timetableFilterFields = [
+  { field: "academicyear", label: "Academic Year" },
+  { field: "program", label: "Program" },
+  { field: "programcode", label: "Program Code" },
+  { field: "classdate", label: "Class Date" },
+  { field: "semester", label: "Semester" },
+  { field: "major", label: "Major" },
+  { field: "course", label: "Course" },
+  { field: "coursecode", label: "Course Code" },
+  { field: "faculty", label: "Faculty" },
+  { field: "facultyemail", label: "Faculty Email" },
+  { field: "module", label: "Module" },
+  { field: "topic", label: "Topic" }
+];
+
+const userMatches = (row) => {
+  const currentUser = String(global1.user || "").trim().toLowerCase();
+  if (!currentUser) return false;
+  return String(row.facultyemail || "").trim().toLowerCase() === currentUser;
+};
+
+export default function NepLmsCourseWorkspacePage() {
+  const [courses, setCourses] = useState([]);
+  const [academicYear, setAcademicYear] = useState("");
+  const [semester, setSemester] = useState("");
+  const [coursecode, setCoursecode] = useState("");
+  const [tab, setTab] = useState(0);
+  const [resources, setResources] = useState([]);
+  const [syllabusRows, setSyllabusRows] = useState([]);
+  const [timetable, setTimetable] = useState([]);
+  const [timetableTab, setTimetableTab] = useState(0);
+  const [assignmentSubmissions, setAssignmentSubmissions] = useState([]);
+  const [quizzes, setQuizzes] = useState([]);
+  const [quizAttempts, setQuizAttempts] = useState([]);
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState("");
+  const [selectedQuizId, setSelectedQuizId] = useState("");
+  const [gradingForm, setGradingForm] = useState({ id: "", student: "", fullmarks: "", marks: "", facultycomments: "" });
+  const [resourceForm, setResourceForm] = useState(blankResource);
+  const [lessonForm, setLessonForm] = useState(blankResource);
+  const [quizForm, setQuizForm] = useState(blankQuiz);
+  const [sectionTitle, setSectionTitle] = useState("");
+  const [questionForm, setQuestionForm] = useState(blankQuestion);
+  const [aiQuestionForm, setAiQuestionForm] = useState(blankAiQuestionForm);
+  const [generatingQuestions, setGeneratingQuestions] = useState(false);
+  const [editingResourceId, setEditingResourceId] = useState("");
+  const [editingResourceType, setEditingResourceType] = useState("");
+  const [editingQuizId, setEditingQuizId] = useState("");
+  const [classForm, setClassForm] = useState(blankClass);
+  const [editingClassId, setEditingClassId] = useState("");
+  const [timetableFilters, setTimetableFilters] = useState([makeTimetableFilter()]);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    loadCourses();
+  }, []);
+
+  useEffect(() => {
+    if (selectedCourse) loadCourseData();
+  }, [coursecode]);
+
+  const loadCourses = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const res = await ep1.get("/api/v2/workloadassignment", {
+        params: { colid: global1.colid, status: "Active", facultyemail: global1.user }
+      });
+      const assigned = (res.data?.data || []).filter(userMatches);
+      setCourses(assigned);
+      const years = uniqueSorted(assigned.map((row) => row.academicyear));
+      const firstYear = years[0] || "";
+      const firstSemester = uniqueSorted(assigned.filter((row) => !firstYear || row.academicyear === firstYear).map((row) => row.semester))[0] || "";
+      const firstCourse = assigned.find((row) => (!firstYear || row.academicyear === firstYear) && (!firstSemester || row.semester === firstSemester))?.coursecode || "";
+      setAcademicYear(firstYear);
+      setSemester(firstSemester);
+      setCoursecode(firstCourse);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load assigned courses");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const years = useMemo(() => uniqueSorted(courses.map((row) => row.academicyear)), [courses]);
+  const semesters = useMemo(() => uniqueSorted(courses.filter((row) => !academicYear || row.academicyear === academicYear).map((row) => row.semester)), [courses, academicYear]);
+  const filteredCourses = useMemo(() => courses.filter((row) => (
+    (!academicYear || row.academicyear === academicYear)
+    && (!semester || row.semester === semester)
+  )), [courses, academicYear, semester]);
+
+  const selectedCourse = useMemo(() => filteredCourses.find((row) => row.coursecode === coursecode) || null, [filteredCourses, coursecode]);
+
+  const coursePayload = () => ({
+    colid: global1.colid,
+    user: global1.user,
+    academicyear: selectedCourse?.academicyear || "",
+    regulation: selectedCourse?.regulation || "",
+    program: selectedCourse?.program || "",
+    programcode: selectedCourse?.programcode || "",
+    type: selectedCourse?.type || "",
+    major: selectedCourse?.subject || "",
+    semester: selectedCourse?.semester || "",
+    course: selectedCourse?.course || "",
+    coursecode: selectedCourse?.coursecode || "",
+    faculty: selectedCourse?.facultyname || "",
+    facultyemail: selectedCourse?.facultyemail || ""
+  });
+
+  const changeYear = (value) => {
+    setAcademicYear(value);
+    const nextSemester = uniqueSorted(courses.filter((row) => !value || row.academicyear === value).map((row) => row.semester))[0] || "";
+    setSemester(nextSemester);
+    const nextCourse = courses.find((row) => (!value || row.academicyear === value) && (!nextSemester || row.semester === nextSemester))?.coursecode || "";
+    setCoursecode(nextCourse);
+  };
+
+  const changeSemester = (value) => {
+    setSemester(value);
+    const nextCourse = courses.find((row) => (!academicYear || row.academicyear === academicYear) && (!value || row.semester === value))?.coursecode || "";
+    setCoursecode(nextCourse);
+  };
+
+  const loadCourseData = async () => {
+    if (!selectedCourse) return;
+    try {
+      setError("");
+      const params = { colid: global1.colid, academicyear: selectedCourse.academicyear, semester: selectedCourse.semester, coursecode: selectedCourse.coursecode };
+      const syllabusParams = {
+        colid: global1.colid,
+        academicyear: selectedCourse.academicyear,
+        regulation: selectedCourse.regulation,
+        program: selectedCourse.program,
+        programcode: selectedCourse.programcode,
+        type: selectedCourse.type,
+        subject: selectedCourse.subject,
+        semester: selectedCourse.semester,
+        course: selectedCourse.course,
+        coursecode: selectedCourse.coursecode
+      };
+      const [resourceRes, timetableRes, syllabusRes, quizRes] = await Promise.all([
+        ep1.get("/api/v2/neplms/resources", { params }),
+        ep1.get("/api/v2/neplms/timetable", { params }),
+        ep1.get("/api/v2/syllabus", { params: syllabusParams }),
+        ep1.get("/api/v2/neplms/quizzes", { params: { ...params, facultyemail: global1.user } })
+      ]);
+      const nextResources = resourceRes.data?.data || [];
+      const nextQuizzes = quizRes.data?.data || [];
+      setResources(nextResources);
+      setSyllabusRows(syllabusRes.data?.data || []);
+      setTimetable(timetableRes.data?.data || []);
+      setQuizzes(nextQuizzes);
+      const assignments = nextResources.filter((row) => row.resourcetype === "Assignment");
+      const nextAssignmentId = assignments.some((row) => row._id === selectedAssignmentId)
+        ? selectedAssignmentId
+        : assignments[0]?._id || "";
+      setSelectedAssignmentId(nextAssignmentId);
+      if (nextAssignmentId) loadAssignmentSubmissions(nextAssignmentId);
+      else setAssignmentSubmissions([]);
+      const nextQuizId = nextQuizzes.some((row) => row._id === selectedQuizId) ? selectedQuizId : nextQuizzes[0]?._id || "";
+      setSelectedQuizId(nextQuizId);
+      if (nextQuizId) loadQuizAttempts(nextQuizId);
+      else setQuizAttempts([]);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load course workspace data");
+    }
+  };
+
+  const loadAssignmentSubmissions = async (assignmentId = selectedAssignmentId) => {
+    if (!selectedCourse || !assignmentId) {
+      setAssignmentSubmissions([]);
+      return;
+    }
+    try {
+      setError("");
+      const res = await ep1.get("/api/v2/neplms/assignment-submissions", {
+        params: {
+          colid: global1.colid,
+          assignmentid: assignmentId,
+          coursecode: selectedCourse.coursecode,
+          facultyemail: global1.user
+        }
+      });
+      setAssignmentSubmissions(res.data?.data || []);
+    } catch (err) {
+      setAssignmentSubmissions([]);
+      setError(err.response?.data?.message || "Unable to load assignment submissions");
+    }
+  };
+
+  const loadQuizAttempts = async (quizId = selectedQuizId) => {
+    if (!selectedCourse || !quizId) {
+      setQuizAttempts([]);
+      return;
+    }
+    try {
+      const res = await ep1.get("/api/v2/neplms/quizzes/attempts", {
+        params: { colid: global1.colid, quizid: quizId, coursecode: selectedCourse.coursecode, facultyemail: global1.user }
+      });
+      setQuizAttempts(res.data?.data || []);
+    } catch (err) {
+      setQuizAttempts([]);
+      setError(err.response?.data?.message || "Unable to load quiz attempts");
+    }
+  };
+
+  const uploadResource = async (resourcetype) => {
+    const form = resourcetype === "Lesson Plan" ? lessonForm : resourceForm;
+    if (!selectedCourse) {
+      setError("Select a course first");
+      return;
+    }
+    if (!form.title && !form.file) {
+      setError("Add a title or select a file");
+      return;
+    }
+    try {
+      setError("");
+      setMessage("");
+      if (editingResourceId && editingResourceType === resourcetype) {
+        await ep1.post("/api/v2/neplms/resources/update", {
+          ...coursePayload(),
+          id: editingResourceId,
+          resourcetype,
+          title: form.title,
+          module: valueFromList(form.module),
+          topic: valueFromList(form.topic),
+          description: form.description,
+          duedate: form.duedate,
+          fullmarks: form.fullmarks
+        });
+        setMessage(`${resourcetype} updated`);
+        setEditingResourceId("");
+        setEditingResourceType("");
+        if (resourcetype === "Lesson Plan") setLessonForm(blankResource);
+        else setResourceForm(blankResource);
+        loadCourseData();
+        return;
+      }
+
+      const data = new FormData();
+      Object.entries({ ...coursePayload(), resourcetype, title: form.title, module: valueFromList(form.module), topic: valueFromList(form.topic), description: form.description, duedate: form.duedate, fullmarks: form.fullmarks }).forEach(([key, value]) => {
+        data.append(key, value || "");
+      });
+      if (form.file) data.append("file", form.file);
+      await ep1.post("/api/v2/neplms/resources", data, { headers: { "Content-Type": "multipart/form-data" } });
+      setMessage(`${resourcetype} uploaded`);
+      if (resourcetype === "Lesson Plan") setLessonForm(blankResource);
+      else setResourceForm(blankResource);
+      loadCourseData();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to upload file");
+    }
+  };
+
+  const editResource = (row) => {
+    const nextForm = {
+      title: row.title || "",
+      module: row.module || "",
+      topic: row.topic || "",
+      description: row.description || "",
+      duedate: row.duedate || "",
+      fullmarks: row.fullmarks || "",
+      file: null
+    };
+    setEditingResourceId(row._id);
+    setEditingResourceType(row.resourcetype);
+    if (row.resourcetype === "Lesson Plan") setLessonForm(nextForm);
+    else setResourceForm(nextForm);
+    setMessage("");
+    setError("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const cancelResourceEdit = (type) => {
+    setEditingResourceId("");
+    setEditingResourceType("");
+    if (type === "Lesson Plan") setLessonForm(blankResource);
+    else setResourceForm(blankResource);
+  };
+
+  const deleteResource = async (row) => {
+    if (!window.confirm("Delete this item?")) return;
+    try {
+      await ep1.post("/api/v2/neplms/resources/delete", { id: row._id, colid: global1.colid });
+      setMessage("Item deleted");
+      loadCourseData();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete item");
+    }
+  };
+
+  const saveQuiz = async () => {
+    if (!selectedCourse) {
+      setError("Select a course first");
+      return;
+    }
+    if (!quizForm.title || !quizForm.startdatetime || !quizForm.enddatetime) {
+      setError("Quiz title, start date and end date are required");
+      return;
+    }
+    try {
+      setError("");
+      setMessage("");
+      const payload = {
+        ...coursePayload(),
+        ...quizForm,
+        module: valueFromList(quizForm.module),
+        topic: valueFromList(quizForm.topic)
+      };
+      if (editingQuizId) {
+        await ep1.post("/api/v2/neplms/quizzes/update", { ...payload, id: editingQuizId });
+        setMessage("Quiz updated");
+      } else {
+        await ep1.post("/api/v2/neplms/quizzes", payload);
+        setMessage("Quiz created");
+      }
+      setQuizForm(blankQuiz);
+      setEditingQuizId("");
+      loadCourseData();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to save quiz");
+    }
+  };
+
+  const editQuiz = (row) => {
+    setEditingQuizId(row._id);
+    setQuizForm({
+      title: row.title || "",
+      module: row.module || "",
+      topic: row.topic || "",
+      startdatetime: toDateTimeInput(row.startdatetime),
+      enddatetime: toDateTimeInput(row.enddatetime),
+      status: row.status || "Active"
+    });
+    setMessage("");
+    setError("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const deleteQuiz = async (row) => {
+    if (!window.confirm("Delete this quiz and its attempts?")) return;
+    try {
+      await ep1.post("/api/v2/neplms/quizzes/delete", { id: row._id, colid: global1.colid });
+      setMessage("Quiz deleted");
+      if (selectedQuizId === row._id) setSelectedQuizId("");
+      loadCourseData();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete quiz");
+    }
+  };
+
+  const addSection = async () => {
+    if (!selectedQuizId || !sectionTitle) {
+      setError("Select a quiz and enter section title");
+      return;
+    }
+    try {
+      await ep1.post("/api/v2/neplms/quizzes/sections", { colid: global1.colid, quizid: selectedQuizId, title: sectionTitle });
+      setSectionTitle("");
+      setMessage("Section added");
+      loadCourseData();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to add section");
+    }
+  };
+
+  const deleteSection = async (sectionid) => {
+    if (!window.confirm("Delete this section?")) return;
+    try {
+      await ep1.post("/api/v2/neplms/quizzes/sections/delete", { colid: global1.colid, quizid: selectedQuizId, sectionid });
+      setMessage("Section deleted");
+      loadCourseData();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete section");
+    }
+  };
+
+  const updateQuestionOption = (index, key, value) => {
+    setQuestionForm((prev) => ({
+      ...prev,
+      options: prev.options.map((option, optionIndex) => optionIndex === index ? { ...option, [key]: value } : option)
+    }));
+  };
+
+  const addQuestion = async () => {
+    if (!selectedQuizId || !questionForm.sectionid || !questionForm.question) {
+      setError("Select quiz, section and enter question");
+      return;
+    }
+    try {
+      await ep1.post("/api/v2/neplms/quizzes/questions", { colid: global1.colid, quizid: selectedQuizId, ...questionForm });
+      setQuestionForm(blankQuestion);
+      setMessage("Question added");
+      loadCourseData();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to add question");
+    }
+  };
+
+  const generateAiQuestions = async () => {
+    if (!selectedQuizId || !questionForm.sectionid) {
+      setError("Select quiz and section before generating questions");
+      return;
+    }
+    try {
+      setGeneratingQuestions(true);
+      setError("");
+      setMessage("");
+      const res = await ep1.post("/api/v2/neplms/quizzes/questions/generate", {
+        colid: global1.colid,
+        quizid: selectedQuizId,
+        sectionid: questionForm.sectionid,
+        ...aiQuestionForm
+      });
+      setMessage(`${res.data?.generated || 0} AI questions added`);
+      loadCourseData();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to generate questions");
+    } finally {
+      setGeneratingQuestions(false);
+    }
+  };
+
+  const deleteQuestion = async (sectionid, questionid) => {
+    if (!window.confirm("Delete this question?")) return;
+    try {
+      await ep1.post("/api/v2/neplms/quizzes/questions/delete", { colid: global1.colid, quizid: selectedQuizId, sectionid, questionid });
+      setMessage("Question deleted");
+      loadCourseData();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete question");
+    }
+  };
+
+  const saveClass = async () => {
+    if (!selectedCourse) {
+      setError("Select a course first");
+      return;
+    }
+    try {
+      setError("");
+      setMessage("");
+      const payload = { ...coursePayload(), ...classForm };
+      if (editingClassId) {
+        await ep1.post("/api/v2/neplms/timetable/update", { ...payload, id: editingClassId });
+        setMessage("Class updated");
+      } else {
+        await ep1.post("/api/v2/neplms/timetable", payload);
+        setMessage("Class added");
+      }
+      setClassForm(blankClass);
+      setEditingClassId("");
+      loadCourseData();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to save class");
+    }
+  };
+
+  const editClass = (row) => {
+    setEditingClassId(row._id);
+    setClassForm({
+      classdate: row.classdate || "",
+      classtime: row.classtime || "",
+      period: row.period || "",
+      durationminutes: row.durationminutes || "",
+      module: row.module || "",
+      topic: row.topic || "",
+      workcompleted: row.workcompleted || ""
+    });
+  };
+
+  const deleteClass = async (row) => {
+    if (!window.confirm("Delete this class?")) return;
+    try {
+      await ep1.post("/api/v2/neplms/timetable/delete", { id: row._id, colid: global1.colid });
+      setMessage("Class deleted");
+      loadCourseData();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete class");
+    }
+  };
+
+  const editGrade = (row) => {
+    const assignment = assignmentOptions.find((item) => item._id === selectedAssignmentId);
+    setGradingForm({
+      id: row._id,
+      student: `${row.student || ""}${row.regno ? ` (${row.regno})` : ""}`,
+      fullmarks: row.fullmarks || assignment?.fullmarks || "",
+      marks: row.marks ?? "",
+      facultycomments: row.facultycomments || ""
+    });
+  };
+
+  const saveGrade = async () => {
+    if (!gradingForm.id) {
+      setError("Select a submission first");
+      return;
+    }
+    const fullmarks = Number(gradingForm.fullmarks || 0);
+    const marks = Number(gradingForm.marks || 0);
+    if (fullmarks && marks > fullmarks) {
+      setError("Marks cannot be more than full marks");
+      return;
+    }
+    try {
+      setError("");
+      setMessage("");
+      await ep1.post("/api/v2/neplms/assignment-submissions/grade", {
+        colid: global1.colid,
+        id: gradingForm.id,
+        fullmarks: gradingForm.fullmarks,
+        marks: gradingForm.marks,
+        facultycomments: gradingForm.facultycomments,
+        gradedby: global1.name || global1.user,
+        user: global1.user
+      });
+      setMessage("Submission graded");
+      setGradingForm({ id: "", student: "", fullmarks: "", marks: "", facultycomments: "" });
+      loadAssignmentSubmissions();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to save marks");
+    }
+  };
+
+  const resourceRows = (type) => resources.filter((row) => row.resourcetype === type);
+  const assignmentOptions = resourceRows("Assignment");
+  const selectedQuiz = useMemo(() => quizzes.find((row) => row._id === selectedQuizId) || null, [quizzes, selectedQuizId]);
+  const moduleOptions = useMemo(() => uniqueSorted(syllabusRows.map((row) => row.module)), [syllabusRows]);
+  const topicOptions = useMemo(() => {
+    const selectedModules = listFromValue(resourceForm.module);
+    const rows = selectedModules.length
+      ? syllabusRows.filter((row) => selectedModules.includes(String(row.module || "").trim()))
+      : syllabusRows;
+    return uniqueSorted(rows.map((row) => row.syllabus));
+  }, [resourceForm.module, syllabusRows]);
+  const quizTopicOptions = useMemo(() => {
+    const selectedModules = listFromValue(quizForm.module);
+    const rows = selectedModules.length
+      ? syllabusRows.filter((row) => selectedModules.includes(String(row.module || "").trim()))
+      : syllabusRows;
+    return uniqueSorted(rows.map((row) => row.syllabus));
+  }, [quizForm.module, syllabusRows]);
+
+  const timetableFilterOptions = (field) => uniqueSorted(timetable.map((row) => row[field]));
+
+  const filteredTimetable = useMemo(() => timetable.filter((row) => timetableFilters.every((filter) => {
+    if (!filter.field || !filter.value) return true;
+    return String(row[filter.field] || "").toLowerCase() === String(filter.value).toLowerCase();
+  })), [timetable, timetableFilters]);
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const upcomingFilteredTimetable = useMemo(() => filteredTimetable.filter((row) => row.classdate && row.classdate >= today), [filteredTimetable, today]);
+  const pastFilteredTimetable = useMemo(() => filteredTimetable.filter((row) => row.classdate && row.classdate < today), [filteredTimetable, today]);
+
+  const updateTimetableFilter = (id, key, value) => {
+    setTimetableFilters((prev) => prev.map((filter) => (
+      filter.id === id ? { ...filter, [key]: value, ...(key === "field" ? { value: "" } : {}) } : filter
+    )));
+  };
+
+  const removeTimetableFilter = (id) => {
+    setTimetableFilters((prev) => prev.length === 1 ? [makeTimetableFilter()] : prev.filter((filter) => filter.id !== id));
+  };
+
+  const resourceColumns = [
+    { field: "title", headerName: "Title", width: 190 },
+    { field: "module", headerName: "Module", width: 140 },
+    { field: "topic", headerName: "Topic", width: 180 },
+    { field: "description", headerName: "Description", width: 260 },
+    { field: "duedate", headerName: "Due Date", width: 130 },
+    { field: "fullmarks", headerName: "Full Marks", width: 120 },
+    { field: "originalname", headerName: "File", width: 220 },
+    {
+      field: "url",
+      headerName: "Link",
+      width: 120,
+      renderCell: (params) => params.value ? <Button size="small" href={params.value} target="_blank" rel="noreferrer">Open</Button> : "-"
+    },
+    { field: "createdAt", headerName: "Uploaded On", width: 170, valueGetter: (params) => params.row.createdAt ? new Date(params.row.createdAt).toLocaleString() : "" },
+    {
+      field: "actions",
+      type: "actions",
+      headerName: "Actions",
+      width: 90,
+      getActions: (params) => [
+        <GridActionsCellItem icon={<Edit />} label="Edit" onClick={() => editResource(params.row)} />,
+        <GridActionsCellItem icon={<Delete />} label="Delete" onClick={() => deleteResource(params.row)} />
+      ]
+    }
+  ];
+
+  const timetableColumns = [
+    { field: "program", headerName: "Program", width: 180 },
+    { field: "faculty", headerName: "Faculty", width: 180 },
+    { field: "facultyemail", headerName: "Faculty Email", width: 220 },
+    { field: "major", headerName: "Major", width: 180 },
+    { field: "semester", headerName: "Semester", width: 110 },
+    { field: "course", headerName: "Course", width: 220 },
+    { field: "coursecode", headerName: "Course Code", width: 140 },
+    { field: "classdate", headerName: "Class Date", width: 130 },
+    { field: "classtime", headerName: "Class Time", width: 130 },
+    { field: "period", headerName: "Period", width: 100 },
+    { field: "durationminutes", headerName: "Duration Minutes", width: 150 },
+    { field: "module", headerName: "Module", width: 140 },
+    { field: "topic", headerName: "Topic", width: 220 },
+    { field: "workcompleted", headerName: "Work Completed", width: 260 },
+    {
+      field: "actions",
+      type: "actions",
+      headerName: "Actions",
+      width: 120,
+      getActions: (params) => [
+        <GridActionsCellItem icon={<Edit />} label="Edit" onClick={() => editClass(params.row)} />,
+        <GridActionsCellItem icon={<Delete />} label="Delete" onClick={() => deleteClass(params.row)} />
+      ]
+    }
+  ];
+
+  const submissionColumns = [
+    { field: "student", headerName: "Student", width: 180 },
+    { field: "regno", headerName: "Reg No", width: 130 },
+    { field: "email", headerName: "Email", width: 220 },
+    { field: "phone", headerName: "Phone", width: 130 },
+    { field: "assignmenttitle", headerName: "Assignment", width: 220 },
+    { field: "fullmarks", headerName: "Full Marks", width: 120 },
+    { field: "marks", headerName: "Marks", width: 100 },
+    { field: "comments", headerName: "Student Comments", width: 260 },
+    { field: "facultycomments", headerName: "Faculty Comments", width: 260 },
+    { field: "submitteddate", headerName: "Submitted Date", width: 180, valueGetter: (params) => params.row.submitteddate ? new Date(params.row.submitteddate).toLocaleString() : "" },
+    { field: "originalname", headerName: "Submitted File", width: 220 },
+    {
+      field: "url",
+      headerName: "File Link",
+      width: 120,
+      renderCell: (params) => params.value ? <Button size="small" href={params.value} target="_blank" rel="noreferrer">Open</Button> : "-"
+    },
+    { field: "gradedby", headerName: "Graded By", width: 160 },
+    { field: "gradeddate", headerName: "Graded Date", width: 180, valueGetter: (params) => params.row.gradeddate ? new Date(params.row.gradeddate).toLocaleString() : "" },
+    { field: "status", headerName: "Status", width: 130 },
+    {
+      field: "actions",
+      type: "actions",
+      headerName: "Actions",
+      width: 100,
+      getActions: (params) => [
+        <GridActionsCellItem icon={<Edit />} label="Add Marks" onClick={() => editGrade(params.row)} />
+      ]
+    }
+  ];
+
+  const quizColumns = [
+    { field: "title", headerName: "Quiz", width: 220 },
+    { field: "module", headerName: "Module", width: 180 },
+    { field: "topic", headerName: "Topic", width: 260 },
+    { field: "startdatetime", headerName: "Start", width: 180, valueGetter: (params) => params.row.startdatetime ? new Date(params.row.startdatetime).toLocaleString() : "" },
+    { field: "enddatetime", headerName: "End", width: 180, valueGetter: (params) => params.row.enddatetime ? new Date(params.row.enddatetime).toLocaleString() : "" },
+    { field: "status", headerName: "Status", width: 120 },
+    { field: "sectionscount", headerName: "Sections", width: 110, valueGetter: (params) => params.row.sections?.length || 0 },
+    { field: "questionscount", headerName: "Questions", width: 120, valueGetter: (params) => (params.row.sections || []).reduce((sum, section) => sum + (section.questions?.length || 0), 0) },
+    {
+      field: "actions",
+      type: "actions",
+      headerName: "Actions",
+      width: 120,
+      getActions: (params) => [
+        <GridActionsCellItem icon={<Edit />} label="Edit" onClick={() => editQuiz(params.row)} />,
+        <GridActionsCellItem icon={<Delete />} label="Delete" onClick={() => deleteQuiz(params.row)} />
+      ]
+    }
+  ];
+
+  const quizAttemptColumns = [
+    { field: "student", headerName: "Student", width: 180 },
+    { field: "regno", headerName: "Reg No", width: 130 },
+    { field: "email", headerName: "Email", width: 220 },
+    { field: "quiztitle", headerName: "Quiz", width: 220 },
+    { field: "obtainedmarks", headerName: "Marks", width: 110 },
+    { field: "totalmarks", headerName: "Total", width: 110 },
+    { field: "submitteddate", headerName: "Submitted Date", width: 190, valueGetter: (params) => params.row.submitteddate ? new Date(params.row.submitteddate).toLocaleString() : "" },
+    { field: "status", headerName: "Status", width: 130 }
+  ];
+
+  const renderUploadTab = (type, form, setForm) => (
+    <Box>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={3}><TextField fullWidth label="Title" value={form.title} onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))} /></Grid>
+          {type === "Assignment" ? (
+            <>
+              <Grid item xs={12} md={2}>
+                <FormControl fullWidth>
+                  <InputLabel>Module</InputLabel>
+                  <Select
+                    multiple
+                    label="Module"
+                    value={listFromValue(form.module)}
+                    renderValue={(selected) => selected.join(", ")}
+                    onChange={(e) => {
+                      const nextModules = Array.isArray(e.target.value) ? e.target.value : listFromValue(e.target.value);
+                      const availableTopics = uniqueSorted(
+                        syllabusRows
+                          .filter((row) => nextModules.includes(String(row.module || "").trim()))
+                          .map((row) => row.syllabus)
+                      );
+                      const nextTopics = listFromValue(form.topic).filter((topic) => availableTopics.includes(topic));
+                      setForm((prev) => ({ ...prev, module: nextModules, topic: nextTopics }));
+                    }}
+                  >
+                    {moduleOptions.map((module) => (
+                      <MenuItem key={module} value={module}>
+                        <Checkbox checked={listFromValue(form.module).includes(module)} />
+                        <ListItemText primary={module} />
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <FormControl fullWidth>
+                  <InputLabel>Topic</InputLabel>
+                  <Select
+                    multiple
+                    label="Topic"
+                    value={listFromValue(form.topic)}
+                    renderValue={(selected) => selected.join(", ")}
+                    onChange={(e) => setForm((prev) => ({ ...prev, topic: Array.isArray(e.target.value) ? e.target.value : listFromValue(e.target.value) }))}
+                  >
+                    {topicOptions.map((topic) => (
+                      <MenuItem key={topic} value={topic}>
+                        <Checkbox checked={listFromValue(form.topic).includes(topic)} />
+                        <ListItemText primary={topic} />
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </>
+          ) : (
+            <>
+              <Grid item xs={12} md={2}><TextField fullWidth label="Module" value={form.module} onChange={(e) => setForm((prev) => ({ ...prev, module: e.target.value }))} /></Grid>
+              <Grid item xs={12} md={3}><TextField fullWidth label="Topic" value={form.topic} onChange={(e) => setForm((prev) => ({ ...prev, topic: e.target.value }))} /></Grid>
+            </>
+          )}
+          <Grid item xs={12} md={4}><TextField fullWidth label="Description" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} /></Grid>
+          {type === "Assignment" && (
+            <>
+              <Grid item xs={12} md={2}><TextField fullWidth type="date" label="Due Date" value={form.duedate} onChange={(e) => setForm((prev) => ({ ...prev, duedate: e.target.value }))} InputLabelProps={{ shrink: true }} /></Grid>
+              <Grid item xs={12} md={1}><TextField fullWidth type="number" label="Full Marks" value={form.fullmarks} onChange={(e) => setForm((prev) => ({ ...prev, fullmarks: e.target.value }))} /></Grid>
+            </>
+          )}
+          <Grid item xs={12} md={type === "Assignment" ? 3 : 6}>
+            <Button component="label" variant="outlined" startIcon={<UploadFile />} fullWidth sx={{ height: 56 }}>
+              {editingResourceId && editingResourceType === type ? "File link will remain unchanged" : form.file ? form.file.name : `Select ${type} file`}
+              <input hidden type="file" onChange={(e) => setForm((prev) => ({ ...prev, file: e.target.files?.[0] || null }))} />
+            </Button>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <Stack direction="row" spacing={1}>
+              <Button fullWidth variant="contained" startIcon={<Save />} sx={{ height: 56 }} onClick={() => uploadResource(type)}>
+                {editingResourceId && editingResourceType === type ? "Update" : "Upload"}
+              </Button>
+              {editingResourceId && editingResourceType === type && (
+                <Button variant="outlined" sx={{ height: 56 }} onClick={() => cancelResourceEdit(type)}>Cancel</Button>
+              )}
+            </Stack>
+          </Grid>
+        </Grid>
+      </Paper>
+      <Paper sx={{ p: 1, overflowX: "auto" }}>
+        <DataGrid
+          rows={resourceRows(type).map((row) => ({ ...row, id: row._id }))}
+          columns={resourceColumns}
+          autoHeight
+          slots={{ toolbar: GridToolbar }}
+          slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: type.replace(/ /g, "_").toLowerCase() } } }}
+          pageSizeOptions={[10, 25, 50]}
+          sx={{ minWidth: 1400 }}
+        />
+      </Paper>
+    </Box>
+  );
+
+  const renderTimetableGrid = (rows, fileName) => (
+    <Paper sx={{ p: 1, overflowX: "auto" }}>
+      <DataGrid
+        rows={rows.map((row) => ({ ...row, id: row._id }))}
+        columns={timetableColumns}
+        autoHeight
+        slots={{ toolbar: GridToolbar }}
+        slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName } } }}
+        pageSizeOptions={[10, 25, 50]}
+        sx={{ minWidth: 2500 }}
+      />
+    </Paper>
+  );
+
+  const renderQuizTab = () => (
+    <Box>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>{editingQuizId ? "Edit Quiz" : "Create Quiz"}</Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={3}><TextField fullWidth label="Quiz Title" value={quizForm.title} onChange={(e) => setQuizForm((prev) => ({ ...prev, title: e.target.value }))} /></Grid>
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth>
+              <InputLabel>Module</InputLabel>
+              <Select
+                multiple
+                label="Module"
+                value={listFromValue(quizForm.module)}
+                renderValue={(selected) => selected.join(", ")}
+                onChange={(e) => {
+                  const nextModules = Array.isArray(e.target.value) ? e.target.value : listFromValue(e.target.value);
+                  const availableTopics = uniqueSorted(syllabusRows.filter((row) => nextModules.includes(String(row.module || "").trim())).map((row) => row.syllabus));
+                  setQuizForm((prev) => ({ ...prev, module: nextModules, topic: listFromValue(prev.topic).filter((topic) => availableTopics.includes(topic)) }));
+                }}
+              >
+                {moduleOptions.map((module) => (
+                  <MenuItem key={module} value={module}>
+                    <Checkbox checked={listFromValue(quizForm.module).includes(module)} />
+                    <ListItemText primary={module} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth>
+              <InputLabel>Topic</InputLabel>
+              <Select
+                multiple
+                label="Topic"
+                value={listFromValue(quizForm.topic)}
+                renderValue={(selected) => selected.join(", ")}
+                onChange={(e) => setQuizForm((prev) => ({ ...prev, topic: Array.isArray(e.target.value) ? e.target.value : listFromValue(e.target.value) }))}
+              >
+                {quizTopicOptions.map((topic) => (
+                  <MenuItem key={topic} value={topic}>
+                    <Checkbox checked={listFromValue(quizForm.topic).includes(topic)} />
+                    <ListItemText primary={topic} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth>
+              <InputLabel>Status</InputLabel>
+              <Select label="Status" value={quizForm.status} onChange={(e) => setQuizForm((prev) => ({ ...prev, status: e.target.value }))}>
+                <MenuItem value="Active">Active</MenuItem>
+                <MenuItem value="Inactive">Inactive</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={3}><TextField fullWidth type="datetime-local" label="Start Date and Time" value={quizForm.startdatetime} onChange={(e) => setQuizForm((prev) => ({ ...prev, startdatetime: e.target.value }))} InputLabelProps={{ shrink: true }} /></Grid>
+          <Grid item xs={12} md={3}><TextField fullWidth type="datetime-local" label="End Date and Time" value={quizForm.enddatetime} onChange={(e) => setQuizForm((prev) => ({ ...prev, enddatetime: e.target.value }))} InputLabelProps={{ shrink: true }} /></Grid>
+          <Grid item xs={12} md={3}>
+            <Stack direction="row" spacing={1}>
+              <Button fullWidth variant="contained" startIcon={<Save />} sx={{ height: 56 }} onClick={saveQuiz}>{editingQuizId ? "Update Quiz" : "Create Quiz"}</Button>
+              {editingQuizId && <Button variant="outlined" sx={{ height: 56 }} onClick={() => { setEditingQuizId(""); setQuizForm(blankQuiz); }}>Cancel</Button>}
+            </Stack>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      <Paper sx={{ p: 1, mb: 2, overflowX: "auto" }}>
+        <DataGrid
+          rows={quizzes.map((row) => ({ ...row, id: row._id }))}
+          columns={quizColumns}
+          autoHeight
+          slots={{ toolbar: GridToolbar }}
+          slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "faculty_quizzes" } } }}
+          pageSizeOptions={[10, 25, 50]}
+          onRowClick={(params) => {
+            setSelectedQuizId(params.row._id);
+            setQuestionForm((prev) => ({ ...prev, sectionid: params.row.sections?.[0]?._id || "" }));
+            loadQuizAttempts(params.row._id);
+          }}
+          sx={{ minWidth: 1400 }}
+        />
+      </Paper>
+
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} md={5}>
+            <FormControl fullWidth>
+              <InputLabel>Selected Quiz</InputLabel>
+              <Select
+                label="Selected Quiz"
+                value={selectedQuizId}
+                onChange={(e) => {
+                  setSelectedQuizId(e.target.value);
+                  const quiz = quizzes.find((item) => item._id === e.target.value);
+                  setQuestionForm((prev) => ({ ...prev, sectionid: quiz?.sections?.[0]?._id || "" }));
+                  loadQuizAttempts(e.target.value);
+                }}
+              >
+                {quizzes.map((quiz) => <MenuItem key={quiz._id} value={quiz._id}>{quiz.title}</MenuItem>)}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={5}><TextField fullWidth label="Section Title" value={sectionTitle} onChange={(e) => setSectionTitle(e.target.value)} /></Grid>
+          <Grid item xs={12} md={2}><Button fullWidth variant="contained" startIcon={<Add />} sx={{ height: 56 }} onClick={addSection}>Add Section</Button></Grid>
+        </Grid>
+      </Paper>
+
+      {selectedQuiz && (
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>Add MCQ Question</Typography>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Section</InputLabel>
+                <Select label="Section" value={questionForm.sectionid} onChange={(e) => setQuestionForm((prev) => ({ ...prev, sectionid: e.target.value }))}>
+                  {(selectedQuiz.sections || []).map((section) => <MenuItem key={section._id} value={section._id}>{section.title}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={7}><TextField fullWidth label="Question" value={questionForm.question} onChange={(e) => setQuestionForm((prev) => ({ ...prev, question: e.target.value }))} /></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth type="number" label="Score" value={questionForm.score} onChange={(e) => setQuestionForm((prev) => ({ ...prev, score: e.target.value }))} /></Grid>
+            {questionForm.options.map((option, index) => (
+              <Grid item xs={12} md={3} key={`option-${index}`}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Checkbox checked={option.iscorrect} onChange={(e) => updateQuestionOption(index, "iscorrect", e.target.checked)} />
+                  <TextField fullWidth label={`Option ${index + 1}`} value={option.text} onChange={(e) => updateQuestionOption(index, "text", e.target.value)} />
+                </Stack>
+              </Grid>
+            ))}
+            <Grid item xs={12}>
+              <Button variant="contained" startIcon={<Save />} onClick={addQuestion}>Add Question</Button>
+            </Grid>
+          </Grid>
+        </Paper>
+      )}
+
+      {selectedQuiz && (
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>Generate Questions with AI</Typography>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Section</InputLabel>
+                <Select label="Section" value={questionForm.sectionid} onChange={(e) => setQuestionForm((prev) => ({ ...prev, sectionid: e.target.value }))}>
+                  {(selectedQuiz.sections || []).map((section) => <MenuItem key={section._id} value={section._id}>{section.title}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <FormControl fullWidth>
+                <InputLabel>AI Provider</InputLabel>
+                <Select label="AI Provider" value={aiQuestionForm.provider} onChange={(e) => setAiQuestionForm((prev) => ({ ...prev, provider: e.target.value }))}>
+                  {aiProviders.map((provider) => <MenuItem key={provider} value={provider}>{provider}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <TextField
+                fullWidth
+                type="number"
+                label="No. of Questions"
+                value={aiQuestionForm.questioncount}
+                inputProps={{ min: 1, max: 50 }}
+                onChange={(e) => setAiQuestionForm((prev) => ({ ...prev, questioncount: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <FormControl fullWidth>
+                <InputLabel>Difficulty</InputLabel>
+                <Select label="Difficulty" value={aiQuestionForm.difficulty} onChange={(e) => setAiQuestionForm((prev) => ({ ...prev, difficulty: e.target.value }))}>
+                  {difficultyLevels.map((level) => <MenuItem key={level} value={level}>{level}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <FormControl fullWidth>
+                <InputLabel>Language</InputLabel>
+                <Select label="Language" value={aiQuestionForm.language} onChange={(e) => setAiQuestionForm((prev) => ({ ...prev, language: e.target.value }))}>
+                  {languages.map((language) => <MenuItem key={language} value={language}>{language}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={1}>
+              <Button fullWidth variant="contained" disabled={generatingQuestions || !questionForm.sectionid} sx={{ height: 56 }} onClick={generateAiQuestions}>
+                Generate
+              </Button>
+            </Grid>
+          </Grid>
+        </Paper>
+      )}
+
+      {selectedQuiz && (
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>Quiz Structure</Typography>
+          {(selectedQuiz.sections || []).map((section) => (
+            <Box key={section._id} sx={{ border: "1px solid #ddd", borderRadius: 1, p: 2, mb: 2 }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                <Typography fontWeight={700}>{section.title}</Typography>
+                <Button color="error" size="small" startIcon={<Delete />} onClick={() => deleteSection(section._id)}>Delete Section</Button>
+              </Stack>
+              {(section.questions || []).map((question, index) => (
+                <Box key={question._id} sx={{ p: 1, mb: 1, bgcolor: "#fafafa", borderRadius: 1 }}>
+                  <Stack direction="row" justifyContent="space-between" spacing={1}>
+                    <Typography variant="body2"><b>Q{index + 1}.</b> {question.question} ({question.score} marks)</Typography>
+                    <Button color="error" size="small" onClick={() => deleteQuestion(section._id, question._id)}>Delete</Button>
+                  </Stack>
+                  <Typography variant="caption" color="text.secondary">
+                    {(question.options || []).map((option) => `${option.iscorrect ? "[Correct] " : ""}${option.text}`).join(" | ")}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          ))}
+        </Paper>
+      )}
+
+      <Paper sx={{ p: 1, overflowX: "auto" }}>
+        <DataGrid
+          rows={quizAttempts.map((row) => ({ ...row, id: row._id }))}
+          columns={quizAttemptColumns}
+          autoHeight
+          slots={{ toolbar: GridToolbar }}
+          slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "quiz_attempts" } } }}
+          pageSizeOptions={[10, 25, 50]}
+          sx={{ minWidth: 1200 }}
+        />
+      </Paper>
+    </Box>
+  );
+
+  return (
+    <Box p={3}>
+      <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
+        <Box>
+          <Typography variant="h5" fontWeight={700}>Course Workspace</Typography>
+          <Typography variant="body2" color="text.secondary">Manage assignments, course material, lesson plans and timetable for active assigned courses.</Typography>
+        </Box>
+        <Stack direction="row" spacing={1}>
+          <Button component={RouterLink} to="/dashdashfacnew" variant="outlined" startIcon={<ArrowBack />}>Back</Button>
+          <Button variant="outlined" startIcon={<Refresh />} onClick={loadCourses}>Reload</Button>
+        </Stack>
+      </Stack>
+
+      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
+      {message && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setMessage("")}>{message}</Alert>}
+
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth>
+              <InputLabel>Academic Year</InputLabel>
+              <Select label="Academic Year" value={academicYear} onChange={(e) => changeYear(e.target.value)}>
+                {years.map((year) => <MenuItem key={year} value={year}>{year}</MenuItem>)}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth>
+              <InputLabel>Semester</InputLabel>
+              <Select label="Semester" value={semester} onChange={(e) => changeSemester(e.target.value)}>
+                {semesters.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <FormControl fullWidth>
+              <InputLabel>Course</InputLabel>
+              <Select label="Course" value={coursecode} onChange={(e) => setCoursecode(e.target.value)}>
+                {filteredCourses.map((row) => (
+                  <MenuItem key={`${row._id}-${row.coursecode}`} value={row.coursecode}>
+                    {row.coursecode} - {row.course} ({row.subject})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+        </Grid>
+        {selectedCourse && (
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
+            <Chip label={`Program: ${selectedCourse.programcode || selectedCourse.program}`} />
+            <Chip label={`Major: ${selectedCourse.subject}`} />
+            <Chip label={`Faculty: ${selectedCourse.facultyname}`} />
+            <Chip label={`Status: ${selectedCourse.status}`} />
+          </Stack>
+        )}
+      </Paper>
+
+      <Paper sx={{ mb: 2 }}>
+        <Tabs value={tab} onChange={(event, value) => setTab(value)} variant="scrollable" scrollButtons="auto">
+          <Tab label="Upload Assignments" />
+          <Tab label="Course Material" />
+          <Tab label="Lesson Plan" />
+          <Tab label="Timetable" />
+          <Tab label="Submissions" />
+          <Tab label="Quiz" />
+        </Tabs>
+      </Paper>
+
+      {tab === 0 && renderUploadTab("Assignment", resourceForm, setResourceForm)}
+      {tab === 1 && renderUploadTab("Course Material", resourceForm, setResourceForm)}
+      {tab === 2 && renderUploadTab("Lesson Plan", lessonForm, setLessonForm)}
+      {tab === 3 && (
+        <Box>
+          <Paper sx={{ p: 2, mb: 2 }}>
+            <Typography variant="h6" sx={{ mb: 2 }}>{editingClassId ? "Edit Class" : "Add Class"}</Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={2}><TextField fullWidth type="date" label="Class Date" value={classForm.classdate} onChange={(e) => setClassForm((prev) => ({ ...prev, classdate: e.target.value }))} InputLabelProps={{ shrink: true }} /></Grid>
+              <Grid item xs={12} md={2}><TextField fullWidth type="time" label="Class Time" value={classForm.classtime} onChange={(e) => setClassForm((prev) => ({ ...prev, classtime: e.target.value }))} InputLabelProps={{ shrink: true }} /></Grid>
+              <Grid item xs={12} md={2}><TextField fullWidth label="Period" value={classForm.period} onChange={(e) => setClassForm((prev) => ({ ...prev, period: e.target.value }))} /></Grid>
+              <Grid item xs={12} md={2}><TextField fullWidth type="number" label="Duration in minutes" value={classForm.durationminutes} onChange={(e) => setClassForm((prev) => ({ ...prev, durationminutes: e.target.value }))} /></Grid>
+              <Grid item xs={12} md={2}><TextField fullWidth label="Module" value={classForm.module} onChange={(e) => setClassForm((prev) => ({ ...prev, module: e.target.value }))} /></Grid>
+              <Grid item xs={12} md={2}><TextField fullWidth label="Topic" value={classForm.topic} onChange={(e) => setClassForm((prev) => ({ ...prev, topic: e.target.value }))} /></Grid>
+              <Grid item xs={12} md={9}><TextField fullWidth multiline minRows={2} label="Work Completed" value={classForm.workcompleted} onChange={(e) => setClassForm((prev) => ({ ...prev, workcompleted: e.target.value }))} /></Grid>
+              <Grid item xs={12} md={3}>
+                <Stack direction="row" spacing={1}>
+                  <Button fullWidth variant="contained" startIcon={<Save />} sx={{ height: 56 }} onClick={saveClass}>{editingClassId ? "Update" : "Add Class"}</Button>
+                  {editingClassId && <Button variant="outlined" sx={{ height: 56 }} onClick={() => { setEditingClassId(""); setClassForm(blankClass); }}>Cancel</Button>}
+                </Stack>
+              </Grid>
+            </Grid>
+          </Paper>
+          <Paper sx={{ p: 2, mb: 2 }}>
+            <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} sx={{ mb: 2 }}>
+              <Box>
+                <Typography variant="h6">Timetable Filters</Typography>
+                <Typography variant="body2" color="text.secondary">Add one or more filters for the timetable grid.</Typography>
+              </Box>
+              <Button startIcon={<Add />} variant="contained" onClick={() => setTimetableFilters((prev) => [...prev, makeTimetableFilter()])}>Add Filter</Button>
+            </Stack>
+            <Grid container spacing={2}>
+              {timetableFilters.map((filter) => (
+                <React.Fragment key={filter.id}>
+                  <Grid item xs={12} md={4}>
+                    <FormControl fullWidth>
+                      <InputLabel>Field</InputLabel>
+                      <Select label="Field" value={filter.field} onChange={(e) => updateTimetableFilter(filter.id, "field", e.target.value)}>
+                        {timetableFilterFields.map((item) => <MenuItem key={item.field} value={item.field}>{item.label}</MenuItem>)}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    {filter.field === "classdate" ? (
+                      <TextField
+                        fullWidth
+                        type="date"
+                        label="Value"
+                        value={filter.value}
+                        onChange={(e) => updateTimetableFilter(filter.id, "value", e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                      />
+                    ) : (
+                      <FormControl fullWidth>
+                        <InputLabel>Value</InputLabel>
+                        <Select label="Value" value={filter.value} onChange={(e) => updateTimetableFilter(filter.id, "value", e.target.value)}>
+                          <MenuItem value="">All</MenuItem>
+                          {timetableFilterOptions(filter.field).map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                        </Select>
+                      </FormControl>
+                    )}
+                  </Grid>
+                  <Grid item xs={12} md={2}>
+                    <Button fullWidth color="error" variant="outlined" startIcon={<Delete />} onClick={() => removeTimetableFilter(filter.id)} sx={{ height: 56 }}>Remove</Button>
+                  </Grid>
+                </React.Fragment>
+              ))}
+            </Grid>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
+              <Chip label={`Classes: ${filteredTimetable.length}`} />
+              <Chip label={`Upcoming: ${upcomingFilteredTimetable.length}`} />
+              <Chip label={`Past: ${pastFilteredTimetable.length}`} />
+              <Chip label={`Dates: ${uniqueSorted(filteredTimetable.map((row) => row.classdate)).length}`} />
+              <Chip label={`Courses: ${uniqueSorted(filteredTimetable.map((row) => row.coursecode)).length}`} />
+            </Stack>
+          </Paper>
+          <Paper sx={{ mb: 2 }}>
+            <Tabs value={timetableTab} onChange={(event, value) => setTimetableTab(value)} variant="scrollable" scrollButtons="auto">
+              <Tab label={`Upcoming Classes (${upcomingFilteredTimetable.length})`} />
+              <Tab label={`Past Classes (${pastFilteredTimetable.length})`} />
+            </Tabs>
+          </Paper>
+          {timetableTab === 0 && renderTimetableGrid(upcomingFilteredTimetable, "faculty_upcoming_classes")}
+          {timetableTab === 1 && renderTimetableGrid(pastFilteredTimetable, "faculty_past_classes")}
+        </Box>
+      )}
+      {tab === 4 && (
+        <Box>
+          <Paper sx={{ p: 2, mb: 2 }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={8}>
+                <FormControl fullWidth>
+                  <InputLabel>Assignment</InputLabel>
+                  <Select
+                    label="Assignment"
+                    value={selectedAssignmentId}
+                    onChange={(e) => {
+                      setSelectedAssignmentId(e.target.value);
+                      loadAssignmentSubmissions(e.target.value);
+                    }}
+                  >
+                    {assignmentOptions.map((assignment) => (
+                      <MenuItem key={assignment._id} value={assignment._id}>
+                        {assignment.title || assignment.originalname || "Untitled Assignment"}{assignment.duedate ? ` - Due ${assignment.duedate}` : ""}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <Button fullWidth variant="outlined" startIcon={<Refresh />} sx={{ height: 56 }} onClick={() => loadAssignmentSubmissions()}>
+                  Load
+                </Button>
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <Chip label={`Submissions: ${assignmentSubmissions.length}`} sx={{ height: 40 }} />
+              </Grid>
+              {!assignmentOptions.length && (
+                <Grid item xs={12}>
+                  <Alert severity="info">No assignments are available for this course yet.</Alert>
+                </Grid>
+              )}
+            </Grid>
+          </Paper>
+          {gradingForm.id && (
+            <Paper sx={{ p: 2, mb: 2 }}>
+              <Typography variant="h6" sx={{ mb: 2 }}>Add Marks</Typography>
+              <Grid container spacing={2} alignItems="center">
+                <Grid item xs={12} md={3}>
+                  <TextField fullWidth label="Student" value={gradingForm.student} InputProps={{ readOnly: true }} />
+                </Grid>
+                <Grid item xs={12} md={2}>
+                  <TextField fullWidth type="number" label="Full Marks" value={gradingForm.fullmarks} onChange={(e) => setGradingForm((prev) => ({ ...prev, fullmarks: e.target.value }))} />
+                </Grid>
+                <Grid item xs={12} md={2}>
+                  <TextField fullWidth type="number" label="Marks" value={gradingForm.marks} onChange={(e) => setGradingForm((prev) => ({ ...prev, marks: e.target.value }))} />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <TextField fullWidth label="Faculty Comments" value={gradingForm.facultycomments} onChange={(e) => setGradingForm((prev) => ({ ...prev, facultycomments: e.target.value }))} />
+                </Grid>
+                <Grid item xs={12} md={2}>
+                  <Stack direction="row" spacing={1}>
+                    <Button fullWidth variant="contained" startIcon={<Save />} onClick={saveGrade}>Save</Button>
+                    <Button variant="outlined" onClick={() => setGradingForm({ id: "", student: "", fullmarks: "", marks: "", facultycomments: "" })}>Cancel</Button>
+                  </Stack>
+                </Grid>
+              </Grid>
+            </Paper>
+          )}
+          <Paper sx={{ p: 1, overflowX: "auto" }}>
+            <DataGrid
+              rows={assignmentSubmissions.map((row) => ({ ...row, id: row._id }))}
+              columns={submissionColumns}
+              autoHeight
+              slots={{ toolbar: GridToolbar }}
+              slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "assignment_submissions" } } }}
+              pageSizeOptions={[10, 25, 50, 100]}
+              sx={{ minWidth: 2300 }}
+            />
+          </Paper>
+        </Box>
+      )}
+      {tab === 5 && renderQuizTab()}
+    </Box>
+  );
+}
