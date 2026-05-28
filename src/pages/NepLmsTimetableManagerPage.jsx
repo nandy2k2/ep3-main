@@ -3,6 +3,7 @@ import { Link as RouterLink } from "react-router-dom";
 import * as XLSX from "xlsx";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Chip,
@@ -59,7 +60,27 @@ const filterFields = [
 const makeFilter = () => ({ id: `${Date.now()}-${Math.random()}`, field: "academicyear", value: "" });
 const uniqueSorted = (values = []) => [...new Set(values.map((item) => String(item || "").trim()).filter(Boolean))]
   .sort((a, b) => a.localeCompare(b));
+const norm = (value) => String(value || "").trim().toLowerCase();
 const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const weekdayMap = {
+  sunday: 0,
+  sun: 0,
+  monday: 1,
+  mon: 1,
+  tuesday: 2,
+  tue: 2,
+  tues: 2,
+  wednesday: 3,
+  wed: 3,
+  thursday: 4,
+  thu: 4,
+  thur: 4,
+  thurs: 4,
+  friday: 5,
+  fri: 5,
+  saturday: 6,
+  sat: 6
+};
 const parseDate = (value) => {
   if (!value) return null;
   const date = new Date(`${value}T00:00:00`);
@@ -95,10 +116,16 @@ export default function NepLmsTimetableManagerPage() {
   const [error, setError] = useState("");
   const [calendarView, setCalendarView] = useState("Weekly");
   const [calendarDate, setCalendarDate] = useState("");
+  const [courseMaps, setCourseMaps] = useState([]);
+  const [facultyOptions, setFacultyOptions] = useState([]);
+  const [weeklyFromDate, setWeeklyFromDate] = useState("");
+  const [weeklyToDate, setWeeklyToDate] = useState("");
 
   useEffect(() => {
     loadRows();
     loadInstitution();
+    loadCourseMaps();
+    loadFacultyOptions();
   }, []);
 
   const loadInstitution = async () => {
@@ -123,7 +150,96 @@ export default function NepLmsTimetableManagerPage() {
     }
   };
 
+  const loadCourseMaps = async () => {
+    try {
+      const res = await ep1.get("/api/v2/regulationcoursemap", { params: { colid: global1.colid, status: "Active" } });
+      setCourseMaps(res.data?.data || []);
+    } catch (err) {
+      setCourseMaps([]);
+    }
+  };
+
+  const loadFacultyOptions = async () => {
+    try {
+      const res = await ep1.get("/api/v2/hrleave/options", { params: { colid: global1.colid } });
+      const users = res.data?.users || [];
+      const faculty = users.filter((item) => norm(item.role).includes("faculty"));
+      setFacultyOptions(faculty.length ? faculty : users);
+    } catch (err) {
+      setFacultyOptions([]);
+    }
+  };
+
   const valueOptions = (field) => uniqueSorted(rows.map((row) => row[field]));
+
+  const matchesCourseMap = (item, values = form) => {
+    const checks = [
+      ["academicyear", values.academicyear],
+      ["regulation", values.regulation],
+      ["program", values.program],
+      ["programcode", values.programcode],
+      ["semester", values.semester],
+      ["course", values.course],
+      ["coursecode", values.coursecode]
+    ];
+    return checks.every(([field, value]) => !value || norm(item[field]) === norm(value))
+      && (!values.major || norm(item.subject) === norm(values.major));
+  };
+
+  const courseMapOptions = (field) => {
+    const options = courseMaps.filter((item) => {
+      const values = { ...form };
+      delete values[field];
+      if (field === "major") delete values.major;
+      return matchesCourseMap(item, values);
+    }).map((item) => (field === "major" ? item.subject : item[field]));
+    return uniqueSorted(options);
+  };
+
+  const fillLinkedCourseMapFields = (next, field) => {
+    const matches = courseMaps.filter((item) => matchesCourseMap(item, next));
+    const singleValue = (key) => {
+      const values = uniqueSorted(matches.map((item) => item[key]));
+      return values.length === 1 ? values[0] : "";
+    };
+    if (field === "program" && !next.programcode) next.programcode = singleValue("programcode");
+    if (field === "programcode" && !next.program) next.program = singleValue("program");
+    if (field === "course" && !next.coursecode) next.coursecode = singleValue("coursecode");
+    if (field === "coursecode" && !next.course) next.course = singleValue("course");
+    return next;
+  };
+
+  const updateCourseMapField = (field, value) => {
+    const resetAfter = {
+      academicyear: ["regulation", "program", "programcode", "major", "semester", "course", "coursecode"],
+      regulation: ["program", "programcode", "major", "semester", "course", "coursecode"],
+      program: ["programcode", "major", "semester", "course", "coursecode"],
+      programcode: ["major", "semester", "course", "coursecode"],
+      major: ["semester", "course", "coursecode"],
+      semester: ["course", "coursecode"],
+      course: ["coursecode"],
+      coursecode: []
+    };
+    setForm((prev) => {
+      const next = { ...prev, [field]: value };
+      (resetAfter[field] || []).forEach((key) => { next[key] = ""; });
+      return fillLinkedCourseMapFields(next, field);
+    });
+  };
+
+  const selectedFaculty = useMemo(() => facultyOptions.find((item) => (
+    norm(item.email) === norm(form.facultyemail)
+    || norm(item.user) === norm(form.facultyemail)
+    || norm(item.name) === norm(form.faculty)
+  )) || null, [facultyOptions, form.faculty, form.facultyemail]);
+
+  const selectFaculty = (faculty) => {
+    setForm((prev) => ({
+      ...prev,
+      faculty: faculty?.name || "",
+      facultyemail: faculty?.email || faculty?.user || ""
+    }));
+  };
 
   const filteredRows = useMemo(() => rows.filter((row) => filters.every((filter) => {
     if (!filter.field || !filter.value) return true;
@@ -323,6 +439,81 @@ export default function NepLmsTimetableManagerPage() {
     }
   };
 
+  const downloadWeeklyTemplate = () => {
+    const worksheet = XLSX.utils.json_to_sheet([{
+      dayofweek: "Monday",
+      academicyear: "2026-27",
+      regulation: "NEP",
+      program: "B.Com",
+      programcode: "BCOM",
+      faculty: "Faculty Name",
+      facultyemail: "faculty@example.com",
+      major: "Accountancy",
+      semester: "1",
+      course: "Financial Accounting",
+      coursecode: "FAC101",
+      classtime: "10:00",
+      period: "1",
+      durationminutes: 60,
+      module: "Module 1",
+      topic: "Introduction",
+      workcompleted: "",
+      status: "Active"
+    }]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Weekly Timetable");
+    XLSX.writeFile(workbook, "nep_lms_weekly_timetable_template.xlsx");
+  };
+
+  const expandWeeklyRows = (rowsToExpand, fromDate, toDate) => {
+    const start = parseDate(fromDate);
+    const end = parseDate(toDate);
+    if (!start || !end || end < start) throw new Error("Select a valid from date and to date");
+    const expanded = [];
+    const errors = [];
+    rowsToExpand.forEach((row, index) => {
+      const rowNumber = row.rowNumber || index + 2;
+      const dayText = String(row.dayofweek || row.day || row.weekday || "").trim().toLowerCase();
+      const dayIndex = weekdayMap[dayText];
+      if (dayIndex === undefined) {
+        errors.push({ rowNumber, message: "Day of week is required. Use Monday, Tuesday, etc." });
+        return;
+      }
+      for (let date = new Date(start); date <= end; date = addDays(date, 1)) {
+        if (date.getDay() === dayIndex) {
+          const { dayofweek, day, weekday, ...rest } = row;
+          expanded.push({ ...rest, classdate: dateToInput(date), rowNumber });
+        }
+      }
+    });
+    return { expanded, errors };
+  };
+
+  const uploadWeeklyExcel = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      setError("");
+      setMessage("");
+      const workbook = XLSX.read(await file.arrayBuffer(), { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rowsToExpand = XLSX.utils.sheet_to_json(sheet, { defval: "" }).map((row, index) => ({ ...row, rowNumber: index + 2 }));
+      const { expanded, errors: expandErrors } = expandWeeklyRows(rowsToExpand, weeklyFromDate, weeklyToDate);
+      if (!expanded.length) {
+        setError(expandErrors.length ? expandErrors.map((item) => `Row ${item.rowNumber}: ${item.message}`).join("; ") : "No classes generated for the selected date range");
+        return;
+      }
+      const res = await ep1.post("/api/v2/neplms/timetable/bulkupload", { colid: global1.colid, user: global1.user, items: expanded });
+      const errors = [...expandErrors, ...(res.data?.errors || [])];
+      setMessage(`${res.data?.saved || 0} weekly timetable classes created from ${expanded.length} generated entries${errors.length ? `, ${errors.length} rows skipped` : ""}`);
+      setError(errors.length ? errors.map((item) => `Row ${item.rowNumber}: ${item.message}`).join("; ") : "");
+      loadRows();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || "Unable to upload weekly timetable");
+    }
+  };
+
   const swapClasses = async () => {
     if (!swapFirst || !swapSecond || swapFirst === swapSecond) {
       setError("Select two different classes to swap");
@@ -344,6 +535,7 @@ export default function NepLmsTimetableManagerPage() {
 
   const columns = [
     { field: "academicyear", headerName: "Academic Year", width: 140 },
+    { field: "regulation", headerName: "Regulation", width: 150 },
     { field: "program", headerName: "Program", width: 180 },
     { field: "programcode", headerName: "Program Code", width: 140 },
     { field: "faculty", headerName: "Faculty", width: 180 },
@@ -379,6 +571,7 @@ export default function NepLmsTimetableManagerPage() {
     ["period", "Period"], ["durationminutes", "Duration in minutes", "number"], ["module", "Module"], ["topic", "Topic"],
     ["workcompleted", "Work Completed"], ["status", "Status"]
   ];
+  const courseMapDropdownFields = new Set(["academicyear", "regulation", "program", "programcode", "major", "semester", "course", "coursecode"]);
 
   return (
     <Box p={3}>
@@ -421,25 +614,101 @@ export default function NepLmsTimetableManagerPage() {
           </Stack>
         </Stack>
         <Grid container spacing={2}>
-          {formFields.map(([field, label, type]) => (
-            <Grid item xs={12} md={field === "workcompleted" ? 6 : 2} key={field}>
-              <TextField
-                fullWidth
-                multiline={field === "workcompleted"}
-                minRows={field === "workcompleted" ? 2 : undefined}
-                type={type || "text"}
-                label={label}
-                value={form[field]}
-                onChange={(e) => updateForm(field, e.target.value)}
-                InputLabelProps={type === "date" || type === "time" ? { shrink: true } : undefined}
-              />
-            </Grid>
-          ))}
+          {formFields.map(([field, label, type]) => {
+            if (courseMapDropdownFields.has(field)) {
+              return (
+                <Grid item xs={12} md={field === "course" ? 4 : 2} key={field}>
+                  <TextField
+                    select
+                    fullWidth
+                    label={label}
+                    value={form[field]}
+                    onChange={(e) => updateCourseMapField(field, e.target.value)}
+                  >
+                    <MenuItem value="">Select</MenuItem>
+                    {courseMapOptions(field).map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                  </TextField>
+                </Grid>
+              );
+            }
+            if (field === "faculty") {
+              return (
+                <Grid item xs={12} md={3} key={field}>
+                  <Autocomplete
+                    options={facultyOptions}
+                    value={selectedFaculty}
+                    onChange={(event, value) => selectFaculty(value)}
+                    getOptionLabel={(option) => `${option.name || ""}${option.email || option.user ? ` (${option.email || option.user})` : ""}`}
+                    isOptionEqualToValue={(option, value) => (option._id && value._id ? option._id === value._id : (option.email || option.user) === (value.email || value.user))}
+                    renderInput={(params) => <TextField {...params} label="Faculty" />}
+                  />
+                </Grid>
+              );
+            }
+            return (
+              <Grid item xs={12} md={field === "workcompleted" ? 6 : field === "facultyemail" ? 3 : 2} key={field}>
+                <TextField
+                  fullWidth
+                  multiline={field === "workcompleted"}
+                  minRows={field === "workcompleted" ? 2 : undefined}
+                  type={type || "text"}
+                  label={label}
+                  value={form[field]}
+                  onChange={(e) => updateForm(field, e.target.value)}
+                  InputLabelProps={type === "date" || type === "time" ? { shrink: true } : undefined}
+                  InputProps={field === "facultyemail" ? { readOnly: true } : undefined}
+                />
+              </Grid>
+            );
+          })}
           <Grid item xs={12}>
             <Stack direction="row" spacing={1}>
               <Button variant="contained" startIcon={<Save />} onClick={saveRow}>{editingId ? "Update" : "Save"}</Button>
               {editingId && <Button variant="outlined" onClick={resetForm}>Cancel</Button>}
             </Stack>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      <Paper className="no-print" sx={{ p: 2, mb: 2 }}>
+        <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} sx={{ mb: 2 }}>
+          <Box>
+            <Typography variant="h6">Create Timetable From Weekly Pattern</Typography>
+            <Typography variant="body2" color="text.secondary">Upload one week using day of week. The page will create classes for every matching date in the selected range.</Typography>
+          </Box>
+          <Stack direction="row" spacing={1}>
+            <Button variant="outlined" startIcon={<FileDownload />} onClick={downloadWeeklyTemplate}>Weekly Template</Button>
+            <Button component="label" variant="contained" startIcon={<UploadFile />} disabled={!weeklyFromDate || !weeklyToDate}>
+              Upload Weekly
+              <input hidden type="file" accept=".xlsx,.xls,.csv" onChange={uploadWeeklyExcel} />
+            </Button>
+          </Stack>
+        </Stack>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={3}>
+            <TextField
+              fullWidth
+              type="date"
+              label="From Date"
+              value={weeklyFromDate}
+              onChange={(e) => setWeeklyFromDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField
+              fullWidth
+              type="date"
+              label="To Date"
+              value={weeklyToDate}
+              onChange={(e) => setWeeklyToDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Alert severity="info">
+              Template column `dayofweek` accepts Monday, Tuesday, Wednesday, Thursday, Friday, Saturday or Sunday.
+            </Alert>
           </Grid>
         </Grid>
       </Paper>

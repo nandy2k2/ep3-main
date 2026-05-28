@@ -113,6 +113,7 @@ export default function StudentDataUploadPage() {
   const [subjectOptions, setSubjectOptions] = useState({});
   const [photoUploading, setPhotoUploading] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -179,6 +180,7 @@ export default function StudentDataUploadPage() {
       setLoading(true);
       const res = await ep1.get("/api/v2/student-data-upload", { params: { colid: global1.colid } });
       setRows(res.data || []);
+      setSelectedIds([]);
     } catch (err) {
       setError(err.response?.data?.msg || "Unable to load student data");
     } finally {
@@ -301,6 +303,27 @@ export default function StudentDataUploadPage() {
     }
   };
 
+  const bulkDeleteRows = async () => {
+    if (!selectedIds.length) {
+      setError("Select at least one student to delete");
+      return;
+    }
+    if (!window.confirm(`Delete ${selectedIds.length} selected student(s)?`)) return;
+    try {
+      setError("");
+      setMessage("");
+      const res = await ep1.post("/api/v2/student-data-upload-bulk-delete", {
+        ids: selectedIds,
+        colid: global1.colid
+      });
+      setMessage(`Bulk delete completed. Deleted: ${res.data?.deleted || 0}`);
+      setSelectedIds([]);
+      loadRows();
+    } catch (err) {
+      setError(err.response?.data?.msg || "Unable to bulk delete students");
+    }
+  };
+
   const downloadTemplate = () => {
     const template = fields.reduce((acc, field) => ({ ...acc, [labels[field]]: "" }), {});
     const worksheet = XLSX.utils.json_to_sheet([template]);
@@ -374,6 +397,9 @@ export default function StudentDataUploadPage() {
           <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => navigate("/dashdashfacnew")}>Back</Button>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadRows}>Refresh</Button>
           <Button variant="outlined" startIcon={<FileDownloadIcon />} onClick={downloadTemplate}>Template</Button>
+          <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={bulkDeleteRows} disabled={!selectedIds.length}>
+            Delete Selected ({selectedIds.length})
+          </Button>
           <Button variant="contained" component="label" startIcon={<UploadFileIcon />}>
             Bulk Upload
             <input type="file" accept=".xlsx,.xls" hidden onChange={handleBulkUpload} />
@@ -427,6 +453,10 @@ export default function StudentDataUploadPage() {
           rows={rows.map((row) => ({ ...row, id: row._id, major: row.major || row.Major || "", minor: row.minor || row.Minor || "" }))}
           columns={columns}
           loading={loading}
+          checkboxSelection
+          rowSelectionModel={selectedIds}
+          onRowSelectionModelChange={(selection) => setSelectedIds(Array.from(selection))}
+          disableRowSelectionOnClick
           autoHeight
           slots={{ toolbar: GridToolbar }}
           slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "student_data_upload" } } }}

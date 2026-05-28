@@ -4,9 +4,11 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   Container,
   FormControl,
+  FormControlLabel,
   Grid,
   IconButton,
   InputLabel,
@@ -76,6 +78,9 @@ export default function DynamicAdmissionToUserPage() {
   const [capacity, setCapacity] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [registrationRule, setRegistrationRule] = useState("");
+  const [generatingRegno, setGeneratingRegno] = useState(false);
+  const [generatePassword, setGeneratePassword] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -165,6 +170,31 @@ export default function DynamicAdmissionToUserPage() {
     setUserForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const createComplicatedPassword = () => {
+    const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    const lower = "abcdefghijkmnopqrstuvwxyz";
+    const digits = "23456789";
+    const symbols = "!@#$%^&*?";
+    const all = upper + lower + digits + symbols;
+    const randomChar = (chars) => {
+      const values = new Uint32Array(1);
+      if (window.crypto?.getRandomValues) {
+        window.crypto.getRandomValues(values);
+        return chars[values[0] % chars.length];
+      }
+      return chars[Math.floor(Math.random() * chars.length)];
+    };
+    const required = [upper, lower, digits, symbols].map(randomChar);
+    const rest = Array.from({ length: 10 }, () => randomChar(all));
+    return [...required, ...rest].sort(() => Math.random() - 0.5).join("");
+  };
+
+  const handleGeneratePasswordChange = (event) => {
+    const checked = event.target.checked;
+    setGeneratePassword(checked);
+    if (checked) updateUser("password", createComplicatedPassword());
+  };
+
   const selectApplication = (application) => {
     setSelectedApplication(application);
     setMessage("");
@@ -240,9 +270,10 @@ export default function DynamicAdmissionToUserPage() {
         }
       });
       setMessage(res.data.message || "Student admitted");
-      window.alert("Student admitted and user created");
+      window.alert(res.data.message || "Student admitted and user created");
       setSelectedApplication(null);
       setUserForm(blankUser);
+      setGeneratePassword(false);
       setCapacity(null);
       await searchApplications();
     } catch (err) {
@@ -251,6 +282,35 @@ export default function DynamicAdmissionToUserPage() {
       setError(msg);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const generateRegistrationNumber = async () => {
+    if (!selectedApplication?._id) {
+      setError("Select a student first");
+      return;
+    }
+    if (!registrationRule.trim()) {
+      setError("Enter a registration rule first");
+      return;
+    }
+    setGeneratingRegno(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await ep1.post("/api/v2/dynamic-admission-to-user/generate-regno", {
+        colid,
+        rule: registrationRule,
+        programcode: userForm.programcode,
+        application: selectedApplication,
+        userData: userForm
+      });
+      updateUser("regno", res.data?.registrationNumber || "");
+      setMessage(res.data?.reason ? `Registration number generated. ${res.data.reason}` : "Registration number generated");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to generate registration number");
+    } finally {
+      setGeneratingRegno(false);
     }
   };
 
@@ -376,7 +436,38 @@ export default function DynamicAdmissionToUserPage() {
                 <Grid item xs={12} md={6}><TextField fullWidth size="small" label="Name" value={userForm.name} onChange={(e) => updateUser("name", e.target.value)} required /></Grid>
                 <Grid item xs={12} md={6}><TextField fullWidth size="small" label="Email" value={userForm.email} onChange={(e) => updateUser("email", e.target.value)} required /></Grid>
                 <Grid item xs={12} md={6}><TextField fullWidth size="small" label="Phone" value={userForm.phone} onChange={(e) => updateUser("phone", e.target.value)} required /></Grid>
-                <Grid item xs={12} md={6}><TextField fullWidth size="small" label="Password" value={userForm.password} onChange={(e) => updateUser("password", e.target.value)} required /></Grid>
+                <Grid item xs={12} md={6}>
+                  <Stack spacing={0.5}>
+                    <TextField fullWidth size="small" label="Password" value={userForm.password} onChange={(e) => updateUser("password", e.target.value)} required />
+                    <FormControlLabel
+                      control={<Checkbox size="small" checked={generatePassword} onChange={handleGeneratePasswordChange} />}
+                      label="Generate complicated password"
+                      sx={{ m: 0 }}
+                    />
+                  </Stack>
+                </Grid>
+                <Grid item xs={12}>
+                  <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "flex-start" }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      multiline
+                      minRows={2}
+                      label="Registration Rule"
+                      value={registrationRule}
+                      onChange={(e) => setRegistrationRule(e.target.value)}
+                      placeholder="Example: AY last two digits + program code + 4 digit running number based on existing students"
+                    />
+                    <Button
+                      variant="outlined"
+                      onClick={generateRegistrationNumber}
+                      disabled={generatingRegno || !selectedApplication}
+                      sx={{ minWidth: 210, minHeight: 40 }}
+                    >
+                      {generatingRegno ? "Generating..." : "Create Automatic Reg No"}
+                    </Button>
+                  </Stack>
+                </Grid>
                 <Grid item xs={12} md={6}><TextField fullWidth size="small" label="Reg No" value={userForm.regno} onChange={(e) => updateUser("regno", e.target.value)} required /></Grid>
                 <Grid item xs={12} md={6}>
                   <TextField select fullWidth size="small" label="Semester" value={userForm.semester} onChange={(e) => updateUser("semester", e.target.value)} required>

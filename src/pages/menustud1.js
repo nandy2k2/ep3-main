@@ -122,7 +122,7 @@ export function mainListItems({ open }) {
         </AccordionDetails>
       </Accordion>
 
-       <Accordion>
+       {/* <Accordion>
         <AccordionSummary aria-controls="panel3-content" id="panel3-header">
           <BusinessIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{fontSize: 14}}>NEP Subject Selection</Typography>}
@@ -137,9 +137,9 @@ export function mainListItems({ open }) {
 </ListItem>
 
           </AccordionDetails>
-          </Accordion>
+          </Accordion> */}
 
-            <Accordion>
+            {/* <Accordion>
         <AccordionSummary aria-controls="panel3-content" id="panel3-header">
           <BusinessIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{fontSize: 14}}>My Attendance</Typography>}
@@ -154,7 +154,7 @@ export function mainListItems({ open }) {
 </ListItem>
 
         </AccordionDetails>
-        </Accordion>
+        </Accordion> */}
 
         <Accordion>
         <AccordionSummary aria-controls="panel-neplms-content" id="panel-neplms-header">
@@ -170,7 +170,14 @@ export function mainListItems({ open }) {
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="My NEP LMS" />}
 </ListItem>
 
-           <ListItem button component={RouterLink} to="/studentneplmsassessment">
+           <ListItem button component={RouterLink} to="/studentmyattendancesummary">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="My Attendance Summary" />}
+</ListItem>
+
+            <ListItem button component={RouterLink} to="/studentneplmsassessment">
 <ListItemIcon>
 <PersonIcon />
 </ListItemIcon>
@@ -182,6 +189,23 @@ export function mainListItems({ open }) {
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Remedial" />}
+</ListItem>
+
+        </AccordionDetails>
+        </Accordion>
+
+        <Accordion>
+        <AccordionSummary aria-controls="panel-student-mentoring-content" id="panel-student-mentoring-header">
+          <BusinessIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{fontSize: 14}}>Mentoring</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+
+           <ListItem button component={RouterLink} to="/studentmentoringworkspace">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="My mentoring" />}
 </ListItem>
 
         </AccordionDetails>

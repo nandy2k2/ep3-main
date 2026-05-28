@@ -79,6 +79,7 @@ export default function DynamicAdmissionApplicationsPage() {
     { field: "name", headerName: "Name", flex: 1.4 },
     { field: "email", headerName: "Email", flex: 1.4 },
     { field: "phone", headerName: "Phone", flex: 1 },
+    { field: "regno", headerName: "Reg No", flex: 1 },
     { field: "gender", headerName: "Gender", flex: 0.9 },
     { field: "category", headerName: "Category", flex: 0.8 },
     { field: "dateofbirth", headerName: "Date of Birth", flex: 1 },
@@ -87,6 +88,8 @@ export default function DynamicAdmissionApplicationsPage() {
     { field: "englishmarks", headerName: "English", flex: 0.8 },
     { field: "programapplied", headerName: "Program", flex: 1.5 },
     { field: "programcode", headerName: "Program Code", flex: 1 },
+    { field: "validationstatus", headerName: "Validation", flex: 0.9 },
+    { field: "validationcomments", headerName: "Validation Comments", flex: 1.6 },
     { field: "applicationstatus", headerName: "Status", flex: 0.9 },
     {
       field: "profile",

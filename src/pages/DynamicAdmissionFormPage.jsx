@@ -64,6 +64,9 @@ const initialForm = {
   phone: "",
   address: "",
   pin: "",
+  country_form: "",
+  state_form: "",
+  district_form: "",
   gender: "",
   category: "",
   ews: "No",
@@ -184,6 +187,14 @@ export default function DynamicAdmissionFormPage() {
   const continueDraftAdmissionLink = `${window.location.origin}/admission-apply-tabbed-program-draft?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}${levelQuery}`;
   const credentialDraftAdmissionLink = `${window.location.origin}/admission-apply-tabbed-program-credential-draft?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}${levelQuery}`;
   const credentialDraftRetrieveLink = `${window.location.origin}/admission-apply-tabbed-program-credential-draft?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}${levelQuery}`;
+  const credentialDraftRedAdmissionLink = `${window.location.origin}/admission-apply-tabbed-program-credential-draft-red?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}${levelQuery}`;
+  const credentialDraftRedRetrieveLink = `${window.location.origin}/admission-apply-tabbed-program-credential-draft-red?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}${levelQuery}`;
+  const credentialDraftRedLevelAdmissionLink = `${window.location.origin}/admission-apply-tabbed-program-credential-draft-red-level?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}`;
+  const credentialDraftRedLevelRetrieveLink = `${window.location.origin}/admission-apply-tabbed-program-credential-draft-red-level?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}`;
+  const credentialDraftRedLevelAiAdmissionLink = `${window.location.origin}/admission-apply-tabbed-program-credential-draft-red-level-ai?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}`;
+  const credentialDraftRedLevelAiRetrieveLink = `${window.location.origin}/admission-apply-tabbed-program-credential-draft-red-level-ai?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}`;
+  const credentialDraftRedLevelAiPhAdmissionLink = `${window.location.origin}/admission-apply-tabbed-program-credential-draft-red-level-ai-ph?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}`;
+  const credentialDraftRedLevelAiPhRetrieveLink = `${window.location.origin}/admission-apply-tabbed-program-credential-draft-red-level-ai-ph?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}`;
   const applicationLookupLink = `${window.location.origin}/admission-application-lookup?colid=${global1.colid}`;
   const subjectAdmissionLink = `${window.location.origin}/admission-apply-subjects?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}${levelQuery}`;
   const groupedFields = useMemo(() => groupFieldsByPageAndSection(fields), [fields]);
@@ -224,6 +235,35 @@ export default function DynamicAdmissionFormPage() {
       ...prev,
       extraFields: { ...(prev.extraFields || {}), [field]: value }
     }));
+  };
+
+  const useAddressPanelTemplate = () => {
+    setEditingFieldId("");
+    setFieldForm({
+      label: "Address Panel",
+      fieldname: "address_panel",
+      page: fieldForm.page || "Page 1",
+      section: fieldForm.section || "Address Details",
+      type: "addresspanel",
+      options: "",
+      isrequired: "No",
+      order: fieldForm.order || 0
+    });
+  };
+
+  const applyEducationPanelTemplate = (level) => {
+    const normalized = String(level || "").toLowerCase();
+    setEditingFieldId("");
+    setFieldForm({
+      label: `${level} ${["UG", "PG"].includes(level) ? "University" : "Board"} Panel`,
+      fieldname: `education_${normalized}_panel`,
+      page: fieldForm.page || "Page 1",
+      section: `${level} Details`,
+      type: `educationpanel${normalized}`,
+      options: "",
+      isrequired: "No",
+      order: fieldForm.order || 0
+    });
   };
 
   const updateSubject = (listName, index, field, value) => {
@@ -602,6 +642,54 @@ export default function DynamicAdmissionFormPage() {
             </Button>
           </Stack>
           <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
+            <TextField fullWidth label="Red tabbed credential admission link" value={credentialDraftRedAdmissionLink} InputProps={{ readOnly: true }} />
+            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(credentialDraftRedAdmissionLink, "Red tabbed credential admission link")} sx={{ minWidth: 150, height: 56 }}>
+              Copy
+            </Button>
+          </Stack>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
+            <TextField fullWidth label="Red tabbed retrieve and continue link" value={credentialDraftRedRetrieveLink} InputProps={{ readOnly: true }} />
+            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(credentialDraftRedRetrieveLink, "Red tabbed retrieve and continue link")} sx={{ minWidth: 150, height: 56 }}>
+              Copy
+            </Button>
+          </Stack>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
+            <TextField fullWidth label="Red tabbed admission link with level selection" value={credentialDraftRedLevelAdmissionLink} InputProps={{ readOnly: true }} />
+            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(credentialDraftRedLevelAdmissionLink, "Red tabbed admission link with level selection")} sx={{ minWidth: 150, height: 56 }}>
+              Copy
+            </Button>
+          </Stack>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
+            <TextField fullWidth label="Red tabbed level retrieve and continue link" value={credentialDraftRedLevelRetrieveLink} InputProps={{ readOnly: true }} />
+            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(credentialDraftRedLevelRetrieveLink, "Red tabbed level retrieve and continue link")} sx={{ minWidth: 150, height: 56 }}>
+              Copy
+            </Button>
+          </Stack>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
+            <TextField fullWidth label="Red tabbed AI validation admission link" value={credentialDraftRedLevelAiAdmissionLink} InputProps={{ readOnly: true }} />
+            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(credentialDraftRedLevelAiAdmissionLink, "Red tabbed AI validation admission link")} sx={{ minWidth: 150, height: 56 }}>
+              Copy
+            </Button>
+          </Stack>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
+            <TextField fullWidth label="Red tabbed AI validation retrieve and continue link" value={credentialDraftRedLevelAiRetrieveLink} InputProps={{ readOnly: true }} />
+            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(credentialDraftRedLevelAiRetrieveLink, "Red tabbed AI validation retrieve and continue link")} sx={{ minWidth: 150, height: 56 }}>
+              Copy
+            </Button>
+          </Stack>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
+            <TextField fullWidth label="Red tabbed AI validation admission link with Physically Handicapped" value={credentialDraftRedLevelAiPhAdmissionLink} InputProps={{ readOnly: true }} />
+            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(credentialDraftRedLevelAiPhAdmissionLink, "Red tabbed AI validation admission link with Physically Handicapped")} sx={{ minWidth: 150, height: 56 }}>
+              Copy
+            </Button>
+          </Stack>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
+            <TextField fullWidth label="Red tabbed AI validation retrieve link with Physically Handicapped" value={credentialDraftRedLevelAiPhRetrieveLink} InputProps={{ readOnly: true }} />
+            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(credentialDraftRedLevelAiPhRetrieveLink, "Red tabbed AI validation retrieve link with Physically Handicapped")} sx={{ minWidth: 150, height: 56 }}>
+              Copy
+            </Button>
+          </Stack>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
             <TextField fullWidth label="Application print/payment lookup link" value={applicationLookupLink} InputProps={{ readOnly: true }} />
             <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(applicationLookupLink, "Application print/payment lookup link")} sx={{ minWidth: 150, height: 56 }}>
               Copy
@@ -622,6 +710,11 @@ export default function DynamicAdmissionFormPage() {
           <Stack direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 2 }}>
             <Typography variant="h6">Add Custom Field</Typography>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+              <Button variant="outlined" onClick={useAddressPanelTemplate}>Add Address Panel</Button>
+              <Button variant="outlined" onClick={() => applyEducationPanelTemplate("10th")}>Add 10th Panel</Button>
+              <Button variant="outlined" onClick={() => applyEducationPanelTemplate("12th")}>Add 12th Panel</Button>
+              <Button variant="outlined" onClick={() => applyEducationPanelTemplate("UG")}>Add UG Panel</Button>
+              <Button variant="outlined" onClick={() => applyEducationPanelTemplate("PG")}>Add PG Panel</Button>
               <Button variant="outlined" onClick={downloadFieldTemplate}>Download Template</Button>
               <Button component="label" variant="contained" startIcon={<UploadFileIcon />}>
                 Bulk Upload
@@ -637,7 +730,7 @@ export default function DynamicAdmissionFormPage() {
             <Grid item xs={12} md={2}><TextField fullWidth label="Section" value={fieldForm.section} onChange={(e) => setFieldForm({ ...fieldForm, section: e.target.value })} /></Grid>
             <Grid item xs={12} md={2}>
               <TextField select fullWidth label="Type" value={fieldForm.type} onChange={(e) => setFieldForm({ ...fieldForm, type: e.target.value })}>
-                {["text", "number", "date", "dropdown", "textarea"].map((type) => <MenuItem key={type} value={type}>{type}</MenuItem>)}
+                {["text", "number", "date", "dropdown", "textarea", "addresspanel", "educationpanel10th", "educationpanel12th", "educationpanelug", "educationpanelpg"].map((type) => <MenuItem key={type} value={type}>{type}</MenuItem>)}
               </TextField>
             </Grid>
             <Grid item xs={12} md={3}><TextField fullWidth label="Options comma separated" value={fieldForm.options} onChange={(e) => setFieldForm({ ...fieldForm, options: e.target.value })} /></Grid>

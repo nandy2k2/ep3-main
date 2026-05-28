@@ -21,6 +21,10 @@ import {
 } from "@mui/material";
 import { Add, ArrowBack, Delete, Edit, Refresh, Save, UploadFile } from "@mui/icons-material";
 import { DataGrid, GridActionsCellItem, GridToolbar } from "@mui/x-data-grid";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import dayjs from "dayjs";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 
@@ -82,6 +86,11 @@ const listFromValue = (value) => {
   return String(value || "").split(",").map((item) => item.trim()).filter(Boolean);
 };
 const valueFromList = (value) => listFromValue(value).join(", ");
+const workCompletedListFromValue = (value) => {
+  if (Array.isArray(value)) return value.map((item) => String(item || "").trim()).filter(Boolean);
+  return String(value || "").split(" || ").map((item) => item.trim()).filter(Boolean);
+};
+const workCompletedValueFromList = (value) => workCompletedListFromValue(value).join(" || ");
 const toDateTimeInput = (value) => {
   if (!value) return "";
   const date = new Date(value);
@@ -89,6 +98,8 @@ const toDateTimeInput = (value) => {
   const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
   return offsetDate.toISOString().slice(0, 16);
 };
+const dateTimePickerValue = (value) => (value ? dayjs(value) : null);
+const dateTimePickerText = (value) => (value && value.isValid && value.isValid() ? value.format("YYYY-MM-DDTHH:mm") : "");
 const makeTimetableFilter = () => ({ id: `${Date.now()}-${Math.random()}`, field: "academicyear", value: "" });
 
 const timetableFilterFields = [
@@ -619,6 +630,21 @@ export default function NepLmsCourseWorkspacePage() {
 
   const resourceRows = (type) => resources.filter((row) => row.resourcetype === type);
   const assignmentOptions = resourceRows("Assignment");
+  const lessonPlanWorkOptions = useMemo(() => {
+    const currentFaculty = String(global1.user || "").trim().toLowerCase();
+    const rows = resourceRows("Lesson Plan").filter((row) => {
+      const rowFaculty = String(row.facultyemail || "").trim().toLowerCase();
+      return (!currentFaculty || !rowFaculty || rowFaculty === currentFaculty)
+        && (!selectedCourse?.coursecode || row.coursecode === selectedCourse.coursecode);
+    });
+    const labels = rows.map((row) => [
+      row.title,
+      row.module ? `Module: ${row.module}` : "",
+      row.topic ? `Topic: ${row.topic}` : "",
+      row.description
+    ].filter(Boolean).join(" - "));
+    return uniqueSorted([...labels, ...workCompletedListFromValue(classForm.workcompleted)]);
+  }, [resources, selectedCourse, classForm.workcompleted]);
   const selectedQuiz = useMemo(() => quizzes.find((row) => row._id === selectedQuizId) || null, [quizzes, selectedQuizId]);
   const moduleOptions = useMemo(() => uniqueSorted(syllabusRows.map((row) => row.module)), [syllabusRows]);
   const topicOptions = useMemo(() => {
@@ -945,8 +971,26 @@ export default function NepLmsCourseWorkspacePage() {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} md={3}><TextField fullWidth type="datetime-local" label="Start Date and Time" value={quizForm.startdatetime} onChange={(e) => setQuizForm((prev) => ({ ...prev, startdatetime: e.target.value }))} InputLabelProps={{ shrink: true }} /></Grid>
-          <Grid item xs={12} md={3}><TextField fullWidth type="datetime-local" label="End Date and Time" value={quizForm.enddatetime} onChange={(e) => setQuizForm((prev) => ({ ...prev, enddatetime: e.target.value }))} InputLabelProps={{ shrink: true }} /></Grid>
+          <Grid item xs={12} md={3}>
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <DateTimePicker
+                label="Start Date and Time"
+                value={dateTimePickerValue(quizForm.startdatetime)}
+                onChange={(value) => setQuizForm((prev) => ({ ...prev, startdatetime: dateTimePickerText(value) }))}
+                slotProps={{ textField: { fullWidth: true } }}
+              />
+            </LocalizationProvider>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <DateTimePicker
+                label="End Date and Time"
+                value={dateTimePickerValue(quizForm.enddatetime)}
+                onChange={(value) => setQuizForm((prev) => ({ ...prev, enddatetime: dateTimePickerText(value) }))}
+                slotProps={{ textField: { fullWidth: true } }}
+              />
+            </LocalizationProvider>
+          </Grid>
           <Grid item xs={12} md={3}>
             <Stack direction="row" spacing={1}>
               <Button fullWidth variant="contained" startIcon={<Save />} sx={{ height: 56 }} onClick={saveQuiz}>{editingQuizId ? "Update Quiz" : "Create Quiz"}</Button>
@@ -1202,7 +1246,32 @@ export default function NepLmsCourseWorkspacePage() {
               <Grid item xs={12} md={2}><TextField fullWidth type="number" label="Duration in minutes" value={classForm.durationminutes} onChange={(e) => setClassForm((prev) => ({ ...prev, durationminutes: e.target.value }))} /></Grid>
               <Grid item xs={12} md={2}><TextField fullWidth label="Module" value={classForm.module} onChange={(e) => setClassForm((prev) => ({ ...prev, module: e.target.value }))} /></Grid>
               <Grid item xs={12} md={2}><TextField fullWidth label="Topic" value={classForm.topic} onChange={(e) => setClassForm((prev) => ({ ...prev, topic: e.target.value }))} /></Grid>
-              <Grid item xs={12} md={9}><TextField fullWidth multiline minRows={2} label="Work Completed" value={classForm.workcompleted} onChange={(e) => setClassForm((prev) => ({ ...prev, workcompleted: e.target.value }))} /></Grid>
+              <Grid item xs={12} md={9}>
+                <FormControl fullWidth>
+                  <InputLabel>Work Completed</InputLabel>
+                  <Select
+                    multiple
+                    label="Work Completed"
+                    value={workCompletedListFromValue(classForm.workcompleted)}
+                    onChange={(e) => setClassForm((prev) => ({
+                      ...prev,
+                      workcompleted: workCompletedValueFromList(e.target.value)
+                    }))}
+                    renderValue={(selected) => selected.join(", ")}
+                  >
+                    {lessonPlanWorkOptions.length ? lessonPlanWorkOptions.map((item) => (
+                      <MenuItem key={item} value={item}>
+                        <Checkbox checked={workCompletedListFromValue(classForm.workcompleted).includes(item)} />
+                        <ListItemText primary={item} />
+                      </MenuItem>
+                    )) : (
+                      <MenuItem disabled value="">
+                        <ListItemText primary="No lesson plan entries found for this faculty and course" />
+                      </MenuItem>
+                    )}
+                  </Select>
+                </FormControl>
+              </Grid>
               <Grid item xs={12} md={3}>
                 <Stack direction="row" spacing={1}>
                   <Button fullWidth variant="contained" startIcon={<Save />} sx={{ height: 56 }} onClick={saveClass}>{editingClassId ? "Update" : "Add Class"}</Button>

@@ -12,7 +12,7 @@ import {
   TextField,
   Typography
 } from "@mui/material";
-import { DataGrid, GridActionsCellItem, GridToolbar } from "@mui/x-data-grid";
+import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -41,6 +41,7 @@ export default function UserCustomFieldsPage() {
   const [form, setForm] = useState(blankForm);
   const [editingId, setEditingId] = useState("");
   const [loading, setLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -52,7 +53,7 @@ export default function UserCustomFieldsPage() {
     try {
       setLoading(true);
       const res = await ep1.get("/api/v2/user-custom-fields", {
-        params: { colid: global1.colid, activeOnly: "No" }
+        params: { colid: global1.colid }
       });
       setRows(res.data || []);
     } catch (err) {
@@ -113,11 +114,16 @@ export default function UserCustomFieldsPage() {
   const deleteRow = async (row) => {
     if (!window.confirm("Delete this custom field?")) return;
     try {
-      await ep1.post("/api/v2/user-custom-fields-delete", { id: row._id, colid: global1.colid });
+      setDeletingId(row._id);
+      setError("");
+      setMessage("");
+      await ep1.post("/api/v2/user-custom-fields-delete", { id: row._id, _id: row._id, colid: global1.colid });
+      setRows((prev) => prev.filter((item) => item._id !== row._id));
       setMessage("Custom field deleted");
-      loadRows();
     } catch (err) {
       setError(err.response?.data?.msg || "Unable to delete custom field");
+    } finally {
+      setDeletingId("");
     }
   };
 
@@ -212,13 +218,38 @@ export default function UserCustomFieldsPage() {
     { field: "order", headerName: "Order", width: 90, type: "number" },
     {
       field: "actions",
-      type: "actions",
       headerName: "Actions",
-      width: 120,
-      getActions: (params) => [
-        <GridActionsCellItem icon={<EditIcon />} label="Edit" onClick={() => editRow(params.row)} />,
-        <GridActionsCellItem icon={<DeleteIcon />} label="Delete" onClick={() => deleteRow(params.row)} />
-      ]
+      width: 180,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => (
+        <Stack direction="row" spacing={1}>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<EditIcon />}
+            onClick={(event) => {
+              event.stopPropagation();
+              editRow(params.row);
+            }}
+          >
+            Edit
+          </Button>
+          <Button
+            size="small"
+            color="error"
+            variant="outlined"
+            startIcon={<DeleteIcon />}
+            disabled={deletingId === params.row._id}
+            onClick={(event) => {
+              event.stopPropagation();
+              deleteRow(params.row);
+            }}
+          >
+            {deletingId === params.row._id ? "Deleting" : "Delete"}
+          </Button>
+        </Stack>
+      )
     }
   ];
 

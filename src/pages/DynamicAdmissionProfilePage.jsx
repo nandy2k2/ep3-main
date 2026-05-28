@@ -38,6 +38,8 @@ const detailFields = [
   ["Twelve Subjects", "twelvesubjects"],
   ["Program Applied", "programapplied"],
   ["Program Code", "programcode"],
+  ["Validation Status", "validationstatus"],
+  ["Validation Comments", "validationcomments"],
   ["Application Status", "applicationstatus"]
 ];
 

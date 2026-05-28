@@ -26,6 +26,10 @@ import {
 } from "@mui/material";
 import { Add, ArrowBack, AutoAwesome, Cancel, Delete, Edit, Refresh, Save } from "@mui/icons-material";
 import { DataGrid, GridActionsCellItem, GridToolbar } from "@mui/x-data-grid";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import dayjs from "dayjs";
 import {
   Bar,
   BarChart,
@@ -80,6 +84,8 @@ const toDateTimeInput = (value) => {
   if (Number.isNaN(date.getTime())) return "";
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 };
+const dateTimePickerValue = (value) => (value ? dayjs(value) : null);
+const dateTimePickerText = (value) => (value && value.isValid && value.isValid() ? value.format("YYYY-MM-DDTHH:mm") : "");
 const menuProps = { PaperProps: { style: { maxHeight: 320 } } };
 
 function MultiSelect({ label, value, options, onChange }) {
@@ -816,8 +822,26 @@ export default function NepLmsAssessmentPage() {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} md={3}><TextField fullWidth size="small" type="datetime-local" label="Start Date and Time" value={assessmentForm.startdatetime} onChange={(e) => setAssessmentForm((prev) => ({ ...prev, startdatetime: e.target.value }))} InputLabelProps={{ shrink: true }} /></Grid>
-              <Grid item xs={12} md={3}><TextField fullWidth size="small" type="datetime-local" label="End Date and Time" value={assessmentForm.enddatetime} onChange={(e) => setAssessmentForm((prev) => ({ ...prev, enddatetime: e.target.value }))} InputLabelProps={{ shrink: true }} /></Grid>
+              <Grid item xs={12} md={3}>
+                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                  <DateTimePicker
+                    label="Start Date and Time"
+                    value={dateTimePickerValue(assessmentForm.startdatetime)}
+                    onChange={(value) => setAssessmentForm((prev) => ({ ...prev, startdatetime: dateTimePickerText(value) }))}
+                    slotProps={{ textField: { fullWidth: true, size: "small" } }}
+                  />
+                </LocalizationProvider>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                  <DateTimePicker
+                    label="End Date and Time"
+                    value={dateTimePickerValue(assessmentForm.enddatetime)}
+                    onChange={(value) => setAssessmentForm((prev) => ({ ...prev, enddatetime: dateTimePickerText(value) }))}
+                    slotProps={{ textField: { fullWidth: true, size: "small" } }}
+                  />
+                </LocalizationProvider>
+              </Grid>
               <Grid item xs={12} md={6}><TextField fullWidth size="small" label="Instructions" value={assessmentForm.instructions} onChange={(e) => setAssessmentForm((prev) => ({ ...prev, instructions: e.target.value }))} /></Grid>
               <Grid item xs={12}>
                 <Stack direction="row" spacing={1}>

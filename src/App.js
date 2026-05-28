@@ -913,6 +913,8 @@ import CourseAssessmentPage from "./pages/CourseAssessmentPage";
 import SyllabusPage from "./pages/SyllabusPage";
 import CourseOutcomePage from "./pages/CourseOutcomePage";
 import GradeConfigurationPage from "./pages/GradeConfigurationPage";
+import RelativeGradingConfigurationPage from "./pages/RelativeGradingConfigurationPage";
+import ZScoreConfigurationPage from "./pages/ZScoreConfigurationPage";
 import AcademicSubjectPage from "./pages/AcademicSubjectPage";
 import WorkloadAssignmentPage from "./pages/WorkloadAssignmentPage";
 import WorkloadDynamicReportPage from "./pages/WorkloadDynamicReportPage";
@@ -920,12 +922,21 @@ import NepLmsAssignedCoursesPage from "./pages/NepLmsAssignedCoursesPage";
 import NepLmsCourseWorkspacePage from "./pages/NepLmsCourseWorkspacePage";
 import NepLmsAiCourseGenerationPage from "./pages/NepLmsAiCourseGenerationPage";
 import NepLmsStudentWorkspacePage from "./pages/NepLmsStudentWorkspacePage";
+import NepLmsMyAttendanceSummaryPage from "./pages/NepLmsMyAttendanceSummaryPage";
 import NepLmsAssessmentPage from "./pages/NepLmsAssessmentPage";
 import NepLmsStudentAssessmentPage from "./pages/NepLmsStudentAssessmentPage";
 import NepLmsRemedialPage from "./pages/NepLmsRemedialPage";
 import NepLmsStudentRemedialPage from "./pages/NepLmsStudentRemedialPage";
 import NepLmsStudentDashboardPage from "./pages/NepLmsStudentDashboardPage";
 import NepLmsFacultyDashboardPage from "./pages/NepLmsFacultyDashboardPage";
+import MentoringWorkspacePage from "./pages/MentoringWorkspacePage";
+import StudentMentoringWorkspacePage from "./pages/StudentMentoringWorkspacePage";
+import CrmManagementPage from "./pages/CrmManagementPage";
+import CrmLeadActionPage from "./pages/CrmLeadActionPage";
+import CrmReportsPage from "./pages/CrmReportsPage";
+import CrmMyLeadsPage from "./pages/CrmMyLeadsPage";
+import CrmMyFollowupsPage from "./pages/CrmMyFollowupsPage";
+import CrmCounselorMappingPage from "./pages/CrmCounselorMappingPage";
 import NepLmsTimetableManagerPage from "./pages/NepLmsTimetableManagerPage";
 import NepLmsAttendancePage from "./pages/NepLmsAttendancePage";
 import NepLmsAssessmentMarksPage from "./pages/NepLmsAssessmentMarksPage";
@@ -937,6 +948,18 @@ import NepLmsStudentwiseAttendanceReportPage from "./pages/NepLmsStudentwiseAtte
 import NepLmsStudentCoursewiseAttendanceReportPage from "./pages/NepLmsStudentCoursewiseAttendanceReportPage";
 import NepLmsLowAttendanceReportPage from "./pages/NepLmsLowAttendanceReportPage";
 import NepLmsFacultyCourseLowAttendanceReportPage from "./pages/NepLmsFacultyCourseLowAttendanceReportPage";
+import ConductExamMasterPage from "./pages/ConductExamMasterPage";
+import ConductExamCoursePage from "./pages/ConductExamCoursePage";
+import ConductExamRollPage from "./pages/ConductExamRollPage";
+import ConductExamRoomPage from "./pages/ConductExamRoomPage";
+import HrLeaveManagementPage from "./pages/HrLeaveManagementPage";
+import HrLeaveApplyPage from "./pages/HrLeaveApplyPage";
+import HrLeaveApprovePage from "./pages/HrLeaveApprovePage";
+import HrLeaveDashboardPage from "./pages/HrLeaveDashboardPage";
+import HrLeaveHrDashboardPage from "./pages/HrLeaveHrDashboardPage";
+import HrEmployeeAttendancePage from "./pages/HrEmployeeAttendancePage";
+import HrEmployeeAttendanceMatrixPage from "./pages/HrEmployeeAttendanceMatrixPage";
+import HrEmployeeAttendanceApprovalPage from "./pages/HrEmployeeAttendanceApprovalPage";
 import HostelBuildingRoomPage from "./pages/HostelBuildingRoomPage";
 import HostelAssignmentPage from "./pages/HostelAssignmentPage";
 import HostelVacancyReportPage from "./pages/HostelVacancyReportPage";
@@ -958,9 +981,16 @@ import PublicAdmissionApplyTabbedPage from "./pages/PublicAdmissionApplyTabbedPa
 import PublicAdmissionApplyTabbedProgramPage from "./pages/PublicAdmissionApplyTabbedProgramPage";
 import PublicAdmissionApplyTabbedProgramDraftPage from "./pages/PublicAdmissionApplyTabbedProgramDraftPage";
 import PublicAdmissionApplyTabbedProgramCredentialDraftPage from "./pages/PublicAdmissionApplyTabbedProgramCredentialDraftPage";
+import PublicAdmissionApplyTabbedProgramCredentialDraftRedPage from "./pages/PublicAdmissionApplyTabbedProgramCredentialDraftRedPage";
+import PublicAdmissionApplyTabbedProgramCredentialDraftRedLevelPage from "./pages/PublicAdmissionApplyTabbedProgramCredentialDraftRedLevelPage";
+import PublicAdmissionApplyTabbedProgramCredentialDraftRedLevelAiPage from "./pages/PublicAdmissionApplyTabbedProgramCredentialDraftRedLevelAiPage";
+import PublicAdmissionApplyTabbedProgramCredentialDraftRedLevelAiPhPage from "./pages/PublicAdmissionApplyTabbedProgramCredentialDraftRedLevelAiPhPage";
 import PublicAdmissionApplySubjectsPage from "./pages/PublicAdmissionApplySubjectsPage";
 import AdmissionApplicationLookupPage from "./pages/AdmissionApplicationLookupPage";
 import AdmissionDatewiseSummaryPage from "./pages/AdmissionDatewiseSummaryPage";
+import AdmissionAddressConfigurationPage from "./pages/AdmissionAddressConfigurationPage";
+import AdmissionBoardConfigurationPage from "./pages/AdmissionBoardConfigurationPage";
+import AdmissionValidationCriteriaPage from "./pages/AdmissionValidationCriteriaPage";
 import DynamicAdmissionSortPage from "./pages/DynamicAdmissionSortPage";
 import DynamicAdmissionBulkUploadPage from "./pages/DynamicAdmissionBulkUploadPage";
 import StudentDynamicFilterPage from "./pages/StudentDynamicFilterPage";
@@ -1005,6 +1035,7 @@ import Seatallocatormds4 from './pages/Seatallocatormds4';
 import UserManagementdsoct18 from "./pages/UserManagementdsoct18";
 import CreateUserdsoct18 from "./pages/CreateUserdsoct18";
 import LeadToUserds from "./pages/LeadToUserds";
+import AdmitFromCrmPage from "./pages/AdmitFromCrmPage";
 import EditUserdsoct18 from "./pages/EditUserdsoct18";
 import BulkUploadUsersdsoct18 from "./pages/BulkUploadUsersdsoct18";
 
@@ -1581,6 +1612,11 @@ import Dashmhrempledgeradmin from './pages/Dashmhrempledgeradmin';
 import Salarypivot from './pages/Salarypivot';
 import Salarypivot1 from './pages/Salarypivot1';
 import HrSalaryComponentReport from './pages/HrSalaryComponentReport';
+import HrSalarySlipPage from './pages/HrSalarySlipPage';
+import MySalarySlipPage from './pages/MySalarySlipPage';
+import VisitingFacultyRegisterPage from './pages/VisitingFacultyRegisterPage';
+import VisitingFacultyClassPage from './pages/VisitingFacultyClassPage';
+import VisitingFacultyPayPage from './pages/VisitingFacultyPayPage';
 import UgcSeventhPayStructurePage from './pages/UgcSeventhPayStructurePage';
 import MenuAccessControlPage from './pages/MenuAccessControlPage';
 import HrResignationPage from './pages/HrResignationPage';
@@ -2000,6 +2036,11 @@ function App() {
         <Route path="/salarypivot1" element={<Salarypivot1 />} />
         <Route path="/salarypivot" element={<Salarypivot />} />
         <Route path="/hrsalarycomponentreport" element={<HrSalaryComponentReport />} />
+        <Route path="/hrsalaryslip" element={<HrSalarySlipPage />} />
+        <Route path="/mysalaryslip" element={<MySalarySlipPage />} />
+        <Route path="/visitingfaculty" element={<VisitingFacultyRegisterPage />} />
+        <Route path="/visitingfacultyregister" element={<VisitingFacultyClassPage />} />
+        <Route path="/visitingfacultypay" element={<VisitingFacultyPayPage />} />
         <Route path="/ugcseventhpaystructure" element={<UgcSeventhPayStructurePage />} />
         <Route path="/hrresignation" element={<HrResignationPage />} />
         <Route path="/hrresignationreport" element={<HrResignationReportPage />} />
@@ -2598,6 +2639,7 @@ function App() {
          <Route path="/usermanagementdsoct18" element={<UserManagementdsoct18 />} />
         <Route path="/createuserdsoct18" element={<CreateUserdsoct18 />} />
         <Route path="/leadtouserds" element={<LeadToUserds />} />
+        <Route path="/admit-from-crm" element={<AdmitFromCrmPage />} />
         <Route path="/edituserdsoct18/:id" element={<EditUserdsoct18 />} />
         <Route path="/bulkuploadusersdsoct18" element={<BulkUploadUsersdsoct18 />} />
         <Route path="/studentprofiledsoct18" element={<StudentProfiledsoct18 />} />
@@ -2642,6 +2684,8 @@ function App() {
         <Route path="/syllabus" element={<SyllabusPage />} />
         <Route path="/colist" element={<CourseOutcomePage />} />
         <Route path="/gradeconfiguration" element={<GradeConfigurationPage />} />
+        <Route path="/relativegradingconfiguration" element={<RelativeGradingConfigurationPage />} />
+        <Route path="/zscoreconfiguration" element={<ZScoreConfigurationPage />} />
         <Route path="/academicsubjects" element={<AcademicSubjectPage />} />
         <Route path="/workloadassignment" element={<WorkloadAssignmentPage />} />
         <Route path="/workloaddynamicreport" element={<WorkloadDynamicReportPage />} />
@@ -2666,6 +2710,27 @@ function App() {
         <Route path="/facultydashboard" element={<NepLmsFacultyDashboardPage />} />
         <Route path="/studentdashboard" element={<NepLmsStudentDashboardPage />} />
         <Route path="/studentneplmsworkspace" element={<NepLmsStudentWorkspacePage />} />
+        <Route path="/studentmyattendancesummary" element={<NepLmsMyAttendanceSummaryPage />} />
+        <Route path="/mentoringworkspace" element={<MentoringWorkspacePage />} />
+        <Route path="/studentmentoringworkspace" element={<StudentMentoringWorkspacePage />} />
+        <Route path="/crm-management" element={<CrmManagementPage />} />
+        <Route path="/crm-lead-actions" element={<CrmLeadActionPage />} />
+        <Route path="/crm-reports" element={<CrmReportsPage />} />
+        <Route path="/crm-my-leads" element={<CrmMyLeadsPage />} />
+        <Route path="/crm-my-followups" element={<CrmMyFollowupsPage />} />
+        <Route path="/crm-counselor-mapping" element={<CrmCounselorMappingPage />} />
+        <Route path="/hrleavehierarchy" element={<HrLeaveManagementPage defaultTab="hierarchy" />} />
+        <Route path="/hrleavetypes" element={<HrLeaveManagementPage defaultTab="types" />} />
+        <Route path="/hrleavecycle" element={<HrLeaveManagementPage defaultTab="cycle" />} />
+        <Route path="/hrleavebalance" element={<HrLeaveManagementPage defaultTab="balance" />} />
+        <Route path="/hrleavereset" element={<HrLeaveManagementPage defaultTab="reset" />} />
+        <Route path="/hrleaveapply" element={<HrLeaveApplyPage />} />
+        <Route path="/hrleaveapprove" element={<HrLeaveApprovePage />} />
+        <Route path="/hrleavedashboard" element={<HrLeaveDashboardPage />} />
+        <Route path="/hrleavehrdashboard" element={<HrLeaveHrDashboardPage />} />
+        <Route path="/hremployeeattendance" element={<HrEmployeeAttendancePage />} />
+        <Route path="/hremployeeattendancematrix" element={<HrEmployeeAttendanceMatrixPage />} />
+        <Route path="/hremployeeattendanceapproval" element={<HrEmployeeAttendanceApprovalPage />} />
         <Route path="/hostelbuildingrooms" element={<HostelBuildingRoomPage />} />
         <Route path="/hostelassignment" element={<HostelAssignmentPage />} />
         <Route path="/hostelvacancyreport" element={<HostelVacancyReportPage />} />
@@ -2699,8 +2764,15 @@ function App() {
         <Route path="/admission-apply-tabbed-program" element={<PublicAdmissionApplyTabbedProgramPage />} />
         <Route path="/admission-apply-tabbed-program-draft" element={<PublicAdmissionApplyTabbedProgramDraftPage />} />
         <Route path="/admission-apply-tabbed-program-credential-draft" element={<PublicAdmissionApplyTabbedProgramCredentialDraftPage />} />
+        <Route path="/admission-apply-tabbed-program-credential-draft-red" element={<PublicAdmissionApplyTabbedProgramCredentialDraftRedPage />} />
+        <Route path="/admission-apply-tabbed-program-credential-draft-red-level" element={<PublicAdmissionApplyTabbedProgramCredentialDraftRedLevelPage />} />
+        <Route path="/admission-apply-tabbed-program-credential-draft-red-level-ai" element={<PublicAdmissionApplyTabbedProgramCredentialDraftRedLevelAiPage />} />
+        <Route path="/admission-apply-tabbed-program-credential-draft-red-level-ai-ph" element={<PublicAdmissionApplyTabbedProgramCredentialDraftRedLevelAiPhPage />} />
         <Route path="/admission-application-lookup" element={<AdmissionApplicationLookupPage />} />
         <Route path="/admission-datewise-summary" element={<AdmissionDatewiseSummaryPage />} />
+        <Route path="/admission-address-configuration" element={<AdmissionAddressConfigurationPage />} />
+        <Route path="/admission-board-configuration" element={<AdmissionBoardConfigurationPage />} />
+        <Route path="/admission-validation-criteria" element={<AdmissionValidationCriteriaPage />} />
         <Route path="/admission-apply-subjects" element={<PublicAdmissionApplySubjectsPage />} />
         <Route path="/dynamic-admission-sort" element={<DynamicAdmissionSortPage />} />
         <Route path="/dynamic-admission-bulk-upload" element={<DynamicAdmissionBulkUploadPage />} />
@@ -2716,6 +2788,10 @@ function App() {
         <Route path="/userpivotreport" element={<UserPivotReportPage />} />
         <Route path="/userpivotcount" element={<UserPivotCountPage />} />
         <Route path="/studentactivities" element={<StudentActivitiesPage />} />
+        <Route path="/conduct-exam-master" element={<ConductExamMasterPage />} />
+        <Route path="/conduct-exam-rooms" element={<ConductExamRoomPage />} />
+        <Route path="/conduct-exam-courses" element={<ConductExamCoursePage />} />
+        <Route path="/examroll" element={<ConductExamRollPage />} />
          <Route path="/student/profile" element={<StudentProfileds1 />} />
 
         <Route path="/dashmattstud" element={<Dashmattstud />} />

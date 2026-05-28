@@ -6,10 +6,15 @@ import {
   Autocomplete,
   Box,
   Button,
+  Checkbox,
   Divider,
+  FormControlLabel,
   Grid,
+  Link,
   MenuItem,
   Paper,
+  Radio,
+  RadioGroup,
   Stack,
   TextField,
   Typography
@@ -25,32 +30,70 @@ import ep1 from "../api/ep1";
 import global1 from "./global1";
 
 const preferredFields = [
-  "email", "name", "phone", "password", "role", "regno", "programcode", "admissionyear",
-  "semester", "section", "gender", "department", "category", "address", "status",
-  "regulation", "Major", "Minor", "AEC", "SEC", "VAC", "IDC"
+  "email", "name", "phone", "password", "role", "regno", "regulation", "program", "programcode",
+  "academicyear", "admissionyear", "birthdate", "joiningdate", "semester", "section", "gender",
+  "department", "category", "address", "status", "Major", "Minor", "AEC", "SEC", "VAC", "IDC"
 ];
 
 const alwaysRequired = new Set([
   "email", "name", "phone", "password", "role", "regno", "programcode",
-  "admissionyear", "semester", "section", "department", "status"
+  "admissionyear", "joiningdate", "semester", "section", "department", "status"
 ]);
 
 const defaultValues = {
   role: "Student",
   semester: "1",
-  status: 1,
+  status: "1",
   password: "123456",
   gender: "Not specified",
-  isdisabled: "No"
+  isdisabled: "No",
+  academicyear: "2026-27"
 };
+
+const roleOptions = ["Faculty", "Student", "All", "Admin"];
+
+const statusOptions = [
+  { label: "Active", value: "1" },
+  { label: "Inactive", value: "0" }
+];
 
 const dropdownOptions = {
   gender: ["Male", "Female", "Not specified"],
   category: ["General", "SC", "ST", "OBC", "EBC", "EWS", "PH"],
-  isdisabled: ["Yes", "No"]
+  isdisabled: ["Yes", "No"],
+  status: statusOptions.map((option) => option.value)
+};
+
+const academicYearOptions = Array.from({ length: 10 }, (_, index) => `${2020 + index}-${String(21 + index).padStart(2, "0")}`);
+const admissionYearOptions = Array.from({ length: 47 }, (_, index) => String(1980 + index));
+const studentOnlyFields = new Set(["program", "programcode", "regulation", "Major", "Minor", "AEC", "SEC", "VAC", "IDC", "rollno", "semester", "section"]);
+const hiddenUserUploadFields = new Set([
+  "dob", "dobeligibilityname", "eligibilityname", "srno", "degree", "samestate",
+  "admissionapplicationid", "minorsub", "vocationsub", "vocationalsub", "mdcsub",
+  "othersub", "merit", "obtain", "bonus", "weightage", "ncctype", "scholarship",
+  "expotoken", "quota", "status1", "comments", "addedby", "photo"
+]);
+const fieldLabels = {
+  regno: "regno/empid",
+  academicyear: "academic year",
+  admissionyear: "admission year",
+  birthdate: "birthdate",
+  joiningdate: "joiningdate"
 };
 
 const customGridField = (fieldname) => `custom_${fieldname}`;
+
+const generateStrongPassword = () => {
+  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const lower = "abcdefghijkmnopqrstuvwxyz";
+  const numbers = "23456789";
+  const symbols = "!@#$%&*?";
+  const all = `${upper}${lower}${numbers}${symbols}`;
+  const pick = (source) => source[Math.floor(Math.random() * source.length)];
+  const required = [pick(upper), pick(lower), pick(numbers), pick(symbols)];
+  const rest = Array.from({ length: 8 }, () => pick(all));
+  return [...required, ...rest].sort(() => Math.random() - 0.5).join("");
+};
 
 const flattenUser = (row, customFields = []) => {
   const flat = { ...row };
@@ -71,8 +114,13 @@ export default function UserDataUploadPage() {
   const [customForm, setCustomForm] = useState({});
   const [filters, setFilters] = useState([{ field: "", value: "" }]);
   const [filterOptions, setFilterOptions] = useState({});
+  const [programOptions, setProgramOptions] = useState([]);
+  const [regulationOptions, setRegulationOptions] = useState([]);
+  const [userType, setUserType] = useState("Student");
   const [editingId, setEditingId] = useState("");
   const [loading, setLoading] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [autoPassword, setAutoPassword] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -92,15 +140,35 @@ export default function UserDataUploadPage() {
   const loadMeta = async () => {
     try {
       const res = await ep1.get("/api/v2/user-data/meta", { params: { colid: global1.colid } });
-      const metaBase = res.data?.fields || [];
-      const metaCustom = res.data?.customFields || [];
+      const isVisibleField = (field) => {
+        const key = String(field.field || field.fieldname || "");
+        return field && !key.includes("$") && !hiddenUserUploadFields.has(key);
+      };
+      const metaBase = (res.data?.fields || []).filter(isVisibleField);
+      const metaCustom = (res.data?.customFields || []).filter(isVisibleField);
+      const metaFilters = (res.data?.filterFields || []).filter(isVisibleField);
       setBaseFields(metaBase);
       setCustomFields(metaCustom);
-      setFilterFields(res.data?.filterFields || []);
+      setFilterFields(metaFilters);
       resetForm(metaBase, metaCustom);
+      await loadDropdownData();
       await searchRows([]);
     } catch (err) {
       setError(err.response?.data?.msg || "Unable to load user metadata");
+    }
+  };
+
+  const loadDropdownData = async () => {
+    try {
+      const [programRes, regulationRes] = await Promise.all([
+        ep1.get("/api/v2/mprograms-management", { params: { colid: global1.colid } }),
+        ep1.get("/api/v2/regulationmaster", { params: { colid: global1.colid, isactive: "Yes" } })
+      ]);
+      setProgramOptions((programRes.data?.data || []).filter((item) => item.program || item.programcode));
+      setRegulationOptions((regulationRes.data?.data || []).map((item) => item.regulation).filter(Boolean));
+    } catch (err) {
+      setProgramOptions([]);
+      setRegulationOptions([]);
     }
   };
 
@@ -109,6 +177,7 @@ export default function UserDataUploadPage() {
     metaBase.forEach((field) => {
       next[field.field] = defaultValues[field.field] || "";
     });
+    next.photo = "";
     const nextCustom = {};
     metaCustom.forEach((field) => {
       nextCustom[field.fieldname] = "";
@@ -116,6 +185,8 @@ export default function UserDataUploadPage() {
     setForm(next);
     setCustomForm(nextCustom);
     setEditingId("");
+    setAutoPassword(false);
+    setUserType("Student");
   };
 
   const searchRows = async (overrideFilters) => {
@@ -143,9 +214,15 @@ export default function UserDataUploadPage() {
     setCustomForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const toggleAutoPassword = (checked) => {
+    setAutoPassword(checked);
+    if (checked) updateForm("password", generateStrongPassword());
+  };
+
   const saveUser = async () => {
     try {
-      const missing = [...alwaysRequired].filter((field) => orderedBaseFields.some((item) => item.field === field) && !form[field]);
+      const visibleFields = orderedBaseFields.filter((field) => userType === "Student" || !studentOnlyFields.has(field.field));
+      const missing = [...alwaysRequired].filter((field) => visibleFields.some((item) => item.field === field) && !form[field]);
       if (missing.length) {
         setError(`Required fields missing: ${missing.join(", ")}`);
         return;
@@ -153,8 +230,24 @@ export default function UserDataUploadPage() {
 
       setError("");
       setMessage("");
+      const studentDefaults = userType === "Student" ? {} : {
+        program: "NA",
+        programcode: "NA",
+        regulation: "NA",
+        Major: "NA",
+        Minor: "NA",
+        AEC: "NA",
+        SEC: "NA",
+        VAC: "NA",
+        IDC: "NA",
+        rollno: "NA",
+        semester: "NA",
+        section: "NA"
+      };
       const payload = {
         ...form,
+        ...studentDefaults,
+        usertype: userType,
         customFields: customForm,
         colid: global1.colid,
         user: global1.user
@@ -178,6 +271,7 @@ export default function UserDataUploadPage() {
     orderedBaseFields.forEach((field) => {
       next[field.field] = row[field.field] ?? defaultValues[field.field] ?? "";
     });
+    next.photo = row.photo || "";
     const nextCustom = {};
     customFields.forEach((field) => {
       nextCustom[field.fieldname] = row.customFields?.[field.fieldname] || "";
@@ -185,6 +279,7 @@ export default function UserDataUploadPage() {
     setForm(next);
     setCustomForm(nextCustom);
     setEditingId(row._id);
+    setUserType(String(row.role || "").toLowerCase() === "student" ? "Student" : "Non student user");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -266,6 +361,7 @@ export default function UserDataUploadPage() {
         baseNames.forEach((field) => {
           if (row[field] !== undefined) item[field] = row[field];
         });
+        item.usertype = row.usertype || row.userType || row["User Type"] || (String(row.role || "").toLowerCase() === "student" ? "Student" : "Non student user");
         item.customFields = {};
         customNames.forEach((field) => {
           if (row[field] !== undefined) item.customFields[field] = row[field];
@@ -288,24 +384,192 @@ export default function UserDataUploadPage() {
     }
   };
 
-  const renderFieldInput = (field) => (
-    <Grid item xs={12} md={3} key={field.field}>
-      <TextField
-        select={Boolean(dropdownOptions[field.field])}
-        fullWidth
-        size="small"
-        type={field.type === "number" ? "number" : "text"}
-        label={field.label}
-        value={form[field.field] ?? ""}
-        required={alwaysRequired.has(field.field)}
-        onChange={(event) => updateForm(field.field, event.target.value)}
-      >
-        {(dropdownOptions[field.field] || []).map((option) => (
-          <MenuItem key={option} value={option}>{option}</MenuItem>
-        ))}
-      </TextField>
-    </Grid>
-  );
+  const uploadPhoto = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    try {
+      setPhotoUploading(true);
+      setError("");
+      setMessage("");
+      const data = new FormData();
+      data.append("photo", file);
+      data.append("colid", global1.colid);
+      data.append("user", global1.user || "");
+      const res = await ep1.post("/api/v2/user-data-photo", data, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+      updateForm("photo", res.data?.url || "");
+      setMessage("Photo uploaded");
+    } catch (err) {
+      setError(err.response?.data?.msg || "Unable to upload photo");
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
+  const renderFieldInput = (field) => {
+    if (userType !== "Student" && studentOnlyFields.has(field.field)) return null;
+
+    if (field.field === "role") {
+      return (
+        <Grid item xs={12} md={3} key={field.field}>
+          <Autocomplete
+            freeSolo
+            options={roleOptions}
+            value={form.role || ""}
+            onInputChange={(_, value) => updateForm("role", value)}
+            onChange={(_, value) => updateForm("role", value || "")}
+            renderInput={(params) => (
+              <TextField {...params} fullWidth size="small" label="role" required={alwaysRequired.has("role")} />
+            )}
+          />
+        </Grid>
+      );
+    }
+
+    if (field.field === "status") {
+      return (
+        <Grid item xs={12} md={3} key={field.field}>
+          <TextField
+            select
+            fullWidth
+            size="small"
+            label="status"
+            value={String(form.status ?? "1")}
+            required={alwaysRequired.has("status")}
+            onChange={(event) => updateForm("status", event.target.value)}
+          >
+            {statusOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+            ))}
+          </TextField>
+        </Grid>
+      );
+    }
+
+    if (field.field === "academicyear") {
+      return (
+        <Grid item xs={12} md={3} key={field.field}>
+          <TextField
+            select
+            fullWidth
+            size="small"
+            label="academic year"
+            value={form.academicyear || "2026-27"}
+            onChange={(event) => updateForm("academicyear", event.target.value)}
+          >
+            {academicYearOptions.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
+          </TextField>
+        </Grid>
+      );
+    }
+
+    if (field.field === "admissionyear") {
+      return (
+        <Grid item xs={12} md={3} key={field.field}>
+          <TextField
+            select
+            fullWidth
+            size="small"
+            label="admission year"
+            value={form.admissionyear || ""}
+            required={alwaysRequired.has("admissionyear")}
+            onChange={(event) => updateForm("admissionyear", event.target.value)}
+          >
+            {admissionYearOptions.map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
+          </TextField>
+        </Grid>
+      );
+    }
+
+    if (field.field === "birthdate" || field.field === "joiningdate") {
+      return (
+        <Grid item xs={12} md={3} key={field.field}>
+          <TextField
+            fullWidth
+            size="small"
+            type="date"
+            label={fieldLabels[field.field] || field.label}
+            value={form[field.field] ?? ""}
+            required={alwaysRequired.has(field.field)}
+            onChange={(event) => updateForm(field.field, event.target.value)}
+            InputLabelProps={{ shrink: true }}
+          />
+        </Grid>
+      );
+    }
+
+    if (field.field === "regulation") {
+      return (
+        <Grid item xs={12} md={3} key={field.field}>
+          <Autocomplete
+            options={regulationOptions}
+            value={form.regulation || ""}
+            onInputChange={(_, value) => updateForm("regulation", value)}
+            onChange={(_, value) => updateForm("regulation", value || "")}
+            renderInput={(params) => (
+              <TextField {...params} fullWidth size="small" label="regulation" />
+            )}
+          />
+        </Grid>
+      );
+    }
+
+    if (field.field === "program") {
+      return (
+        <Grid item xs={12} md={3} key={field.field}>
+          <Autocomplete
+            options={programOptions}
+            getOptionLabel={(option) => typeof option === "string" ? option : `${option.program || ""}${option.programcode ? ` (${option.programcode})` : ""}`}
+            value={programOptions.find((item) => item.program === form.program && item.programcode === form.programcode) || null}
+            onChange={(_, value) => {
+              updateForm("program", value?.program || "");
+              updateForm("programcode", value?.programcode || "");
+            }}
+            renderInput={(params) => <TextField {...params} fullWidth size="small" label="program" />}
+          />
+        </Grid>
+      );
+    }
+
+    if (field.field === "programcode") {
+      return (
+        <Grid item xs={12} md={3} key={field.field}>
+          <Autocomplete
+            options={programOptions}
+            getOptionLabel={(option) => typeof option === "string" ? option : `${option.programcode || ""}${option.program ? ` - ${option.program}` : ""}`}
+            value={programOptions.find((item) => item.programcode === form.programcode) || null}
+            onChange={(_, value) => {
+              updateForm("program", value?.program || "");
+              updateForm("programcode", value?.programcode || "");
+            }}
+            renderInput={(params) => <TextField {...params} fullWidth size="small" label="programcode" required={alwaysRequired.has("programcode")} />}
+          />
+        </Grid>
+      );
+    }
+
+    return (
+      <Grid item xs={12} md={3} key={field.field}>
+        <TextField
+          select={Boolean(dropdownOptions[field.field])}
+          fullWidth
+          size="small"
+          type={field.type === "number" ? "number" : "text"}
+          label={fieldLabels[field.field] || field.label}
+          value={form[field.field] ?? ""}
+          required={alwaysRequired.has(field.field)}
+          onChange={(event) => updateForm(field.field, event.target.value)}
+        >
+          {(dropdownOptions[field.field] || []).map((option) => (
+            <MenuItem key={option} value={option}>{option}</MenuItem>
+          ))}
+        </TextField>
+      </Grid>
+    );
+  };
 
   const renderCustomInput = (field) => (
     <Grid item xs={12} md={field.type === "textarea" ? 6 : 3} key={field._id || field.fieldname}>
@@ -338,8 +602,11 @@ export default function UserDataUploadPage() {
     },
     ...orderedBaseFields.map((field) => ({
       field: field.field,
-      headerName: field.label,
-      width: 150
+      headerName: fieldLabels[field.field] || field.label,
+      width: 150,
+      valueFormatter: field.field === "status"
+        ? (params) => (String(params.value) === "1" ? "Active" : "Inactive")
+        : undefined
     })),
     ...customFields.map((field) => ({
       field: customGridField(field.fieldname),
@@ -374,7 +641,40 @@ export default function UserDataUploadPage() {
         </Stack>
 
         <Grid container spacing={1.5}>
+          <Grid item xs={12}>
+            <RadioGroup row value={userType} onChange={(event) => setUserType(event.target.value)}>
+              <FormControlLabel value="Student" control={<Radio />} label="Student" />
+              <FormControlLabel value="Non student user" control={<Radio />} label="Non student user" />
+            </RadioGroup>
+          </Grid>
+          {orderedBaseFields.some((field) => field.field === "password") && (
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={autoPassword}
+                    onChange={(event) => toggleAutoPassword(event.target.checked)}
+                  />
+                }
+                label="Auto generate complicated password"
+              />
+            </Grid>
+          )}
           {orderedBaseFields.map(renderFieldInput)}
+          <Grid item xs={12}>
+            <Divider sx={{ my: 1 }} />
+            <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ xs: "stretch", md: "center" }}>
+              <Button component="label" variant="outlined" startIcon={<UploadFileIcon />} disabled={photoUploading}>
+                {photoUploading ? "Uploading Photo" : "Upload Photo"}
+                <input hidden type="file" accept="image/png,image/jpeg,image/jpg" onChange={uploadPhoto} />
+              </Button>
+              {form.photo && (
+                <Link href={form.photo} target="_blank" rel="noreferrer" sx={{ wordBreak: "break-all" }}>
+                  {form.photo}
+                </Link>
+              )}
+            </Stack>
+          </Grid>
           {customFields.length > 0 && (
             <Grid item xs={12}>
               <Divider sx={{ my: 1 }} />
