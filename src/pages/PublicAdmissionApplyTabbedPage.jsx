@@ -395,7 +395,8 @@ export default function PublicAdmissionApplyTabbedPage() {
       let paymentResponse = null;
       let initiationError = null;
       try {
-        paymentResponse = await ep1.post("/api/v2/easebuzzpayment/initiate", paymentPayload);
+        const paymentEndpoint = normalizedGatewayName.includes("icici") ? "/api/v2/icicipayment/initiate" : "/api/v2/easebuzzpayment/initiate";
+        paymentResponse = await ep1.post(paymentEndpoint, { ...paymentPayload, gateway: selectedGateway?.gatewayname || "", frontendcallbackurl: window.location.href });
       } catch (error) {
         initiationError = error;
       }

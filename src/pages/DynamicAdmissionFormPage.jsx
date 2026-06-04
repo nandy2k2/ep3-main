@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
+import QRCode from "qrcode";
 import {
   Box,
   Button,
@@ -15,6 +16,7 @@ import {
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import PrintIcon from "@mui/icons-material/Print";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import EditIcon from "@mui/icons-material/Edit";
 import ep1 from "../api/ep1";
@@ -93,6 +95,7 @@ export default function DynamicAdmissionFormPage() {
   const [fields, setFields] = useState([]);
   const [forms, setForms] = useState([]);
   const [selectedFormId, setSelectedFormId] = useState("default");
+  const [qrPreview, setQrPreview] = useState(null);
   const [programTypes, setProgramTypes] = useState([]);
   const [levelOptions, setLevelOptions] = useState([]);
   const [programs, setPrograms] = useState([]);
@@ -195,8 +198,36 @@ export default function DynamicAdmissionFormPage() {
   const credentialDraftRedLevelAiRetrieveLink = `${window.location.origin}/admission-apply-tabbed-program-credential-draft-red-level-ai?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}`;
   const credentialDraftRedLevelAiPhAdmissionLink = `${window.location.origin}/admission-apply-tabbed-program-credential-draft-red-level-ai-ph?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}`;
   const credentialDraftRedLevelAiPhRetrieveLink = `${window.location.origin}/admission-apply-tabbed-program-credential-draft-red-level-ai-ph?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}`;
+  const shortAiPhAdmissionLink = `${window.location.origin}/admission-ai-ph?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}`;
+  const shortAiPhRetrieveLink = `${window.location.origin}/admission-ai-ph?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}`;
+  const shortAiPhFormDocumentsAdmissionLink = `${window.location.origin}/admission-ai-ph-documents?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}`;
+  const shortAiPhFormDocumentsRetrieveLink = `${window.location.origin}/admission-ai-ph-documents?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}`;
   const applicationLookupLink = `${window.location.origin}/admission-application-lookup?colid=${global1.colid}`;
   const subjectAdmissionLink = `${window.location.origin}/admission-apply-subjects?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}${levelQuery}`;
+  const shareLinks = [
+    { label: "Original admission link", value: publicAdmissionLink },
+    { label: "Grouped program admission link", value: groupedAdmissionLink },
+    { label: "Tabbed grouped admission link", value: tabbedAdmissionLink },
+    { label: "Tabbed program admission link", value: tabbedProgramAdmissionLink },
+    { label: "Tabbed program admission link with save per tab", value: tabbedProgramDraftAdmissionLink },
+    { label: "Retrieve application and continue editing link", value: continueDraftAdmissionLink },
+    { label: "Credential draft admission link", value: credentialDraftAdmissionLink },
+    { label: "Credential retrieve and continue link", value: credentialDraftRetrieveLink },
+    { label: "Red tabbed credential admission link", value: credentialDraftRedAdmissionLink },
+    { label: "Red tabbed retrieve and continue link", value: credentialDraftRedRetrieveLink },
+    { label: "Red tabbed admission link with level selection", value: credentialDraftRedLevelAdmissionLink },
+    { label: "Red tabbed level retrieve and continue link", value: credentialDraftRedLevelRetrieveLink },
+    { label: "Red tabbed AI validation admission link", value: credentialDraftRedLevelAiAdmissionLink },
+    { label: "Red tabbed AI validation retrieve and continue link", value: credentialDraftRedLevelAiRetrieveLink },
+    { label: "Red tabbed AI validation admission link with Physically Handicapped", value: credentialDraftRedLevelAiPhAdmissionLink },
+    { label: "Red tabbed AI validation retrieve link with Physically Handicapped", value: credentialDraftRedLevelAiPhRetrieveLink },
+    { label: "Short AI PH admission link", value: shortAiPhAdmissionLink },
+    { label: "Short AI PH retrieve link", value: shortAiPhRetrieveLink },
+    { label: "Short AI PH admission link with form documents", value: shortAiPhFormDocumentsAdmissionLink },
+    { label: "Short AI PH retrieve link with form documents", value: shortAiPhFormDocumentsRetrieveLink },
+    { label: "Application print/payment lookup link", value: applicationLookupLink },
+    { label: "Admission configuration link", value: subjectAdmissionLink }
+  ];
   const groupedFields = useMemo(() => groupFieldsByPageAndSection(fields), [fields]);
 
   const updateForm = (field, value) => {
@@ -454,6 +485,69 @@ export default function DynamicAdmissionFormPage() {
     }
   };
 
+  const generateQrCode = async (link, label) => {
+    try {
+      const dataUrl = await QRCode.toDataURL(link, {
+        width: 320,
+        margin: 2,
+        errorCorrectionLevel: "H"
+      });
+      setQrPreview({
+        label,
+        link,
+        formName: selectedForm?.title || selectedFormId || "Admission Form",
+        dataUrl
+      });
+      setCopyMessage(`${label} QR code generated`);
+      return dataUrl;
+    } catch (err) {
+      setCopyMessage("Unable to generate QR code");
+      return "";
+    }
+  };
+
+  const printQrCode = async (link, label) => {
+    const dataUrl = await generateQrCode(link, label);
+    if (!dataUrl) return;
+    const formName = selectedForm?.title || selectedFormId || "Admission Form";
+    const printWindow = window.open("", "_blank", "width=800,height=900");
+    if (!printWindow) {
+      setCopyMessage("Popup blocked. Please allow popup to print QR code.");
+      return;
+    }
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>${formName} - ${label}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 32px; color: #111827; }
+            .page { max-width: 720px; margin: 0 auto; text-align: center; }
+            h1 { font-size: 24px; margin: 0 0 8px; }
+            h2 { font-size: 18px; margin: 0 0 24px; font-weight: 600; color: #374151; }
+            img { width: 320px; height: 320px; margin: 12px auto 20px; display: block; }
+            .link { overflow-wrap: anywhere; font-size: 13px; line-height: 1.5; border-top: 1px solid #d1d5db; padding-top: 16px; }
+            @media print { body { padding: 24px; } }
+          </style>
+        </head>
+        <body>
+          <div class="page">
+            <h1>${formName}</h1>
+            <h2>${label}</h2>
+            <img src="${dataUrl}" alt="QR Code" />
+            <div class="link">${link}</div>
+          </div>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(function(){ window.close(); }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   const submitApplication = async () => {
     try {
       await ep1.post("/admission-dynamic/applications", {
@@ -593,114 +687,31 @@ export default function DynamicAdmissionFormPage() {
       <Grid item xs={12}>
         <Paper sx={{ p: 2 }}>
           <Typography variant="h6" sx={{ mb: 1 }}>Share Admission Form</Typography>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
-            <TextField fullWidth label="Original admission link" value={publicAdmissionLink} InputProps={{ readOnly: true }} />
-            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(publicAdmissionLink, "Original admission link")} sx={{ minWidth: 150, height: 56 }}>
-              Copy
-            </Button>
-          </Stack>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
-            <TextField fullWidth label="Grouped program admission link" value={groupedAdmissionLink} InputProps={{ readOnly: true }} />
-            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(groupedAdmissionLink, "Grouped program admission link")} sx={{ minWidth: 150, height: 56 }}>
-              Copy
-            </Button>
-          </Stack>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
-            <TextField fullWidth label="Tabbed grouped admission link" value={tabbedAdmissionLink} InputProps={{ readOnly: true }} />
-            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(tabbedAdmissionLink, "Tabbed grouped admission link")} sx={{ minWidth: 150, height: 56 }}>
-              Copy
-            </Button>
-          </Stack>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
-            <TextField fullWidth label="Tabbed program admission link" value={tabbedProgramAdmissionLink} InputProps={{ readOnly: true }} />
-            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(tabbedProgramAdmissionLink, "Tabbed program admission link")} sx={{ minWidth: 150, height: 56 }}>
-              Copy
-            </Button>
-          </Stack>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
-            <TextField fullWidth label="Tabbed program admission link with save per tab" value={tabbedProgramDraftAdmissionLink} InputProps={{ readOnly: true }} />
-            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(tabbedProgramDraftAdmissionLink, "Tabbed program admission link with save per tab")} sx={{ minWidth: 150, height: 56 }}>
-              Copy
-            </Button>
-          </Stack>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
-            <TextField fullWidth label="Retrieve application and continue editing link" value={continueDraftAdmissionLink} InputProps={{ readOnly: true }} />
-            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(continueDraftAdmissionLink, "Retrieve and continue editing link")} sx={{ minWidth: 150, height: 56 }}>
-              Copy
-            </Button>
-          </Stack>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
-            <TextField fullWidth label="Credential draft admission link" value={credentialDraftAdmissionLink} InputProps={{ readOnly: true }} />
-            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(credentialDraftAdmissionLink, "Credential draft admission link")} sx={{ minWidth: 150, height: 56 }}>
-              Copy
-            </Button>
-          </Stack>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
-            <TextField fullWidth label="Credential retrieve and continue link" value={credentialDraftRetrieveLink} InputProps={{ readOnly: true }} />
-            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(credentialDraftRetrieveLink, "Credential retrieve and continue link")} sx={{ minWidth: 150, height: 56 }}>
-              Copy
-            </Button>
-          </Stack>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
-            <TextField fullWidth label="Red tabbed credential admission link" value={credentialDraftRedAdmissionLink} InputProps={{ readOnly: true }} />
-            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(credentialDraftRedAdmissionLink, "Red tabbed credential admission link")} sx={{ minWidth: 150, height: 56 }}>
-              Copy
-            </Button>
-          </Stack>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
-            <TextField fullWidth label="Red tabbed retrieve and continue link" value={credentialDraftRedRetrieveLink} InputProps={{ readOnly: true }} />
-            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(credentialDraftRedRetrieveLink, "Red tabbed retrieve and continue link")} sx={{ minWidth: 150, height: 56 }}>
-              Copy
-            </Button>
-          </Stack>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
-            <TextField fullWidth label="Red tabbed admission link with level selection" value={credentialDraftRedLevelAdmissionLink} InputProps={{ readOnly: true }} />
-            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(credentialDraftRedLevelAdmissionLink, "Red tabbed admission link with level selection")} sx={{ minWidth: 150, height: 56 }}>
-              Copy
-            </Button>
-          </Stack>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
-            <TextField fullWidth label="Red tabbed level retrieve and continue link" value={credentialDraftRedLevelRetrieveLink} InputProps={{ readOnly: true }} />
-            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(credentialDraftRedLevelRetrieveLink, "Red tabbed level retrieve and continue link")} sx={{ minWidth: 150, height: 56 }}>
-              Copy
-            </Button>
-          </Stack>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
-            <TextField fullWidth label="Red tabbed AI validation admission link" value={credentialDraftRedLevelAiAdmissionLink} InputProps={{ readOnly: true }} />
-            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(credentialDraftRedLevelAiAdmissionLink, "Red tabbed AI validation admission link")} sx={{ minWidth: 150, height: 56 }}>
-              Copy
-            </Button>
-          </Stack>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
-            <TextField fullWidth label="Red tabbed AI validation retrieve and continue link" value={credentialDraftRedLevelAiRetrieveLink} InputProps={{ readOnly: true }} />
-            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(credentialDraftRedLevelAiRetrieveLink, "Red tabbed AI validation retrieve and continue link")} sx={{ minWidth: 150, height: 56 }}>
-              Copy
-            </Button>
-          </Stack>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
-            <TextField fullWidth label="Red tabbed AI validation admission link with Physically Handicapped" value={credentialDraftRedLevelAiPhAdmissionLink} InputProps={{ readOnly: true }} />
-            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(credentialDraftRedLevelAiPhAdmissionLink, "Red tabbed AI validation admission link with Physically Handicapped")} sx={{ minWidth: 150, height: 56 }}>
-              Copy
-            </Button>
-          </Stack>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
-            <TextField fullWidth label="Red tabbed AI validation retrieve link with Physically Handicapped" value={credentialDraftRedLevelAiPhRetrieveLink} InputProps={{ readOnly: true }} />
-            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(credentialDraftRedLevelAiPhRetrieveLink, "Red tabbed AI validation retrieve link with Physically Handicapped")} sx={{ minWidth: 150, height: 56 }}>
-              Copy
-            </Button>
-          </Stack>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
-            <TextField fullWidth label="Application print/payment lookup link" value={applicationLookupLink} InputProps={{ readOnly: true }} />
-            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(applicationLookupLink, "Application print/payment lookup link")} sx={{ minWidth: 150, height: 56 }}>
-              Copy
-            </Button>
-          </Stack>
-          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }}>
-            <TextField fullWidth label="Admission configuration link" value={subjectAdmissionLink} InputProps={{ readOnly: true }} />
-            <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(subjectAdmissionLink, "Admission configuration link")} sx={{ minWidth: 150, height: 56 }}>
-              Copy
-            </Button>
-          </Stack>
+          {shareLinks.map((item) => (
+            <Stack key={item.label} direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 1 }}>
+              <TextField fullWidth label={item.label} value={item.value} InputProps={{ readOnly: true }} />
+              <Button variant="contained" startIcon={<ContentCopyIcon />} onClick={() => copyPublicLink(item.value, item.label)} sx={{ minWidth: 120, height: 56 }}>
+                Copy
+              </Button>
+              <Button variant="outlined" onClick={() => generateQrCode(item.value, item.label)} sx={{ minWidth: 130, height: 56 }}>
+                Generate QR
+              </Button>
+              <Button variant="outlined" startIcon={<PrintIcon />} onClick={() => printQrCode(item.value, item.label)} sx={{ minWidth: 120, height: 56 }}>
+                Print QR
+              </Button>
+            </Stack>
+          ))}
+          {qrPreview && (
+            <Paper variant="outlined" sx={{ p: 2, mt: 2, textAlign: "center" }}>
+              <Typography variant="h6" fontWeight={700}>{qrPreview.formName}</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{qrPreview.label}</Typography>
+              <Box component="img" src={qrPreview.dataUrl} alt="Admission form QR code" sx={{ width: 220, height: 220 }} />
+              <Typography variant="caption" display="block" sx={{ mt: 1, wordBreak: "break-all" }}>{qrPreview.link}</Typography>
+              <Button variant="contained" startIcon={<PrintIcon />} sx={{ mt: 2 }} onClick={() => printQrCode(qrPreview.link, qrPreview.label)}>
+                Print This QR
+              </Button>
+            </Paper>
+          )}
           {copyMessage && <Typography color="success.main" sx={{ mt: 1 }}>{copyMessage}</Typography>}
         </Paper>
       </Grid>

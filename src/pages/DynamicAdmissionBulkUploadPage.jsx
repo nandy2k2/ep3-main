@@ -18,11 +18,14 @@ import ep1 from "../api/ep1";
 import global1 from "./global1";
 
 const standardFields = [
+  { key: "formid", label: "Form ID", sample: "default" },
   { key: "academicyear", label: "Academic Year", sample: "2026-27" },
   { key: "programtype", label: "Program Type", sample: "UG" },
   { key: "programapplied", label: "Program Applied", sample: "B.Com" },
   { key: "programcode", label: "Program Code", sample: "BCOM" },
   { key: "name", label: "Name", sample: "Student Name" },
+  { key: "username", label: "Username", sample: "student@example.com" },
+  { key: "password", label: "Password", sample: "Student@123" },
   { key: "email", label: "Email", sample: "student@example.com" },
   { key: "phone", label: "Phone", sample: "9999999999" },
   { key: "address", label: "Address", sample: "Address" },

@@ -20,7 +20,7 @@ import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
 
 const subjectTypes = ["Major", "Minor"];
-const blankForm = { examId: "", academicyear: "", regulation: "", exam: "", examcode: "", program: "", programcode: "", type: "Major", subject: "", semester: "", courses: [] };
+const blankForm = { examId: "", academicyear: "", regulation: "", exam: "", examcode: "", examdate: "", examslot: "", program: "", programcode: "", type: "Major", subject: "", semester: "", courses: [] };
 const uniq = (items) => [...new Set(items.filter(Boolean).map((item) => String(item).trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
 export default function ConductExamCoursePage() {
@@ -29,7 +29,7 @@ export default function ConductExamCoursePage() {
   const [rows, setRows] = useState([]);
   const [form, setForm] = useState(blankForm);
   const [editId, setEditId] = useState("");
-  const [filters, setFilters] = useState({ academicyear: "", regulation: "", examcode: "", programcode: "", type: "", subject: "", semester: "" });
+  const [filters, setFilters] = useState({ academicyear: "", regulation: "", examcode: "", examdate: "", examslot: "", programcode: "", type: "", subject: "", semester: "" });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -130,6 +130,8 @@ export default function ConductExamCoursePage() {
       regulation: row.regulation || "",
       exam: row.exam || "",
       examcode: row.examcode || "",
+      examdate: row.examdate ? String(row.examdate).slice(0, 10) : "",
+      examslot: row.examslot || "",
       program: row.program || "",
       programcode: row.programcode || "",
       type: row.type || "Major",
@@ -149,7 +151,7 @@ export default function ConductExamCoursePage() {
   };
 
   const downloadTemplate = () => {
-    const worksheet = XLSX.utils.json_to_sheet([{ academicyear: "2026-27", regulation: "NEP 2026", exam: "Semester End Examination", examcode: "SEE-2026-ODD", program: "B.Com", programcode: "BCOM", type: "Major", subject: "Accountancy", semester: "1", course: "Financial Accounting", coursecode: "BCOM-MAJ-101" }]);
+    const worksheet = XLSX.utils.json_to_sheet([{ academicyear: "2026-27", regulation: "NEP 2026", exam: "Semester End Examination", examcode: "SEE-2026-ODD", examdate: "2026-12-10", examslot: "10:00 AM - 1:00 PM", program: "B.Com", programcode: "BCOM", type: "Major", subject: "Accountancy", semester: "1", course: "Financial Accounting", coursecode: "BCOM-MAJ-101" }]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Exam Courses");
     XLSX.writeFile(workbook, "conduct_exam_courses_template.xlsx");
@@ -173,6 +175,8 @@ export default function ConductExamCoursePage() {
     { field: "regulation", headerName: "Regulation", width: 150 },
     { field: "exam", headerName: "Exam", minWidth: 180, flex: 1 },
     { field: "examcode", headerName: "Exam Code", width: 150 },
+    { field: "examdate", headerName: "Exam Date", width: 130, valueGetter: ({ row }) => row.examdate ? String(row.examdate).slice(0, 10) : "" },
+    { field: "examslot", headerName: "Exam Slot", width: 170 },
     { field: "program", headerName: "Program", minWidth: 160, flex: 1 },
     { field: "programcode", headerName: "Program Code", width: 140 },
     { field: "type", headerName: "Type", width: 110 },
@@ -198,6 +202,8 @@ export default function ConductExamCoursePage() {
         <Grid container spacing={2}>
           <Grid item xs={12} md={3}><TextField select fullWidth label="Exam" value={form.examId} onChange={(e) => selectExam(e.target.value)}>{exams.map((item) => <MenuItem key={item._id} value={item._id}>{item.academicyear} - {item.examname} ({item.examcode})</MenuItem>)}</TextField></Grid>
           <Grid item xs={12} md={1.5}><TextField fullWidth label="Academic Year" value={form.academicyear} InputProps={{ readOnly: true }} /></Grid>
+          <Grid item xs={12} md={1.5}><TextField fullWidth type="date" label="Exam Date" value={form.examdate} onChange={(e) => setForm({ ...form, examdate: e.target.value })} InputLabelProps={{ shrink: true }} /></Grid>
+          <Grid item xs={12} md={2}><TextField fullWidth label="Exam Slot" value={form.examslot} onChange={(e) => setForm({ ...form, examslot: e.target.value })} /></Grid>
           <Grid item xs={12} md={2}><TextField select fullWidth label="Regulation" value={form.regulation} onChange={(e) => selectRegulation(e.target.value)} disabled={!form.academicyear}>{regulationOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
           <Grid item xs={12} md={3}><TextField select fullWidth label="Program" value={form.programcode} onChange={(e) => selectProgram(e.target.value)} disabled={!form.regulation}>{programOptions.map((item) => <MenuItem key={item.programcode} value={item.programcode}>{item.program} ({item.programcode})</MenuItem>)}</TextField></Grid>
           <Grid item xs={12} md={1.5}><TextField select fullWidth label="Type" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value, subject: "", semester: "", courses: [] })} disabled={!form.programcode}>{subjectTypes.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>

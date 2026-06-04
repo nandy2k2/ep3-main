@@ -44,7 +44,7 @@ export default function CrmMyLeadsPage() {
   const [form, setForm] = useState(blankLead);
   const [filters, setFilters] = useState({ search: "", year: "", source: "", pipeline_stage: "", leadstatus: "" });
   const [selectedLead, setSelectedLead] = useState(null);
-  const [statusForm, setStatusForm] = useState({ pipeline_stage: "", leadstatus: "" });
+  const [statusForm, setStatusForm] = useState({ pipeline_stage: "", leadstatus: "", next_followup_date: "", comments: "" });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -112,7 +112,9 @@ export default function CrmMyLeadsPage() {
     setSelectedLead(row);
     setStatusForm({
       pipeline_stage: row.pipeline_stage || "",
-      leadstatus: row.leadstatus || "Active"
+      leadstatus: row.leadstatus || "Active",
+      next_followup_date: row.next_followup_date ? String(row.next_followup_date).slice(0, 10) : "",
+      comments: row.comments || ""
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -130,7 +132,7 @@ export default function CrmMyLeadsPage() {
     });
     setMessage("Lead status updated.");
     setSelectedLead(null);
-    setStatusForm({ pipeline_stage: "", leadstatus: "" });
+    setStatusForm({ pipeline_stage: "", leadstatus: "", next_followup_date: "", comments: "" });
     loadLeads();
   };
 
@@ -144,6 +146,9 @@ export default function CrmMyLeadsPage() {
     { field: "source", headerName: "Source", minWidth: 140 },
     { field: "pipeline_stage", headerName: "Pipeline Stage", minWidth: 180 },
     { field: "leadstatus", headerName: "Lead Status", minWidth: 140 },
+    { field: "followupdate", headerName: "Follow-up", minWidth: 140, valueGetter: ({ row }) => row.followupdate ? String(row.followupdate).slice(0, 10) : "" },
+    { field: "next_followup_date", headerName: "Next Follow-up", minWidth: 150, valueGetter: ({ row }) => row.next_followup_date ? String(row.next_followup_date).slice(0, 10) : "" },
+    { field: "comments", headerName: "Comments", minWidth: 220, flex: 1 },
     { field: "updatedAt", headerName: "Updated", minWidth: 130, valueGetter: ({ row }) => row.updatedAt ? String(row.updatedAt).slice(0, 10) : "" },
     {
       field: "select",
@@ -189,10 +194,12 @@ export default function CrmMyLeadsPage() {
       <Paper elevation={0} sx={{ p: 2, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
         <Typography variant="h6" fontWeight={800} sx={{ mb: 2 }}>{selectedLead ? `Update: ${selectedLead.name}` : "Update Selected Lead"}</Typography>
         <Grid container spacing={2}>
-          <Grid item xs={12} md={4}><TextField select fullWidth label="Pipeline Stage" value={statusForm.pipeline_stage} onChange={(e) => setStatusForm({ ...statusForm, pipeline_stage: e.target.value })}>{stages.map((item) => <MenuItem key={item._id} value={item.stagename}>{item.stagename}</MenuItem>)}</TextField></Grid>
-          <Grid item xs={12} md={4}><TextField select fullWidth label="Lead Status" value={statusForm.leadstatus} onChange={(e) => setStatusForm({ ...statusForm, leadstatus: e.target.value })}>{leadStatusList.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+          <Grid item xs={12} md={3}><TextField select fullWidth label="Pipeline Stage" value={statusForm.pipeline_stage} onChange={(e) => setStatusForm({ ...statusForm, pipeline_stage: e.target.value })}>{stages.map((item) => <MenuItem key={item._id} value={item.stagename}>{item.stagename}</MenuItem>)}</TextField></Grid>
+          <Grid item xs={12} md={2.5}><TextField select fullWidth label="Lead Status" value={statusForm.leadstatus} onChange={(e) => setStatusForm({ ...statusForm, leadstatus: e.target.value })}>{leadStatusList.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+          <Grid item xs={12} md={2.5}><TextField type="date" InputLabelProps={{ shrink: true }} fullWidth label="Next follow-up date" value={statusForm.next_followup_date} onChange={(e) => setStatusForm({ ...statusForm, next_followup_date: e.target.value })} /></Grid>
+          <Grid item xs={12} md={4}><TextField fullWidth label="Comments" value={statusForm.comments} onChange={(e) => setStatusForm({ ...statusForm, comments: e.target.value })} /></Grid>
           <Grid item xs={12} md={2}><Button fullWidth variant="contained" sx={{ height: 56 }} disabled={!selectedLead} onClick={updateStatus}>Update</Button></Grid>
-          <Grid item xs={12} md={2}><Button fullWidth variant="outlined" sx={{ height: 56 }} onClick={() => { setSelectedLead(null); setStatusForm({ pipeline_stage: "", leadstatus: "" }); }}>Cancel</Button></Grid>
+          <Grid item xs={12} md={2}><Button fullWidth variant="outlined" sx={{ height: 56 }} onClick={() => { setSelectedLead(null); setStatusForm({ pipeline_stage: "", leadstatus: "", next_followup_date: "", comments: "" }); }}>Cancel</Button></Grid>
         </Grid>
       </Paper>
 

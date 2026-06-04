@@ -6,10 +6,12 @@ import {
   Button,
   Chip,
   Container,
+  Divider,
   FormControl,
   Grid,
   IconButton,
   InputLabel,
+  LinearProgress,
   MenuItem,
   Paper,
   Select,
@@ -31,7 +33,9 @@ const filterFields = [
   { field: "programcode", label: "Program Code" },
   { field: "type", label: "Type" },
   { field: "subject", label: "Subject" },
-  { field: "semester", label: "Semester" }
+  { field: "semester", label: "Semester" },
+  { field: "course", label: "Course" },
+  { field: "coursecode", label: "Course Code" }
 ];
 
 const courseMapFields = ["academicyear", "regulation", "program", "programcode", "type", "subject", "semester", "course", "coursecode"];
@@ -93,6 +97,9 @@ export default function SyllabusPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [newSyllabusChange, setNewSyllabusChange] = useState("");
+  const [assessing, setAssessing] = useState(false);
+  const [assessmentResult, setAssessmentResult] = useState(null);
 
   const filterParams = useMemo(() => {
     const params = {};
@@ -346,6 +353,28 @@ export default function SyllabusPage() {
     }
   };
 
+  const assessSyllabusChange = async () => {
+    if (!newSyllabusChange.trim()) {
+      setError("Please enter the new syllabus change first");
+      return;
+    }
+    try {
+      setAssessing(true);
+      setError("");
+      setAssessmentResult(null);
+      const res = await ep1.post("/api/v2/syllabus/assess-change", {
+        colid,
+        filters: filterParams,
+        newSyllabusChange
+      });
+      setAssessmentResult(res.data.data || null);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to assess syllabus change");
+    } finally {
+      setAssessing(false);
+    }
+  };
+
   const columns = [
     {
       field: "actions",
@@ -444,6 +473,107 @@ export default function SyllabusPage() {
             </Stack>
           </Grid>
         </Grid>
+      </Paper>
+
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1.5} sx={{ mb: 1.5 }}>
+          <Box>
+            <Typography variant="subtitle1" fontWeight={800}>Assess New Syllabus Change</Typography>
+            <Typography variant="body2" color="text.secondary">The assessment uses the syllabus records loaded by the filters above.</Typography>
+          </Box>
+          <Button
+            variant="contained"
+            onClick={assessSyllabusChange}
+            disabled={assessing || !newSyllabusChange.trim()}
+            sx={{ minWidth: 140 }}
+          >
+            {assessing ? "Assessing..." : "Assess"}
+          </Button>
+        </Stack>
+        {assessing && <LinearProgress sx={{ mb: 2 }} />}
+        <TextField
+          fullWidth
+          multiline
+          minRows={4}
+          label="New syllabus change"
+          value={newSyllabusChange}
+          onChange={(e) => setNewSyllabusChange(e.target.value)}
+        />
+        {assessmentResult && (
+          <Box sx={{ mt: 2 }}>
+            <Grid container spacing={1.5}>
+              <Grid item xs={12} md={3}>
+                <Paper variant="outlined" sx={{ p: 1.5 }}>
+                  <Typography variant="caption" color="text.secondary">Matching content</Typography>
+                  <Typography variant="h5" fontWeight={800}>{assessmentResult.matchPercent}%</Typography>
+                </Paper>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Paper variant="outlined" sx={{ p: 1.5 }}>
+                  <Typography variant="caption" color="text.secondary">New content</Typography>
+                  <Typography variant="h5" fontWeight={800}>{assessmentResult.newPercent}%</Typography>
+                </Paper>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Paper variant="outlined" sx={{ p: 1.5 }}>
+                  <Typography variant="caption" color="text.secondary">Modules checked</Typography>
+                  <Typography variant="h5" fontWeight={800}>{assessmentResult.recordCount}</Typography>
+                </Paper>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Paper variant="outlined" sx={{ p: 1.5 }}>
+                  <Typography variant="caption" color="text.secondary">Courses checked</Typography>
+                  <Typography variant="h5" fontWeight={800}>{assessmentResult.courseCount}</Typography>
+                </Paper>
+              </Grid>
+            </Grid>
+            <Alert severity="info" sx={{ mt: 2 }}>{assessmentResult.opinion}</Alert>
+            <Grid container spacing={2} sx={{ mt: 0.5 }}>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1 }}>Closest Module Matches</Typography>
+                <Stack spacing={1}>
+                  {assessmentResult.moduleMatches.map((item, index) => (
+                    <Box key={`${item.module}-${index}`}>
+                      <Stack direction="row" justifyContent="space-between" spacing={1}>
+                        <Typography variant="body2" fontWeight={700}>{item.module} {item.coursecode ? `(${item.coursecode})` : ""}</Typography>
+                        <Typography variant="body2">{item.similarity}%</Typography>
+                      </Stack>
+                      <LinearProgress variant="determinate" value={item.similarity} sx={{ mt: 0.5 }} />
+                    </Box>
+                  ))}
+                </Stack>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1 }}>Terms Summary</Typography>
+                <Stack spacing={1}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Matching terms</Typography>
+                    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+                      {assessmentResult.matchedTerms.length ? assessmentResult.matchedTerms.map((term) => <Chip key={term} size="small" label={term} />) : <Typography variant="body2">No strong matching terms found.</Typography>}
+                    </Stack>
+                  </Box>
+                  <Divider />
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Likely new terms</Typography>
+                    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+                      {assessmentResult.newTerms.length ? assessmentResult.newTerms.map((term) => <Chip key={term} size="small" color="secondary" label={term} />) : <Typography variant="body2">No major new terms detected.</Typography>}
+                    </Stack>
+                  </Box>
+                </Stack>
+              </Grid>
+              {!!assessmentResult.newSentences.length && (
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 1 }}>Content That Looks New</Typography>
+                  <Stack spacing={0.75}>
+                    {assessmentResult.newSentences.map((item, index) => (
+                      <Typography key={`${item.sentence}-${index}`} variant="body2">- {item.sentence}</Typography>
+                    ))}
+                  </Stack>
+                </Grid>
+              )}
+            </Grid>
+          </Box>
+        )}
       </Paper>
 
       <Paper component="form" onSubmit={saveRow} sx={{ p: 2, mb: 2 }}>

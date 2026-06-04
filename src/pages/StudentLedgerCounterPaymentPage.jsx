@@ -135,6 +135,21 @@ export default function StudentLedgerCounterPaymentPage() {
     setAmounts((prev) => ({ ...prev, [id]: value === "" ? "" : capped }));
   };
 
+  const handleSelectionChange = (ids) => {
+    const selectedIds = Array.from(ids?.ids || ids || []);
+    setSelection(selectedIds);
+    setAmounts((prev) => {
+      const next = { ...prev };
+      selectedIds.forEach((id) => {
+        if (next[id] === "" || next[id] === undefined || next[id] === null) {
+          const row = rows.find((item) => item._id === id);
+          next[id] = toNumber(row?.balance);
+        }
+      });
+      return next;
+    });
+  };
+
   const paySelected = async () => {
     const items = selectedRows
       .map((row) => ({ id: row._id, amountreceived: toNumber(amounts[row._id]) }))
@@ -299,7 +314,7 @@ export default function StudentLedgerCounterPaymentPage() {
           loading={loading}
           checkboxSelection
           rowSelectionModel={selection}
-          onRowSelectionModelChange={(ids) => setSelection(ids)}
+          onRowSelectionModelChange={handleSelectionChange}
           autoHeight
           slots={{ toolbar: GridToolbar }}
           slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "counter_fee_payment" } } }}

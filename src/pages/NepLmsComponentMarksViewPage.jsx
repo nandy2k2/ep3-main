@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 import { ArrowBack, Delete, Refresh, SettingsSuggest } from "@mui/icons-material";
 import { DataGrid, GridActionsCellItem, GridToolbar } from "@mui/x-data-grid";
+import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 
@@ -137,6 +138,75 @@ export default function NepLmsComponentMarksViewPage() {
     }
   };
 
+  const downloadTemplate = () => {
+    const headers = [
+      "academicyear",
+      "semester",
+      "programcode",
+      "course",
+      "coursecode",
+      "major",
+      "subject",
+      "student",
+      "regno",
+      "assessmentgroup",
+      "grouptype",
+      "scoretype",
+      "marks",
+      "passmarks",
+      "credits",
+      "passstatus"
+    ];
+    const sample = {
+      academicyear: "2026-27",
+      semester: "1",
+      programcode: "NA",
+      course: "Course Name",
+      coursecode: "COURSE101",
+      major: "Subject",
+      subject: "Subject",
+      student: "Student Name",
+      regno: "REG001",
+      assessmentgroup: "Internal",
+      grouptype: "Average",
+      scoretype: "Internal",
+      marks: 25,
+      passmarks: 10,
+      credits: 4,
+      passstatus: "Pass"
+    };
+    const ws = XLSX.utils.json_to_sheet([sample], { header: headers });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "ComponentMarks");
+    XLSX.writeFile(wb, "neplms_component_marks_template.xlsx");
+  };
+
+  const uploadBulk = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      setLoading(true);
+      setError("");
+      setMessage("");
+      const data = new FormData();
+      data.append("file", file);
+      data.append("colid", global1.colid);
+      data.append("user", global1.user || "");
+      const res = await ep1.post("/api/v2/neplms/component-marks/bulk-upload", data, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+      const errors = res.data?.errors || [];
+      setMessage(`Bulk upload completed. Saved: ${res.data?.saved || 0}${errors.length ? `, Errors: ${errors.length}` : ""}`);
+      if (errors.length) setError(errors.slice(0, 8).map((item) => `Row ${item.rowNumber}: ${item.message}`).join("\n"));
+      await loadMarks(filters);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to upload componentwise marks");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const columns = [
     { field: "academicyear", headerName: "Academic Year", width: 140 },
     { field: "semester", headerName: "Semester", width: 110 },
@@ -190,6 +260,11 @@ export default function NepLmsComponentMarksViewPage() {
         <Stack direction="row" spacing={1}>
           <Button component={RouterLink} to="/dashdashfacnew" variant="outlined" startIcon={<ArrowBack />}>Back</Button>
           <Button variant="outlined" startIcon={<Refresh />} onClick={() => loadMarks(filters)}>Reload</Button>
+          <Button variant="outlined" onClick={downloadTemplate}>Download Template</Button>
+          <Button variant="contained" component="label" disabled={loading}>
+            Bulk Upload
+            <input hidden type="file" accept=".xlsx,.xls,.csv" onChange={uploadBulk} />
+          </Button>
           <Button component={RouterLink} to="/neplmsfinalmarks" variant="outlined">View Final Marks</Button>
         </Stack>
       </Stack>

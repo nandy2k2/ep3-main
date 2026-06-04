@@ -148,7 +148,8 @@ export default function AdmissionApplicationLookupPage() {
         window.location.assign(`${selectedGateway.externallink}${joiner}${params.toString()}`);
         return;
       }
-      const paymentResponse = await ep1.post("/api/v2/easebuzzpayment/initiate", {
+      const paymentEndpoint = normalizedGatewayName.includes("icici") ? "/api/v2/icicipayment/initiate" : "/api/v2/easebuzzpayment/initiate";
+      const paymentResponse = await ep1.post(paymentEndpoint, {
         colid,
         user: studentName,
         name: studentName,
@@ -161,7 +162,9 @@ export default function AdmissionApplicationLookupPage() {
         applicationid: applicationId,
         description: `${feeItem} for ${application.programapplied || application.programcode || "Admission"}`,
         email: application.email || "",
-        phone: application.phone || ""
+        phone: application.phone || "",
+        gateway: selectedGateway?.gatewayname || "",
+        frontendcallbackurl: window.location.href
       });
       const paymentUrl =
         paymentResponse?.data?.data?.paymenturl ||

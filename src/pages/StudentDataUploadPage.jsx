@@ -6,6 +6,7 @@ import {
   Box,
   Button,
   Grid,
+  LinearProgress,
   MenuItem,
   Paper,
   Stack,
@@ -23,8 +24,8 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 
-const subjectFields = ["Major", "Minor", "AEC", "SEC", "VAC", "IDC"];
-const fields = ["name", "regno", "email", "phone", "program", "programcode", "regulation", ...subjectFields, "academicyear", "admissionyear", "rollno", "gender", "category", "state", "city", "district", "pincode", "guardianname", "guardianmobile", "guardianemail", "photo", "semester", "section"];
+const subjectFields = ["Major", "Minor", "AEC", "SEC", "VAC", "IDC", "MDC"];
+const fields = ["name", "regno", "email", "phone", "regulation", "program", "programcode", ...subjectFields, "academicyear", "admissionyear", "rollno", "gender", "category", "state", "city", "district", "pincode", "guardianname", "guardianmobile", "guardianemail", "photo", "semester", "section"];
 const academicYears = ["2023-24", "2024-25", "2025-26", "2026-27", "2027-28"];
 const semesters = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
 const staticDropdownOptions = {
@@ -48,6 +49,7 @@ const labels = {
   SEC: "SEC",
   VAC: "VAC",
   IDC: "IDC",
+  MDC: "MDC",
   academicyear: "Academic Year",
   admissionyear: "Admission Year",
   rollno: "Roll No",
@@ -77,6 +79,7 @@ const valueFromRow = (row, field) => {
     SEC: ["sec", "SEC"],
     VAC: ["vac", "VAC"],
     IDC: ["idc", "IDC"],
+    MDC: ["mdc", "MDC", "mdcsub"],
     academicyear: ["academicyear", "academic year"],
     admissionyear: ["admissionyear", "admission year"],
     rollno: ["rollno", "roll no", "roll number"],
@@ -112,8 +115,10 @@ export default function StudentDataUploadPage() {
   const [regulationOptions, setRegulationOptions] = useState([]);
   const [subjectOptions, setSubjectOptions] = useState({});
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [bulkUploading, setBulkUploading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkSubject, setBulkSubject] = useState({ oldMajor: "", newMajor: "", oldMinor: "", newMinor: "" });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -197,6 +202,7 @@ export default function StudentDataUploadPage() {
   const fieldOptions = (field) => {
     if (field === "program") return programOptions.map((item) => `${item.program || item.name || ""} (${item.programcode || ""})`);
     if (field === "regulation") return regulationOptions.map((item) => item.regulation).filter(Boolean);
+    if (field === "Major" || field === "Minor") return subjectOptions[field] || [];
     if (subjectFields.includes(field)) return subjectOptions[field] || [];
     return staticDropdownOptions[field] || [];
   };
@@ -285,6 +291,7 @@ export default function StudentDataUploadPage() {
     next.SEC = row.SEC || row.sec || "";
     next.VAC = row.VAC || row.vac || "";
     next.IDC = row.IDC || row.idc || "";
+    next.MDC = row.MDC || row.mdc || row.mdcsub || "";
     setForm(next);
     setEditingId(row._id);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -324,6 +331,38 @@ export default function StudentDataUploadPage() {
     }
   };
 
+  const existingSubjectOptions = (field) => {
+    const values = rows.map((row) => row[field] || row[field.toLowerCase()] || "").filter(Boolean);
+    return [...new Set(values)].sort((a, b) => String(a).localeCompare(String(b)));
+  };
+
+  const bulkUpdateSubject = async (field) => {
+    const oldKey = field === "Major" ? "oldMajor" : "oldMinor";
+    const newKey = field === "Major" ? "newMajor" : "newMinor";
+    const oldValue = bulkSubject[oldKey];
+    const newValue = bulkSubject[newKey];
+    if (!oldValue || !newValue) {
+      setError(`Select old ${field} and enter new ${field}`);
+      return;
+    }
+    if (!window.confirm(`Update all ${field} values from "${oldValue}" to "${newValue}" for this institution?`)) return;
+    try {
+      setError("");
+      setMessage("");
+      const res = await ep1.post("/api/v2/student-data-upload-bulk-subject-update", {
+        colid: global1.colid,
+        field,
+        oldValue,
+        newValue
+      });
+      setMessage(`${field} updated. Matched: ${res.data?.matched || 0}, Modified: ${res.data?.modified || 0}`);
+      setBulkSubject((prev) => ({ ...prev, [oldKey]: "", [newKey]: "" }));
+      loadRows();
+    } catch (err) {
+      setError(err.response?.data?.msg || `Unable to update ${field}`);
+    }
+  };
+
   const downloadTemplate = () => {
     const template = fields.reduce((acc, field) => ({ ...acc, [labels[field]]: "" }), {});
     const worksheet = XLSX.utils.json_to_sheet([template]);
@@ -336,7 +375,11 @@ export default function StudentDataUploadPage() {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
+    if (bulkUploading) return;
     try {
+      setBulkUploading(true);
+      setError("");
+      setMessage("");
       const buffer = await file.arrayBuffer();
       const workbook = XLSX.read(buffer, { type: "array" });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -361,9 +404,11 @@ export default function StudentDataUploadPage() {
       const errors = res.data?.errors || [];
       setMessage(`Bulk upload completed. Saved: ${res.data?.saved || 0}${errors.length ? `, Errors: ${errors.length}` : ""}`);
       setError(errors.length ? errors.slice(0, 5).map((item) => `Row ${item.rowNumber}: ${item.msg}`).join(" | ") : "");
-      loadRows();
+      await loadRows();
     } catch (err) {
       setError(err.response?.data?.msg || "Unable to upload Excel file");
+    } finally {
+      setBulkUploading(false);
     }
   };
 
@@ -400,12 +445,22 @@ export default function StudentDataUploadPage() {
           <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={bulkDeleteRows} disabled={!selectedIds.length}>
             Delete Selected ({selectedIds.length})
           </Button>
-          <Button variant="contained" component="label" startIcon={<UploadFileIcon />}>
-            Bulk Upload
-            <input type="file" accept=".xlsx,.xls" hidden onChange={handleBulkUpload} />
+          <Button variant="contained" component="label" startIcon={<UploadFileIcon />} disabled={bulkUploading}>
+            {bulkUploading ? "Uploading..." : "Bulk Upload"}
+            <input type="file" accept=".xlsx,.xls" hidden onChange={handleBulkUpload} disabled={bulkUploading} />
           </Button>
         </Stack>
       </Stack>
+
+      {bulkUploading && (
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={1} sx={{ mb: 1 }}>
+            <Typography fontWeight={700}>Uploading student data...</Typography>
+            <Typography variant="body2" color="text.secondary">Please wait while the Excel file is processed.</Typography>
+          </Stack>
+          <LinearProgress />
+        </Paper>
+      )}
 
       {message && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setMessage("")}>{message}</Alert>}
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
@@ -448,9 +503,37 @@ export default function StudentDataUploadPage() {
         </Grid>
       </Paper>
 
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>Bulk Update Major / Minor</Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={3}>
+            <TextField select fullWidth label="Old Major" value={bulkSubject.oldMajor} onChange={(event) => setBulkSubject({ ...bulkSubject, oldMajor: event.target.value })}>
+              {existingSubjectOptions("Major").map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField fullWidth label="New Major" value={bulkSubject.newMajor} onChange={(event) => setBulkSubject({ ...bulkSubject, newMajor: event.target.value })} />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <Button fullWidth variant="contained" sx={{ height: 56 }} onClick={() => bulkUpdateSubject("Major")}>Update Major</Button>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField select fullWidth label="Old Minor" value={bulkSubject.oldMinor} onChange={(event) => setBulkSubject({ ...bulkSubject, oldMinor: event.target.value })}>
+              {existingSubjectOptions("Minor").map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField fullWidth label="New Minor" value={bulkSubject.newMinor} onChange={(event) => setBulkSubject({ ...bulkSubject, newMinor: event.target.value })} />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <Button fullWidth variant="contained" sx={{ height: 56 }} onClick={() => bulkUpdateSubject("Minor")}>Update Minor</Button>
+          </Grid>
+        </Grid>
+      </Paper>
+
       <Paper sx={{ p: 1, overflowX: "auto" }}>
         <DataGrid
-          rows={rows.map((row) => ({ ...row, id: row._id, major: row.major || row.Major || "", minor: row.minor || row.Minor || "" }))}
+          rows={rows.map((row) => ({ ...row, id: row._id, major: row.major || row.Major || "", minor: row.minor || row.Minor || "", MDC: row.MDC || row.mdc || row.mdcsub || "" }))}
           columns={columns}
           loading={loading}
           checkboxSelection

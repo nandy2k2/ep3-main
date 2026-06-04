@@ -12,6 +12,7 @@ import {
   Paper,
   Select,
   Stack,
+  TextField,
   Typography
 } from "@mui/material";
 import { ArrowBack, Delete, Download, Refresh, UploadFile } from "@mui/icons-material";
@@ -110,6 +111,11 @@ export default function NepLmsFinalMarksViewPage() {
     coursecode: ""
   });
   const [relativeStats, setRelativeStats] = useState(null);
+  const [bulkUpdate, setBulkUpdate] = useState({
+    regulation: "",
+    program: ""
+  });
+  const [selectedIds, setSelectedIds] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -192,6 +198,47 @@ export default function NepLmsFinalMarksViewPage() {
     };
     setFilters(empty);
     loadMarks(empty);
+  };
+
+  const bulkUpdateField = async (field) => {
+    const required = ["academicyear", "programcode", "coursecode"].filter((key) => !filters[key]);
+    if (required.length) {
+      setError(`Select ${required.join(", ")} before bulk updating ${field}`);
+      return;
+    }
+    const value = String(bulkUpdate[field] || "").trim();
+    if (!value) {
+      setError(`Enter ${field} value to update`);
+      return;
+    }
+    const ok = window.confirm(`Update ${field} to "${value}" for Academic Year ${filters.academicyear}, Program Code ${filters.programcode}, Course Code ${filters.coursecode}?`);
+    if (!ok) return;
+    try {
+      setLoading(true);
+      setError("");
+      setMessage("");
+      const res = await ep1.post("/api/v2/neplms/final-marks/bulk-update-field", {
+        colid: global1.colid,
+        user: global1.user,
+        academicyear: filters.academicyear,
+        programcode: filters.programcode,
+        coursecode: filters.coursecode,
+        field,
+        value
+      });
+      setMessage(`${res.data?.message || `${field} updated`}. Matched: ${res.data?.matched || 0}, Modified: ${res.data?.modified || 0}`);
+      await loadMarks(filters);
+      setAllRows((prev) => prev.map((row) => (
+        row.academicyear === filters.academicyear && row.programcode === filters.programcode && row.coursecode === filters.coursecode
+          ? { ...row, [field]: value }
+          : row
+      )));
+      setBulkUpdate((prev) => ({ ...prev, [field]: "" }));
+    } catch (err) {
+      setError(err.response?.data?.message || `Unable to bulk update ${field}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const updateRelativeForm = (field, value) => {
@@ -366,6 +413,33 @@ export default function NepLmsFinalMarksViewPage() {
       setMessage("Final marks entry deleted");
     } catch (err) {
       setError(err.response?.data?.message || "Unable to delete final marks");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const bulkDeleteRows = async () => {
+    if (!selectedIds.length) {
+      setError("Select at least one row to delete");
+      return;
+    }
+    const ok = window.confirm(`Delete ${selectedIds.length} selected final marks row(s)?`);
+    if (!ok) return;
+    try {
+      setLoading(true);
+      setError("");
+      setMessage("");
+      const res = await ep1.post("/api/v2/neplms/final-marks/bulk-delete", {
+        colid: global1.colid,
+        ids: selectedIds
+      });
+      const selectedSet = new Set(selectedIds);
+      setRows((prev) => prev.filter((row) => !selectedSet.has(row._id)));
+      setAllRows((prev) => prev.filter((row) => !selectedSet.has(row._id)));
+      setSelectedIds([]);
+      setMessage(`Deleted ${res.data?.deleted || 0} selected final marks row(s)`);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to bulk delete final marks");
     } finally {
       setLoading(false);
     }
@@ -581,8 +655,49 @@ export default function NepLmsFinalMarksViewPage() {
           <Chip color="primary" label={`Rows: ${rows.length}`} />
           <Chip color="success" label={`Pass: ${passCount}`} />
           <Chip color="error" label={`Fail: ${failCount}`} />
+          <Chip color="warning" variant="outlined" label={`Selected: ${selectedIds.length}`} />
+          <Button size="small" variant="contained" color="error" disabled={loading || !selectedIds.length} onClick={bulkDeleteRows}>
+            Delete Selected
+          </Button>
           <Button size="small" variant="outlined" onClick={clearFilters}>Clear Filters</Button>
         </Stack>
+      </Paper>
+
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack spacing={0.5} sx={{ mb: 2 }}>
+          <Typography variant="h6" fontWeight={700}>Bulk Update Final Marks</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Select Academic Year, Program Code and Course Code above, then update regulation or program for all matching rows.
+          </Typography>
+        </Stack>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} md={4}>
+            <TextField
+              fullWidth
+              label="New Regulation"
+              value={bulkUpdate.regulation}
+              onChange={(event) => setBulkUpdate((prev) => ({ ...prev, regulation: event.target.value }))}
+            />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <Button fullWidth variant="contained" disabled={loading} onClick={() => bulkUpdateField("regulation")}>
+              Update Regulation
+            </Button>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <TextField
+              fullWidth
+              label="New Program"
+              value={bulkUpdate.program}
+              onChange={(event) => setBulkUpdate((prev) => ({ ...prev, program: event.target.value }))}
+            />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <Button fullWidth variant="contained" color="secondary" disabled={loading} onClick={() => bulkUpdateField("program")}>
+              Update Program
+            </Button>
+          </Grid>
+        </Grid>
       </Paper>
 
       <Paper sx={{ p: 2, mb: 2 }}>
@@ -694,6 +809,10 @@ export default function NepLmsFinalMarksViewPage() {
           rows={rows}
           getRowId={(row) => row._id}
           columns={columns}
+          checkboxSelection
+          disableRowSelectionOnClick
+          rowSelectionModel={selectedIds}
+          onRowSelectionModelChange={(nextSelection) => setSelectedIds(nextSelection)}
           loading={loading}
           autoHeight
           slots={{ toolbar: GridToolbar }}

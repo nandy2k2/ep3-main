@@ -735,7 +735,8 @@ export default function PublicAdmissionApplyTabbedProgramCredentialDraftRedLevel
       let paymentResponse = null;
       let initiationError = null;
       try {
-        paymentResponse = await ep1.post("/api/v2/easebuzzpayment/initiate", paymentPayload);
+        const paymentEndpoint = normalizedGatewayName.includes("icici") ? "/api/v2/icicipayment/initiate" : "/api/v2/easebuzzpayment/initiate";
+        paymentResponse = await ep1.post(paymentEndpoint, { ...paymentPayload, gateway: selectedGateway?.gatewayname || "", frontendcallbackurl: window.location.href });
       } catch (error) {
         initiationError = error;
       }
@@ -817,7 +818,11 @@ export default function PublicAdmissionApplyTabbedProgramCredentialDraftRedLevel
   const validateApplicationWithAi = async (payload) => {
     setValidatingApplication(true);
     setValidationSummary(null);
-    const res = await ep1.post("/admission-dynamic/validate-application-ai", payload);
+    const res = await ep1.post("/admission-dynamic/validate-application-ai", {
+      ...payload,
+      colid,
+      formid
+    });
     const result = res.data || {};
     const comments = result.validationcomments || result.summary || "";
     const validation = {

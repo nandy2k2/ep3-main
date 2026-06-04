@@ -326,26 +326,24 @@ export default function StudentFeesReceiptPage() {
         </Grid>
 
         <Grid container sx={{ border: "1px solid #cbd5e1", borderBottom: 0, fontSize: 12 }}>
-          {["Fee Group", "Fee Item", "Amount", "Paid", "Concession", "Balance"].map((head, index) => (
-            <Grid item xs={index === 0 ? 2.5 : index === 1 ? 3 : 1.625} key={head} sx={{ bgcolor: "#eef3f7", borderRight: index === 5 ? 0 : "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.75, fontWeight: 800, textAlign: index < 2 ? "left" : "right" }}>
+          {["Fee Group", "Fee Item", "Paid", "Pay Mode", "Pay Details", "Pay Date"].map((head, index) => (
+            <Grid item xs={index === 0 ? 2.2 : index === 1 ? 2.6 : index === 4 ? 2.2 : 1.666} key={head} sx={{ bgcolor: "#eef3f7", borderRight: index === 5 ? 0 : "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.75, fontWeight: 800, textAlign: index === 2 ? "right" : "left" }}>
               {head}
             </Grid>
           ))}
           {selectedRows.map((row) => (
             <React.Fragment key={row._id}>
-              <Grid item xs={2.5} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.75 }}>{row.feegroup}</Grid>
-              <Grid item xs={3} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.75 }}>{row.feeitem}</Grid>
-              <Grid item xs={1.625} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.75, textAlign: "right" }}>{money(row.amount)}</Grid>
-              <Grid item xs={1.625} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.75, textAlign: "right" }}>{money(row.paid)}</Grid>
-              <Grid item xs={1.625} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.75, textAlign: "right" }}>{money(row.concession)}</Grid>
-              <Grid item xs={1.625} sx={{ borderBottom: "1px solid #cbd5e1", p: 0.75, textAlign: "right" }}>{money(row.balance)}</Grid>
+              <Grid item xs={2.2} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.75 }}>{row.feegroup}</Grid>
+              <Grid item xs={2.6} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.75 }}>{row.feeitem}</Grid>
+              <Grid item xs={1.666} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.75, textAlign: "right" }}>{money(row.paid)}</Grid>
+              <Grid item xs={1.666} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.75 }}>{row.paymode || ""}</Grid>
+              <Grid item xs={2.2} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.75 }}>{row.paydetails || ""}</Grid>
+              <Grid item xs={1.666} sx={{ borderBottom: "1px solid #cbd5e1", p: 0.75 }}>{row.paiddate ? String(row.paiddate).slice(0, 10) : ""}</Grid>
             </React.Fragment>
           ))}
-          <Grid item xs={5.5} sx={{ bgcolor: "#eef3f7", borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.75, fontWeight: 800 }}>Total</Grid>
-          <Grid item xs={1.625} sx={{ bgcolor: "#eef3f7", borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.75, textAlign: "right", fontWeight: 800 }}>{money(totals.amount)}</Grid>
-          <Grid item xs={1.625} sx={{ bgcolor: "#eef3f7", borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.75, textAlign: "right", fontWeight: 800 }}>{money(totals.paid)}</Grid>
-          <Grid item xs={1.625} sx={{ bgcolor: "#eef3f7", borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.75, textAlign: "right", fontWeight: 800 }}>{money(totals.concession)}</Grid>
-          <Grid item xs={1.625} sx={{ bgcolor: "#eef3f7", borderBottom: "1px solid #cbd5e1", p: 0.75, textAlign: "right", fontWeight: 800 }}>{money(totals.balance)}</Grid>
+          <Grid item xs={4.8} sx={{ bgcolor: "#eef3f7", borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.75, fontWeight: 800 }}>Total</Grid>
+          <Grid item xs={1.666} sx={{ bgcolor: "#eef3f7", borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.75, textAlign: "right", fontWeight: 800 }}>{money(totals.paid)}</Grid>
+          <Grid item xs={5.534} sx={{ bgcolor: "#eef3f7", borderBottom: "1px solid #cbd5e1", p: 0.75 }} />
         </Grid>
 
         <Grid container spacing={6} sx={{ mt: 7 }}>

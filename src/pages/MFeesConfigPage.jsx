@@ -18,7 +18,7 @@ import {
   Tooltip,
   Typography
 } from "@mui/material";
-import { Add, ArrowBack, Cancel, Delete, Edit, Refresh, Save, UploadFile } from "@mui/icons-material";
+import { Add, ArrowBack, Cancel, Delete, Download, Edit, Refresh, Save, UploadFile } from "@mui/icons-material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
@@ -27,6 +27,7 @@ import global1 from "./global1";
 const defaultAcademicYears = ["2026-27", "2027-28", "2028-29", "2029-30", "2030-31"];
 const semesterOptions = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
 const categoryOptions = ["General", "SC", "ST", "OBC", "EWS", "EBC", "PH", "Sports", "Supernumerary"];
+const genderOptions = ["Male", "Female", "Not specified"];
 
 const blankForm = {
   academicyear: "2026-27",
@@ -37,6 +38,8 @@ const blankForm = {
   regulation: "",
   major: "",
   minor: "",
+  IDC: "",
+  gender: "",
   feegroup: "",
   semester: "1",
   feeeitem: "",
@@ -63,9 +66,22 @@ export default function MFeesConfigPage() {
   const [regulations, setRegulations] = useState([]);
   const [majors, setMajors] = useState([]);
   const [minors, setMinors] = useState([]);
+  const [idcs, setIdcs] = useState([]);
+  const [feeFilterOptions, setFeeFilterOptions] = useState({
+    academicYears: [],
+    programs: [],
+    regulations: [],
+    majors: [],
+    minors: [],
+    idcs: [],
+    genders: [],
+    semesters: [],
+    statuses: []
+  });
   const [form, setForm] = useState(blankForm);
-  const [filters, setFilters] = useState({ academicyear: "", programcode: "", regulation: "", semester: "", status: "" });
+  const [filters, setFilters] = useState({ academicyear: "", programcode: "", regulation: "", major: "", minor: "", IDC: "", gender: "", semester: "", status: "" });
   const [editingId, setEditingId] = useState("");
+  const [selectedIds, setSelectedIds] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -93,6 +109,18 @@ export default function MFeesConfigPage() {
       setRegulations(unique(res.data.regulations || []));
       setMajors(unique(res.data.majors || []));
       setMinors(unique(res.data.minors || []));
+      setIdcs(unique(res.data.idcs || []));
+      setFeeFilterOptions({
+        academicYears: unique(res.data.feeFilterOptions?.academicYears || []),
+        programs: res.data.feeFilterOptions?.programs || [],
+        regulations: unique(res.data.feeFilterOptions?.regulations || []),
+        majors: unique(res.data.feeFilterOptions?.majors || []),
+        minors: unique(res.data.feeFilterOptions?.minors || []),
+        idcs: unique(res.data.feeFilterOptions?.idcs || []),
+        genders: unique(res.data.feeFilterOptions?.genders || []),
+        semesters: unique(res.data.feeFilterOptions?.semesters || []),
+        statuses: unique(res.data.feeFilterOptions?.statuses || [])
+      });
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load dropdown data");
     }
@@ -124,7 +152,8 @@ export default function MFeesConfigPage() {
       programcode,
       program: selected?.program || "",
       major: "",
-      minor: ""
+      minor: "",
+      IDC: ""
     }));
   };
 
@@ -170,6 +199,8 @@ export default function MFeesConfigPage() {
       regulation: row.regulation || "",
       major: row.major || "",
       minor: row.minor || "",
+      IDC: row.IDC || row.idc || "",
+      gender: row.gender || "",
       feegroup: row.feegroup || "",
       semester: row.semester || "1",
       feeeitem: row.feeeitem || "",
@@ -195,6 +226,26 @@ export default function MFeesConfigPage() {
     }
   };
 
+  const bulkDeleteRows = async () => {
+    if (!selectedIds.length) {
+      setError("Please select at least one fee record to delete");
+      return;
+    }
+    if (!window.confirm(`Delete ${selectedIds.length} selected fee record(s)?`)) return;
+    setLoading(true);
+    try {
+      const res = await ep1.post("/api/v2/mfeesconfig/bulk-delete", { ids: selectedIds });
+      setSelectedIds([]);
+      setMessage(res.data.message || `Deleted ${res.data.deleted || selectedIds.length} fee record(s)`);
+      await loadRows();
+      setTimeout(() => setMessage(""), 2500);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete selected fee records");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleBulkUpload = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -215,6 +266,8 @@ export default function MFeesConfigPage() {
         regulation: row.regulation || row.Regulation,
         major: row.major || row.Major,
         minor: row.minor || row.Minor,
+        IDC: row.IDC || row.idc || row["IDC"],
+        gender: row.gender || row.Gender,
         feegroup: row.feegroup || row["Fee Group"],
         semester: row.semester || row.Semester,
         feeeitem: row.feeeitem || row.feeitem || row["Fee Item"],
@@ -243,6 +296,57 @@ export default function MFeesConfigPage() {
     }
   };
 
+  const downloadTemplate = () => {
+    const headers = [
+      "Academic Year",
+      "Fee Book",
+      "Cash Book",
+      "Program",
+      "Program Code",
+      "Regulation",
+      "Major",
+      "Minor",
+      "IDC",
+      "Gender",
+      "Fee Group",
+      "Semester",
+      "Fee Item",
+      "Fee Category",
+      "Student Type",
+      "Domicile",
+      "Fee Type",
+      "Due Date",
+      "Amount",
+      "Status"
+    ];
+    const sample = {
+      "Academic Year": form.academicyear || "2026-27",
+      "Fee Book": feebooks[0] || "",
+      "Cash Book": cashbooks[0] || "",
+      Program: programs[0]?.program || "",
+      "Program Code": programs[0]?.programcode || "",
+      Regulation: form.regulation || regulations[0] || "",
+      Major: majors[0] || "",
+      Minor: minors[0] || "",
+      IDC: idcs[0] || "",
+      Gender: "Not specified",
+      "Fee Group": "Tuition",
+      Semester: "1",
+      "Fee Item": "Tuition Fee",
+      "Fee Category": "General",
+      "Student Type": "",
+      Domicile: "",
+      "Fee Type": "",
+      "Due Date": "",
+      Amount: 0,
+      Status: "Added"
+    };
+    const worksheet = XLSX.utils.json_to_sheet([sample], { header: headers });
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Fee Upload");
+    XLSX.writeFile(workbook, "mfeesconfig_bulk_upload_template.xlsx");
+  };
+
   const columns = [
     { field: "academicyear", headerName: "Academic Year", width: 140 },
     { field: "feebook", headerName: "Fee Book", width: 160 },
@@ -252,6 +356,8 @@ export default function MFeesConfigPage() {
     { field: "regulation", headerName: "Regulation", width: 180 },
     { field: "major", headerName: "Major", width: 180 },
     { field: "minor", headerName: "Minor", width: 180 },
+    { field: "IDC", headerName: "IDC", width: 180 },
+    { field: "gender", headerName: "Gender", width: 140 },
     { field: "feegroup", headerName: "Fee Group", width: 160 },
     { field: "semester", headerName: "Semester", width: 110 },
     { field: "feeeitem", headerName: "Fee Item", width: 190 },
@@ -294,6 +400,7 @@ export default function MFeesConfigPage() {
         </Box>
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
           <Button component={RouterLink} to="/dashdashfacnew" variant="outlined" startIcon={<ArrowBack />}>Dashboard</Button>
+          <Button variant="outlined" startIcon={<Download />} onClick={downloadTemplate}>Download Template</Button>
           <Button variant="outlined" component="label" startIcon={<UploadFile />}>
             Bulk Upload
             <input hidden type="file" accept=".xlsx,.xls,.csv" onChange={handleBulkUpload} />
@@ -335,6 +442,14 @@ export default function MFeesConfigPage() {
                 <TextField select size="small" label="Minor" value={form.minor} onChange={(e) => setField("minor", e.target.value)} disabled={!form.regulation || !form.programcode}>
                   {minors.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
                 </TextField>
+                <TextField select size="small" label="IDC" value={form.IDC} onChange={(e) => setField("IDC", e.target.value)} disabled={!form.regulation || !form.programcode}>
+                  <MenuItem value="">Not Applicable</MenuItem>
+                  {idcs.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                </TextField>
+                <TextField select size="small" label="Gender" value={form.gender} onChange={(e) => setField("gender", e.target.value)}>
+                  <MenuItem value="">All</MenuItem>
+                  {genderOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                </TextField>
                 <TextField size="small" label="Fee Group" value={form.feegroup} onChange={(e) => setField("feegroup", e.target.value)} required />
                 <TextField select size="small" label="Semester" value={form.semester} onChange={(e) => setField("semester", e.target.value)} required>
                   {semesterOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
@@ -360,29 +475,76 @@ export default function MFeesConfigPage() {
 
         <Grid item xs={12} md={8}>
           <Paper sx={{ p: 2 }}>
-            <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} sx={{ mb: 2 }}>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} sx={{ mb: 2 }} flexWrap="wrap" useFlexGap>
               <FormControl size="small" sx={{ minWidth: 150 }}>
                 <InputLabel>Academic Year</InputLabel>
                 <Select label="Academic Year" value={filters.academicyear} onChange={(e) => setFilters((prev) => ({ ...prev, academicyear: e.target.value }))}>
                   <MenuItem value="">All</MenuItem>
-                  {academicYears.map((year) => <MenuItem key={year} value={year}>{year}</MenuItem>)}
+                  {feeFilterOptions.academicYears.map((year) => <MenuItem key={year} value={year}>{year}</MenuItem>)}
                 </Select>
               </FormControl>
               <FormControl size="small" sx={{ minWidth: 180 }}>
                 <InputLabel>Program</InputLabel>
                 <Select label="Program" value={filters.programcode} onChange={(e) => setFilters((prev) => ({ ...prev, programcode: e.target.value }))}>
                   <MenuItem value="">All</MenuItem>
-                  {programs.map((item) => <MenuItem key={item._id || item.programcode} value={item.programcode}>{item.program} ({item.programcode})</MenuItem>)}
+                  {feeFilterOptions.programs.map((item) => <MenuItem key={item.programcode} value={item.programcode}>{item.program} ({item.programcode})</MenuItem>)}
                 </Select>
               </FormControl>
               <FormControl size="small" sx={{ minWidth: 160 }}>
                 <InputLabel>Regulation</InputLabel>
                 <Select label="Regulation" value={filters.regulation} onChange={(e) => setFilters((prev) => ({ ...prev, regulation: e.target.value }))}>
                   <MenuItem value="">All</MenuItem>
-                  {regulations.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                  {feeFilterOptions.regulations.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>Gender</InputLabel>
+                <Select label="Gender" value={filters.gender} onChange={(e) => setFilters((prev) => ({ ...prev, gender: e.target.value }))}>
+                  <MenuItem value="">All</MenuItem>
+                  {feeFilterOptions.genders.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Stack>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} sx={{ mb: 2 }} flexWrap="wrap" useFlexGap>
+              <FormControl size="small" sx={{ minWidth: 160 }}>
+                <InputLabel>Major</InputLabel>
+                <Select label="Major" value={filters.major} onChange={(e) => setFilters((prev) => ({ ...prev, major: e.target.value }))}>
+                  <MenuItem value="">All</MenuItem>
+                  {feeFilterOptions.majors.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 160 }}>
+                <InputLabel>Minor</InputLabel>
+                <Select label="Minor" value={filters.minor} onChange={(e) => setFilters((prev) => ({ ...prev, minor: e.target.value }))}>
+                  <MenuItem value="">All</MenuItem>
+                  {feeFilterOptions.minors.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 160 }}>
+                <InputLabel>IDC</InputLabel>
+                <Select label="IDC" value={filters.IDC} onChange={(e) => setFilters((prev) => ({ ...prev, IDC: e.target.value }))}>
+                  <MenuItem value="">All</MenuItem>
+                  {feeFilterOptions.idcs.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel>Semester</InputLabel>
+                <Select label="Semester" value={filters.semester} onChange={(e) => setFilters((prev) => ({ ...prev, semester: e.target.value }))}>
+                  <MenuItem value="">All</MenuItem>
+                  {feeFilterOptions.semesters.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel>Status</InputLabel>
+                <Select label="Status" value={filters.status} onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}>
+                  <MenuItem value="">All</MenuItem>
+                  {feeFilterOptions.statuses.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
                 </Select>
               </FormControl>
               <Button variant="contained" onClick={() => loadRows()}>Filter</Button>
+              <Button variant="outlined" color="error" startIcon={<Delete />} disabled={!selectedIds.length || loading} onClick={bulkDeleteRows}>
+                Delete Selected ({selectedIds.length})
+              </Button>
               <Tooltip title="Reload">
                 <IconButton color="primary" onClick={() => loadRows()}><Refresh /></IconButton>
               </Tooltip>
@@ -394,6 +556,9 @@ export default function MFeesConfigPage() {
                 columns={columns}
                 getRowId={(row) => row._id}
                 loading={loading}
+                checkboxSelection
+                rowSelectionModel={selectedIds}
+                onRowSelectionModelChange={(model) => setSelectedIds(Array.isArray(model) ? model : Array.from(model?.ids || []))}
                 slots={{ toolbar: GridToolbar }}
                 slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "fee_configuration" } } }}
                 initialState={{

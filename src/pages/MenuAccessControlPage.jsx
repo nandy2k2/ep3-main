@@ -32,6 +32,9 @@ const emptyForm = {
   access: "Allow"
 };
 
+const PAGE_SELECT_ALL = "__ALL_PAGES__";
+const ROLE_SELECT_ALL = "__ALL_ROLES__";
+
 const flattenChildren = (children) => React.Children.toArray(children).filter(Boolean);
 
 const getElementText = (node) => {
@@ -108,6 +111,7 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
   const colid = global1.colid;
   const [form, setForm] = useState(emptyForm);
   const [selectedPagePaths, setSelectedPagePaths] = useState([]);
+  const [selectedRoles, setSelectedRoles] = useState([]);
   const [rows, setRows] = useState([]);
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -163,6 +167,7 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
   const resetForm = () => {
     setForm(emptyForm);
     setSelectedPagePaths([]);
+    setSelectedRoles([]);
     setMessage("");
     setError("");
   };
@@ -172,7 +177,9 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
       ? [{ title: form.title, path: form.path }]
       : pagesForGroup.filter((page) => selectedPagePaths.includes(page.path));
 
-    if (!form.menugroup || !selectedPages.length || !form.role || !form.access) {
+    const rolesToSave = form._id ? [form.role].filter(Boolean) : selectedRoles.filter(Boolean);
+
+    if (!form.menugroup || !selectedPages.length || !rolesToSave.length || !form.access) {
       setError("Please select group, page, role and Allow/Deny.");
       return;
     }
@@ -195,19 +202,21 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
         });
         setMessage("Menu access rule updated.");
       } else {
-        await Promise.all(selectedPages.map((page) => ep1.post("/api/v2/menu-access", {
+        const payloads = selectedPages.flatMap((page) => rolesToSave.map((role) => ({
           colid,
           menugroup: form.menugroup,
           title: page.title,
           path: page.path,
-          role: form.role,
+          role,
           access: form.access,
           user: global1.user
         })));
-        setMessage(`${selectedPages.length} menu access rule${selectedPages.length === 1 ? "" : "s"} added.`);
+        await Promise.all(payloads.map((payload) => ep1.post("/api/v2/menu-access", payload)));
+        setMessage(`${payloads.length} menu access rule${payloads.length === 1 ? "" : "s"} added.`);
       }
       setForm(emptyForm);
       setSelectedPagePaths([]);
+      setSelectedRoles([]);
       await loadRules();
       await loadRoles();
     } catch (err) {
@@ -265,6 +274,7 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
       access: row.access || "Allow"
     });
     setSelectedPagePaths(row.path ? [row.path] : []);
+    setSelectedRoles(row.role ? [row.role] : []);
     setMessage("");
     setError("");
   };
@@ -359,18 +369,53 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
                 value={form._id ? form.title : selectedPagePaths}
                 onChange={(event) => {
                   if (form._id) selectPage(event.target.value);
-                  else selectPages(typeof event.target.value === "string" ? event.target.value.split(",") : event.target.value);
+                  else {
+                    const nextValue = typeof event.target.value === "string"
+                      ? event.target.value.split(",")
+                      : event.target.value;
+                    if (nextValue.includes(PAGE_SELECT_ALL)) {
+                      selectPages(
+                        selectedPagePaths.length === pagesForGroup.length
+                          ? []
+                          : pagesForGroup.map((page) => page.path)
+                      );
+                    } else {
+                      selectPages(nextValue);
+                    }
+                  }
                 }}
                 disabled={!form.menugroup}
                 renderValue={(selected) => {
                   if (form._id) return selected;
                   const paths = Array.isArray(selected) ? selected : [];
+                  if (paths.length === pagesForGroup.length && pagesForGroup.length) {
+                    return "All pages";
+                  }
                   return pagesForGroup
                     .filter((page) => paths.includes(page.path))
                     .map((page) => page.title)
                     .join(", ");
                 }}
               >
+                {!form._id && (
+                  <MenuItem
+                    value={PAGE_SELECT_ALL}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      selectPages(
+                        selectedPagePaths.length === pagesForGroup.length
+                          ? []
+                          : pagesForGroup.map((page) => page.path)
+                      );
+                    }}
+                  >
+                    <Checkbox
+                      checked={pagesForGroup.length > 0 && selectedPagePaths.length === pagesForGroup.length}
+                      indeterminate={selectedPagePaths.length > 0 && selectedPagePaths.length < pagesForGroup.length}
+                    />
+                    <ListItemText primary="Select all pages" />
+                  </MenuItem>
+                )}
                 {pagesForGroup.map((page) => (
                   <MenuItem key={`${page.path}-${page.title}`} value={form._id ? page.title : page.path}>
                     {!form._id && <Checkbox checked={selectedPagePaths.includes(page.path)} />}
@@ -390,14 +435,65 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
             />
 
             <Autocomplete
-              freeSolo
+              multiple={!form._id}
+              freeSolo={!form._id}
+              disableCloseOnSelect={!form._id}
               fullWidth
-              options={roles}
-              value={form.role}
-              onInputChange={(event, nextValue) => setForm((prev) => ({ ...prev, role: nextValue }))}
-              onChange={(event, nextValue) => setForm((prev) => ({ ...prev, role: nextValue || "" }))}
+              options={form._id ? roles : [ROLE_SELECT_ALL, ...roles]}
+              value={form._id ? form.role : selectedRoles}
+              getOptionLabel={(option) => option === ROLE_SELECT_ALL ? "Select all roles" : option}
+              isOptionEqualToValue={(option, value) => option === value}
+              onInputChange={(event, nextValue, reason) => {
+                if (form._id && reason === "input") {
+                  setForm((prev) => ({ ...prev, role: nextValue }));
+                }
+              }}
+              onChange={(event, nextValue) => {
+                if (form._id) {
+                  setForm((prev) => ({ ...prev, role: nextValue || "" }));
+                  setSelectedRoles(nextValue ? [nextValue] : []);
+                  return;
+                }
+
+                const nextRoles = Array.isArray(nextValue) ? nextValue : [];
+                if (nextRoles.includes(ROLE_SELECT_ALL)) {
+                  const allSelected = roles.length > 0 && selectedRoles.length === roles.length;
+                  const updatedRoles = allSelected ? [] : [...roles];
+                  setSelectedRoles(updatedRoles);
+                  setForm((prev) => ({ ...prev, role: updatedRoles.join(", ") }));
+                  return;
+                }
+
+                const uniqueRoles = Array.from(new Set(nextRoles.filter(Boolean)));
+                setSelectedRoles(uniqueRoles);
+                setForm((prev) => ({ ...prev, role: uniqueRoles.join(", ") }));
+              }}
+              renderOption={(props, option, { selected }) => {
+                const isSelectAll = option === ROLE_SELECT_ALL;
+                const allRolesSelected = roles.length > 0 && selectedRoles.length === roles.length;
+                const partialRolesSelected = selectedRoles.length > 0 && selectedRoles.length < roles.length;
+                return (
+                  <li {...props}>
+                    {!form._id && (
+                      <Checkbox
+                        checked={isSelectAll ? allRolesSelected : selected}
+                        indeterminate={isSelectAll ? partialRolesSelected : false}
+                        sx={{ mr: 1 }}
+                      />
+                    )}
+                    {isSelectAll ? "Select all roles" : option}
+                  </li>
+                );
+              }}
+              renderTags={(value) => {
+                if (!Array.isArray(value)) return null;
+                if (roles.length > 0 && value.length === roles.length) {
+                  return "All roles";
+                }
+                return value.join(", ");
+              }}
               renderInput={(params) => (
-                <TextField {...params} label="Role" />
+                <TextField {...params} label="Role" helperText={form._id ? "" : "Select one, select all, or type a new role."} />
               )}
             />
 

@@ -913,6 +913,13 @@ import CourseAssessmentPage from "./pages/CourseAssessmentPage";
 import SyllabusPage from "./pages/SyllabusPage";
 import CourseOutcomePage from "./pages/CourseOutcomePage";
 import GradeConfigurationPage from "./pages/GradeConfigurationPage";
+import BosCyclePage from "./pages/BosCyclePage";
+import BosApprovalMatrixPage from "./pages/BosApprovalMatrixPage";
+import BosAssignmentPage from "./pages/BosAssignmentPage";
+import BosCourseReviewPage from "./pages/BosCourseReviewPage";
+import BosCourseApprovalPage from "./pages/BosCourseApprovalPage";
+import BosProgramReviewPage from "./pages/BosProgramReviewPage";
+import BosReportPage from "./pages/BosReportPage";
 import RelativeGradingConfigurationPage from "./pages/RelativeGradingConfigurationPage";
 import ZScoreConfigurationPage from "./pages/ZScoreConfigurationPage";
 import AcademicSubjectPage from "./pages/AcademicSubjectPage";
@@ -952,6 +959,7 @@ import ConductExamMasterPage from "./pages/ConductExamMasterPage";
 import ConductExamCoursePage from "./pages/ConductExamCoursePage";
 import ConductExamRollPage from "./pages/ConductExamRollPage";
 import ConductExamRoomPage from "./pages/ConductExamRoomPage";
+import ConductExamSeatAllocationPage from "./pages/ConductExamSeatAllocationPage";
 import HrLeaveManagementPage from "./pages/HrLeaveManagementPage";
 import HrLeaveApplyPage from "./pages/HrLeaveApplyPage";
 import HrLeaveApprovePage from "./pages/HrLeaveApprovePage";
@@ -972,6 +980,7 @@ import StudentActivitiesPage from "./pages/StudentActivitiesPage";
 import FeeItemReportPage from "./pages/FeeItemReportPage";
 import DynamicAdmissionFormPage from "./pages/DynamicAdmissionFormPage";
 import DynamicAdmissionApplicationsPage from "./pages/DynamicAdmissionApplicationsPage";
+import AdmissionApplicationManagementPage from "./pages/AdmissionApplicationManagementPage";
 import DynamicAdmissionProfilePage from "./pages/DynamicAdmissionProfilePage";
 import DynamicAdmissionProfileSubjectsPage from "./pages/DynamicAdmissionProfileSubjectsPage";
 import SubjectWiseAdmissionApplicationsPage from "./pages/SubjectWiseAdmissionApplicationsPage";
@@ -985,12 +994,22 @@ import PublicAdmissionApplyTabbedProgramCredentialDraftRedPage from "./pages/Pub
 import PublicAdmissionApplyTabbedProgramCredentialDraftRedLevelPage from "./pages/PublicAdmissionApplyTabbedProgramCredentialDraftRedLevelPage";
 import PublicAdmissionApplyTabbedProgramCredentialDraftRedLevelAiPage from "./pages/PublicAdmissionApplyTabbedProgramCredentialDraftRedLevelAiPage";
 import PublicAdmissionApplyTabbedProgramCredentialDraftRedLevelAiPhPage from "./pages/PublicAdmissionApplyTabbedProgramCredentialDraftRedLevelAiPhPage";
+import PublicAdmissionAiPhPage from "./pages/PublicAdmissionAiPhPage";
+import PublicAdmissionAiPhDocumentsPage from "./pages/PublicAdmissionAiPhDocumentsPage";
 import PublicAdmissionApplySubjectsPage from "./pages/PublicAdmissionApplySubjectsPage";
 import AdmissionApplicationLookupPage from "./pages/AdmissionApplicationLookupPage";
 import AdmissionDatewiseSummaryPage from "./pages/AdmissionDatewiseSummaryPage";
+import AdmissionPaymentsPage from "./pages/AdmissionPaymentsPage";
 import AdmissionAddressConfigurationPage from "./pages/AdmissionAddressConfigurationPage";
 import AdmissionBoardConfigurationPage from "./pages/AdmissionBoardConfigurationPage";
 import AdmissionValidationCriteriaPage from "./pages/AdmissionValidationCriteriaPage";
+import AdmissionFormDocumentsPage from "./pages/AdmissionFormDocumentsPage";
+import RecruitmentManagementPage from "./pages/RecruitmentManagementPage";
+import PublicRecruitmentApplyPage from "./pages/PublicRecruitmentApplyPage";
+import PlacementLeadsPage from "./pages/PlacementLeadsPage";
+import PlacementLeadStagePage from "./pages/PlacementLeadStagePage";
+import PlacementVisitPlanPage from "./pages/PlacementVisitPlanPage";
+import PlacementVisitCalendarPage from "./pages/PlacementVisitCalendarPage";
 import DynamicAdmissionSortPage from "./pages/DynamicAdmissionSortPage";
 import DynamicAdmissionBulkUploadPage from "./pages/DynamicAdmissionBulkUploadPage";
 import StudentDynamicFilterPage from "./pages/StudentDynamicFilterPage";
@@ -1006,6 +1025,16 @@ import UserCustomFieldsPage from "./pages/UserCustomFieldsPage";
 import UserDataUploadPage from "./pages/UserDataUploadPage";
 import UserPivotReportPage from "./pages/UserPivotReportPage";
 import UserPivotCountPage from "./pages/UserPivotCountPage";
+import StudentDetailsReportPage from "./pages/StudentDetailsReportPage";
+import StudentPromotionPage from "./pages/StudentPromotionPage";
+import AdmissionCancellationPage from "./pages/AdmissionCancellationPage";
+import AdmissionRefundDetailsPage from "./pages/AdmissionRefundDetailsPage";
+import AdmissionRefundLetterPage from "./pages/AdmissionRefundLetterPage";
+import TranscriptRecorderPage from "./pages/TranscriptRecorderPage";
+import TranscriptMeetingsCalendarPage from "./pages/TranscriptMeetingsCalendarPage";
+import MeetingTranscriptRecorderPage from "./pages/MeetingTranscriptRecorderPage";
+import KnowledgebasePage from "./pages/KnowledgebasePage";
+import PublicAiHelpdeskChatbotPage from "./pages/PublicAiHelpdeskChatbotPage";
 
 // User Management - Student
 import StudentProfileds1 from "./pages/StudentProfileds1";
@@ -1200,8 +1229,11 @@ import ApplicationFeePage from "./pages/ApplicationFeePage";
 import ProvisionalAdmissionFeePage from "./pages/ProvisionalAdmissionFeePage";
 import EasebuzzGatewayPage from "./pages/EasebuzzGatewayPage";
 import MasterGatewayPage from "./pages/MasterGatewayPage";
+import IciciGatewayPage from "./pages/IciciGatewayPage";
 import EasebuzzPaymentProcessPage from "./pages/EasebuzzPaymentProcessPage";
 import EasebuzzPaymentViewPage from "./pages/EasebuzzPaymentViewPage";
+import IciciPaymentViewPage from "./pages/IciciPaymentViewPage";
+import Purchase2CrudPage from "./pages/Purchase2CrudPage";
 
 import FacultyRegistrationFormPage from "./pages/FacultyRegistrationFormPage";
 
@@ -1578,6 +1610,7 @@ import Dashmcashbookadmin from './pages/Dashmcashbookadmin';
 import MFeesConfigPage from './pages/MFeesConfigPage';
 import FeeApprovalPage from './pages/FeeApprovalPage';
 import FeeApprovalRolesPage from './pages/FeeApprovalRolesPage';
+import FeeApplicationPage from './pages/FeeApplicationPage';
 import FeesModelReportPage from './pages/FeesModelReportPage';
 import StudentFeeApplyPage from './pages/StudentFeeApplyPage';
 import StudentLedgerApprovalPage from './pages/StudentLedgerApprovalPage';
@@ -1586,8 +1619,10 @@ import StudentLedgerAdjustmentPage from './pages/StudentLedgerAdjustmentPage';
 import StudentLedgerAnalyticsPage from './pages/StudentLedgerAnalyticsPage';
 import StudentLedgerPaidAnalyticsPage from './pages/StudentLedgerPaidAnalyticsPage';
 import FeesPivotPage from './pages/FeesPivotPage';
+import FeesPaidReportPage from './pages/FeesPaidReportPage';
 import StudentLedgerCounterPaymentPage from './pages/StudentLedgerCounterPaymentPage';
 import StudentFeesReceiptPage from './pages/StudentFeesReceiptPage';
+import StudentLedgerDetailPage from './pages/StudentLedgerDetailPage';
 import ResearchApprovalMatrixPage from './pages/ResearchApprovalMatrixPage';
 import ResearchComponentPage from './pages/ResearchComponentPage';
 import ResearchGrantApplyPage from './pages/ResearchGrantApplyPage';
@@ -2479,8 +2514,11 @@ function App() {
         <Route path="/provisionaladmissionfee" element={<ProvisionalAdmissionFeePage />} />
         <Route path="/easebuzzgateway" element={<EasebuzzGatewayPage />} />
         <Route path="/mastergateway" element={<MasterGatewayPage />} />
+        <Route path="/icicigateway" element={<IciciGatewayPage />} />
         <Route path="/easebuzzpaymentprocess" element={<EasebuzzPaymentProcessPage />} />
         <Route path="/easebuzzpaymentview" element={<EasebuzzPaymentViewPage />} />
+        <Route path="/icicipaymentview" element={<IciciPaymentViewPage />} />
+        <Route path="/purchase2/:modelKey" element={<Purchase2CrudPage />} />
         <Route path="/researchapprovalmatrix" element={<ResearchApprovalMatrixPage />} />
         <Route path="/researchcomponents" element={<ResearchComponentPage />} />
         <Route path="/researchgrantapply" element={<ResearchGrantApplyPage />} />
@@ -2684,6 +2722,13 @@ function App() {
         <Route path="/syllabus" element={<SyllabusPage />} />
         <Route path="/colist" element={<CourseOutcomePage />} />
         <Route path="/gradeconfiguration" element={<GradeConfigurationPage />} />
+        <Route path="/boscycle" element={<BosCyclePage />} />
+        <Route path="/bosapprovalmatrix" element={<BosApprovalMatrixPage />} />
+        <Route path="/bosassignment" element={<BosAssignmentPage />} />
+        <Route path="/boscoursereview" element={<BosCourseReviewPage />} />
+        <Route path="/boscourseapproval" element={<BosCourseApprovalPage />} />
+        <Route path="/bosprogramreview" element={<BosProgramReviewPage />} />
+        <Route path="/bosreport" element={<BosReportPage />} />
         <Route path="/relativegradingconfiguration" element={<RelativeGradingConfigurationPage />} />
         <Route path="/zscoreconfiguration" element={<ZScoreConfigurationPage />} />
         <Route path="/academicsubjects" element={<AcademicSubjectPage />} />
@@ -2742,6 +2787,7 @@ function App() {
         <Route path="/mfeesconfig" element={<MFeesConfigPage />} />
         <Route path="/feeapproval" element={<FeeApprovalPage />} />
         <Route path="/feeapprovalroles" element={<FeeApprovalRolesPage />} />
+        <Route path="/feeapplication" element={<FeeApplicationPage />} />
         <Route path="/feesmodelreport" element={<FeesModelReportPage />} />
         <Route path="/feeitemreport" element={<FeeItemReportPage />} />
         <Route path="/studentfeeapply" element={<StudentFeeApplyPage />} />
@@ -2751,10 +2797,13 @@ function App() {
         <Route path="/studentledgeranalytics" element={<StudentLedgerAnalyticsPage />} />
         <Route path="/studentledgerpaidanalytics" element={<StudentLedgerPaidAnalyticsPage />} />
         <Route path="/feespivot" element={<FeesPivotPage />} />
+        <Route path="/feespaidreport" element={<FeesPaidReportPage />} />
         <Route path="/studentledgercounterpayment" element={<StudentLedgerCounterPaymentPage />} />
         <Route path="/studentfeesreceipt" element={<StudentFeesReceiptPage />} />
+        <Route path="/studentledgerdetail" element={<StudentLedgerDetailPage />} />
         <Route path="/dynamic-admission-form" element={<DynamicAdmissionFormPage />} />
         <Route path="/dynamic-admission-applications" element={<DynamicAdmissionApplicationsPage />} />
+        <Route path="/admission-application-management" element={<AdmissionApplicationManagementPage />} />
         <Route path="/subject-wise-admission" element={<SubjectWiseAdmissionApplicationsPage />} />
         <Route path="/dynamic-admission-profile/:id" element={<DynamicAdmissionProfilePage />} />
         <Route path="/dynamic-admission-profile-subjects/:id" element={<DynamicAdmissionProfileSubjectsPage />} />
@@ -2768,11 +2817,21 @@ function App() {
         <Route path="/admission-apply-tabbed-program-credential-draft-red-level" element={<PublicAdmissionApplyTabbedProgramCredentialDraftRedLevelPage />} />
         <Route path="/admission-apply-tabbed-program-credential-draft-red-level-ai" element={<PublicAdmissionApplyTabbedProgramCredentialDraftRedLevelAiPage />} />
         <Route path="/admission-apply-tabbed-program-credential-draft-red-level-ai-ph" element={<PublicAdmissionApplyTabbedProgramCredentialDraftRedLevelAiPhPage />} />
+        <Route path="/admission-ai-ph" element={<PublicAdmissionAiPhPage />} />
+        <Route path="/admission-ai-ph-documents" element={<PublicAdmissionAiPhDocumentsPage />} />
         <Route path="/admission-application-lookup" element={<AdmissionApplicationLookupPage />} />
         <Route path="/admission-datewise-summary" element={<AdmissionDatewiseSummaryPage />} />
+        <Route path="/admission-payments" element={<AdmissionPaymentsPage />} />
         <Route path="/admission-address-configuration" element={<AdmissionAddressConfigurationPage />} />
         <Route path="/admission-board-configuration" element={<AdmissionBoardConfigurationPage />} />
         <Route path="/admission-validation-criteria" element={<AdmissionValidationCriteriaPage />} />
+        <Route path="/admission-form-documents" element={<AdmissionFormDocumentsPage />} />
+        <Route path="/recruitment-management" element={<RecruitmentManagementPage />} />
+        <Route path="/recruitment-apply" element={<PublicRecruitmentApplyPage />} />
+        <Route path="/placement-leads" element={<PlacementLeadsPage />} />
+        <Route path="/placement-lead-stage" element={<PlacementLeadStagePage />} />
+        <Route path="/placement-visit-plan" element={<PlacementVisitPlanPage />} />
+        <Route path="/placement-visit-calendar" element={<PlacementVisitCalendarPage />} />
         <Route path="/admission-apply-subjects" element={<PublicAdmissionApplySubjectsPage />} />
         <Route path="/dynamic-admission-sort" element={<DynamicAdmissionSortPage />} />
         <Route path="/dynamic-admission-bulk-upload" element={<DynamicAdmissionBulkUploadPage />} />
@@ -2785,13 +2844,25 @@ function App() {
         <Route path="/configuration" element={<ConfigurationSetupPage />} />
         <Route path="/aiconfiguration" element={<AiConfigurationPage />} />
         <Route path="/emailconfiguration" element={<EmailConfigurationPage />} />
+        <Route path="/transcript-recorder" element={<TranscriptRecorderPage />} />
+        <Route path="/transcript-meetings" element={<TranscriptMeetingsCalendarPage />} />
+        <Route path="/my-transcript-meetings" element={<TranscriptMeetingsCalendarPage myOnly />} />
+        <Route path="/meeting-transcript-recorder" element={<MeetingTranscriptRecorderPage />} />
+        <Route path="/knowledgebase" element={<KnowledgebasePage />} />
+        <Route path="/ai-helpdesk-chatbot" element={<PublicAiHelpdeskChatbotPage />} />
         <Route path="/userpivotreport" element={<UserPivotReportPage />} />
         <Route path="/userpivotcount" element={<UserPivotCountPage />} />
+        <Route path="/studentdetails" element={<StudentDetailsReportPage />} />
+        <Route path="/studentpromotion" element={<StudentPromotionPage />} />
+        <Route path="/admissioncancellation" element={<AdmissionCancellationPage />} />
+        <Route path="/admissionrefunddetails" element={<AdmissionRefundDetailsPage />} />
+        <Route path="/admissionrefundletter" element={<AdmissionRefundLetterPage />} />
         <Route path="/studentactivities" element={<StudentActivitiesPage />} />
         <Route path="/conduct-exam-master" element={<ConductExamMasterPage />} />
         <Route path="/conduct-exam-rooms" element={<ConductExamRoomPage />} />
         <Route path="/conduct-exam-courses" element={<ConductExamCoursePage />} />
         <Route path="/examroll" element={<ConductExamRollPage />} />
+        <Route path="/conduct-exam-seat-allocation" element={<ConductExamSeatAllocationPage />} />
          <Route path="/student/profile" element={<StudentProfileds1 />} />
 
         <Route path="/dashmattstud" element={<Dashmattstud />} />

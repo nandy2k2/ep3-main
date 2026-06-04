@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -29,6 +29,8 @@ const emptyForm = {
   description: ""
 };
 
+const normalizedGateway = (value) => String(value || "").replace(/\s|-/g, "").toLowerCase();
+
 const EasebuzzPaymentProcessPage = () => {
   const navigate = useNavigate();
   const colid = useMemo(() => global1.colid, []);
@@ -36,19 +38,62 @@ const EasebuzzPaymentProcessPage = () => {
   const currentName = useMemo(() => global1.name || global1.user || "NA", []);
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(false);
+  const [gateways, setGateways] = useState([]);
+  const [selectedGatewayId, setSelectedGatewayId] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+
+  const selectedGateway = useMemo(
+    () => gateways.find((gateway) => gateway._id === selectedGatewayId),
+    [gateways, selectedGatewayId]
+  );
+
+  useEffect(() => {
+    const loadGateways = async () => {
+      try {
+        const res = await ep1.get("/api/v2/mastergateway", { params: { colid, status: "Active" } });
+        const activeGateways = res.data.data || [];
+        setGateways(activeGateways);
+        const defaultGateway = activeGateways.find((gateway) => gateway.default === "Yes") || activeGateways[0];
+        if (defaultGateway) setSelectedGatewayId(defaultGateway._id);
+      } catch (err) {
+        setError(err.response?.data?.message || err.message || "Unable to load payment gateways");
+      }
+    };
+    if (colid) loadGateways();
+  }, [colid]);
 
   const payNow = async () => {
     setLoading(true);
     setError("");
     setMessage("");
     try {
-      const res = await ep1.post("/api/v2/easebuzzpayment/initiate", {
+      const gatewayName = normalizedGateway(selectedGateway?.gatewayname);
+      const endpoint = gatewayName.includes("icici") ? "/api/v2/icicipayment/initiate" : "/api/v2/easebuzzpayment/initiate";
+      if (selectedGateway?.type === "External" && !gatewayName.includes("easebuzz") && !gatewayName.includes("icici")) {
+        if (!selectedGateway.externallink) {
+          setError("Selected gateway is not configured with an external payment link.");
+          return;
+        }
+        const params = new URLSearchParams({
+          ...form,
+          colid: String(colid),
+          user: currentUser,
+          name: currentName,
+          gateway: selectedGateway.gatewayname || "",
+          returnurl: selectedGateway.callbackurl || window.location.href
+        });
+        const joiner = selectedGateway.externallink.includes("?") ? "&" : "?";
+        window.location.assign(`${selectedGateway.externallink}${joiner}${params.toString()}`);
+        return;
+      }
+      const res = await ep1.post(endpoint, {
         ...form,
         colid,
         user: currentUser,
-        name: currentName
+        name: currentName,
+        gateway: selectedGateway?.gatewayname || "",
+        frontendcallbackurl: window.location.href
       });
       const paymentUrl = res.data?.data?.paymenturl || res.data?.paymenturl;
       setMessage(`Payment initiated. Reference no: ${res.data.data?.refno || ""}`);
@@ -68,8 +113,8 @@ const EasebuzzPaymentProcessPage = () => {
     <Container maxWidth="lg" sx={{ py: 3 }}>
       <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} spacing={2} sx={{ mb: 2 }}>
         <Box>
-          <Typography variant="h5" fontWeight={700}>Easebuzz payment processing</Typography>
-          <Typography variant="body2" color="text.secondary">Enter payment details and proceed to Easebuzz.</Typography>
+          <Typography variant="h5" fontWeight={700}>Payment processing</Typography>
+          <Typography variant="body2" color="text.secondary">Select a gateway and proceed to payment.</Typography>
         </Box>
         <Button variant="outlined" startIcon={<ArrowBack />} onClick={() => navigate("/dashdashfacnew")}>Back to dashboard</Button>
       </Stack>
@@ -79,6 +124,14 @@ const EasebuzzPaymentProcessPage = () => {
 
       <Paper sx={{ p: 2 }}>
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" }, gap: 2 }}>
+          <FormControl fullWidth size="small">
+            <InputLabel>Payment gateway</InputLabel>
+            <Select label="Payment gateway" value={selectedGatewayId} onChange={(e) => setSelectedGatewayId(e.target.value)}>
+              {gateways.map((gateway) => (
+                <MenuItem key={gateway._id} value={gateway._id}>{gateway.gatewayname} ({gateway.type})</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
           <TextField size="small" label="Student" value={form.student} onChange={(e) => setForm({ ...form, student: e.target.value })} required />
           <TextField size="small" label="Reg no" value={form.regno} onChange={(e) => setForm({ ...form, regno: e.target.value })} required />
           <TextField size="small" label="Fee item" value={form.feeitem} onChange={(e) => setForm({ ...form, feeitem: e.target.value })} required />
@@ -98,7 +151,7 @@ const EasebuzzPaymentProcessPage = () => {
           <Button
             variant="contained"
             startIcon={<Payment />}
-            disabled={loading || !form.student || !form.regno || !form.feeitem || !form.amount}
+            disabled={loading || !selectedGatewayId || !form.student || !form.regno || !form.feeitem || !form.amount}
             onClick={payNow}
           >
             Pay
