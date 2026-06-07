@@ -68,7 +68,11 @@ export default function ConductExamRollPage() {
   const [editId, setEditId] = useState("");
   const [filters, setFilters] = useState(() => filterFields.reduce((acc, item) => ({ ...acc, [item.key]: "" }), {}));
   const [selectedIds, setSelectedIds] = useState([]);
+  const [loadingRows, setLoadingRows] = useState(false);
+  const [loadingFilterRows, setLoadingFilterRows] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [bulkUploading, setBulkUploading] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -90,16 +94,31 @@ export default function ConductExamRollPage() {
   };
 
   const loadRows = async (nextFilters = filters) => {
-    const params = { colid: global1.colid };
-    Object.entries(nextFilters).forEach(([key, value]) => { if (value) params[key] = value; });
-    const res = await ep1.get("/api/v2/conductexam/examrolls", { params });
-    setRows(res.data?.data || []);
-    setSelectedIds([]);
+    try {
+      setLoadingRows(true);
+      setError("");
+      const params = { colid: global1.colid };
+      Object.entries(nextFilters).forEach(([key, value]) => { if (value) params[key] = value; });
+      const res = await ep1.get("/api/v2/conductexam/examrolls", { params });
+      setRows(res.data?.data || []);
+      setSelectedIds([]);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load exam roll data.");
+    } finally {
+      setLoadingRows(false);
+    }
   };
 
   const loadFilterRows = async () => {
-    const res = await ep1.get("/api/v2/conductexam/examrolls", { params: { colid: global1.colid } });
-    setFilterRows(res.data?.data || []);
+    try {
+      setLoadingFilterRows(true);
+      const res = await ep1.get("/api/v2/conductexam/examrolls", { params: { colid: global1.colid } });
+      setFilterRows(res.data?.data || []);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load exam roll filter data.");
+    } finally {
+      setLoadingFilterRows(false);
+    }
   };
 
   const selectExam = (examcode) => {
@@ -202,11 +221,39 @@ export default function ConductExamRollPage() {
       return;
     }
     if (!window.confirm(`Delete ${selectedIds.length} selected exam roll entr${selectedIds.length === 1 ? "y" : "ies"}?`)) return;
-    const res = await ep1.post("/api/v2/conductexam/examrolls-bulk-delete", { ids: selectedIds, colid: global1.colid });
-    setMessage(`${res.data?.deleted || 0} selected exam roll entries deleted.`);
+    try {
+      setBulkDeleting(true);
+      setError("");
+      const res = await ep1.post("/api/v2/conductexam/examrolls-bulk-delete", { ids: selectedIds, colid: global1.colid });
+      setMessage(`${res.data?.deleted || 0} selected exam roll entries deleted.`);
+      setSelectedIds([]);
+      await Promise.all([loadRows(), loadFilterRows()]);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete selected exam roll entries.");
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  const handleSelectionChange = (newSelection) => {
+    if (Array.isArray(newSelection)) {
+      setSelectedIds(newSelection);
+      return;
+    }
+    if (newSelection?.ids instanceof Set) {
+      const visibleIds = rows.map((row) => row._id);
+      if (newSelection.type === "exclude") {
+        setSelectedIds(visibleIds.filter((id) => !newSelection.ids.has(id)));
+      } else {
+        setSelectedIds([...newSelection.ids]);
+      }
+      return;
+    }
     setSelectedIds([]);
-    loadRows();
-    loadFilterRows();
+  };
+
+  const selectAllLoadedRows = () => {
+    setSelectedIds(rows.map((row) => row._id));
   };
 
   const downloadTemplate = () => {
@@ -220,14 +267,22 @@ export default function ConductExamRollPage() {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
-    const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer, { type: "array" });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const items = XLSX.utils.sheet_to_json(sheet, { defval: "" }).map((row, index) => ({ rowNumber: index + 2, ...row }));
-    const res = await ep1.post("/api/v2/conductexam/examrolls-bulk", { colid: global1.colid, user: global1.user, items });
-    setMessage(`${res.data?.saved || 0} rows uploaded.`);
-    loadRows();
-    loadFilterRows();
+    try {
+      setBulkUploading(true);
+      setError("");
+      setMessage("");
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const items = XLSX.utils.sheet_to_json(sheet, { defval: "" }).map((row, index) => ({ rowNumber: index + 2, ...row }));
+      const res = await ep1.post("/api/v2/conductexam/examrolls-bulk", { colid: global1.colid, user: global1.user, items });
+      setMessage(`${res.data?.saved || 0} rows uploaded.`);
+      await Promise.all([loadRows(), loadFilterRows()]);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to bulk upload exam roll.");
+    } finally {
+      setBulkUploading(false);
+    }
   };
 
   const filterOptions = useMemo(() => {
@@ -237,6 +292,8 @@ export default function ConductExamRollPage() {
     });
     return options;
   }, [filterRows]);
+
+  const isPageBusy = loadingRows || loadingFilterRows || generating || bulkUploading || bulkDeleting;
 
   const clearFilters = () => {
     const nextFilters = filterFields.reduce((acc, item) => ({ ...acc, [item.key]: "" }), {});
@@ -276,17 +333,22 @@ export default function ConductExamRollPage() {
       <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2}>
           <Box><Typography variant="h5" fontWeight={900}>Exam Roll</Typography><Typography color="text.secondary">Generate and update student exam roll entries.</Typography></Box>
-          <Stack direction="row" spacing={1}><Button variant="outlined" onClick={downloadTemplate}>Template</Button><Button component="label" variant="contained" startIcon={<UploadFileIcon />}>Bulk Upload<input hidden type="file" accept=".xlsx,.xls,.csv" onChange={handleBulkUpload} /></Button></Stack>
+          <Stack direction="row" spacing={1}><Button variant="outlined" onClick={downloadTemplate} disabled={isPageBusy}>Template</Button><Button component="label" variant="contained" startIcon={<UploadFileIcon />} disabled={bulkUploading}>{bulkUploading ? "Uploading..." : "Bulk Upload"}<input hidden type="file" accept=".xlsx,.xls,.csv" onChange={handleBulkUpload} /></Button></Stack>
         </Stack>
+        {isPageBusy && (
+          <Box sx={{ mt: 2 }}>
+            <LinearProgress />
+          </Box>
+        )}
       </Paper>
       {message && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setMessage("")}>{message}</Alert>}
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
       <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
-        {generating && (
+        {(generating || bulkUploading) && (
           <Box sx={{ mb: 2 }}>
             <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={1} sx={{ mb: 1 }}>
-              <Typography fontWeight={800}>Generating exam roll...</Typography>
-              <Typography color="text.secondary" variant="body2">Please wait while students are added.</Typography>
+              <Typography fontWeight={800}>{generating ? "Generating exam roll..." : "Uploading exam roll..."}</Typography>
+              <Typography color="text.secondary" variant="body2">Please wait while data is being processed.</Typography>
             </Stack>
             <LinearProgress />
           </Box>
@@ -332,6 +394,15 @@ export default function ConductExamRollPage() {
         </Grid>
       </Paper>
       <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
+        {(loadingRows || loadingFilterRows) && (
+          <Box sx={{ mb: 2 }}>
+            <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={1} sx={{ mb: 1 }}>
+              <Typography fontWeight={800}>Loading exam roll data...</Typography>
+              <Typography color="text.secondary" variant="body2">Filters and grid data are being refreshed.</Typography>
+            </Stack>
+            <LinearProgress />
+          </Box>
+        )}
         <Grid container spacing={2}>
           {filterFields.map(({ key, label }) => (
             <Grid item xs={12} sm={6} md={2} key={key}>
@@ -347,23 +418,31 @@ export default function ConductExamRollPage() {
               </TextField>
             </Grid>
           ))}
-          <Grid item xs={12} md={2}><Button fullWidth variant="outlined" onClick={() => loadRows()} sx={{ height: 56 }}>Filter</Button></Grid>
-          <Grid item xs={12} md={2}><Button fullWidth variant="text" onClick={clearFilters} sx={{ height: 56 }}>Clear</Button></Grid>
-          <Grid item xs={12} md={2}><Button fullWidth variant="contained" color="error" onClick={bulkDeleteRows} disabled={!selectedIds.length} sx={{ height: 56 }}>Delete Selected</Button></Grid>
+          <Grid item xs={12} md={2}><Button fullWidth variant="outlined" onClick={() => loadRows()} disabled={loadingRows} sx={{ height: 56 }}>{loadingRows ? "Loading..." : "Filter"}</Button></Grid>
+          <Grid item xs={12} md={2}><Button fullWidth variant="text" onClick={clearFilters} disabled={loadingRows} sx={{ height: 56 }}>Clear</Button></Grid>
+          <Grid item xs={12} md={2}><Button fullWidth variant="outlined" onClick={selectAllLoadedRows} disabled={!rows.length || bulkDeleting} sx={{ height: 56 }}>Select All Loaded</Button></Grid>
+          <Grid item xs={12} md={2}><Button fullWidth variant="outlined" onClick={() => setSelectedIds([])} disabled={!selectedIds.length || bulkDeleting} sx={{ height: 56 }}>Clear Selection</Button></Grid>
+          <Grid item xs={12} md={2}><Button fullWidth variant="contained" color="error" onClick={bulkDeleteRows} disabled={!selectedIds.length || bulkDeleting} sx={{ height: 56 }}>{bulkDeleting ? "Deleting..." : `Delete Selected${selectedIds.length ? ` (${selectedIds.length})` : ""}`}</Button></Grid>
         </Grid>
       </Paper>
       <Paper elevation={0} sx={{ p: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
+        {loadingRows && (
+          <Box sx={{ mb: 1.5 }}>
+            <LinearProgress />
+          </Box>
+        )}
         <Box sx={{ height: 620 }}>
           <DataGrid
             rows={rows}
             getRowId={(row) => row._id}
             columns={columns}
+            loading={loadingRows}
             slots={{ toolbar: GridToolbar }}
             pageSizeOptions={[10, 25, 50]}
             checkboxSelection
             disableRowSelectionOnClick
             rowSelectionModel={selectedIds}
-            onRowSelectionModelChange={(newSelection) => setSelectedIds(newSelection)}
+            onRowSelectionModelChange={handleSelectionChange}
           />
         </Box>
       </Paper>

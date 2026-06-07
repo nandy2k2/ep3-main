@@ -27,12 +27,15 @@ import global1 from "./global1";
 const academicYears = ["2026-27", "2027-28", "2028-29", "2029-30", "2030-31"];
 const semesters = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
 const subjectTypes = ["Major", "Minor", "AEC", "SEC", "VAC", "IDC"];
+const courseTypes = ["Theory", "Practical"];
 const filterLabels = {
   academicyear: "Academic Year",
   regulation: "Regulation",
   programcode: "Program Code",
   type: "Type",
-  subject: "Subject"
+  subject: "Subject",
+  coursetype: "Course Type",
+  coursemastercode: "Course Master Code"
 };
 
 const blankForm = {
@@ -45,6 +48,8 @@ const blankForm = {
   programcode: "",
   course: "",
   coursecode: "",
+  coursetype: "Theory",
+  coursemastercode: "",
   credit: 0,
   status: "Active"
 };
@@ -63,6 +68,10 @@ const headerMap = {
   programcode: "programcode",
   course: "course",
   coursecode: "coursecode",
+  coursetype: "coursetype",
+  courseType: "coursetype",
+  coursemastercode: "coursemastercode",
+  courseMasterCode: "coursemastercode",
   credit: "credit",
   credits: "credit",
   status: "status"
@@ -76,7 +85,7 @@ export default function RegulationCourseMapPage() {
   const [programs, setPrograms] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [form, setForm] = useState(blankForm);
-  const [filters, setFilters] = useState({ academicyear: "", regulation: "", programcode: "", type: "", subject: "" });
+  const [filters, setFilters] = useState({ academicyear: "", regulation: "", programcode: "", type: "", subject: "", coursetype: "", coursemastercode: "" });
   const [editingId, setEditingId] = useState("");
   const [uploadRows, setUploadRows] = useState([]);
   const [message, setMessage] = useState("");
@@ -164,7 +173,9 @@ export default function RegulationCourseMapPage() {
     regulation: uniqueSorted(optionRows.map((row) => row.regulation)),
     programcode: uniqueSorted(optionRows.map((row) => row.programcode)),
     type: uniqueSorted(optionRows.map((row) => row.type)),
-    subject: uniqueSorted(optionRows.map((row) => row.subject))
+    subject: uniqueSorted(optionRows.map((row) => row.subject)),
+    coursetype: uniqueSorted(optionRows.map((row) => row.coursetype)),
+    coursemastercode: uniqueSorted(optionRows.map((row) => row.coursemastercode))
   }), [optionRows]);
 
   const academicYearOptions = useMemo(() => uniqueSorted([...academicYears, ...gridDropdownOptions.academicyear]), [gridDropdownOptions.academicyear]);
@@ -243,6 +254,8 @@ export default function RegulationCourseMapPage() {
       programcode: row.programcode || "",
       course: row.course || "",
       coursecode: row.coursecode || "",
+      coursetype: row.coursetype || "Theory",
+      coursemastercode: row.coursemastercode || "",
       credit: row.credit || 0,
       status: row.status || "Active"
     });
@@ -273,6 +286,8 @@ export default function RegulationCourseMapPage() {
       "Program Code": firstProgram.programcode || "",
       Course: "Course Name",
       "Course Code": "COURSE101",
+      "Course Type": "Theory",
+      "Course Master Code": "MASTER101",
       Credit: 4,
       Status: "Active"
     };
@@ -356,6 +371,8 @@ export default function RegulationCourseMapPage() {
     { field: "programcode", headerName: "Program Code", width: 140 },
     { field: "course", headerName: "Course", width: 220 },
     { field: "coursecode", headerName: "Course Code", width: 150 },
+    { field: "coursetype", headerName: "Course Type", width: 140 },
+    { field: "coursemastercode", headerName: "Course Master Code", width: 180 },
     { field: "credit", headerName: "Credit", width: 110, type: "number" },
     { field: "status", headerName: "Status", width: 120 }
   ];
@@ -429,6 +446,17 @@ export default function RegulationCourseMapPage() {
           <Grid item xs={12} md={2}>
             <TextField fullWidth required label="Course Code" value={form.coursecode} onChange={(e) => updateFormValue("coursecode", e.target.value)} />
           </Grid>
+          <Grid item xs={12} md={2}>
+            <FormControl fullWidth>
+              <InputLabel>Course Type</InputLabel>
+              <Select label="Course Type" value={form.coursetype} onChange={(e) => updateFormValue("coursetype", e.target.value)}>
+                {courseTypes.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField fullWidth label="Course Master Code" value={form.coursemastercode} onChange={(e) => updateFormValue("coursemastercode", e.target.value)} />
+          </Grid>
           <Grid item xs={12} md={1}>
             <TextField fullWidth required type="number" label="Credit" value={form.credit} onChange={(e) => updateFormValue("credit", e.target.value)} />
           </Grid>
@@ -442,7 +470,7 @@ export default function RegulationCourseMapPage() {
       <Paper sx={{ p: 2, mb: 2 }}>
         <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ md: "center" }}>
           <Chip label={`${rows.length} records`} />
-          {["academicyear", "regulation", "programcode", "type", "subject"].map((field) => (
+          {["academicyear", "regulation", "programcode", "type", "subject", "coursetype", "coursemastercode"].map((field) => (
             <FormControl key={field} size="small" sx={{ minWidth: field === "programcode" ? 220 : 170 }}>
               <InputLabel>{filterLabels[field]}</InputLabel>
               <Select
@@ -460,7 +488,7 @@ export default function RegulationCourseMapPage() {
             </FormControl>
           ))}
           <Button variant="contained" startIcon={<Refresh />} onClick={() => loadRows()}>Load</Button>
-          <Button variant="outlined" onClick={() => { const next = { academicyear: "", regulation: "", programcode: "", type: "", subject: "" }; setFilters(next); loadRows(next); }}>Clear</Button>
+          <Button variant="outlined" onClick={() => { const next = { academicyear: "", regulation: "", programcode: "", type: "", subject: "", coursetype: "", coursemastercode: "" }; setFilters(next); loadRows(next); }}>Clear</Button>
         </Stack>
       </Paper>
 
@@ -485,7 +513,7 @@ export default function RegulationCourseMapPage() {
           slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "regulation_course_map" } } }}
           pageSizeOptions={[10, 25, 50, 100]}
           initialState={{ pagination: { paginationModel: { pageSize: 10, page: 0 } } }}
-          sx={{ minWidth: 1700 }}
+          sx={{ minWidth: 2000 }}
         />
       </Paper>
     </Container>

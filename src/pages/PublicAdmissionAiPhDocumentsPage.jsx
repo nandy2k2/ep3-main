@@ -35,6 +35,11 @@ const educationPanelMap = {
 const defaultDocumentTypes = ["Photo"];
 const todayString = () => new Date().toISOString().slice(0, 10);
 
+const isPaid = (status, paidamount) => {
+  const normalized = String(status || "").trim().toLowerCase();
+  return ["success", "paid", "completed"].includes(normalized) || Number(paidamount || 0) > 0;
+};
+
 const calculateAge = (dateofbirth, dateofapplication) => {
   if (!dateofbirth || !dateofapplication) return "";
   const birthDate = new Date(dateofbirth);
@@ -1044,6 +1049,9 @@ export default function PublicAdmissionAiPhDocumentsPage() {
     const dynamicDetails = fields
       .map((field) => [field.label, application.extraFields?.[field.fieldname]])
       .filter((item) => item[1] !== undefined && item[1] !== "");
+    const applicationFeePaid = isPaid(application.paymentstatus, application.paidamount);
+    const provisionalFeePaid = isPaid(application.provisionalpaymentstatus, application.provisionalpaidamount);
+    const canPayProvisionalFee = !applicationFee || applicationFeePaid;
 
     return (
       <Box sx={{ bgcolor: "#f5f7fb", minHeight: "100vh", py: 3 }}>
@@ -1098,7 +1106,11 @@ export default function PublicAdmissionAiPhDocumentsPage() {
                 ))}
               </TextField>
               {activePaymentTab === 0 && (
-                applicationFee ? (
+                applicationFee && applicationFeePaid ? (
+                  <Alert severity="success" sx={{ flex: 1 }}>
+                    Application fee paid successfully{application.paymentrefno ? ` (${application.paymentrefno})` : ""}.
+                  </Alert>
+                ) : applicationFee ? (
                   <Button variant="contained" color="success" disabled={paymentLoading} onClick={() => makeAdmissionPayment("Application", application)}>
                     {paymentLoading ? "Processing..." : `Pay Application Fee Rs. ${Number(applicationFee.amount || 0).toLocaleString("en-IN")}`}
                   </Button>
@@ -1107,7 +1119,15 @@ export default function PublicAdmissionAiPhDocumentsPage() {
                 )
               )}
               {activePaymentTab === 1 && (
-                provisionalFee ? (
+                provisionalFee && provisionalFeePaid ? (
+                  <Alert severity="success" sx={{ flex: 1 }}>
+                    Provisional fee paid successfully{application.provisionalpaymentrefno ? ` (${application.provisionalpaymentrefno})` : ""}.
+                  </Alert>
+                ) : provisionalFee && !canPayProvisionalFee ? (
+                  <Alert severity="warning" sx={{ flex: 1 }}>
+                    Please pay the application fee before paying the provisional fee.
+                  </Alert>
+                ) : provisionalFee ? (
                   <Button variant="contained" color="success" disabled={paymentLoading} onClick={() => makeAdmissionPayment("Provisional", application)}>
                     {paymentLoading ? "Processing..." : `Pay Provisional Fee Rs. ${Number(provisionalFee.amount || 0).toLocaleString("en-IN")}`}
                   </Button>

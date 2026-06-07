@@ -36,6 +36,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const fieldLabels = {
   academicyear: "Academic Year",
@@ -43,6 +44,8 @@ const fieldLabels = {
   student: "Student",
   regno: "Reg No",
   programcode: "Program Code",
+  programname: "Program Name",
+  level: "Level",
   regulation: "Regulation",
   major: "Major",
   minor: "Minor",
@@ -58,6 +61,8 @@ const fieldLabels = {
   installment: "Installment"
 };
 
+const selectableFieldLabels = Object.fromEntries(Object.entries(fieldLabels).filter(([key]) => !["programname", "level"].includes(key)));
+
 const tabs = [
   { key: "amount", label: "Total Amount", color: "#2563eb" },
   { key: "paid", label: "Total Paid Amount", color: "#16a34a" },
@@ -71,10 +76,10 @@ const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString(
 const currentDay = today.toISOString().slice(0, 10);
 const money = (value) => Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 
-export default function FeesPivotPage() {
+export default function FeesPivot2Page() {
   const navigate = useNavigate();
   const colid = useMemo(() => global1.colid, []);
-  const [availableFields, setAvailableFields] = useState(Object.keys(fieldLabels));
+  const [availableFields, setAvailableFields] = useState(Object.keys(selectableFieldLabels));
   const [selectedFields, setSelectedFields] = useState(["academicyear", "programcode", "feegroup"]);
   const [fromdate, setFromdate] = useState(firstDay);
   const [todate, setTodate] = useState(currentDay);
@@ -104,9 +109,9 @@ export default function FeesPivotPage() {
     try {
       const res = await ep1.get("/api/v2/feespivot/options", { params: { colid } });
       const backendFields = Array.isArray(res.data?.fields) ? res.data.fields : [];
-      setAvailableFields(Array.from(new Set([...Object.keys(fieldLabels), ...backendFields])));
+      setAvailableFields(Array.from(new Set([...Object.keys(selectableFieldLabels), ...backendFields])).filter((field) => !["programname", "level"].includes(field)));
     } catch (err) {
-      setAvailableFields(Object.keys(fieldLabels));
+      setAvailableFields(Object.keys(selectableFieldLabels));
     }
   };
 
@@ -118,7 +123,7 @@ export default function FeesPivotPage() {
     setLoading(true);
     setMessage("");
     try {
-      const res = await ep1.get("/api/v2/feespivot", {
+      const res = await ep1.get("/api/v2/feespivot2", {
         params: {
           colid,
           fromdate,
@@ -130,7 +135,7 @@ export default function FeesPivotPage() {
       setTotals(res.data?.totals || { count: 0, amount: 0, paid: 0, concession: 0, balance: 0 });
     } catch (err) {
       setRows([]);
-      setMessage(err.response?.data?.message || "Unable to load fees pivot.");
+      setMessage(err.response?.data?.message || "Unable to load fees pivot 2.");
     } finally {
       setLoading(false);
     }
@@ -143,8 +148,12 @@ export default function FeesPivotPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const displayFields = selectedFields.includes("programcode")
+    ? selectedFields.flatMap((field) => (field === "programcode" ? ["programcode", "programname", "level"] : [field]))
+    : selectedFields;
+
   const columns = [
-    ...selectedFields.map((field) => ({
+    ...displayFields.map((field) => ({
       field,
       headerName: fieldLabels[field] || field,
       minWidth: 150,
@@ -165,6 +174,7 @@ export default function FeesPivotPage() {
   );
 
   return (
+    <MenuPageShell title="Fees pivot 2">
     <Box sx={{ p: 2, bgcolor: "#f5f7fb", minHeight: "100vh" }}>
       <style>
         {`
@@ -181,7 +191,7 @@ export default function FeesPivotPage() {
 
       <Stack className="no-print" direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 2 }}>
         <Button startIcon={<ArrowBack />} variant="outlined" onClick={() => navigate("/dashdashfacnew")}>Back</Button>
-        <Typography variant="h5" fontWeight={900} sx={{ flex: 1 }}>Fees pivot</Typography>
+        <Typography variant="h5" fontWeight={900} sx={{ flex: 1 }}>Fees pivot 2</Typography>
         <Button startIcon={<Print />} variant="outlined" onClick={() => window.print()}>Print</Button>
       </Stack>
 
@@ -225,7 +235,7 @@ export default function FeesPivotPage() {
           {institution?.logolink && <Box component="img" src={institution.logolink} alt="Institution logo" sx={{ maxHeight: 72, maxWidth: 150, objectFit: "contain" }} />}
           <Typography variant="h6" fontWeight={900}>{institution?.institutionname || global1.insname || "Institution"}</Typography>
           <Typography variant="body2">{institution?.address || ""}</Typography>
-          <Typography variant="subtitle1" fontWeight={900}>Fees Pivot Report</Typography>
+          <Typography variant="subtitle1" fontWeight={900}>Fees Pivot 2 Report</Typography>
           <Typography variant="body2">Paid date range: {fromdate || "Start"} to {todate || "End"}</Typography>
           <Typography variant="body2">Pivot fields: {selectedFields.map((field) => fieldLabels[field] || field).join(", ")}</Typography>
         </Stack>
@@ -280,7 +290,7 @@ export default function FeesPivotPage() {
             columns={columns}
             loading={loading}
             slots={{ toolbar: GridToolbar }}
-            slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "fees_pivot" } } }}
+            slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "fees_pivot_2" } } }}
             disableRowSelectionOnClick
             pageSizeOptions={[10, 25, 50, 100]}
             initialState={{ pagination: { paginationModel: { pageSize: 10, page: 0 } } }}
@@ -298,5 +308,6 @@ export default function FeesPivotPage() {
         </Grid>
       </Paper>
     </Box>
+    </MenuPageShell>
   );
 }

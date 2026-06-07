@@ -22,6 +22,8 @@ export default function AdmissionApplicationLookupPage() {
   const location = useLocation();
   const query = new URLSearchParams(location.search);
   const colid = query.get("colid") || "";
+  const paymentRefno = query.get("refno") || "";
+  const paymentStatus = query.get("status") || "";
   const [applicationNumber, setApplicationNumber] = useState(query.get("applicationid") || "");
   const [application, setApplication] = useState(null);
   const [institution, setInstitution] = useState(null);
@@ -32,6 +34,8 @@ export default function AdmissionApplicationLookupPage() {
   const [paymentGateways, setPaymentGateways] = useState([]);
   const [selectedPaymentGatewayId, setSelectedPaymentGatewayId] = useState("");
   const [activePaymentTab, setActivePaymentTab] = useState(0);
+  const [printMode, setPrintMode] = useState("application");
+  const [receiptPayment, setReceiptPayment] = useState(null);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -108,6 +112,15 @@ export default function AdmissionApplicationLookupPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (colid && applicationNumber) {
+      loadApplication();
+    }
+    if (paymentRefno || paymentStatus) {
+      setMessage(`Payment ${paymentStatus || "status"}${paymentRefno ? ` for reference ${paymentRefno}` : ""}.`);
+    }
+  }, [colid, applicationNumber, paymentRefno, paymentStatus]);
 
   const makePayment = async (paymentKind) => {
     const selectedFee = paymentKind === "Provisional" ? provisionalFee : applicationFee;
@@ -205,6 +218,43 @@ export default function AdmissionApplicationLookupPage() {
     XLSX.writeFile(wb, `Admission_Application_${application._id}.xlsx`);
   };
 
+  const money = (value) => Number(value || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" });
+  const shortDate = (value) => (value ? new Date(value).toLocaleDateString("en-IN") : "");
+  const receiptDate = () => new Date().toLocaleDateString("en-IN");
+
+  const buildReceiptPayment = (paymentKind) => {
+    if (!application) return null;
+    if (paymentKind === "Provisional") {
+      return {
+        paymenttype: "Provisional Fee",
+        paymentstatus: application.provisionalpaymentstatus || "Paid",
+        paymentrefno: application.provisionalpaymentrefno || "",
+        paidamount: Number(application.provisionalpaidamount || application.provisionalfeeamount || provisionalFee?.amount || 0),
+        paiddate: application.provisionalpaiddate || application.updatedAt || application.createdAt
+      };
+    }
+    return {
+      paymenttype: "Application Fee",
+      paymentstatus: application.paymentstatus || "Paid",
+      paymentrefno: application.paymentrefno || "",
+      paidamount: Number(application.paidamount || application.applicationfeeamount || applicationFee?.amount || 0),
+      paiddate: application.paiddate || application.updatedAt || application.createdAt
+    };
+  };
+
+  const printReceipt = (paymentKind) => {
+    const receipt = buildReceiptPayment(paymentKind);
+    if (!receipt) return;
+    setReceiptPayment(receipt);
+    setPrintMode("receipt");
+    setTimeout(() => window.print(), 100);
+  };
+
+  const printApplication = () => {
+    setPrintMode("application");
+    setTimeout(() => window.print(), 100);
+  };
+
   const renderValue = (label, value) => (
     <Grid item xs={12} sm={6} md={4} key={label}>
       <Box sx={{ border: "1px solid #cbd5e1", borderRadius: 1, p: 1, minHeight: 56, bgcolor: "#fff" }}>
@@ -273,6 +323,9 @@ export default function AdmissionApplicationLookupPage() {
     .filter((item) => item[1] !== undefined && item[1] !== "") : [];
   const documents = application?.documents || [];
   const photoDocument = documents.find((doc) => String(doc.documenttype || "").toLowerCase() === "photo" && doc.url);
+  const canPrintApplicationFeeReceipt = application && isPaid(application.paymentstatus, application.paidamount);
+  const canPrintProvisionalFeeReceipt = application && isPaid(application.provisionalpaymentstatus, application.provisionalpaidamount);
+  const activeReceipt = receiptPayment || (canPrintApplicationFeeReceipt ? buildReceiptPayment("Application") : canPrintProvisionalFeeReceipt ? buildReceiptPayment("Provisional") : null);
 
   return (
     <Box sx={{ bgcolor: "#f5f7fb", minHeight: "100vh", py: 3 }}>
@@ -281,8 +334,8 @@ export default function AdmissionApplicationLookupPage() {
           @media print {
             @page { size: A4 portrait; margin: 10mm; }
             body * { visibility: hidden; }
-            #application-print-view, #application-print-view * { visibility: visible; }
-            #application-print-view { position: absolute; left: 0; top: 0; width: 190mm; box-shadow: none !important; border: 0 !important; }
+            ${printMode === "receipt" ? "#admission-fee-receipt-print, #admission-fee-receipt-print * { visibility: visible; }" : "#application-print-view, #application-print-view * { visibility: visible; }"}
+            ${printMode === "receipt" ? "#admission-fee-receipt-print" : "#application-print-view"} { position: absolute; left: 0; top: 0; width: 190mm; box-shadow: none !important; border: 0 !important; }
             .no-print { display: none !important; }
           }
         `}
@@ -293,7 +346,7 @@ export default function AdmissionApplicationLookupPage() {
         <Stack direction={{ xs: "column", md: "row" }} spacing={1}>
           <TextField fullWidth label="Application number" value={applicationNumber} onChange={(e) => setApplicationNumber(e.target.value)} />
           <Button variant="contained" disabled={loading} onClick={loadApplication}>{loading ? "Loading..." : "Load"}</Button>
-          {application && <Button variant="outlined" onClick={() => window.print()}>Print</Button>}
+          {application && <Button variant="outlined" onClick={printApplication}>Print</Button>}
           {application && <Button variant="outlined" onClick={exportApplication}>Export</Button>}
         </Stack>
         {message && <Alert severity="info" sx={{ mt: 2 }}>{message}</Alert>}
@@ -313,18 +366,33 @@ export default function AdmissionApplicationLookupPage() {
             {activePaymentTab === 0 && (
               applicationFee && !isPaid(application.paymentstatus, application.paidamount)
                 ? <Button variant="contained" color="success" disabled={paymentLoading} onClick={() => makePayment("Application")}>{paymentLoading ? "Processing..." : `Pay Application Fee Rs. ${Number(applicationFee.amount || 0).toLocaleString("en-IN")}`}</Button>
-                : <Alert severity="success" sx={{ flex: 1 }}>Application fee is already paid or not required.</Alert>
+                : <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ flex: 1 }}>
+                    <Alert severity="success" sx={{ flex: 1 }}>Application fee is already paid or not required.</Alert>
+                    {canPrintApplicationFeeReceipt && <Button variant="outlined" onClick={() => printReceipt("Application")}>Download Receipt</Button>}
+                  </Stack>
             )}
             {activePaymentTab === 1 && (
               provisionalFee && !isPaid(application.provisionalpaymentstatus, application.provisionalpaidamount)
                 ? <Button variant="contained" color="success" disabled={paymentLoading} onClick={() => makePayment("Provisional")}>{paymentLoading ? "Processing..." : `Pay Provisional Fee Rs. ${Number(provisionalFee.amount || 0).toLocaleString("en-IN")}`}</Button>
-                : <Alert severity="success" sx={{ flex: 1 }}>Provisional fee is already paid or not required.</Alert>
+                : <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ flex: 1 }}>
+                    <Alert severity="success" sx={{ flex: 1 }}>Provisional fee is already paid or not required.</Alert>
+                    {canPrintProvisionalFeeReceipt && <Button variant="outlined" onClick={() => printReceipt("Provisional")}>Download Receipt</Button>}
+                  </Stack>
             )}
           </Stack>
         </Paper>
       )}
 
       {application && (
+        <>
+        <Paper className="no-print" sx={{ maxWidth: 860, mx: "auto", p: 2, mb: 2 }}>
+          <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 1 }}>Fee Receipts</Typography>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+            <Button variant="outlined" disabled={!canPrintApplicationFeeReceipt} onClick={() => printReceipt("Application")}>Download Application Fee Receipt</Button>
+            <Button variant="outlined" disabled={!canPrintProvisionalFeeReceipt} onClick={() => printReceipt("Provisional")}>Download Provisional Fee Receipt</Button>
+          </Stack>
+        </Paper>
+
         <Paper id="application-print-view" sx={{ maxWidth: "210mm", mx: "auto", p: 3, bgcolor: "#fff", color: "#111827", border: "1px solid #d1d5db" }}>
           <Grid container spacing={2} alignItems="flex-start">
             <Grid item xs={9}>
@@ -424,6 +492,68 @@ export default function AdmissionApplicationLookupPage() {
             </Grid>
           </Grid>
         </Paper>
+        <Box id="admission-fee-receipt-print" sx={{ display: "none", "@media print": { display: printMode === "receipt" ? "block" : "none" }, bgcolor: "white", color: "#111827", maxWidth: "190mm", mx: "auto", p: 3, border: "1px solid #d1d5db" }}>
+          {activeReceipt && (
+            <>
+              <Stack alignItems="center" spacing={0.5} sx={{ textAlign: "center", mb: 2 }}>
+                {institution?.logolink && <Box component="img" src={institution.logolink} alt="Institution logo" sx={{ width: 72, height: 72, objectFit: "contain" }} />}
+                <Typography variant="h6" fontWeight={900}>{institution?.institutionname || "Institution"}</Typography>
+                {institution?.address && <Typography variant="body2">{institution.address}</Typography>}
+                <Typography variant="h6" fontWeight={900} sx={{ mt: 1, textTransform: "uppercase" }}>Admission Fee Receipt</Typography>
+              </Stack>
+
+              <Grid container spacing={1.5} sx={{ mb: 2 }}>
+                <Grid item xs={6}><Typography variant="body2"><b>Receipt No:</b> AFR-{String(activeReceipt.paymentrefno || application._id || "").slice(-10).toUpperCase()}</Typography></Grid>
+                <Grid item xs={6}><Typography variant="body2" textAlign="right"><b>Receipt Date:</b> {receiptDate()}</Typography></Grid>
+                <Grid item xs={6}><Typography variant="body2"><b>Application ID:</b> {application._id || "NA"}</Typography></Grid>
+                <Grid item xs={6}><Typography variant="body2" textAlign="right"><b>Academic Year:</b> {application.academicyear || "NA"}</Typography></Grid>
+              </Grid>
+
+              <Paper elevation={0} sx={{ p: 1.5, mb: 2, border: "1px solid #e5e7eb", bgcolor: "#f9fafb" }}>
+                <Grid container spacing={1}>
+                  <Grid item xs={12} sm={6}><Typography variant="body2"><b>Student:</b> {application.name || "NA"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography variant="body2"><b>Phone:</b> {application.phone || "NA"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography variant="body2"><b>Email:</b> {application.email || "NA"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography variant="body2"><b>Program:</b> {application.programapplied || "NA"} {application.programcode ? `(${application.programcode})` : ""}</Typography></Grid>
+                </Grid>
+              </Paper>
+
+              <Box sx={{ border: "1px solid #111827", borderRadius: 0.5, overflow: "hidden", mb: 2 }}>
+                <Grid container sx={{ bgcolor: "#111827", color: "#fff", fontWeight: 900 }}>
+                  <Grid item xs={4} sx={{ p: 1, borderRight: "1px solid #374151" }}>Item</Grid>
+                  <Grid item xs={2} sx={{ p: 1, borderRight: "1px solid #374151" }}>Amount</Grid>
+                  <Grid item xs={3} sx={{ p: 1, borderRight: "1px solid #374151" }}>Reference Number</Grid>
+                  <Grid item xs={2} sx={{ p: 1, borderRight: "1px solid #374151" }}>Pay Date</Grid>
+                  <Grid item xs={1} sx={{ p: 1 }}>Status</Grid>
+                </Grid>
+                <Grid container>
+                  <Grid item xs={4} sx={{ p: 1, borderRight: "1px solid #d1d5db" }}>{activeReceipt.paymenttype}</Grid>
+                  <Grid item xs={2} sx={{ p: 1, borderRight: "1px solid #d1d5db" }}>{money(activeReceipt.paidamount)}</Grid>
+                  <Grid item xs={3} sx={{ p: 1, borderRight: "1px solid #d1d5db", wordBreak: "break-word" }}>{activeReceipt.paymentrefno || "NA"}</Grid>
+                  <Grid item xs={2} sx={{ p: 1, borderRight: "1px solid #d1d5db" }}>{shortDate(activeReceipt.paiddate) || "NA"}</Grid>
+                  <Grid item xs={1} sx={{ p: 1 }}>{activeReceipt.paymentstatus || "Paid"}</Grid>
+                </Grid>
+              </Box>
+
+              <Stack direction="row" justifyContent="flex-end" sx={{ mb: 3 }}>
+                <Box sx={{ width: 260, borderTop: "2px solid #111827", pt: 1 }}>
+                  <Typography variant="body2" fontWeight={900}>Total Amount: {money(activeReceipt.paidamount)}</Typography>
+                </Box>
+              </Stack>
+
+              <Typography variant="body2" sx={{ mb: 4 }}>
+                Received the above amount towards {activeReceipt.paymenttype} from {application.name || "the applicant"}.
+              </Typography>
+
+              <Grid container spacing={3}>
+                <Grid item xs={4}><Typography variant="body2" fontWeight={700}>Prepared by</Typography></Grid>
+                <Grid item xs={4}><Typography variant="body2" fontWeight={700}>Checked by</Typography></Grid>
+                <Grid item xs={4}><Typography variant="body2" fontWeight={700}>Authorized Signatory</Typography></Grid>
+              </Grid>
+            </>
+          )}
+        </Box>
+        </>
       )}
     </Box>
   );

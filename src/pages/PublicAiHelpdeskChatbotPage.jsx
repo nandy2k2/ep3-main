@@ -41,13 +41,21 @@ export default function PublicAiHelpdeskChatbotPage() {
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const chatEndRef = useRef(null);
+  const chatBodyRef = useRef(null);
 
   const contextLabel = useMemo(() => [type, level].filter(Boolean).join(" / "), [type, level]);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, loading, question]);
+    const frame = window.requestAnimationFrame(() => {
+      if (chatBodyRef.current) {
+        chatBodyRef.current.scrollTo({
+          top: chatBodyRef.current.scrollHeight,
+          behavior: "smooth"
+        });
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [messages, loading]);
 
   const sendMessage = async () => {
     if (!question.trim()) return;
@@ -98,7 +106,7 @@ export default function PublicAiHelpdeskChatbotPage() {
           {!colid && <Alert severity="error">This chatbot link is missing colid.</Alert>}
           {error && <Alert severity="error" onClose={() => setError("")}>{error}</Alert>}
 
-          <Stack sx={{ p: 2.5, height: { xs: 520, md: 600 }, overflowY: "auto", bgcolor: "#f8fafc" }} spacing={1.5}>
+          <Stack ref={chatBodyRef} sx={{ p: 2.5, height: { xs: 520, md: 600 }, overflowY: "auto", bgcolor: "#f8fafc" }} spacing={1.5}>
             {messages.map((msg, index) => (
               <Box key={`${msg.role}-${index}`} sx={bubbleSx(msg.role)}>
                 <Typography variant="body2">{msg.content}</Typography>
@@ -109,7 +117,6 @@ export default function PublicAiHelpdeskChatbotPage() {
                 <Typography variant="body2">Thinking...</Typography>
               </Box>
             )}
-            <Box ref={chatEndRef} />
           </Stack>
 
           <Box sx={{ p: 2, borderTop: "1px solid #dbe4ef", bgcolor: "#fff" }}>

@@ -463,6 +463,12 @@ export function menuitemsall() {
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Admission configuration" />}
           </ListItem>
+          <ListItem button component={RouterLink} to="/academiccalendar">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Academic Calendar" />}
+          </ListItem>
         </AccordionDetails>
       </Accordion>
 
@@ -742,6 +748,13 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Admission Payments" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/admission-fee-receipt">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Admission fee receipt" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/subject-wise-admission">
             <ListItemIcon>
               <PersonIcon />
@@ -888,6 +901,13 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="View final marks" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/neplmsfinalmarksedit">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Edit Final marks" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/neplmsgradecard">
@@ -1094,6 +1114,13 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Exam course mapping" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/conduct-exam-course-scheduler">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Exam course scheduler" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/examroll">
             <ListItemIcon>
               <PersonIcon />
@@ -1106,6 +1133,69 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Seat allocation" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-invigilation">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Invigilation details" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-invigilator-allocation">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Invigilator allocation" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-invigilator-attendance">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Invigilator attendance" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-student-attendance">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Mark student attendance" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-invigilator-payment">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Invigilator payment" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-examiner-list">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Examiner list" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-examiner-allotment">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Examiner allotment" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-examiner-allotment-report">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Examiner allotment report" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-examiner-marks-entry">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Examiner marks entry" />}
           </ListItem>
         </AccordionDetails>
       </Accordion>
@@ -1288,6 +1378,13 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Fees pivot" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/feespivot2">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Fees pivot 2" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/feespaidreport">
