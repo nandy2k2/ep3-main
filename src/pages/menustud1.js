@@ -397,6 +397,13 @@ export function mainListItems({ open }) {
         </AccordionSummary>
         <AccordionDetails>
 
+          <ListItem button component={RouterLink} to="/student-exam-registration">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Exam registration" />}
+</ListItem>
+
           <ListItem button component={RouterLink} to="/examapply">
 <ListItemIcon>
 <PersonIcon />

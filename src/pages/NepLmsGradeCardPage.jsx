@@ -16,8 +16,9 @@ import {
   TextField,
   Typography
 } from "@mui/material";
-import { ArrowBack, Print, Refresh, Search } from "@mui/icons-material";
+import { ArrowBack, Print, Refresh, Search, Verified } from "@mui/icons-material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
+import QRCode from "qrcode";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 
@@ -47,6 +48,8 @@ export default function NepLmsGradeCardPage() {
   const [institution, setInstitution] = useState(null);
   const [gradeCard, setGradeCard] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [blockchainSaving, setBlockchainSaving] = useState(false);
+  const [verificationQr, setVerificationQr] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -123,6 +126,29 @@ export default function NepLmsGradeCardPage() {
     }
   };
 
+  const storeGradeCardBlockchain = async () => {
+    if (!gradeCard || !activeStudent?.regno || !semester) {
+      setError("Generate a grade card before storing in blockchain");
+      return;
+    }
+    try {
+      setBlockchainSaving(true);
+      setError("");
+      setMessage("");
+      const res = await ep1.post("/api/v2/neplms/grade-card/blockchain-store", {
+        colid: global1.colid,
+        regno: activeStudent.regno,
+        semester,
+        user: global1.user
+      });
+      setMessage(`${res.data?.message || "Stored in blockchain"}. Hash: ${res.data?.data?.hash || ""}`);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to store grade card in blockchain");
+    } finally {
+      setBlockchainSaving(false);
+    }
+  };
+
   const studentColumns = [
     { field: "name", headerName: "Student", width: 190 },
     { field: "regno", headerName: "Reg No", width: 130 },
@@ -151,6 +177,40 @@ export default function NepLmsGradeCardPage() {
   ];
 
   const activeStudent = gradeCard?.student || selectedStudent || {};
+  const verificationLink = useMemo(() => {
+    if (!gradeCard || !activeStudent?.regno) return "";
+    const base = `${window.location.origin}/verify-grade-card-blockchain`;
+    const params = new URLSearchParams({
+      student: activeStudent.name || "",
+      regno: activeStudent.regno || ""
+    });
+    return `${base}?${params.toString()}`;
+  }, [gradeCard, activeStudent.name, activeStudent.regno]);
+
+  useEffect(() => {
+    let alive = true;
+    const createQr = async () => {
+      if (!verificationLink) {
+        setVerificationQr("");
+        return;
+      }
+      try {
+        const dataUrl = await QRCode.toDataURL(verificationLink, {
+          width: 170,
+          margin: 1,
+          color: { dark: "#111827", light: "#ffffff" }
+        });
+        if (alive) setVerificationQr(dataUrl);
+      } catch (err) {
+        if (alive) setVerificationQr("");
+      }
+    };
+    createQr();
+    return () => {
+      alive = false;
+    };
+  }, [verificationLink]);
+
   const semesterOptions = useMemo(() => {
     const base = options.semesters || [];
     return [...new Set([...base, selectedStudent?.semester, semester].filter(Boolean))]
@@ -248,6 +308,9 @@ export default function NepLmsGradeCardPage() {
           <Grid item xs={12} md={4}>
             <Stack direction="row" spacing={1}>
               <Button fullWidth variant="contained" onClick={generateGradeCard} disabled={loading}>Generate</Button>
+              <Button fullWidth variant="contained" color="success" startIcon={<Verified />} onClick={storeGradeCardBlockchain} disabled={!gradeCard || blockchainSaving}>
+                {blockchainSaving ? "Storing..." : "Store Blockchain"}
+              </Button>
               <Button fullWidth variant="outlined" startIcon={<Print />} onClick={() => window.print()} disabled={!gradeCard}>Print</Button>
             </Stack>
           </Grid>
@@ -303,6 +366,39 @@ export default function NepLmsGradeCardPage() {
             <Chip color="success" label={`SGPA: ${gradeCard.sgpa?.value || 0}`} />
             <Chip color="secondary" label={`CGPA till date: ${gradeCard.cgpa?.value || 0}`} />
           </Stack>
+
+          {verificationLink && (
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 1.5,
+                mb: 3,
+                display: "flex",
+                gap: 2,
+                alignItems: "center",
+                justifyContent: "space-between",
+                borderColor: "#cbd5e1",
+                bgcolor: "#f8fafc",
+                breakInside: "avoid"
+              }}
+            >
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="subtitle2" fontWeight={900}>Blockchain Verification</Typography>
+                <Typography variant="caption" color="text.secondary">Scan the QR code or use this link to verify the marksheet.</Typography>
+                <Typography variant="body2" fontWeight={700} sx={{ mt: 0.5, overflowWrap: "anywhere" }}>
+                  {verificationLink}
+                </Typography>
+              </Box>
+              {verificationQr && (
+                <Box
+                  component="img"
+                  src={verificationQr}
+                  alt="Blockchain verification QR code"
+                  sx={{ width: 110, height: 110, border: "1px solid #e2e8f0", bgcolor: "#fff", p: 0.5 }}
+                />
+              )}
+            </Paper>
+          )}
 
           <Grid container spacing={4} sx={{ mt: 4, textAlign: "center" }}>
             <Grid item xs={4}><Typography variant="body2" sx={{ borderTop: "1px solid #333", pt: 1 }}>Prepared By</Typography></Grid>

@@ -938,6 +938,13 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Course workspace" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/neplmsclassgroups">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Class groups" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/neplmsassessment">
             <ListItemIcon>
               <PersonIcon />
@@ -971,6 +978,13 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Attendance" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/neplmsgroupattendance">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Group attendance" />}
           </ListItem>
 
           {/* <ListItem button component={RouterLink} to="/neplmsassessmentmarks">
@@ -1121,6 +1135,48 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Exam course scheduler" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/conduct-exam-rate-card">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Exam rate card" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-stationary-master">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Stationary master" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-stationary-requirement">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Stationary requirement" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-generator-requirement">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Generator requirement" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-generator-master">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Generator master" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-generator-allocation">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Generator allocation" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/examroll">
             <ListItemIcon>
               <PersonIcon />
@@ -1196,6 +1252,76 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Examiner marks entry" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-score-rule">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Exam score rule" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-on-screen-marking">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="On Screen Marking" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-paper-setter-registration">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Paper setter registration" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-submit-question-paper">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Submit question paper" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-moderator-registration">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Moderator registration" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-moderation">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Moderate question paper" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-review-papers">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Review papers" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-examiner-payment">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Examiner payment" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-moderator-payment">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Moderator payment" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-papersetter-payment">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Paper setter payment" />}
           </ListItem>
         </AccordionDetails>
       </Accordion>
@@ -1406,6 +1532,13 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Fees Receipt" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/blockchainfeesreceipt">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Blockchain fees receipt" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/studentfeeapply">
