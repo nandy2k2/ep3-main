@@ -27,7 +27,7 @@ export default function PublicRecruitmentApplyPage() {
   const token = query.get("token") || "";
   const [bundle, setBundle] = useState(null);
   const [tab, setTab] = useState(0);
-  const [form, setForm] = useState({ applicantname: "", email: "", phone: "", username: "", password: "", customfields: {}, documents: [] });
+  const [form, setForm] = useState({ applicantname: "", email: "", phone: "", username: "", password: "", photourl: "", customfields: {}, documents: [] });
   const [retrieve, setRetrieve] = useState({ applicationno: "", email: "", phone: "" });
   const [showRetrieve, setShowRetrieve] = useState(false);
   const [submitted, setSubmitted] = useState(null);
@@ -38,6 +38,7 @@ export default function PublicRecruitmentApplyPage() {
   const fields = useMemo(() => bundle?.fields || [], [bundle]);
   const docs = useMemo(() => bundle?.documents || [], [bundle]);
   const photoDocument = useMemo(() => form.documents?.find((doc) => /photo/i.test(doc.documenttype || doc.originalname || "")), [form.documents]);
+  const photoUrl = form.photourl || photoDocument?.url || "";
 
   const pages = useMemo(() => {
     const ordered = [];
@@ -78,6 +79,7 @@ export default function PublicRecruitmentApplyPage() {
       const res = await ep1.post("/api/v2/recruitment/upload-document", data, { headers: { "Content-Type": "multipart/form-data" } });
       setForm((old) => ({
         ...old,
+        ...(docType === "Candidate Photo" ? { photourl: res.data.url } : {}),
         documents: [...(old.documents || []).filter((d) => d.documenttype !== docType), res.data]
       }));
     } catch (err) {
@@ -94,6 +96,7 @@ export default function PublicRecruitmentApplyPage() {
       const payload = {
         ...form,
         username: form.email,
+        photourl: photoUrl,
         colid,
         jobid,
         formid: bundle.job.formid,
@@ -134,6 +137,7 @@ export default function PublicRecruitmentApplyPage() {
         phone: res.data.phone || "",
         username: res.data.username || res.data.email || "",
         password: res.data.password || "",
+        photourl: res.data.photourl || "",
         customfields: res.data.customfields || {},
         documents: res.data.documents || []
       });
@@ -222,6 +226,22 @@ export default function PublicRecruitmentApplyPage() {
               <Grid item xs={12} md={4}><TextField fullWidth label="Applicant name *" value={form.applicantname} onChange={(e) => setForm({ ...form, applicantname: e.target.value })} /></Grid>
               <Grid item xs={12} md={4}><TextField fullWidth label="Email *" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value, username: e.target.value })} /></Grid>
               <Grid item xs={12} md={4}><TextField fullWidth label="Phone *" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Grid>
+              <Grid item xs={12} md={4}>
+                <Paper variant="outlined" sx={{ p: 2, height: "100%" }}>
+                  <Typography fontWeight={800}>Candidate Photo *</Typography>
+                  <Typography variant="body2" color="text.secondary">Upload JPG, JPEG or PNG.</Typography>
+                  <Button sx={{ mt: 1 }} variant="outlined" component="label" startIcon={<UploadFileIcon />} disabled={loading}>
+                    Upload Photo
+                    <input hidden type="file" accept=".jpg,.jpeg,.png" onChange={(e) => uploadDocument("Candidate Photo", e.target.files?.[0], "Candidate Photo")} />
+                  </Button>
+                  {photoUrl && (
+                    <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mt: 1 }}>
+                      <Box component="img" src={photoUrl} alt="Candidate" sx={{ width: 70, height: 82, objectFit: "cover", border: "1px solid #d1d5db" }} />
+                      <Typography sx={{ wordBreak: "break-all" }} variant="caption" component="a" href={photoUrl} target="_blank" rel="noreferrer">{photoUrl}</Typography>
+                    </Stack>
+                  )}
+                </Paper>
+              </Grid>
               <Grid item xs={12}><Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-line" }}>{bundle?.job?.description}</Typography></Grid>
             </Grid>
           )}
@@ -266,7 +286,7 @@ export default function PublicRecruitmentApplyPage() {
                   <Typography variant="body2">Application ID: {submitted?.applicationno || "Will be generated after submission"}</Typography>
                 </Box>
                 <Box sx={{ width: 120, height: 140, border: "1px solid #9ca3af", display: "grid", placeItems: "center", color: "text.secondary", overflow: "hidden" }}>
-                  {photoDocument?.url ? <Box component="img" src={photoDocument.url} alt="Applicant" sx={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "Photo"}
+                  {photoUrl ? <Box component="img" src={photoUrl} alt="Applicant" sx={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "Photo"}
                 </Box>
               </Stack>
               <Divider sx={{ my: 2 }} />

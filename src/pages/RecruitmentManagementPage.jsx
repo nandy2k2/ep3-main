@@ -26,6 +26,7 @@ import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const blankJob = {
   jobid: "",
@@ -54,6 +55,9 @@ const blankField = {
   order: 0
 };
 
+const blankCandidateStatus = { status: "", description: "", isactive: "Yes" };
+const blankApprovalLevel = { jobid: "", level: 1, approverrole: "", approvername: "", approveremail: "", description: "", isactive: "Yes" };
+
 const fieldTypes = ["Text", "Textarea", "Number", "Date", "Email", "Phone", "Select", "Radio", "Checkbox", "File", "Photo"];
 const yesNo = ["Yes", "No"];
 const employmentTypes = [
@@ -73,12 +77,17 @@ export default function RecruitmentManagementPage() {
   const [fields, setFields] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [applications, setApplications] = useState([]);
+  const [candidateStatuses, setCandidateStatuses] = useState([]);
+  const [approvalLevels, setApprovalLevels] = useState([]);
   const [selectedForm, setSelectedForm] = useState("");
   const [selectedJob, setSelectedJob] = useState("");
   const [formData, setFormData] = useState({ formid: "", title: "", description: "", isactive: "Yes" });
   const [jobData, setJobData] = useState(blankJob);
   const [fieldData, setFieldData] = useState(blankField);
   const [docData, setDocData] = useState({ documenttype: "", description: "", isrequired: "No" });
+  const [statusData, setStatusData] = useState(blankCandidateStatus);
+  const [approvalData, setApprovalData] = useState(blankApprovalLevel);
+  const [approvalComments, setApprovalComments] = useState("");
   const [criteria, setCriteria] = useState({ mandatorycriteria: "", validationcriteria: "" });
   const [filterField, setFilterField] = useState("");
   const [filterValue, setFilterValue] = useState("");
@@ -116,6 +125,18 @@ export default function RecruitmentManagementPage() {
     setDocuments(res.data || []);
   };
 
+  const loadCandidateStatuses = async () => {
+    const res = await ep1.get("/api/v2/recruitment/candidate-statuses", { params: { colid } });
+    setCandidateStatuses(res.data || []);
+  };
+
+  const loadApprovalLevels = async (jobid = selectedJob) => {
+    const params = { colid };
+    if (jobid) params.jobid = jobid;
+    const res = await ep1.get("/api/v2/recruitment/approval-levels", { params });
+    setApprovalLevels(res.data || []);
+  };
+
   const loadCriteria = async (formid = selectedForm) => {
     if (!formid) return setCriteria({ mandatorycriteria: "", validationcriteria: "" });
     const res = await ep1.get("/api/v2/recruitment/validation", { params: { colid, formid } });
@@ -133,7 +154,7 @@ export default function RecruitmentManagementPage() {
   };
 
   useEffect(() => {
-    Promise.all([loadForms(), loadJobs()]).catch((err) => setError(err.response?.data?.msg || err.message));
+    Promise.all([loadForms(), loadJobs(), loadCandidateStatuses()]).catch((err) => setError(err.response?.data?.msg || err.message));
   }, []);
 
   useEffect(() => {
@@ -144,6 +165,7 @@ export default function RecruitmentManagementPage() {
 
   useEffect(() => {
     loadApplications();
+    loadApprovalLevels();
   }, [selectedJob]);
 
   const saveForm = async () => {
@@ -179,6 +201,28 @@ export default function RecruitmentManagementPage() {
     setMessage("Document type saved");
     setDocData({ documenttype: "", description: "", isrequired: "No" });
     await loadDocuments();
+  };
+
+  const saveCandidateStatus = async () => {
+    if (!statusData.status.trim()) return setError("Status is required");
+    await ep1.post("/api/v2/recruitment/candidate-statuses", { ...statusData, colid, user: global1.user });
+    setMessage("Candidate status saved");
+    setStatusData(blankCandidateStatus);
+    await loadCandidateStatuses();
+  };
+
+  const saveApprovalLevel = async () => {
+    if (!approvalData.jobid) return setError("Select a job first");
+    const job = jobs.find((item) => item.jobid === approvalData.jobid);
+    await ep1.post("/api/v2/recruitment/approval-levels", {
+      ...approvalData,
+      jobtitle: job?.title || approvalData.jobid,
+      colid,
+      user: global1.user
+    });
+    setMessage("Approval level saved");
+    setApprovalData({ ...blankApprovalLevel, jobid: approvalData.jobid });
+    await loadApprovalLevels(selectedJob);
   };
 
   const saveCriteria = async () => {
@@ -293,6 +337,21 @@ ${global1.name || "Recruitment Team"}`;
     await loadApplications();
   };
 
+  const updateCandidateApproval = async (row, action) => {
+    await ep1.post("/api/v2/recruitment/application-approval", {
+      colid,
+      id: row._id,
+      action,
+      comments: approvalComments,
+      approvername: global1.name,
+      approveremail: global1.user,
+      status: action === "Reject" ? "Rejected" : ""
+    });
+    setMessage(`Candidate ${action === "Reject" ? "rejected" : "approved"}`);
+    setApprovalComments("");
+    await loadApplications();
+  };
+
   const confirmCandidate = async () => {
     if (!selectedCandidate?._id) return setError("Select a candidate first");
     if (!selectedCandidate.email) return setError("Selected candidate does not have an email address");
@@ -372,27 +431,57 @@ ${global1.name || "Recruitment Team"}`;
   ];
 
   const applicationColumns = [
+    {
+      field: "photourl",
+      headerName: "Photo",
+      width: 90,
+      renderCell: ({ row }) => {
+        const photo = row.photourl || row.documents?.find((doc) => /photo/i.test(doc.documenttype || ""))?.url || "";
+        return photo ? <Box component="img" src={photo} alt="Candidate" sx={{ width: 46, height: 54, objectFit: "cover", borderRadius: 1, border: "1px solid #d1d5db" }} /> : "";
+      }
+    },
     { field: "applicationno", headerName: "Application", width: 210 },
     { field: "applicantname", headerName: "Candidate", width: 180 },
     { field: "email", headerName: "Email", width: 220 },
     { field: "phone", headerName: "Phone", width: 140 },
     { field: "status", headerName: "Status", width: 130 },
+    { field: "approvalstatus", headerName: "Approval", width: 130 },
+    { field: "approvallevel", headerName: "Level", width: 90 },
     { field: "validationstatus", headerName: "Validation", width: 130 },
     {
-      field: "shortlist",
-      headerName: "Shortlist",
-      width: 210,
+      field: "changestatus",
+      headerName: "Change Status",
+      width: 190,
+      renderCell: ({ row }) => (
+        <TextField
+          select
+          size="small"
+          value={row.status || ""}
+          onChange={(e) => updateCandidateStatus(row, e.target.value)}
+          sx={{ minWidth: 165 }}
+        >
+          {[...new Set([...(candidateStatuses || []).filter((item) => item.isactive !== "No").map((item) => item.status), row.status].filter(Boolean))].map((status) => (
+            <MenuItem key={status} value={status}>{status}</MenuItem>
+          ))}
+        </TextField>
+      )
+    },
+    {
+      field: "approvalaction",
+      headerName: "Approval Action",
+      width: 230,
       renderCell: ({ row }) => (
         <Stack direction="row" spacing={1}>
-          <Button size="small" color="success" onClick={() => updateCandidateStatus(row, "Shortlisted")}>Shortlist</Button>
-          <Button size="small" color="error" onClick={() => updateCandidateStatus(row, "Rejected")}>Reject</Button>
+          <Button size="small" color="success" onClick={() => updateCandidateApproval(row, "Approve")} disabled={row.approvalstatus === "Approved" || row.approvalstatus === "Rejected"}>Approve</Button>
+          <Button size="small" color="error" onClick={() => updateCandidateApproval(row, "Reject")} disabled={row.approvalstatus === "Approved" || row.approvalstatus === "Rejected"}>Reject</Button>
         </Stack>
       )
     }
   ];
 
   return (
-    <Box sx={{ p: 3, bgcolor: "#f6f8fb", minHeight: "100vh" }}>
+    <MenuPageShell title="Recruitment Management">
+      <Box sx={{ p: 3, bgcolor: "#f6f8fb", minHeight: "100vh" }}>
       <Paper sx={{ p: 3, borderRadius: 2 }}>
         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2}>
           <Box>
@@ -413,6 +502,8 @@ ${global1.name || "Recruitment Team"}`;
           <Tab label="Fields" />
           <Tab label="Documents" />
           <Tab label="Validation" />
+          <Tab label="Candidate Status" />
+          <Tab label="Approval Levels" />
           <Tab label="Candidates" />
         </Tabs>
       </Paper>
@@ -547,6 +638,68 @@ ${global1.name || "Recruitment Team"}`;
 
       {tab === 5 && (
         <Paper sx={{ p: 3, mt: 2 }}>
+          <Typography variant="h6" fontWeight={800}>Candidate status master</Typography>
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            <Grid item xs={12} md={3}><TextField fullWidth size="small" label="Status" value={statusData.status} onChange={(e) => setStatusData({ ...statusData, status: e.target.value })} /></Grid>
+            <Grid item xs={12} md={5}><TextField fullWidth size="small" label="Description" value={statusData.description} onChange={(e) => setStatusData({ ...statusData, description: e.target.value })} /></Grid>
+            <Grid item xs={12} md={2}><TextField select fullWidth size="small" label="Active" value={statusData.isactive} onChange={(e) => setStatusData({ ...statusData, isactive: e.target.value })}>{yesNo.map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={2}><Button fullWidth variant="contained" onClick={saveCandidateStatus}>Save</Button></Grid>
+          </Grid>
+          <Box sx={{ height: 360, mt: 2 }}>
+            <DataGrid rows={candidateStatuses} getRowId={(row) => row._id || row.status} slots={{ toolbar: GridToolbar }} columns={[
+              { field: "status", headerName: "Status", width: 220 },
+              { field: "description", headerName: "Description", width: 420 },
+              { field: "isactive", headerName: "Active", width: 120 },
+              { field: "actions", headerName: "Actions", width: 220, renderCell: ({ row }) => row.isdefault ? "" : (
+                <Stack direction="row" spacing={1}>
+                  <Button size="small" onClick={() => setStatusData({ ...blankCandidateStatus, ...row, id: row._id })}>Edit</Button>
+                  <Button color="error" size="small" onClick={() => deleteBy("/api/v2/recruitment/candidate-statuses-delete", { id: row._id }, loadCandidateStatuses)}>Delete</Button>
+                </Stack>
+              ) }
+            ]} />
+          </Box>
+        </Paper>
+      )}
+
+      {tab === 6 && (
+        <Paper sx={{ p: 3, mt: 2 }}>
+          <Typography variant="h6" fontWeight={800}>Dynamic approval levels for job role</Typography>
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            <Grid item xs={12} md={3}>
+              <TextField select fullWidth size="small" label="Job role" value={approvalData.jobid || selectedJob} onChange={(e) => setApprovalData({ ...approvalData, jobid: e.target.value })}>
+                {jobs.map((job) => <MenuItem key={job.jobid} value={job.jobid}>{job.jobid} - {job.title}</MenuItem>)}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={1}><TextField fullWidth size="small" type="number" label="Level" value={approvalData.level} onChange={(e) => setApprovalData({ ...approvalData, level: e.target.value })} /></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Approver role" value={approvalData.approverrole} onChange={(e) => setApprovalData({ ...approvalData, approverrole: e.target.value })} /></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Approver name" value={approvalData.approvername} onChange={(e) => setApprovalData({ ...approvalData, approvername: e.target.value })} /></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Approver email" value={approvalData.approveremail} onChange={(e) => setApprovalData({ ...approvalData, approveremail: e.target.value })} /></Grid>
+            <Grid item xs={12} md={1}><TextField select fullWidth size="small" label="Active" value={approvalData.isactive} onChange={(e) => setApprovalData({ ...approvalData, isactive: e.target.value })}>{yesNo.map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={1}><Button fullWidth variant="contained" onClick={saveApprovalLevel}>Save</Button></Grid>
+            <Grid item xs={12}><TextField fullWidth size="small" label="Description" value={approvalData.description} onChange={(e) => setApprovalData({ ...approvalData, description: e.target.value })} /></Grid>
+          </Grid>
+          <Box sx={{ height: 400, mt: 2 }}>
+            <DataGrid rows={approvalLevels} getRowId={(row) => row._id} slots={{ toolbar: GridToolbar }} columns={[
+              { field: "jobid", headerName: "Job", width: 140 },
+              { field: "jobtitle", headerName: "Job title", width: 220 },
+              { field: "level", headerName: "Level", width: 90 },
+              { field: "approverrole", headerName: "Role", width: 150 },
+              { field: "approvername", headerName: "Approver", width: 180 },
+              { field: "approveremail", headerName: "Email", width: 220 },
+              { field: "isactive", headerName: "Active", width: 100 },
+              { field: "actions", headerName: "Actions", width: 220, renderCell: ({ row }) => (
+                <Stack direction="row" spacing={1}>
+                  <Button size="small" onClick={() => setApprovalData({ ...blankApprovalLevel, ...row, id: row._id })}>Edit</Button>
+                  <Button color="error" size="small" onClick={() => deleteBy("/api/v2/recruitment/approval-levels-delete", { id: row._id }, () => loadApprovalLevels(selectedJob))}>Delete</Button>
+                </Stack>
+              ) }
+            ]} />
+          </Box>
+        </Paper>
+      )}
+
+      {tab === 7 && (
+        <Paper sx={{ p: 3, mt: 2 }}>
           <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ md: "center" }}>
             <TextField select size="small" label="Job" value={selectedJob} onChange={(e) => setSelectedJob(e.target.value)} sx={{ minWidth: 280 }}>
               {jobs.map((job) => <MenuItem key={job.jobid} value={job.jobid}>{job.jobid} - {job.title}</MenuItem>)}
@@ -559,6 +712,14 @@ ${global1.name || "Recruitment Team"}`;
             <TextField size="small" label="Search any text/custom field" value={textSearch} onChange={(e) => setTextSearch(e.target.value)} sx={{ minWidth: 260 }} />
           </Stack>
           <Divider sx={{ my: 2 }} />
+          <TextField
+            fullWidth
+            size="small"
+            label="Approval comments"
+            value={approvalComments}
+            onChange={(e) => setApprovalComments(e.target.value)}
+            sx={{ mb: 2 }}
+          />
           <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
             <TextField fullWidth multiline minRows={2} label="AI shortlisting instruction in English" value={aiInstruction} onChange={(e) => setAiInstruction(e.target.value)} />
             <Button variant="contained" startIcon={<AutoFixHighIcon />} onClick={runAiShortlist} sx={{ minWidth: 180 }}>AI Shortlist</Button>
@@ -574,6 +735,19 @@ ${global1.name || "Recruitment Team"}`;
             />
           </Box>
           <Paper variant="outlined" sx={{ p: 2, mt: 2, borderRadius: 2, bgcolor: "#fbfdff" }}>
+            {selectedCandidate && (
+              <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ mb: 2 }} alignItems={{ md: "center" }}>
+                {(() => {
+                  const photo = selectedCandidate.photourl || selectedCandidate.documents?.find((doc) => /photo/i.test(doc.documenttype || ""))?.url || "";
+                  return photo ? <Box component="img" src={photo} alt="Candidate" sx={{ width: 96, height: 116, objectFit: "cover", borderRadius: 1, border: "1px solid #d1d5db" }} /> : null;
+                })()}
+                <Box>
+                  <Typography variant="h6" fontWeight={900}>{selectedCandidate.applicantname}</Typography>
+                  <Typography variant="body2">{selectedCandidate.email} | {selectedCandidate.phone}</Typography>
+                  <Typography variant="body2">Status: {selectedCandidate.status} | Approval: {selectedCandidate.approvalstatus || "Pending"} | Level: {selectedCandidate.approvallevel || 0}</Typography>
+                </Box>
+              </Stack>
+            )}
             <Stack direction={{ xs: "column", md: "row" }} spacing={2} justifyContent="space-between" alignItems={{ md: "center" }}>
               <Box>
                 <Typography variant="h6" fontWeight={800}>Confirm candidate and send mail</Typography>
@@ -617,6 +791,7 @@ ${global1.name || "Recruitment Team"}`;
           </Paper>
         </Paper>
       )}
-    </Box>
+      </Box>
+    </MenuPageShell>
   );
 }

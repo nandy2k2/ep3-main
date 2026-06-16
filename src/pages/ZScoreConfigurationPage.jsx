@@ -19,6 +19,7 @@ import { DataGrid, GridActionsCellItem, GridToolbar } from "@mui/x-data-grid";
 import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const blankForm = {
   academicyear: "",
@@ -273,6 +274,7 @@ export default function ZScoreConfigurationPage() {
   ];
 
   return (
+    <MenuPageShell title="Z Score Configuration">
     <Box p={3}>
       <Stack direction={{ xs: "column", md: "row" }} spacing={2} justifyContent="space-between" sx={{ mb: 2 }}>
         <Box>
@@ -367,5 +369,6 @@ export default function ZScoreConfigurationPage() {
         />
       </Paper>
     </Box>
+    </MenuPageShell>
   );
 }

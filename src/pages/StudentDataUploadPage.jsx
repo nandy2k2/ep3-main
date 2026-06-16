@@ -3,9 +3,11 @@ import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Grid,
+  IconButton,
   LinearProgress,
   MenuItem,
   Paper,
@@ -15,6 +17,7 @@ import {
 } from "@mui/material";
 import { DataGrid, GridActionsCellItem, GridToolbar } from "@mui/x-data-grid";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
@@ -64,8 +67,12 @@ const labels = {
   guardianemail: "Guardian Email",
   photo: "Photo",
   semester: "Semester",
-  section: "Section"
+  section: "Section",
+  department: "Department",
+  institution: "Institution"
 };
+const viewFilterFields = ["academicyear", "program", "programcode", "department", "semester", "section", "Major", "Minor", "IDC", "AEC", "SEC", "VAC", "name", "email", "phone", "institution"];
+const blankViewFilter = { field: "academicyear", value: "" };
 const blankForm = fields.reduce((acc, field) => ({ ...acc, [field]: staticDropdownOptions[field]?.[0] || "" }), {});
 const normalizeKey = (key) => String(key || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -118,7 +125,9 @@ export default function StudentDataUploadPage() {
   const [bulkUploading, setBulkUploading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [viewFilters, setViewFilters] = useState([{ ...blankViewFilter }]);
   const [bulkSubject, setBulkSubject] = useState({ oldMajor: "", newMajor: "", oldMinor: "", newMinor: "" });
+  const [selectedSubjectUpdate, setSelectedSubjectUpdate] = useState({ Major: "", Minor: "", IDC: "" });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -336,6 +345,39 @@ export default function StudentDataUploadPage() {
     return [...new Set(values)].sort((a, b) => String(a).localeCompare(String(b)));
   };
 
+  const rowValue = (row, field) => {
+    if (field === "Major") return row.Major || row.major || "";
+    if (field === "Minor") return row.Minor || row.minor || "";
+    if (field === "AEC") return row.AEC || row.aec || "";
+    if (field === "SEC") return row.SEC || row.sec || "";
+    if (field === "VAC") return row.VAC || row.vac || "";
+    if (field === "IDC") return row.IDC || row.idc || "";
+    return row[field] || "";
+  };
+
+  const viewFilterOptions = (field) => {
+    const values = rows.map((row) => String(rowValue(row, field) || "").trim()).filter(Boolean);
+    return [...new Set(values)].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  };
+
+  const updateViewFilter = (index, patch) => {
+    setViewFilters((prev) => prev.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch, ...(patch.field ? { value: "" } : {}) } : item)));
+  };
+
+  const addViewFilter = () => setViewFilters((prev) => [...prev, { ...blankViewFilter }]);
+  const removeViewFilter = (index) => setViewFilters((prev) => (prev.length === 1 ? [{ ...blankViewFilter }] : prev.filter((_, itemIndex) => itemIndex !== index)));
+  const clearViewFilters = () => setViewFilters([{ ...blankViewFilter }]);
+
+  const filteredRows = useMemo(() => {
+    const activeFilters = viewFilters
+      .map((filter) => ({ field: filter.field, value: String(filter.value || "").trim().toLowerCase() }))
+      .filter((filter) => filter.field && filter.value);
+    if (!activeFilters.length) return rows;
+    return rows.filter((row) =>
+      activeFilters.every((filter) => String(rowValue(row, filter.field) || "").toLowerCase().includes(filter.value))
+    );
+  }, [rows, viewFilters]);
+
   const bulkUpdateSubject = async (field) => {
     const oldKey = field === "Major" ? "oldMajor" : "oldMinor";
     const newKey = field === "Major" ? "newMajor" : "newMinor";
@@ -360,6 +402,33 @@ export default function StudentDataUploadPage() {
       loadRows();
     } catch (err) {
       setError(err.response?.data?.msg || `Unable to update ${field}`);
+    }
+  };
+
+  const bulkUpdateSelectedSubjects = async () => {
+    if (!selectedIds.length) {
+      setError("Select at least one student");
+      return;
+    }
+    if (!selectedSubjectUpdate.Major && !selectedSubjectUpdate.Minor && !selectedSubjectUpdate.IDC) {
+      setError("Enter Major, Minor or IDC to update");
+      return;
+    }
+    if (!window.confirm(`Update Major/Minor/IDC for ${selectedIds.length} selected student(s)?`)) return;
+    try {
+      setError("");
+      setMessage("");
+      const res = await ep1.post("/api/v2/student-data-upload-selected-subject-update", {
+        colid: global1.colid,
+        ids: selectedIds,
+        ...selectedSubjectUpdate
+      });
+      setMessage(`Selected students updated. Matched: ${res.data?.matched || 0}, Modified: ${res.data?.modified || 0}`);
+      setSelectedSubjectUpdate({ Major: "", Minor: "", IDC: "" });
+      setSelectedIds([]);
+      await loadRows();
+    } catch (err) {
+      setError(err.response?.data?.msg || "Unable to update selected students");
     }
   };
 
@@ -531,9 +600,74 @@ export default function StudentDataUploadPage() {
         </Grid>
       </Paper>
 
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} sx={{ mb: 2 }}>
+          <Box>
+            <Typography variant="h6">Update Selected Students</Typography>
+            <Typography variant="body2" color="text.secondary">Select students in the grid, then update Major, Minor and IDC together.</Typography>
+          </Box>
+          <Typography variant="body2" color="text.secondary">Selected: {selectedIds.length}</Typography>
+        </Stack>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={3}>
+            <TextField fullWidth label="Major" value={selectedSubjectUpdate.Major} onChange={(event) => setSelectedSubjectUpdate((prev) => ({ ...prev, Major: event.target.value }))} />
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField fullWidth label="Minor" value={selectedSubjectUpdate.Minor} onChange={(event) => setSelectedSubjectUpdate((prev) => ({ ...prev, Minor: event.target.value }))} />
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField fullWidth label="IDC" value={selectedSubjectUpdate.IDC} onChange={(event) => setSelectedSubjectUpdate((prev) => ({ ...prev, IDC: event.target.value }))} />
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <Button fullWidth variant="contained" sx={{ height: 56 }} onClick={bulkUpdateSelectedSubjects} disabled={!selectedIds.length}>
+              Update Selected
+            </Button>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} sx={{ mb: 2 }}>
+          <Box>
+            <Typography variant="h6">View Filters</Typography>
+            <Typography variant="body2" color="text.secondary">Dynamically filter the grid by academic, subject, contact, and institution fields.</Typography>
+          </Box>
+          <Stack direction="row" spacing={1}>
+            <Button startIcon={<AddIcon />} onClick={addViewFilter}>Add Filter</Button>
+            <Button variant="outlined" onClick={clearViewFilters}>Clear</Button>
+          </Stack>
+        </Stack>
+        <Grid container spacing={2}>
+          {viewFilters.map((filter, index) => (
+            <React.Fragment key={`${filter.field}-${index}`}>
+              <Grid item xs={12} md={4}>
+                <TextField select fullWidth label="Field" value={filter.field} onChange={(event) => updateViewFilter(index, { field: event.target.value })}>
+                  {viewFilterFields.map((field) => <MenuItem key={field} value={field}>{labels[field] || field}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={7}>
+                <Autocomplete
+                  freeSolo
+                  options={viewFilterOptions(filter.field)}
+                  value={filter.value || ""}
+                  onInputChange={(_, value) => updateViewFilter(index, { value })}
+                  onChange={(_, value) => updateViewFilter(index, { value: value || "" })}
+                  renderInput={(params) => <TextField {...params} label={labels[filter.field] || filter.field} />}
+                />
+              </Grid>
+              <Grid item xs={12} md={1}>
+                <IconButton color="error" onClick={() => removeViewFilter(index)} disabled={viewFilters.length === 1} sx={{ height: 56, width: 56 }}>
+                  <DeleteIcon />
+                </IconButton>
+              </Grid>
+            </React.Fragment>
+          ))}
+        </Grid>
+      </Paper>
+
       <Paper sx={{ p: 1, overflowX: "auto" }}>
         <DataGrid
-          rows={rows.map((row) => ({ ...row, id: row._id, major: row.major || row.Major || "", minor: row.minor || row.Minor || "", MDC: row.MDC || row.mdc || row.mdcsub || "" }))}
+          rows={filteredRows.map((row) => ({ ...row, id: row._id, major: row.major || row.Major || "", minor: row.minor || row.Minor || "", MDC: row.MDC || row.mdc || row.mdcsub || "" }))}
           columns={columns}
           loading={loading}
           checkboxSelection

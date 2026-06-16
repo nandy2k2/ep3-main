@@ -16,6 +16,7 @@ import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const emptyForm = {
   id: "",
@@ -222,7 +223,7 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
     { field: "user", headerName: "User", minWidth: 170 }
   ];
 
-  return (
+  const content = (
     <Container maxWidth="xl" sx={{ py: 3 }}>
       <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} spacing={2} sx={{ mb: 2 }}>
         <Box>
@@ -282,4 +283,6 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
       </Paper>
     </Container>
   );
+
+  return embedded ? content : <MenuPageShell title="Program Management">{content}</MenuPageShell>;
 }

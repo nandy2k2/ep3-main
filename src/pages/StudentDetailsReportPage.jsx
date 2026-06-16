@@ -58,6 +58,7 @@ const columns = [
   { field: "name", headerName: "Name", minWidth: 180, flex: 1 },
   { field: "regno", headerName: "Reg No", minWidth: 150 },
   { field: "email", headerName: "Email", minWidth: 220, flex: 1 },
+  { field: "password", headerName: "Password", minWidth: 150 },
   { field: "phone", headerName: "Phone", minWidth: 130 },
   { field: "academicyear", headerName: "Academic Year", minWidth: 130 },
   { field: "admissionyear", headerName: "Admission Year", minWidth: 130 },

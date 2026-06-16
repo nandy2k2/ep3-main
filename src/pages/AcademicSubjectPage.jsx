@@ -17,6 +17,7 @@ import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const academicYears = ["2026-27", "2027-28", "2028-29", "2029-30", "2030-31"];
 const semesters = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
@@ -238,6 +239,7 @@ export default function AcademicSubjectPage() {
   ];
 
   return (
+    <MenuPageShell title="Admission Configuration">
     <Container maxWidth="xl" sx={{ py: 2 }}>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
         <Button component={RouterLink} to="/dashdashfacnew" variant="outlined" startIcon={<ArrowBack />}>Back</Button>
@@ -347,5 +349,6 @@ export default function AcademicSubjectPage() {
         </Box>
       </Paper>
     </Container>
+    </MenuPageShell>
   );
 }

@@ -26,6 +26,7 @@ import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const filterFields = [
   { field: "academicyear", label: "Academic Year" },
@@ -422,6 +423,7 @@ export default function CourseOutcomePage() {
   ];
 
   return (
+    <MenuPageShell title="CO List">
     <Container maxWidth="xl" sx={{ py: 3 }}>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }} spacing={2} sx={{ mb: 2 }}>
         <Box>
@@ -567,5 +569,6 @@ export default function CourseOutcomePage() {
         </Box>
       </Paper>
     </Container>
+    </MenuPageShell>
   );
 }

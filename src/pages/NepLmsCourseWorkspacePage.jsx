@@ -42,10 +42,14 @@ const blankQuestion = {
   ]
 };
 const blankAiQuestionForm = { provider: "Gemini", questioncount: "5", difficulty: "Medium", language: "English" };
+const blankAiResourceForm = { provider: "Gemini", geminiModel: "gemini-2.5-flash", difficulty: "Medium", language: "English", noofclasses: "4" };
 const aiProviders = ["Gemini", "ChatGPT", "Claude"];
+const geminiModels = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
 const difficultyLevels = ["Easy", "Medium", "Hard"];
 const languages = [
   "English",
+  "French",
+  "Spanish",
   "Hindi",
   "Bengali",
   "Telugu",
@@ -145,7 +149,9 @@ export default function NepLmsCourseWorkspacePage() {
   const [sectionTitle, setSectionTitle] = useState("");
   const [questionForm, setQuestionForm] = useState(blankQuestion);
   const [aiQuestionForm, setAiQuestionForm] = useState(blankAiQuestionForm);
+  const [aiResourceForm, setAiResourceForm] = useState(blankAiResourceForm);
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
+  const [generatingResourceType, setGeneratingResourceType] = useState("");
   const [editingResourceId, setEditingResourceId] = useState("");
   const [editingResourceType, setEditingResourceType] = useState("");
   const [editingQuizId, setEditingQuizId] = useState("");
@@ -355,6 +361,48 @@ export default function NepLmsCourseWorkspacePage() {
       loadCourseData();
     } catch (err) {
       setError(err.response?.data?.message || "Unable to upload file");
+    }
+  };
+
+  const generateAiResource = async (resourcetype) => {
+    const form = resourcetype === "Lesson Plan" ? lessonForm : resourceForm;
+    if (!selectedCourse) {
+      setError("Select a course first");
+      return;
+    }
+    if (!listFromValue(form.module).length || !listFromValue(form.topic).length) {
+      setError("Select module and topic before AI generation");
+      return;
+    }
+    try {
+      setGeneratingResourceType(resourcetype);
+      setError("");
+      setMessage("");
+      await ep1.post("/api/v2/neplms/resources/generate-ai", {
+        ...coursePayload(),
+        resourcetype,
+        title: form.title || `AI ${resourcetype} - ${selectedCourse.course}`,
+        module: valueFromList(form.module),
+        topic: valueFromList(form.topic),
+        modules: listFromValue(form.module),
+        topics: listFromValue(form.topic),
+        description: form.description,
+        duedate: form.duedate,
+        fullmarks: form.fullmarks,
+        provider: aiResourceForm.provider,
+        model: aiResourceForm.geminiModel,
+        language: aiResourceForm.language,
+        difficulty: aiResourceForm.difficulty,
+        noofclasses: aiResourceForm.noofclasses
+      });
+      setMessage(`AI ${resourcetype} created and uploaded`);
+      if (resourcetype === "Lesson Plan") setLessonForm(blankResource);
+      else setResourceForm(blankResource);
+      loadCourseData();
+    } catch (err) {
+      setError(err.response?.data?.message || `Unable to generate ${resourcetype}`);
+    } finally {
+      setGeneratingResourceType("");
     }
   };
 
@@ -805,7 +853,7 @@ export default function NepLmsCourseWorkspacePage() {
       <Paper sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={2}>
           <Grid item xs={12} md={3}><TextField fullWidth label="Title" value={form.title} onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))} /></Grid>
-          {type === "Assignment" ? (
+          {["Assignment", "Course Material", "Lesson Plan"].includes(type) ? (
             <>
               <Grid item xs={12} md={2}>
                 <FormControl fullWidth>
@@ -886,6 +934,89 @@ export default function NepLmsCourseWorkspacePage() {
           </Grid>
         </Grid>
       </Paper>
+      {["Assignment", "Course Material", "Lesson Plan"].includes(type) && (
+        <Paper sx={{ p: 2, mb: 2, border: "1px solid #dbeafe", bgcolor: "#f8fbff" }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>Create {type} with AI</Typography>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={2}>
+              <FormControl fullWidth>
+                <InputLabel>AI Provider</InputLabel>
+                <Select
+                  label="AI Provider"
+                  value={aiResourceForm.provider}
+                  onChange={(e) => setAiResourceForm((prev) => ({ ...prev, provider: e.target.value }))}
+                >
+                  <MenuItem value="Gemini">Gemini</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Gemini Model</InputLabel>
+                <Select
+                  label="Gemini Model"
+                  value={aiResourceForm.geminiModel}
+                  onChange={(e) => setAiResourceForm((prev) => ({ ...prev, geminiModel: e.target.value }))}
+                >
+                  {geminiModels.map((model) => <MenuItem key={model} value={model}>{model}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Language</InputLabel>
+                <Select
+                  label="Language"
+                  value={aiResourceForm.language}
+                  onChange={(e) => setAiResourceForm((prev) => ({ ...prev, language: e.target.value }))}
+                >
+                  {languages.map((language) => <MenuItem key={language} value={language}>{language}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <FormControl fullWidth>
+                <InputLabel>Difficulty</InputLabel>
+                <Select
+                  label="Difficulty"
+                  value={aiResourceForm.difficulty}
+                  onChange={(e) => setAiResourceForm((prev) => ({ ...prev, difficulty: e.target.value }))}
+                >
+                  {difficultyLevels.map((level) => <MenuItem key={level} value={level}>{level}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            {type === "Lesson Plan" && (
+              <Grid item xs={12} md={2}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="No. of Classes"
+                  value={aiResourceForm.noofclasses}
+                  onChange={(e) => setAiResourceForm((prev) => ({ ...prev, noofclasses: e.target.value }))}
+                  inputProps={{ min: 1 }}
+                />
+              </Grid>
+            )}
+            <Grid item xs={12} md={3}>
+              <Button
+                fullWidth
+                variant="contained"
+                sx={{ height: 56 }}
+                disabled={generatingResourceType === type || !listFromValue(form.module).length || !listFromValue(form.topic).length}
+                onClick={() => generateAiResource(type)}
+              >
+                {generatingResourceType === type ? `Generating ${type}...` : `Generate ${type} on Selected Module and Topics`}
+              </Button>
+            </Grid>
+            <Grid item xs={12}>
+              <Typography variant="body2" color="text.secondary">
+                AI will use the selected module and topics above. The generated HTML will be uploaded to AWS and saved in this {type} list.
+              </Typography>
+            </Grid>
+          </Grid>
+        </Paper>
+      )}
       <Paper sx={{ p: 1, overflowX: "auto" }}>
         <DataGrid
           rows={resourceRows(type).map((row) => ({ ...row, id: row._id }))}

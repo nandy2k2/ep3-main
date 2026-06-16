@@ -3,6 +3,7 @@ import { Link as RouterLink } from "react-router-dom";
 import * as XLSX from "xlsx";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Card,
@@ -305,14 +306,27 @@ export default function HrLeaveManagementPage({ defaultTab = "hierarchy", single
     />
   );
 
-  const userSelect = (kind) => (
-    <FormControl fullWidth size="small">
-      <InputLabel>Employee</InputLabel>
-      <Select label="Employee" value={forms[kind].employeeemail} onChange={(e) => selectUser(kind, e.target.value)}>
-        {options.users.map((user) => <MenuItem key={user._id} value={user.email || user.user}>{user.name} - {user.email || user.user}</MenuItem>)}
-      </Select>
-    </FormControl>
-  );
+  const employeeOptions = options.users.filter((user) => norm(user.role) !== "student");
+  const userSelect = (kind) => {
+    const selectedEmail = forms[kind].employeeemail || "";
+    const selectedUser = employeeOptions.find((user) => (user.email || user.user || "") === selectedEmail) || null;
+    return (
+      <Autocomplete
+        fullWidth
+        size="small"
+        options={employeeOptions}
+        value={selectedUser}
+        getOptionLabel={(option) => {
+          const email = option.email || option.user || "";
+          const dept = option.department ? `, ${option.department}` : "";
+          return `${option.name || email} - ${email}${dept}`;
+        }}
+        isOptionEqualToValue={(option, value) => (option.email || option.user || "") === (value.email || value.user || "")}
+        onChange={(_, value) => selectUser(kind, value ? (value.email || value.user || "") : "")}
+        renderInput={(params) => <TextField {...params} label="Employee" />}
+      />
+    );
+  };
 
   const updateHierarchyLevel = (index, patch) => {
     setForms((prev) => ({

@@ -21,6 +21,9 @@ export default function CrmLeadActionPage() {
   const [options, setOptions] = useState({ sources: [], stages: [], users: [], leadOptions: {} });
   const [filters, setFilters] = useState({ search: "", source: "", pipeline_stage: "", assignedto: "" });
   const [rows, setRows] = useState([]);
+  const [rowCount, setRowCount] = useState(0);
+  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 100 });
+  const [loading, setLoading] = useState(false);
   const [selectedLead, setSelectedLead] = useState(null);
   const [action, setAction] = useState(actionBlank);
   const [message, setMessage] = useState("");
@@ -41,9 +44,26 @@ export default function CrmLeadActionPage() {
     });
   };
 
-  const searchLeads = async () => {
-    const res = await ep1.post("/api/v2/crm-management/leads/search", { ...filters, colid: global1.colid });
-    setRows(res.data?.data || []);
+  const searchLeads = async (nextFilters = filters, nextPagination = paginationModel) => {
+    try {
+      setLoading(true);
+      const res = await ep1.post("/api/v2/crm-management/leads/search", {
+        ...nextFilters,
+        colid: global1.colid,
+        page: nextPagination.page,
+        limit: Math.min(100, nextPagination.pageSize)
+      });
+      setRows(res.data?.data || []);
+      setRowCount(res.data?.total || 0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const applyFilters = () => {
+    const nextPagination = { ...paginationModel, page: 0, pageSize: Math.min(100, paginationModel.pageSize) };
+    setPaginationModel(nextPagination);
+    searchLeads(filters, nextPagination);
   };
 
   const selectLead = (lead) => {
@@ -63,7 +83,7 @@ export default function CrmLeadActionPage() {
     setMessage("Lead updated.");
     setSelectedLead(null);
     setAction(actionBlank);
-    searchLeads();
+    searchLeads(filters, paginationModel);
   };
 
   const columns = useMemo(() => [
@@ -103,7 +123,7 @@ export default function CrmLeadActionPage() {
           <Grid item xs={12} md={2}><TextField select fullWidth label="Source" value={filters.source} onChange={(e) => setFilters({ ...filters, source: e.target.value })}><MenuItem value="">All</MenuItem>{options.sources.map((x) => <MenuItem key={x._id} value={x.source_name}>{x.source_name}</MenuItem>)}</TextField></Grid>
           <Grid item xs={12} md={2}><TextField select fullWidth label="Stage" value={filters.pipeline_stage} onChange={(e) => setFilters({ ...filters, pipeline_stage: e.target.value })}><MenuItem value="">All</MenuItem>{options.stages.map((x) => <MenuItem key={x._id} value={x.stagename}>{x.stagename}</MenuItem>)}</TextField></Grid>
           <Grid item xs={12} md={3}><TextField select fullWidth label="Assigned to" value={filters.assignedto} onChange={(e) => setFilters({ ...filters, assignedto: e.target.value })}><MenuItem value="">All</MenuItem>{options.users.map((x) => <MenuItem key={x._id} value={x.email}>{x.name} ({x.email})</MenuItem>)}</TextField></Grid>
-          <Grid item xs={12} md={2}><Button fullWidth variant="contained" sx={{ height: 56 }} onClick={searchLeads}>Search</Button></Grid>
+          <Grid item xs={12} md={2}><Button fullWidth variant="contained" sx={{ height: 56 }} onClick={applyFilters}>Search</Button></Grid>
         </Grid>
       </Paper>
 
@@ -121,7 +141,23 @@ export default function CrmLeadActionPage() {
 
       <Paper elevation={0} sx={{ p: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
         <Box sx={{ height: 560 }}>
-          <DataGrid rows={rows} columns={columns} getRowId={(row) => row._id} slots={{ toolbar: GridToolbar }} pageSizeOptions={[10, 25, 50, 100]} disableRowSelectionOnClick />
+          <DataGrid
+            rows={rows}
+            columns={columns}
+            getRowId={(row) => row._id}
+            loading={loading}
+            slots={{ toolbar: GridToolbar }}
+            pageSizeOptions={[25, 50, 100]}
+            paginationMode="server"
+            rowCount={rowCount}
+            paginationModel={paginationModel}
+            onPaginationModelChange={(model) => {
+              const nextPagination = { page: model.page, pageSize: Math.min(100, model.pageSize) };
+              setPaginationModel(nextPagination);
+              searchLeads(filters, nextPagination);
+            }}
+            disableRowSelectionOnClick
+          />
         </Box>
       </Paper>
     </MentoringLayout>

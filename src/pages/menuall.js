@@ -514,6 +514,13 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Student details" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/faculty-cadra-requirement">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Faculty cadra requirement" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/studentpromotion">
             <ListItemIcon>
               <PersonIcon />
@@ -2821,11 +2828,25 @@ export function menuitemsall() {
         </AccordionSummary>
         <AccordionDetails>
 
-          <ListItem button component={RouterLink} to="/idcardmanager">
+          {/* <ListItem button component={RouterLink} to="/idcardmanager">
             <ListItemIcon>
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="ID Card manager" />}
+          </ListItem> */}
+
+          <ListItem button component={RouterLink} to="/id-card-templates">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="ID Card templates" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/id-card-generate">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Generate ID Card" />}
           </ListItem>
 
         </AccordionDetails>
@@ -4559,6 +4580,13 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Curriculum feedback" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/feedback-advanced">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Feedback advanced" />}
+          </ListItem>
+
 
 
 
@@ -5095,18 +5123,46 @@ export function menuitemsall() {
         </AccordionSummary>
         <AccordionDetails>
 
-          <ListItem button component={RouterLink} to="/internal/jobmanager">
+          {/* <ListItem button component={RouterLink} to="/internal/jobmanager">
             <ListItemIcon>
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Recruitment manager" />}
-          </ListItem>
+          </ListItem> */}
 
           <ListItem button component={RouterLink} to="/recruitment-management">
             <ListItemIcon>
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Recruitment module" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/recruitment-interview-panels">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Interview panels" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/recruitment-panel-members">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Panel members" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/recruitment-panel-jobs">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Panel job mapping" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/recruitment-interview-schedule">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Schedule interviews" />}
           </ListItem>
 
 
@@ -5320,6 +5376,30 @@ export function menuitemsall() {
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="My salary slip" />}
+</ListItem>
+<ListItem button component={RouterLink} to="/hrform16">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Form 16" />}
+</ListItem>
+<ListItem button component={RouterLink} to="/hrcompanytaxdetails">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Company PAN TAN" />}
+</ListItem>
+<ListItem button component={RouterLink} to="/hremployeepan">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Employee PAN" />}
+</ListItem>
+<ListItem button component={RouterLink} to="/hrtdsdeposited">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="TDS deposited" />}
 </ListItem>
 <ListItem button component={RouterLink} to="/visitingfaculty">
 <ListItemIcon>

@@ -18,6 +18,7 @@ import { Add, ArrowBack, Cancel, Delete, Edit, Refresh, Save } from "@mui/icons-
 import { DataGrid, GridActionsCellItem, GridToolbar } from "@mui/x-data-grid";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const blankForm = {
   academicyear: "",
@@ -217,6 +218,7 @@ export default function RelativeGradingConfigurationPage() {
   ];
 
   return (
+    <MenuPageShell title="Relative Grading Configuration">
     <Box p={3}>
       <Stack direction={{ xs: "column", md: "row" }} spacing={2} justifyContent="space-between" sx={{ mb: 2 }}>
         <Box>
@@ -306,5 +308,6 @@ export default function RelativeGradingConfigurationPage() {
         />
       </Paper>
     </Box>
+    </MenuPageShell>
   );
 }

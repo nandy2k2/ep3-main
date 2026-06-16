@@ -23,6 +23,7 @@ import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const academicYears = ["2026-27", "2027-28", "2028-29", "2029-30", "2030-31"];
 const subjectTypes = ["Major", "Minor", "AEC", "SEC", "VAC", "IDC"];
@@ -350,6 +351,7 @@ export default function RegulationSubjectPage() {
   ];
 
   return (
+    <MenuPageShell title="Regulation Subjects">
     <Container maxWidth="xl" sx={{ py: 3 }}>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
         <Box>
@@ -494,5 +496,6 @@ export default function RegulationSubjectPage() {
         </Grid>
       </Grid>
     </Container>
+    </MenuPageShell>
   );
 }

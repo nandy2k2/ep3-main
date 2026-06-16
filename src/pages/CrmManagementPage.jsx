@@ -73,6 +73,9 @@ export default function CrmManagementPage() {
   const [stageEditId, setStageEditId] = useState("");
   const [leadEditId, setLeadEditId] = useState("");
   const [leadFilters, setLeadFilters] = useState({ search: "", year: "", source: "", pipeline_stage: "", assignedto: "", fromDate: "", toDate: "" });
+  const [leadPagination, setLeadPagination] = useState({ page: 0, pageSize: 100 });
+  const [leadTotal, setLeadTotal] = useState(0);
+  const [leadLoading, setLeadLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -126,9 +129,26 @@ export default function CrmManagementPage() {
     setStages(res.data?.data || []);
   };
 
-  const searchLeads = async (filters = leadFilters) => {
-    const res = await ep1.post("/api/v2/crm-management/leads/search", { ...filters, colid: global1.colid });
-    setLeads(res.data?.data || []);
+  const searchLeads = async (filters = leadFilters, pagination = leadPagination) => {
+    try {
+      setLeadLoading(true);
+      const res = await ep1.post("/api/v2/crm-management/leads/search", {
+        ...filters,
+        colid: global1.colid,
+        page: pagination.page,
+        limit: pagination.pageSize
+      });
+      setLeads(res.data?.data || []);
+      setLeadTotal(res.data?.total || 0);
+    } finally {
+      setLeadLoading(false);
+    }
+  };
+
+  const queryLeads = () => {
+    const nextPagination = { ...leadPagination, page: 0 };
+    setLeadPagination(nextPagination);
+    searchLeads(leadFilters, nextPagination);
   };
 
   const saveSource = async () => {
@@ -290,6 +310,27 @@ export default function CrmManagementPage() {
     </Box>
   );
 
+  const renderLeadGrid = () => (
+    <Box sx={{ height: 560 }}>
+      <DataGrid
+        rows={leads}
+        columns={leadColumns}
+        getRowId={(row) => row._id}
+        slots={{ toolbar: GridToolbar }}
+        pageSizeOptions={[25, 50, 100]}
+        disableRowSelectionOnClick
+        paginationMode="server"
+        rowCount={leadTotal}
+        loading={leadLoading}
+        paginationModel={leadPagination}
+        onPaginationModelChange={(model) => {
+          setLeadPagination(model);
+          searchLeads(leadFilters, model);
+        }}
+      />
+    </Box>
+  );
+
   return (
     <MentoringLayout title="CRM">
       {message && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setMessage("")}>{message}</Alert>}
@@ -376,10 +417,15 @@ export default function CrmManagementPage() {
               <Grid item xs={12} md={2}><TextField select fullWidth label="Assigned to" value={leadFilters.assignedto} onChange={(e) => setLeadFilters({ ...leadFilters, assignedto: e.target.value })}><MenuItem value="">All</MenuItem>{users.map((x) => <MenuItem key={x._id} value={x.email}>{x.name}</MenuItem>)}</TextField></Grid>
               <Grid item xs={12} md={1.5}><TextField type="date" InputLabelProps={{ shrink: true }} fullWidth label="From" value={leadFilters.fromDate} onChange={(e) => setLeadFilters({ ...leadFilters, fromDate: e.target.value })} /></Grid>
               <Grid item xs={12} md={1.5}><TextField type="date" InputLabelProps={{ shrink: true }} fullWidth label="To" value={leadFilters.toDate} onChange={(e) => setLeadFilters({ ...leadFilters, toDate: e.target.value })} /></Grid>
-              <Grid item xs={12} md={1}><Button fullWidth variant="contained" sx={{ height: 56 }} onClick={() => searchLeads()}>Query</Button></Grid>
+              <Grid item xs={12} md={1}><Button fullWidth variant="contained" sx={{ height: 56 }} onClick={queryLeads} disabled={leadLoading}>{leadLoading ? "Loading" : "Query"}</Button></Grid>
+              <Grid item xs={12}>
+                <Typography variant="body2" color="text.secondary">
+                  Showing {leads.length} leads on this page out of {leadTotal}. Use the grid pagination controls to view remaining leads.
+                </Typography>
+              </Grid>
             </Grid>
           </Paper>
-          <Paper elevation={0} sx={{ p: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>{renderGrid(leads, leadColumns)}</Paper>
+          <Paper elevation={0} sx={{ p: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>{renderLeadGrid()}</Paper>
         </>
       )}
     </MentoringLayout>

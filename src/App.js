@@ -608,6 +608,8 @@ import Dashmappmodel2cat from './pages/Dashmappmodel2cat';
 import Dashmask1 from './pages/Dashmask1';
 
 import IDCardManager from './pages/IdCardManeger';
+import IdCardTemplatePage from './pages/IdCardTemplatePage';
+import IdCardGeneratePage from './pages/IdCardGeneratePage';
 
 import CertificateGenerator from './pages/CertificatesGenerator';
 
@@ -780,6 +782,7 @@ import CreateFeedbackInternal1 from './pages/CreateFeedbackInternal1';
 import FeedbackInternalResponse1 from './pages/FeedbackInternalResponse1';
 import FeedbackInternalResponses1 from './pages/FeedbackInternalResponses1';
 import FeedbackInternalAnalytics1 from './pages/FeedbackInternalAnalytics1';
+import FeedbackAdvancedPage, { FeedbackAdvancedPublicPage } from "./pages/FeedbackAdvancedPage";
 
 
 import DetailedView1 from "./pages/DetailedView1";
@@ -1033,6 +1036,10 @@ import AdmissionValidationCriteriaPage from "./pages/AdmissionValidationCriteria
 import AdmissionFormDocumentsPage from "./pages/AdmissionFormDocumentsPage";
 import AcademicCalendarPage from "./pages/AcademicCalendarPage";
 import RecruitmentManagementPage from "./pages/RecruitmentManagementPage";
+import RecruitmentInterviewPanelPage from "./pages/RecruitmentInterviewPanelPage";
+import RecruitmentPanelMembersPage from "./pages/RecruitmentPanelMembersPage";
+import RecruitmentPanelJobPage from "./pages/RecruitmentPanelJobPage";
+import RecruitmentInterviewSchedulePage from "./pages/RecruitmentInterviewSchedulePage";
 import PublicRecruitmentApplyPage from "./pages/PublicRecruitmentApplyPage";
 import PlacementLeadsPage from "./pages/PlacementLeadsPage";
 import PlacementLeadStagePage from "./pages/PlacementLeadStagePage";
@@ -1054,6 +1061,7 @@ import UserDataUploadPage from "./pages/UserDataUploadPage";
 import UserPivotReportPage from "./pages/UserPivotReportPage";
 import UserPivotCountPage from "./pages/UserPivotCountPage";
 import StudentDetailsReportPage from "./pages/StudentDetailsReportPage";
+import FacultyCadraRequirementPage from "./pages/FacultyCadraRequirementPage";
 import StudentPromotionPage from "./pages/StudentPromotionPage";
 import AdmissionCancellationPage from "./pages/AdmissionCancellationPage";
 import AdmissionRefundDetailsPage from "./pages/AdmissionRefundDetailsPage";
@@ -1680,6 +1688,10 @@ import Salarypivot1 from './pages/Salarypivot1';
 import HrSalaryComponentReport from './pages/HrSalaryComponentReport';
 import HrSalarySlipPage from './pages/HrSalarySlipPage';
 import MySalarySlipPage from './pages/MySalarySlipPage';
+import HrForm16Page from './pages/HrForm16Page';
+import HrCompanyTaxDetailsPage from './pages/HrCompanyTaxDetailsPage';
+import HrEmployeePanPage from './pages/HrEmployeePanPage';
+import HrTdsDepositPage from './pages/HrTdsDepositPage';
 import VisitingFacultyRegisterPage from './pages/VisitingFacultyRegisterPage';
 import VisitingFacultyClassPage from './pages/VisitingFacultyClassPage';
 import VisitingFacultyPayPage from './pages/VisitingFacultyPayPage';
@@ -2104,6 +2116,10 @@ function App() {
         <Route path="/hrsalarycomponentreport" element={<HrSalaryComponentReport />} />
         <Route path="/hrsalaryslip" element={<HrSalarySlipPage />} />
         <Route path="/mysalaryslip" element={<MySalarySlipPage />} />
+        <Route path="/hrform16" element={<HrForm16Page />} />
+        <Route path="/hrcompanytaxdetails" element={<HrCompanyTaxDetailsPage />} />
+        <Route path="/hremployeepan" element={<HrEmployeePanPage />} />
+        <Route path="/hrtdsdeposited" element={<HrTdsDepositPage />} />
         <Route path="/visitingfaculty" element={<VisitingFacultyRegisterPage />} />
         <Route path="/visitingfacultyregister" element={<VisitingFacultyClassPage />} />
         <Route path="/visitingfacultypay" element={<VisitingFacultyPayPage />} />
@@ -2867,6 +2883,10 @@ function App() {
         <Route path="/admission-form-documents" element={<AdmissionFormDocumentsPage />} />
         <Route path="/academiccalendar" element={<AcademicCalendarPage />} />
         <Route path="/recruitment-management" element={<RecruitmentManagementPage />} />
+        <Route path="/recruitment-interview-panels" element={<RecruitmentInterviewPanelPage />} />
+        <Route path="/recruitment-panel-members" element={<RecruitmentPanelMembersPage />} />
+        <Route path="/recruitment-panel-jobs" element={<RecruitmentPanelJobPage />} />
+        <Route path="/recruitment-interview-schedule" element={<RecruitmentInterviewSchedulePage />} />
         <Route path="/recruitment-apply" element={<PublicRecruitmentApplyPage />} />
         <Route path="/placement-leads" element={<PlacementLeadsPage />} />
         <Route path="/placement-lead-stage" element={<PlacementLeadStagePage />} />
@@ -2893,6 +2913,7 @@ function App() {
         <Route path="/userpivotreport" element={<UserPivotReportPage />} />
         <Route path="/userpivotcount" element={<UserPivotCountPage />} />
         <Route path="/studentdetails" element={<StudentDetailsReportPage />} />
+        <Route path="/faculty-cadra-requirement" element={<FacultyCadraRequirementPage />} />
         <Route path="/studentpromotion" element={<StudentPromotionPage />} />
         <Route path="/admissioncancellation" element={<AdmissionCancellationPage />} />
         <Route path="/admissionrefunddetails" element={<AdmissionRefundDetailsPage />} />
@@ -3074,6 +3095,8 @@ function App() {
         <Route path="/feedbackfillresponse/:feedbackId" element={<FeedbackFillResponse />} />
         <Route path="/feedbackresponses/:feedbackId" element={<FeedbackResponses />} />
         <Route path="/feedbackanalytic/:feedbackId" element={<FeedbackAnalytics />} />
+        <Route path="/feedback-advanced" element={<FeedbackAdvancedPage />} />
+        <Route path="/feedback-advanced-public" element={<FeedbackAdvancedPublicPage />} />
 
         <Route path="/dashmserb" element={<Dashmserb />} />
 
@@ -3221,6 +3244,8 @@ function App() {
         <Route path='/createcertificates' element={<CertificateGenerator />} />
 
         <Route path='/idcardmanager' element={<IDCardManager />} />
+        <Route path='/id-card-templates' element={<IdCardTemplatePage />} />
+        <Route path='/id-card-generate' element={<IdCardGeneratePage />} />
         <Route path="/dashmask1" element={<Dashmask1 />} />
 
         <Route path="/dashmappmodel2cat" element={<Dashmappmodel2cat />} />

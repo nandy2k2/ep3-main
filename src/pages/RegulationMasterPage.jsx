@@ -22,6 +22,7 @@ import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import { Link as RouterLink } from "react-router-dom";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const blankForm = {
   regulation: "",
@@ -156,6 +157,7 @@ const RegulationMasterPage = () => {
   ];
 
   return (
+    <MenuPageShell title="Regulation">
     <Container maxWidth="xl" sx={{ py: 3 }}>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
         <Box>
@@ -296,6 +298,7 @@ const RegulationMasterPage = () => {
         </Grid>
       </Grid>
     </Container>
+    </MenuPageShell>
   );
 };
 
