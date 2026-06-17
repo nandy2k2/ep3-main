@@ -40,7 +40,7 @@ const studentFilterFields = [
   { field: "phone", label: "Phone" },
   { field: "regno", label: "Reg No" },
   { field: "programcode", label: "Program Code" },
-  { field: "admissionyear", label: "Academic Year" },
+  { field: "academicyear", label: "Academic Year" },
   { field: "Major", label: "Major" },
   { field: "semester", label: "Semester" },
   { field: "section", label: "Section" },
@@ -59,7 +59,17 @@ const parseDate = (value) => {
   const date = new Date(`${value}T00:00:00`);
   return Number.isNaN(date.getTime()) ? null : date;
 };
+const toDateInput = (date) => {
+  const value = date instanceof Date ? date : new Date();
+  if (Number.isNaN(value.getTime())) return "";
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 const monthTitle = (year, month) => new Date(year, month, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" });
+const dateTitle = (date) => date.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+const weekTitle = (start, end) => `${start.toLocaleDateString(undefined, { day: "numeric", month: "short" })} - ${end.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}`;
 const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export default function NepLmsAttendancePage() {
@@ -77,6 +87,8 @@ export default function NepLmsAttendancePage() {
   const [studentLoading, setStudentLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [calendarView, setCalendarView] = useState("month");
+  const [calendarDate, setCalendarDate] = useState(toDateInput(new Date()));
 
   useEffect(() => {
     loadContext();
@@ -146,37 +158,92 @@ export default function NepLmsAttendancePage() {
     majors: uniqueSorted(filteredAssignments.map((row) => row.subject)).length
   }), [filteredAssignments]);
 
-  const calendarMonths = useMemo(() => {
-    const monthMap = new Map();
+  const calendarData = useMemo(() => {
+    const selectedDate = parseDate(calendarDate) || new Date();
+    const classMap = new Map();
     filteredClasses.forEach((row) => {
       const parsed = parseDate(row.classdate);
       if (!parsed) return;
-      const monthKey = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}`;
-      if (!monthMap.has(monthKey)) {
-        monthMap.set(monthKey, { key: monthKey, year: parsed.getFullYear(), month: parsed.getMonth(), days: new Map() });
-      }
-      const month = monthMap.get(monthKey);
-      const day = parsed.getDate();
-      if (!month.days.has(day)) month.days.set(day, []);
-      month.days.get(day).push(row);
+      const key = toDateInput(parsed);
+      if (!classMap.has(key)) classMap.set(key, []);
+      classMap.get(key).push(row);
     });
 
-    return [...monthMap.values()].sort((a, b) => a.key.localeCompare(b.key)).map((month) => {
-      const firstDay = new Date(month.year, month.month, 1).getDay();
-      const totalDays = new Date(month.year, month.month + 1, 0).getDate();
+    const makeCell = (date, blank = false) => {
+      const key = toDateInput(date);
+      return {
+        key: blank ? `blank-${key}` : key,
+        blank,
+        date: key,
+        day: date.getDate(),
+        label: date.toLocaleDateString(undefined, { day: "numeric", month: "short" }),
+        weekday: weekdayLabels[date.getDay()],
+        isToday: key === toDateInput(new Date()),
+        selected: key === calendarDate,
+        items: (classMap.get(key) || []).sort((a, b) => String(a.classtime).localeCompare(String(b.classtime)))
+      };
+    };
+
+    if (calendarView === "day") {
+      return {
+        title: dateTitle(selectedDate),
+        columns: 1,
+        labels: [selectedDate.toLocaleDateString(undefined, { weekday: "long" })],
+        cells: [makeCell(selectedDate)]
+      };
+    }
+
+    if (calendarView === "week") {
+      const start = new Date(selectedDate);
+      start.setDate(selectedDate.getDate() - selectedDate.getDay());
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
       const cells = [];
-      for (let index = 0; index < firstDay; index += 1) cells.push({ key: `blank-${index}`, blank: true });
-      for (let day = 1; day <= totalDays; day += 1) {
-        cells.push({
-          key: `${month.key}-${day}`,
-          day,
-          items: (month.days.get(day) || []).sort((a, b) => String(a.classtime).localeCompare(String(b.classtime)))
-        });
+      for (let index = 0; index < 7; index += 1) {
+        const date = new Date(start);
+        date.setDate(start.getDate() + index);
+        cells.push(makeCell(date));
       }
-      while (cells.length % 7 !== 0) cells.push({ key: `blank-end-${cells.length}`, blank: true });
-      return { ...month, title: monthTitle(month.year, month.month), cells };
-    });
-  }, [filteredClasses]);
+      return {
+        title: weekTitle(start, end),
+        columns: 7,
+        labels: weekdayLabels,
+        cells
+      };
+    }
+
+    const year = selectedDate.getFullYear();
+    const month = selectedDate.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const totalDays = new Date(year, month + 1, 0).getDate();
+    const cells = [];
+    for (let index = 0; index < firstDay; index += 1) {
+      const date = new Date(year, month, index - firstDay + 1);
+      cells.push(makeCell(date, true));
+    }
+    for (let day = 1; day <= totalDays; day += 1) {
+      cells.push(makeCell(new Date(year, month, day)));
+    }
+    while (cells.length % 7 !== 0) {
+      const date = new Date(year, month, totalDays + (cells.length % 7));
+      cells.push(makeCell(date, true));
+    }
+    return {
+      title: monthTitle(year, month),
+      columns: 7,
+      labels: weekdayLabels,
+      cells
+    };
+  }, [filteredClasses, calendarDate, calendarView]);
+
+  const shiftCalendar = (direction) => {
+    const current = parseDate(calendarDate) || new Date();
+    const next = new Date(current);
+    if (calendarView === "day") next.setDate(current.getDate() + direction);
+    if (calendarView === "week") next.setDate(current.getDate() + (direction * 7));
+    if (calendarView === "month") next.setMonth(current.getMonth() + direction);
+    setCalendarDate(toDateInput(next));
+  };
 
   const updateFilter = (setter) => (id, key, value) => {
     setter((prev) => prev.map((filter) => filter.id === id ? { ...filter, [key]: value, ...(key === "field" ? { value: "" } : {}) } : filter));
@@ -378,61 +445,106 @@ export default function NepLmsAttendancePage() {
       </Paper>
 
       <Paper sx={{ p: 2, mb: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2 }}>Class Calendar</Typography>
-        {calendarMonths.length === 0 && (
+        <Stack direction={{ xs: "column", lg: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", lg: "center" }} spacing={2} sx={{ mb: 2 }}>
+          <Box>
+            <Typography variant="h6">Class Calendar</Typography>
+            <Typography variant="body2" color="text.secondary">Monthly view is selected by default. Switch the view or choose a date to navigate.</Typography>
+          </Box>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ xs: "stretch", sm: "center" }}>
+            <Button variant="outlined" onClick={() => shiftCalendar(-1)}>Previous</Button>
+            <TextField
+              type="date"
+              label="Select date"
+              value={calendarDate}
+              onChange={(event) => setCalendarDate(event.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{ minWidth: 180 }}
+            />
+            <FormControl sx={{ minWidth: 150 }}>
+              <InputLabel>View</InputLabel>
+              <Select label="View" value={calendarView} onChange={(event) => setCalendarView(event.target.value)}>
+                <MenuItem value="day">Daily</MenuItem>
+                <MenuItem value="week">Weekly</MenuItem>
+                <MenuItem value="month">Monthly</MenuItem>
+              </Select>
+            </FormControl>
+            <Button variant="outlined" onClick={() => shiftCalendar(1)}>Next</Button>
+          </Stack>
+        </Stack>
+        {filteredClasses.length === 0 && (
           <Box sx={{ p: 2, textAlign: "center", border: "1px dashed #cbd5e1" }}>
             <Typography variant="body2">No timetable classes found for the selected filters.</Typography>
           </Box>
         )}
-        <Stack spacing={2}>
-          {calendarMonths.map((month) => (
-            <Box key={month.key} sx={{ border: "1px solid #cbd5e1", overflowX: "auto" }}>
-              <Box sx={{ bgcolor: "#102a43", color: "#fff", textAlign: "center", py: 1 }}>
-                <Typography fontWeight={800}>{month.title}</Typography>
-              </Box>
-              <Box sx={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(145px, 1fr))", minWidth: 1015 }}>
-                {weekdayLabels.map((label) => (
-                  <Box key={label} sx={{ bgcolor: "#e5edf5", p: 0.75, textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
-                    <Typography variant="caption" fontWeight={800}>{label}</Typography>
-                  </Box>
-                ))}
-                {month.cells.map((cell) => (
-                  <Box key={cell.key} sx={{ minHeight: 135, p: 0.75, borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0", bgcolor: cell.blank ? "#f8fafc" : "#fff" }}>
-                    {!cell.blank && (
-                      <>
-                        <Typography variant="caption" fontWeight={900} display="block" sx={{ mb: 0.5 }}>{cell.day}</Typography>
-                        <Stack spacing={0.5}>
-                          {cell.items.map((item) => {
-                            const active = selectedClass?._id === item._id;
-                            return (
-                              <Box
-                                key={item._id}
-                                onClick={() => setSelectedClass(item)}
-                                sx={{
-                                  cursor: "pointer",
-                                  bgcolor: active ? "#dcfce7" : "#eef2ff",
-                                  border: active ? "1px solid #16a34a" : "1px solid #c7d2fe",
-                                  borderLeft: active ? "4px solid #16a34a" : "4px solid #4f46e5",
-                                  borderRadius: 1,
-                                  px: 0.8,
-                                  py: 0.6
-                                }}
-                              >
-                                <Typography variant="caption" fontWeight={900} display="block">{item.classtime || "-"} | {item.coursecode}</Typography>
-                                <Typography variant="caption" display="block">{item.course || item.topic || "-"}</Typography>
-                                <Typography variant="caption" display="block" color="text.secondary">Sem {item.semester} | {item.major}</Typography>
-                              </Box>
-                            );
-                          })}
-                        </Stack>
-                      </>
-                    )}
-                  </Box>
-                ))}
-              </Box>
+        {filteredClasses.length > 0 && (
+          <Box sx={{ border: "1px solid #cbd5e1", overflowX: "auto" }}>
+            <Box sx={{ bgcolor: "#102a43", color: "#fff", textAlign: "center", py: 1 }}>
+              <Typography fontWeight={800}>{calendarData.title}</Typography>
             </Box>
-          ))}
-        </Stack>
+            <Box sx={{ display: "grid", gridTemplateColumns: `repeat(${calendarData.columns}, minmax(${calendarView === "day" ? 280 : 145}px, 1fr))`, minWidth: calendarView === "day" ? 360 : 1015 }}>
+              {calendarData.labels.map((label) => (
+                <Box key={label} sx={{ bgcolor: "#e5edf5", p: 0.75, textAlign: "center", borderRight: "1px solid #cbd5e1" }}>
+                  <Typography variant="caption" fontWeight={800}>{label}</Typography>
+                </Box>
+              ))}
+              {calendarData.cells.map((cell) => (
+                <Box
+                  key={cell.key}
+                  onClick={() => !cell.blank && setCalendarDate(cell.date)}
+                  sx={{
+                    minHeight: calendarView === "day" ? 420 : calendarView === "week" ? 250 : 135,
+                    p: 0.75,
+                    borderRight: "1px solid #e2e8f0",
+                    borderBottom: "1px solid #e2e8f0",
+                    bgcolor: cell.blank ? "#f8fafc" : cell.selected ? "#eff6ff" : "#fff",
+                    outline: cell.selected ? "2px solid #2563eb" : "none",
+                    outlineOffset: "-2px",
+                    cursor: cell.blank ? "default" : "pointer"
+                  }}
+                >
+                  {!cell.blank && (
+                    <>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5 }}>
+                        <Typography variant="caption" fontWeight={900}>{calendarView === "month" ? cell.day : cell.label}</Typography>
+                        {cell.isToday && <Chip size="small" color="primary" label="Today" sx={{ height: 20 }} />}
+                      </Stack>
+                      <Stack spacing={0.5}>
+                        {cell.items.length === 0 && (
+                          <Typography variant="caption" color="text.secondary">No class</Typography>
+                        )}
+                        {cell.items.map((item) => {
+                          const active = selectedClass?._id === item._id;
+                          return (
+                            <Box
+                              key={item._id}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setSelectedClass(item);
+                              }}
+                              sx={{
+                                cursor: "pointer",
+                                bgcolor: active ? "#dcfce7" : "#eef2ff",
+                                border: active ? "1px solid #16a34a" : "1px solid #c7d2fe",
+                                borderLeft: active ? "4px solid #16a34a" : "4px solid #4f46e5",
+                                borderRadius: 1,
+                                px: 0.8,
+                                py: 0.6
+                              }}
+                            >
+                              <Typography variant="caption" fontWeight={900} display="block">{item.classtime || "-"} | {item.coursecode}</Typography>
+                              <Typography variant="caption" display="block">{item.course || item.topic || "-"}</Typography>
+                              <Typography variant="caption" display="block" color="text.secondary">Sem {item.semester} | {item.major}</Typography>
+                            </Box>
+                          );
+                        })}
+                      </Stack>
+                    </>
+                  )}
+                </Box>
+              ))}
+            </Box>
+          </Box>
+        )}
       </Paper>
 
       {selectedClass && (

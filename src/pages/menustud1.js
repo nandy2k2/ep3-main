@@ -177,6 +177,13 @@ export function mainListItems({ open }) {
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="My Attendance Summary" />}
 </ListItem>
 
+           <ListItem button component={RouterLink} to="/studentneplmsotpattendance">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="OTP Attendance" />}
+</ListItem>
+
             <ListItem button component={RouterLink} to="/studentneplmsassessment">
 <ListItemIcon>
 <PersonIcon />

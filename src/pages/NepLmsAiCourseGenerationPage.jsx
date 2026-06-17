@@ -14,7 +14,8 @@ import {
   Select,
   Stack,
   TextField,
-  Typography
+  Typography,
+  LinearProgress
 } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -74,6 +75,8 @@ export default function NepLmsAiCourseGenerationPage() {
   const [language, setLanguage] = useState("English");
   const [providers, setProviders] = useState(["ChatGPT", "Gemini"]);
   const [provider, setProvider] = useState("Gemini");
+  const [ollamaConfigs, setOllamaConfigs] = useState([]);
+  const [ollamaConfigId, setOllamaConfigId] = useState("");
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -137,8 +140,13 @@ export default function NepLmsAiCourseGenerationPage() {
       setCourses(nextCourses);
       setLanguages(res.data?.languages?.length ? res.data.languages : languageFallback);
       const activeProviders = res.data?.providers?.length ? res.data.providers : ["ChatGPT", "Gemini"];
+      const activeOllamaConfigs = res.data?.ollamaConfigs || [];
       setProviders(activeProviders);
+      setOllamaConfigs(activeOllamaConfigs);
       if (!activeProviders.includes(provider)) setProvider(activeProviders[0] || "Gemini");
+      if (activeOllamaConfigs.length && !activeOllamaConfigs.some((item) => item._id === ollamaConfigId)) {
+        setOllamaConfigId(activeOllamaConfigs[0]._id);
+      }
       if (selectedCourseId && !nextCourses.some((item) => item._id === selectedCourseId)) {
         setSelectedCourseId("");
       }
@@ -209,6 +217,10 @@ export default function NepLmsAiCourseGenerationPage() {
       setError("Please select at least one module.");
       return;
     }
+    if (provider === "Ollama" && !ollamaConfigId) {
+      setError("Please select an Ollama configuration.");
+      return;
+    }
     try {
       setGenerating(true);
       setError("");
@@ -222,6 +234,7 @@ export default function NepLmsAiCourseGenerationPage() {
         moduleids: selectedModuleIds,
         language,
         provider,
+        ollamaConfigId,
         title
       });
       setMessage(`Course material created. Link: ${res.data?.url || ""}`);
@@ -339,6 +352,23 @@ export default function NepLmsAiCourseGenerationPage() {
               {providers.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
             </TextField>
           </Grid>
+          {provider === "Ollama" && (
+            <Grid item xs={12} md={4}>
+              <TextField
+                select
+                fullWidth
+                label="Ollama configuration"
+                value={ollamaConfigId}
+                onChange={(event) => setOllamaConfigId(event.target.value)}
+              >
+                {ollamaConfigs.map((item) => (
+                  <MenuItem key={item._id} value={item._id}>
+                    {item.name} - {item.modelname} ({item.serveraddress || "http://localhost:11434"})
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+          )}
           <Grid item xs={12} md={8}>
             <TextField fullWidth label="Material title" value={title} onChange={(event) => setTitle(event.target.value)} />
           </Grid>
@@ -354,6 +384,11 @@ export default function NepLmsAiCourseGenerationPage() {
               {generating ? "Generating..." : "Generate and upload"}
             </Button>
           </Grid>
+          {generating && (
+            <Grid item xs={12}>
+              <LinearProgress />
+            </Grid>
+          )}
         </Grid>
       </Paper>
 

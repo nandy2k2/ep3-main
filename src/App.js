@@ -931,6 +931,7 @@ import WorkloadDynamicReportPage from "./pages/WorkloadDynamicReportPage";
 import NepLmsAssignedCoursesPage from "./pages/NepLmsAssignedCoursesPage";
 import NepLmsCourseWorkspacePage from "./pages/NepLmsCourseWorkspacePage";
 import NepLmsClassGroupsPage from "./pages/NepLmsClassGroupsPage";
+import NepLmsClassGroupsAdminPage from "./pages/NepLmsClassGroupsAdminPage";
 import NepLmsAiCourseGenerationPage from "./pages/NepLmsAiCourseGenerationPage";
 import NepLmsStudentWorkspacePage from "./pages/NepLmsStudentWorkspacePage";
 import NepLmsMyAttendanceSummaryPage from "./pages/NepLmsMyAttendanceSummaryPage";
@@ -951,6 +952,10 @@ import CrmCounselorMappingPage from "./pages/CrmCounselorMappingPage";
 import NepLmsTimetableManagerPage from "./pages/NepLmsTimetableManagerPage";
 import NepLmsAttendancePage from "./pages/NepLmsAttendancePage";
 import NepLmsGroupAttendancePage from "./pages/NepLmsGroupAttendancePage";
+import NepLmsPhotoAttendancePage from "./pages/NepLmsPhotoAttendancePage";
+import NepLmsOtpAttendancePage from "./pages/NepLmsOtpAttendancePage";
+import NepLmsStudentOtpAttendancePage from "./pages/NepLmsStudentOtpAttendancePage";
+import NepLmsAttendanceReviewPage from "./pages/NepLmsAttendanceReviewPage";
 import NepLmsAssessmentMarksPage from "./pages/NepLmsAssessmentMarksPage";
 import NepLmsAssessmentMarksViewPage from "./pages/NepLmsAssessmentMarksViewPage";
 import NepLmsComponentMarksViewPage from "./pages/NepLmsComponentMarksViewPage";
@@ -1056,11 +1061,13 @@ import ProgramManagementPage from "./pages/ProgramManagementPage";
 import EmailConfigurationPage from "./pages/EmailConfigurationPage";
 import ConfigurationSetupPage from "./pages/ConfigurationSetupPage";
 import AiConfigurationPage from "./pages/AiConfigurationPage";
+import OllamaConfigurationPage from "./pages/OllamaConfigurationPage";
 import UserCustomFieldsPage from "./pages/UserCustomFieldsPage";
 import UserDataUploadPage from "./pages/UserDataUploadPage";
 import UserPivotReportPage from "./pages/UserPivotReportPage";
 import UserPivotCountPage from "./pages/UserPivotCountPage";
 import StudentDetailsReportPage from "./pages/StudentDetailsReportPage";
+import StudentPhotoUploadPage from "./pages/StudentPhotoUploadPage";
 import FacultyCadraRequirementPage from "./pages/FacultyCadraRequirementPage";
 import StudentPromotionPage from "./pages/StudentPromotionPage";
 import AdmissionCancellationPage from "./pages/AdmissionCancellationPage";
@@ -2784,6 +2791,7 @@ function App() {
         <Route path="/neplmsassignedcourses" element={<NepLmsAssignedCoursesPage />} />
         <Route path="/neplmscourseworkspace" element={<NepLmsCourseWorkspacePage />} />
         <Route path="/neplmsclassgroups" element={<NepLmsClassGroupsPage />} />
+        <Route path="/neplmsclassgroupsadmin" element={<NepLmsClassGroupsAdminPage />} />
         <Route path="/neplmsassessment" element={<NepLmsAssessmentPage />} />
         <Route path="/studentneplmsassessment" element={<NepLmsStudentAssessmentPage />} />
         <Route path="/neplmsremedial" element={<NepLmsRemedialPage />} />
@@ -2792,6 +2800,10 @@ function App() {
         <Route path="/neplmstimetablemanager" element={<NepLmsTimetableManagerPage />} />
         <Route path="/neplmsattendance" element={<NepLmsAttendancePage />} />
         <Route path="/neplmsgroupattendance" element={<NepLmsGroupAttendancePage />} />
+        <Route path="/neplmsphotoattendance" element={<NepLmsPhotoAttendancePage />} />
+        <Route path="/neplmsotpattendance" element={<NepLmsOtpAttendancePage />} />
+        <Route path="/studentneplmsotpattendance" element={<NepLmsStudentOtpAttendancePage />} />
+        <Route path="/neplmsattendancereview" element={<NepLmsAttendanceReviewPage />} />
         <Route path="/neplmsassessmentmarks" element={<NepLmsAssessmentMarksPage />} />
         <Route path="/neplmsassessmentmarksview" element={<NepLmsAssessmentMarksViewPage />} />
         <Route path="/neplmscomponentmarks" element={<NepLmsComponentMarksViewPage />} />
@@ -2903,6 +2915,7 @@ function App() {
         <Route path="/programmanagement" element={<ProgramManagementPage />} />
         <Route path="/configuration" element={<ConfigurationSetupPage />} />
         <Route path="/aiconfiguration" element={<AiConfigurationPage />} />
+        <Route path="/ollamaconfiguration" element={<OllamaConfigurationPage />} />
         <Route path="/emailconfiguration" element={<EmailConfigurationPage />} />
         <Route path="/transcript-recorder" element={<TranscriptRecorderPage />} />
         <Route path="/transcript-meetings" element={<TranscriptMeetingsCalendarPage />} />
@@ -2913,6 +2926,7 @@ function App() {
         <Route path="/userpivotreport" element={<UserPivotReportPage />} />
         <Route path="/userpivotcount" element={<UserPivotCountPage />} />
         <Route path="/studentdetails" element={<StudentDetailsReportPage />} />
+        <Route path="/studentphotoupload" element={<StudentPhotoUploadPage />} />
         <Route path="/faculty-cadra-requirement" element={<FacultyCadraRequirementPage />} />
         <Route path="/studentpromotion" element={<StudentPromotionPage />} />
         <Route path="/admissioncancellation" element={<AdmissionCancellationPage />} />

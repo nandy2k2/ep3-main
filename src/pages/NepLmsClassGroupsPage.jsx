@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Chip,
@@ -34,8 +35,10 @@ const courseLabel = (row) => [
   row.coursecode ? `(${row.coursecode})` : ""
 ].filter(Boolean).join(" ");
 
-export default function NepLmsClassGroupsPage() {
+export default function NepLmsClassGroupsPage({ adminMode = false }) {
   const [tab, setTab] = useState(0);
+  const [users, setUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
   const [courses, setCourses] = useState([]);
   const [academicYear, setAcademicYear] = useState("");
   const [semester, setSemester] = useState("");
@@ -52,13 +55,23 @@ export default function NepLmsClassGroupsPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [userLoading, setUserLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
+  const effectiveFacultyEmail = adminMode ? selectedUser?.email || "" : global1.user;
+  const effectiveFacultyName = adminMode ? selectedUser?.name || "" : global1.name;
+
   useEffect(() => {
-    loadCourses();
-    loadGroups();
-  }, []);
+    if (adminMode) loadUsers();
+  }, [adminMode]);
+
+  useEffect(() => {
+    if (!adminMode || effectiveFacultyEmail) {
+      loadCourses();
+      loadGroups();
+    }
+  }, [effectiveFacultyEmail]);
 
   const years = useMemo(() => uniqueSorted(courses.map((row) => row.academicyear)), [courses]);
   const semesters = useMemo(() => uniqueSorted(courses
@@ -101,11 +114,16 @@ export default function NepLmsClassGroupsPage() {
   };
 
   const loadCourses = async () => {
+    if (!effectiveFacultyEmail) {
+      setCourses([]);
+      chooseDefaults([]);
+      return;
+    }
     try {
       setLoading(true);
       setError("");
       const res = await ep1.get("/api/v2/neplms/class-groups/courses", {
-        params: { colid: global1.colid, facultyemail: global1.user }
+        params: { colid: global1.colid, facultyemail: effectiveFacultyEmail }
       });
       const rows = res.data?.data || [];
       setCourses(rows);
@@ -118,14 +136,36 @@ export default function NepLmsClassGroupsPage() {
   };
 
   const loadGroups = async () => {
+    if (!effectiveFacultyEmail) {
+      setGroups([]);
+      return;
+    }
     try {
       setError("");
       const res = await ep1.get("/api/v2/neplms/class-groups", {
-        params: { colid: global1.colid, facultyemail: global1.user }
+        params: { colid: global1.colid, facultyemail: effectiveFacultyEmail }
       });
       setGroups(res.data?.data || []);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load class groups");
+    }
+  };
+
+  const loadUsers = async () => {
+    try {
+      setUserLoading(true);
+      setError("");
+      const res = await ep1.get("/api/v2/neplms/class-groups/users", {
+        params: { colid: global1.colid }
+      });
+      const rows = res.data?.data || [];
+      setUsers(rows);
+      if (!selectedUser && rows.length) setSelectedUser(rows[0]);
+    } catch (err) {
+      setUsers([]);
+      setError(err.response?.data?.message || "Unable to load users");
+    } finally {
+      setUserLoading(false);
     }
   };
 
@@ -185,7 +225,7 @@ export default function NepLmsClassGroupsPage() {
           programcode: selectedCourse.programcode,
           semester: selectedCourse.semester,
           coursecode: selectedCourse.coursecode,
-          facultyemail: global1.user,
+          facultyemail: effectiveFacultyEmail,
           section,
           unassigned: unassignedOnly ? "true" : "false"
         }
@@ -221,8 +261,8 @@ export default function NepLmsClassGroupsPage() {
         colid: global1.colid,
         user: global1.user,
         groupname: groupName.trim(),
-        facultyemail: global1.user,
-        course: selectedCourse,
+        facultyemail: effectiveFacultyEmail,
+        course: { ...selectedCourse, facultyemail: effectiveFacultyEmail, facultyname: effectiveFacultyName || selectedCourse.facultyname },
         students: picked
       });
       setMessage(`${res.data?.saved || picked.length} student(s) assigned to ${groupName.trim()}`);
@@ -288,13 +328,13 @@ export default function NepLmsClassGroupsPage() {
   ];
 
   return (
-    <MenuPageShell title="Class groups">
+    <MenuPageShell title={adminMode ? "Class group admin" : "Class groups"}>
       <Box sx={{ p: 3 }}>
         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", md: "center" }} spacing={2} sx={{ mb: 2 }}>
           <Box>
-            <Typography variant="h5" fontWeight={900}>Class groups</Typography>
+            <Typography variant="h5" fontWeight={900}>{adminMode ? "Class group admin" : "Class groups"}</Typography>
             <Typography variant="body2" color="text.secondary">
-              Create student groups for courses assigned to you.
+              {adminMode ? "Select a user and manage class groups for that user's assigned courses." : "Create student groups for courses assigned to you."}
             </Typography>
           </Box>
           <Stack direction="row" spacing={1}>
@@ -305,6 +345,38 @@ export default function NepLmsClassGroupsPage() {
 
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         {message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}
+
+        {adminMode && (
+          <Paper sx={{ p: 2, mb: 2 }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={7}>
+                <Autocomplete
+                  options={users}
+                  loading={userLoading}
+                  value={selectedUser}
+                  onChange={(_, value) => {
+                    setSelectedUser(value);
+                    setStudents([]);
+                    setSelectedStudents([]);
+                    setGroups([]);
+                    setViewRows([]);
+                  }}
+                  getOptionLabel={(option) => option ? `${option.name || "-"} - ${option.email || "-"}${option.department ? ` (${option.department})` : ""}` : ""}
+                  isOptionEqualToValue={(option, value) => option?._id === value?._id}
+                  renderInput={(params) => <TextField {...params} label="Select user" />}
+                />
+              </Grid>
+              <Grid item xs={12} md={5}>
+                <Button variant="outlined" startIcon={<Refresh />} onClick={loadUsers} disabled={userLoading}>
+                  {userLoading ? "Loading..." : "Reload users"}
+                </Button>
+                {selectedUser && (
+                  <Chip sx={{ ml: 1 }} color="primary" variant="outlined" label={`${selectedUser.role || "User"}: ${selectedUser.email}`} />
+                )}
+              </Grid>
+            </Grid>
+          </Paper>
+        )}
 
         <Paper sx={{ borderRadius: 2, overflow: "hidden", mb: 2 }}>
           <Tabs value={tab} onChange={(_, value) => setTab(value)} sx={{ px: 2, borderBottom: "1px solid #e5e7eb" }}>

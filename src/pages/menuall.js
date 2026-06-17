@@ -507,6 +507,13 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Student data upload" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/studentphotoupload">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Student photo upload" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/studentdetails">
             <ListItemIcon>
               <PersonIcon />
@@ -952,6 +959,13 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Class groups" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/neplmsclassgroupsadmin">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Class group admin" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/neplmsassessment">
             <ListItemIcon>
               <PersonIcon />
@@ -992,6 +1006,27 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Group attendance" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/neplmsphotoattendance">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Photo attendance" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/neplmsotpattendance">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="OTP attendance" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/neplmsattendancereview">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Attendance review" />}
           </ListItem>
 
           {/* <ListItem button component={RouterLink} to="/neplmsassessmentmarks">
@@ -6245,6 +6280,13 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="AI Configuration" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/ollamaconfiguration">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Ollama Configuration" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/dashmpassword">
