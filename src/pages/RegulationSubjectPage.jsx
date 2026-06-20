@@ -105,7 +105,9 @@ export default function RegulationSubjectPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [uploadRows, setUploadRows] = useState([]);
+  const [selectedRows, setSelectedRows] = useState([]);
 
   useEffect(() => {
     loadOptions();
@@ -128,6 +130,7 @@ export default function RegulationSubjectPage() {
       });
       const res = await ep1.get("/api/v2/regulationsubject", { params });
       setRows(res.data.data || []);
+      setSelectedRows([]);
     } catch (err) {
       setError(err.response?.data?.message || "Error loading data");
     } finally {
@@ -215,6 +218,28 @@ export default function RegulationSubjectPage() {
       setTimeout(() => setMessage(""), 2500);
     } catch (err) {
       setError(err.response?.data?.message || "Error deleting record");
+    }
+  };
+
+  const bulkDeleteRows = async () => {
+    if (!selectedRows.length) {
+      setError("Select records to delete");
+      return;
+    }
+    if (!window.confirm(`Delete ${selectedRows.length} selected regulation subject record(s)?`)) return;
+    try {
+      setDeleting(true);
+      setError("");
+      setMessage("");
+      const res = await ep1.post("/api/v2/regulationsubject/bulk-delete", { colid, ids: selectedRows });
+      setMessage(`${res.data.deleted || 0} selected record(s) deleted`);
+      setSelectedRows([]);
+      await loadRows();
+      setTimeout(() => setMessage(""), 2500);
+    } catch (err) {
+      setError(err.response?.data?.message || "Bulk delete failed");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -436,6 +461,9 @@ export default function RegulationSubjectPage() {
                 <input hidden type="file" accept=".xlsx,.xls" onChange={readExcel} />
               </Button>
               <Button variant="contained" color="success" onClick={uploadExcelRows} disabled={!uploadRows.length}>Upload {uploadRows.length ? uploadRows.length : ""} Rows</Button>
+              <Button variant="contained" color="error" startIcon={<Delete />} onClick={bulkDeleteRows} disabled={deleting || !selectedRows.length}>
+                {deleting ? "Deleting..." : `Bulk delete${selectedRows.length ? ` (${selectedRows.length})` : ""}`}
+              </Button>
             </Stack>
           </Paper>
 
@@ -475,6 +503,9 @@ export default function RegulationSubjectPage() {
                 columns={columns}
                 getRowId={(row) => row._id}
                 loading={loading}
+                checkboxSelection
+                rowSelectionModel={selectedRows}
+                onRowSelectionModelChange={(ids) => setSelectedRows(ids)}
                 slots={{ toolbar: GridToolbar }}
                 slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "regulation_subjects" } } }}
                 initialState={{

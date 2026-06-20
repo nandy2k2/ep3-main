@@ -1471,6 +1471,13 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Fee Application" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/studentledgercrud">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Student ledger CRUD" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/feesmodelreport">
             <ListItemIcon>
               <PersonIcon />
@@ -1880,6 +1887,126 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Budget Log" />}
+          </ListItem>
+        </AccordionDetails>
+      </Accordion>
+
+      <Accordion>
+        <AccordionSummary aria-controls="panel-new-budget-approval-content" id="panel-new-budget-approval-header">
+          <AccountBalanceWalletIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{ fontSize: 14 }}>Budget approval</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          <ListItem button component={RouterLink} to="/newbudgetdepartmentworkflow">
+            <ListItemIcon>
+              <SettingsIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Department workflow" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/newbudgetinstitutionworkflow">
+            <ListItemIcon>
+              <SettingsIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Institution workflow" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/newbudgetcategory">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Budget category" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/newbudgetentry">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Budget entry" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/newbudgetdepartmentapproval">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Department approval" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/newbudgetinstitutionapproval">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Institution approval" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/newbudgetanalysis">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Budget analysis" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/newbudgetblockchain">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Budget blockchain" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/newbudgetauditlog">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Budget audit log" />}
+          </ListItem>
+        </AccordionDetails>
+      </Accordion>
+
+      <Accordion>
+        <AccordionSummary aria-controls="panel-purchase-new-content" id="panel-purchase-new-header">
+          <BusinessIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{ fontSize: 14 }}>Purchase new</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          <ListItem button component={RouterLink} to="/purchasenewdepartmentworkflow">
+            <ListItemIcon>
+              <SettingsIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Department indent workflow" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/purchasenewinstitutionworkflow">
+            <ListItemIcon>
+              <SettingsIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Institution indent workflow" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/purchasenewindent">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Create indent" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/purchasenewindenthistory">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Indent history" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/purchasenewdepartmentapproval">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Department indent approval" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/purchasenewinstitutionapproval">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Institution indent approval" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/purchasenewapprovedindents">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Approved indents" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/purchasenewindentauditlog">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Indent audit log" />}
           </ListItem>
         </AccordionDetails>
       </Accordion>

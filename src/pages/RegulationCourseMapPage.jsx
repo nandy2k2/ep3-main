@@ -89,9 +89,11 @@ export default function RegulationCourseMapPage() {
   const [filters, setFilters] = useState({ academicyear: "", regulation: "", programcode: "", type: "", subject: "", coursetype: "", coursemastercode: "" });
   const [editingId, setEditingId] = useState("");
   const [uploadRows, setUploadRows] = useState([]);
+  const [selectedRows, setSelectedRows] = useState([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadOptions();
@@ -162,6 +164,7 @@ export default function RegulationCourseMapPage() {
       });
       const res = await ep1.get("/api/v2/regulationcoursemap", { params });
       setRows(res.data.data || []);
+      setSelectedRows([]);
     } catch (err) {
       setError(err.response?.data?.message || "Error loading data");
     } finally {
@@ -272,6 +275,29 @@ export default function RegulationCourseMapPage() {
       setTimeout(() => setMessage(""), 2500);
     } catch (err) {
       setError(err.response?.data?.message || "Error deleting record");
+    }
+  };
+
+  const bulkDeleteRows = async () => {
+    if (!selectedRows.length) {
+      setError("Select records to delete");
+      return;
+    }
+    if (!window.confirm(`Delete ${selectedRows.length} selected course map record(s)?`)) return;
+    try {
+      setDeleting(true);
+      setError("");
+      setMessage("");
+      const res = await ep1.post("/api/v2/regulationcoursemap/bulk-delete", { colid, ids: selectedRows });
+      setMessage(`${res.data.deleted || 0} selected record(s) deleted`);
+      setSelectedRows([]);
+      await loadRows();
+      await loadFilterOptionRows();
+      setTimeout(() => setMessage(""), 2500);
+    } catch (err) {
+      setError(err.response?.data?.message || "Bulk delete failed");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -502,6 +528,9 @@ export default function RegulationCourseMapPage() {
             <input hidden type="file" accept=".xlsx,.xls" onChange={readExcel} />
           </Button>
           <Button variant="contained" startIcon={<Add />} onClick={uploadExcelRows} disabled={!uploadRows.length}>Upload {uploadRows.length ? `(${uploadRows.length})` : ""}</Button>
+          <Button variant="contained" color="error" startIcon={<Delete />} onClick={bulkDeleteRows} disabled={deleting || !selectedRows.length}>
+            {deleting ? "Deleting..." : `Bulk delete${selectedRows.length ? ` (${selectedRows.length})` : ""}`}
+          </Button>
         </Stack>
       </Paper>
 
@@ -510,6 +539,10 @@ export default function RegulationCourseMapPage() {
           rows={rows.map((row) => ({ ...row, id: row._id }))}
           columns={columns}
           loading={loading}
+          checkboxSelection
+          disableRowSelectionOnClick
+          rowSelectionModel={selectedRows}
+          onRowSelectionModelChange={(ids) => setSelectedRows(ids)}
           autoHeight
           slots={{ toolbar: GridToolbar }}
           slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "regulation_course_map" } } }}

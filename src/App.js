@@ -1643,6 +1643,28 @@ import BudgetApproverds from './pages/BudgetApproverds';
 import BudgetDashboardds from './pages/BudgetDashboardds';
 import BudgetApprovalds from './pages/BudgetApprovalds';
 import IndBudgetApprovalRolesPage from './pages/IndBudgetApprovalRolesPage';
+import {
+  NewBudgetCategoryPage,
+  NewBudgetAuditLogPage,
+  NewBudgetAnalysisPage,
+  NewBudgetBlockchainPage,
+  NewBudgetBlockchainVerifyPage,
+  NewBudgetDepartmentApprovalPage,
+  NewBudgetDepartmentWorkflowPage,
+  NewBudgetEntryPage,
+  NewBudgetInstitutionApprovalPage,
+  NewBudgetInstitutionWorkflowPage
+} from './pages/NewBudgetApprovalPages';
+import {
+  PurchaseNewApprovedIndentsPage,
+  PurchaseNewDepartmentApprovalPage,
+  PurchaseNewDepartmentWorkflowPage,
+  PurchaseNewIndentAuditLogPage,
+  PurchaseNewIndentHistoryPage,
+  PurchaseNewIndentPage,
+  PurchaseNewInstitutionApprovalPage,
+  PurchaseNewInstitutionWorkflowPage
+} from './pages/PurchaseNewPages';
 
 import Dashchattestadmin from './pages/Dashchattestadmin';
 
@@ -1654,6 +1676,7 @@ import MFeesConfigPage from './pages/MFeesConfigPage';
 import FeeApprovalPage from './pages/FeeApprovalPage';
 import FeeApprovalRolesPage from './pages/FeeApprovalRolesPage';
 import FeeApplicationPage from './pages/FeeApplicationPage';
+import StudentLedgerCrudPage from './pages/StudentLedgerCrudPage';
 import FeesModelReportPage from './pages/FeesModelReportPage';
 import StudentFeeApplyPage from './pages/StudentFeeApplyPage';
 import StudentLedgerApprovalPage from './pages/StudentLedgerApprovalPage';
@@ -2167,6 +2190,24 @@ function App() {
                                         <Route path="/BudgetDashboardds" element={<BudgetDashboardds />} />
                                         <Route path="/BudgetApprovalds" element={<BudgetApprovalds />} />
                                         <Route path="/indbudgetapprovalroles" element={<IndBudgetApprovalRolesPage />} />
+                                        <Route path="/newbudgetdepartmentworkflow" element={<NewBudgetDepartmentWorkflowPage />} />
+                                        <Route path="/newbudgetinstitutionworkflow" element={<NewBudgetInstitutionWorkflowPage />} />
+                                        <Route path="/newbudgetcategory" element={<NewBudgetCategoryPage />} />
+                                        <Route path="/newbudgetentry" element={<NewBudgetEntryPage />} />
+                                        <Route path="/newbudgetdepartmentapproval" element={<NewBudgetDepartmentApprovalPage />} />
+                                        <Route path="/newbudgetinstitutionapproval" element={<NewBudgetInstitutionApprovalPage />} />
+                                        <Route path="/newbudgetauditlog" element={<NewBudgetAuditLogPage />} />
+                                        <Route path="/newbudgetanalysis" element={<NewBudgetAnalysisPage />} />
+                                        <Route path="/newbudgetblockchain" element={<NewBudgetBlockchainPage />} />
+                                        <Route path="/verify-budget-blockchain" element={<NewBudgetBlockchainVerifyPage />} />
+                                        <Route path="/purchasenewdepartmentworkflow" element={<PurchaseNewDepartmentWorkflowPage />} />
+                                        <Route path="/purchasenewinstitutionworkflow" element={<PurchaseNewInstitutionWorkflowPage />} />
+                                        <Route path="/purchasenewindent" element={<PurchaseNewIndentPage />} />
+                                        <Route path="/purchasenewindenthistory" element={<PurchaseNewIndentHistoryPage />} />
+                                        <Route path="/purchasenewdepartmentapproval" element={<PurchaseNewDepartmentApprovalPage />} />
+                                        <Route path="/purchasenewinstitutionapproval" element={<PurchaseNewInstitutionApprovalPage />} />
+                                        <Route path="/purchasenewapprovedindents" element={<PurchaseNewApprovedIndentsPage />} />
+                                        <Route path="/purchasenewindentauditlog" element={<PurchaseNewIndentAuditLogPage />} />
 
         <Route path="/dashmunivampus" element={<Dashmunivampus />} />
         <Route path="/dashmunivampusadmin" element={<Dashmunivampusadmin />} />
@@ -2851,6 +2892,7 @@ function App() {
         <Route path="/feeapproval" element={<FeeApprovalPage />} />
         <Route path="/feeapprovalroles" element={<FeeApprovalRolesPage />} />
         <Route path="/feeapplication" element={<FeeApplicationPage />} />
+        <Route path="/studentledgercrud" element={<StudentLedgerCrudPage />} />
         <Route path="/feesmodelreport" element={<FeesModelReportPage />} />
         <Route path="/feeitemreport" element={<FeeItemReportPage />} />
         <Route path="/studentfeeapply" element={<StudentFeeApplyPage />} />

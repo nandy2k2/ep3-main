@@ -50,6 +50,7 @@ const feeFieldConfig = [
   { field: "feegroup", label: "Fee Group", optionKey: "feegroup" },
   { field: "feeeitem", label: "Fee Item", optionKey: "feeeitem" },
   { field: "feecategory", label: "Fee Category", optionKey: "feecategory" },
+  { field: "feetype", label: "Fee Type", optionKey: "feetype" },
   { field: "status", label: "Status", optionKey: "status" }
 ];
 
@@ -297,6 +298,7 @@ export default function FeeApplicationPage() {
     { field: "feegroup", headerName: "Fee Group", width: 150 },
     { field: "feeitem", headerName: "Fee Item", width: 200 },
     { field: "feecategory", headerName: "Fee Category", width: 140 },
+    { field: "feetype", headerName: "Fee Type", width: 140 },
     { field: "semester", headerName: "Semester", width: 110 },
     { field: "feebook", headerName: "Fee Book", width: 150 },
     { field: "cashbook", headerName: "Cash Book", width: 150 },

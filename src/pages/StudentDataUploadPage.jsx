@@ -73,7 +73,7 @@ const labels = {
 };
 const viewFilterFields = ["academicyear", "program", "programcode", "department", "semester", "section", "Major", "Minor", "IDC", "AEC", "SEC", "VAC", "name", "email", "phone", "institution"];
 const blankViewFilter = { field: "academicyear", value: "" };
-const blankForm = fields.reduce((acc, field) => ({ ...acc, [field]: staticDropdownOptions[field]?.[0] || "" }), {});
+const blankForm = { ...fields.reduce((acc, field) => ({ ...acc, [field]: staticDropdownOptions[field]?.[0] || "" }), {}), customFields: {} };
 const normalizeKey = (key) => String(key || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
 const valueFromRow = (row, field) => {
@@ -121,6 +121,9 @@ export default function StudentDataUploadPage() {
   const [programOptions, setProgramOptions] = useState([]);
   const [regulationOptions, setRegulationOptions] = useState([]);
   const [subjectOptions, setSubjectOptions] = useState({});
+  const [customFields, setCustomFields] = useState([]);
+  const [aiRules, setAiRules] = useState([{ field: "", rule: "" }]);
+  const [aiGenerating, setAiGenerating] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [bulkUploading, setBulkUploading] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -133,8 +136,25 @@ export default function StudentDataUploadPage() {
 
   useEffect(() => {
     loadAcademicOptions();
+    loadCustomFields();
     loadRows();
   }, []);
+
+  const fieldChoices = useMemo(() => [
+    ...fields.map((field) => ({ value: field, label: labels[field] || field, custom: false, fieldname: field })),
+    ...customFields.map((field) => ({ value: `custom:${field.fieldname}`, label: field.label || field.fieldname, custom: true, fieldname: field.fieldname }))
+  ], [customFields]);
+
+  const getChoice = (value) => fieldChoices.find((item) => item.value === value);
+
+  const loadCustomFields = async () => {
+    try {
+      const res = await ep1.get("/api/v2/user-custom-fields", { params: { colid: global1.colid } });
+      setCustomFields((res.data || []).filter((item) => item.fieldname));
+    } catch {
+      setCustomFields([]);
+    }
+  };
 
   useEffect(() => {
     loadSubjectOptions();
@@ -241,6 +261,47 @@ export default function StudentDataUploadPage() {
     });
   };
 
+  const updateCustomField = (fieldname, value) => {
+    setForm((prev) => ({
+      ...prev,
+      customFields: {
+        ...(prev.customFields || {}),
+        [fieldname]: value
+      }
+    }));
+  };
+
+  const rowDataForAi = (item) => ({
+    ...item,
+    customFields: item.customFields || {}
+  });
+
+  const applyAiRulesToItem = async (item) => {
+    const activeRules = aiRules
+      .map((rule) => ({ field: rule.field, rule: String(rule.rule || "").trim() }))
+      .filter((rule) => rule.field && rule.rule);
+    if (!activeRules.length) return item;
+    let next = { ...item, customFields: { ...(item.customFields || {}) } };
+    for (const rule of activeRules) {
+      const choice = getChoice(rule.field);
+      if (!choice) continue;
+      const res = await ep1.post("/api/v2/student-data-upload-ai-field", {
+        colid: global1.colid,
+        field: choice.fieldname,
+        label: choice.label,
+        rule: rule.rule,
+        rowData: rowDataForAi(next)
+      });
+      const value = res.data?.value || "";
+      if (choice.custom) {
+        next.customFields[choice.fieldname] = value;
+      } else {
+        next[choice.fieldname] = value;
+      }
+    }
+    return next;
+  };
+
   const uploadPhoto = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -266,13 +327,15 @@ export default function StudentDataUploadPage() {
 
   const saveStudent = async () => {
     try {
-      if (!form.email) {
+      setError("");
+      setMessage("");
+      setAiGenerating(true);
+      const aiForm = await applyAiRulesToItem(form);
+      if (!aiForm.email) {
         setError("Email is required");
         return;
       }
-      setError("");
-      setMessage("");
-      const payload = { ...form, colid: global1.colid, user: global1.user, institution: global1.insname };
+      const payload = { ...aiForm, colid: global1.colid, user: global1.user, institution: global1.insname };
       if (editingId) {
         await ep1.post("/api/v2/student-data-upload-update", { ...payload, id: editingId });
         setMessage("Student updated");
@@ -284,6 +347,8 @@ export default function StudentDataUploadPage() {
       loadRows();
     } catch (err) {
       setError(err.response?.data?.msg || "Unable to save student");
+    } finally {
+      setAiGenerating(false);
     }
   };
 
@@ -292,6 +357,7 @@ export default function StudentDataUploadPage() {
     fields.forEach((field) => {
       next[field] = row[field] ?? "";
     });
+    next.customFields = row.customFields || {};
     next.major = row.major || row.Major || "";
     next.minor = row.minor || row.Minor || "";
     next.Major = row.Major || row.major || "";
@@ -346,6 +412,10 @@ export default function StudentDataUploadPage() {
   };
 
   const rowValue = (row, field) => {
+    if (String(field).startsWith("custom:")) {
+      const key = String(field).replace("custom:", "");
+      return row.customFields?.[key] || "";
+    }
     if (field === "Major") return row.Major || row.major || "";
     if (field === "Minor") return row.Minor || row.minor || "";
     if (field === "AEC") return row.AEC || row.aec || "";
@@ -353,6 +423,20 @@ export default function StudentDataUploadPage() {
     if (field === "VAC") return row.VAC || row.vac || "";
     if (field === "IDC") return row.IDC || row.idc || "";
     return row[field] || "";
+  };
+
+  const allViewFilterFields = useMemo(() => [
+    ...viewFilterFields,
+    ...customFields.map((field) => `custom:${field.fieldname}`)
+  ], [customFields]);
+
+  const labelForField = (field) => {
+    if (String(field).startsWith("custom:")) {
+      const key = String(field).replace("custom:", "");
+      const custom = customFields.find((item) => item.fieldname === key);
+      return custom?.label || key;
+    }
+    return labels[field] || field;
   };
 
   const viewFilterOptions = (field) => {
@@ -434,6 +518,9 @@ export default function StudentDataUploadPage() {
 
   const downloadTemplate = () => {
     const template = fields.reduce((acc, field) => ({ ...acc, [labels[field]]: "" }), {});
+    customFields.forEach((field) => {
+      template[field.label || field.fieldname] = "";
+    });
     const worksheet = XLSX.utils.json_to_sheet([template]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
@@ -457,13 +544,20 @@ export default function StudentDataUploadPage() {
         setError("No rows found in the Excel file");
         return;
       }
-      const items = excelRows.map((row, index) => {
+      setAiGenerating(true);
+      const items = [];
+      for (let index = 0; index < excelRows.length; index += 1) {
+        const row = excelRows[index];
         const item = { rowNumber: index + 2 };
         fields.forEach((field) => {
           item[field] = valueFromRow(row, field);
         });
-        return item;
-      });
+        item.customFields = {};
+        customFields.forEach((field) => {
+          item.customFields[field.fieldname] = valueFromRow(row, field.fieldname) || valueFromRow(row, field.label);
+        });
+        items.push(await applyAiRulesToItem(item));
+      }
       const res = await ep1.post("/api/v2/student-data-upload-bulk", {
         colid: global1.colid,
         user: global1.user,
@@ -478,6 +572,7 @@ export default function StudentDataUploadPage() {
       setError(err.response?.data?.msg || "Unable to upload Excel file");
     } finally {
       setBulkUploading(false);
+      setAiGenerating(false);
     }
   };
 
@@ -486,6 +581,12 @@ export default function StudentDataUploadPage() {
       field,
       headerName: labels[field],
       width: field === "email" || field === "photo" ? 220 : field === "program" ? 190 : field === "academicyear" || field === "admissionyear" ? 150 : 140
+    })),
+    ...customFields.map((field) => ({
+      field: `custom_${field.fieldname}`,
+      headerName: field.label || field.fieldname,
+      width: 160,
+      valueGetter: (params) => params.row.customFields?.[field.fieldname] || ""
     })),
     { field: "user", headerName: "User", width: 160 },
     {
@@ -498,7 +599,7 @@ export default function StudentDataUploadPage() {
         <GridActionsCellItem icon={<DeleteIcon />} label="Delete" onClick={() => deleteRow(params.row)} />
       ]
     }
-  ], []);
+  ], [customFields]);
 
   return (
     <Box p={3}>
@@ -531,8 +632,58 @@ export default function StudentDataUploadPage() {
         </Paper>
       )}
 
+      {aiGenerating && (
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={1} sx={{ mb: 1 }}>
+            <Typography fontWeight={700}>Applying Gemini field rules...</Typography>
+            <Typography variant="body2" color="text.secondary">Fields without rules will keep their direct values.</Typography>
+          </Stack>
+          <LinearProgress />
+        </Paper>
+      )}
+
       {message && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setMessage("")}>{message}</Alert>}
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
+
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} sx={{ mb: 2 }}>
+          <Box>
+            <Typography variant="h6">Optional Gemini Field Rules</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Select any standard or custom field and describe how Gemini should generate it from the current row data. Leave empty to use direct values.
+            </Typography>
+          </Box>
+          <Button startIcon={<AddIcon />} onClick={() => setAiRules((prev) => [...prev, { field: "", rule: "" }])}>Add Rule</Button>
+        </Stack>
+        <Grid container spacing={2}>
+          {aiRules.map((rule, index) => (
+            <React.Fragment key={`ai-rule-${index}`}>
+              <Grid item xs={12} md={3}>
+                <TextField select fullWidth label="Field" value={rule.field} onChange={(event) => setAiRules((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, field: event.target.value } : item))}>
+                  <MenuItem value="">No AI rule</MenuItem>
+                  {fieldChoices.map((choice) => <MenuItem key={choice.value} value={choice.value}>{choice.label}{choice.custom ? " (Custom)" : ""}</MenuItem>)}
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={8}>
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  label="Rule"
+                  placeholder="Example: Create roll number as academic year last two digits + program code + 3 digit serial from roll no."
+                  value={rule.rule}
+                  onChange={(event) => setAiRules((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, rule: event.target.value } : item))}
+                />
+              </Grid>
+              <Grid item xs={12} md={1}>
+                <IconButton color="error" onClick={() => setAiRules((prev) => prev.length === 1 ? [{ field: "", rule: "" }] : prev.filter((_, itemIndex) => itemIndex !== index))} sx={{ height: 56, width: 56 }}>
+                  <DeleteIcon />
+                </IconButton>
+              </Grid>
+            </React.Fragment>
+          ))}
+        </Grid>
+      </Paper>
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} sx={{ mb: 2 }}>
@@ -555,6 +706,18 @@ export default function StudentDataUploadPage() {
                   <MenuItem key={option} value={option}>{option}</MenuItem>
                 ))}
               </TextField>
+            </Grid>
+          ))}
+          {customFields.map((field) => (
+            <Grid item xs={12} sm={6} md={3} key={`custom-${field.fieldname}`}>
+              <TextField
+                fullWidth
+                label={field.label || field.fieldname}
+                value={form.customFields?.[field.fieldname] || ""}
+                onChange={(event) => updateCustomField(field.fieldname, event.target.value)}
+                required={field.isrequired === "Yes"}
+                helperText="Custom field"
+              />
             </Grid>
           ))}
           <Grid item xs={12} sm={6} md={3}>
@@ -642,7 +805,7 @@ export default function StudentDataUploadPage() {
             <React.Fragment key={`${filter.field}-${index}`}>
               <Grid item xs={12} md={4}>
                 <TextField select fullWidth label="Field" value={filter.field} onChange={(event) => updateViewFilter(index, { field: event.target.value })}>
-                  {viewFilterFields.map((field) => <MenuItem key={field} value={field}>{labels[field] || field}</MenuItem>)}
+                  {allViewFilterFields.map((field) => <MenuItem key={field} value={field}>{labelForField(field)}</MenuItem>)}
                 </TextField>
               </Grid>
               <Grid item xs={12} md={7}>
@@ -652,7 +815,7 @@ export default function StudentDataUploadPage() {
                   value={filter.value || ""}
                   onInputChange={(_, value) => updateViewFilter(index, { value })}
                   onChange={(_, value) => updateViewFilter(index, { value: value || "" })}
-                  renderInput={(params) => <TextField {...params} label={labels[filter.field] || filter.field} />}
+                  renderInput={(params) => <TextField {...params} label={labelForField(filter.field)} />}
                 />
               </Grid>
               <Grid item xs={12} md={1}>
