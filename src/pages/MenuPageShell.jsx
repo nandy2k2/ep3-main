@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   CssBaseline,
@@ -18,6 +18,7 @@ import global1 from "./global1";
 
 const drawerWidth = 250;
 const theme = createTheme();
+const menuStorageKey = "campus_menu_open";
 
 const AppBarStyled = styled(AppBar, {
   shouldForwardProp: (prop) => prop !== "open"
@@ -64,7 +65,22 @@ const DrawerStyled = styled(Drawer, {
 }));
 
 export default function MenuPageShell({ title, children }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(() => {
+    try {
+      const saved = localStorage.getItem(menuStorageKey);
+      return saved === null ? true : saved === "true";
+    } catch {
+      return true;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(menuStorageKey, String(open));
+    } catch {
+      // Ignore storage errors and keep the in-memory drawer state.
+    }
+  }, [open]);
 
   return (
     <ThemeProvider theme={theme}>

@@ -62,6 +62,7 @@ const navigation = [
 const quickLinks = [
   { label: "Faculty login", to: "/Login" },
   { label: "Student login", to: "/loginstud" },
+  { label: "Vendor login", to: "/purchase-new-vendor-login" },
   { label: "Create account", to: "/signuppage" }
 ];
 
@@ -233,6 +234,7 @@ function CampusWebsite() {
               </Button>
             ))}
             <Button variant="outlined" onClick={() => navigate("/Login")}>Login</Button>
+            <Button variant="outlined" onClick={() => navigate("/purchase-new-vendor-login")}>Vendor Login</Button>
             <Button variant="contained" onClick={() => navigate("/signuppage")}>Create Account</Button>
           </Stack>
         </Toolbar>
@@ -264,6 +266,9 @@ function CampusWebsite() {
                   </Button>
                   <Button size="large" variant="outlined" onClick={() => navigate("/Login")}>
                     Login
+                  </Button>
+                  <Button size="large" variant="outlined" onClick={() => navigate("/purchase-new-vendor-login")}>
+                    Vendor Login
                   </Button>
                 </Stack>
                 <Grid container spacing={1.5}>

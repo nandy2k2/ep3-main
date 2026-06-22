@@ -1972,6 +1972,84 @@ export function menuitemsall() {
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Institution indent workflow" />}
           </ListItem>
+          <ListItem button component={RouterLink} to="/purchasenewpoworkflow">
+            <ListItemIcon>
+              <SettingsIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="PO approval workflow" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/purchasenewfinanceworkflow">
+            <ListItemIcon>
+              <SettingsIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Finance payment workflow" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/purchasenewrfpworkflow">
+            <ListItemIcon>
+              <SettingsIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="RFP approval workflow" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/purchasenewcategoryofficer">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Category purchase officer" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/purchasenewvendor">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Vendor master" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/purchasenewrfpvendorassignment">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Vendor RFP assignment" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/purchasenewapprovedrfps">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Approved RFPs" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/purchasenewvendorcomparison">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Vendor bid comparison" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/purchasenewpoapproval">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="PO approval" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/purchasenewapprovedpo">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Approved PO blockchain" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/purchasenewquality">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Quality and GRN" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/purchasenewinvoiceapproval">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Invoice approval" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/purchasenewinvoicestatus">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Invoice status" />}
+          </ListItem>
           <ListItem button component={RouterLink} to="/purchasenewindent">
             <ListItemIcon>
               <PersonIcon />
@@ -2001,6 +2079,18 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Approved indents" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/purchasenewofficerworkbench">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Purchase officer workbench" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/purchasenewrfpapproval">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="RFP approval" />}
           </ListItem>
           <ListItem button component={RouterLink} to="/purchasenewindentauditlog">
             <ListItemIcon>

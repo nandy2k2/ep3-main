@@ -75,6 +75,7 @@ const viewFilterFields = ["academicyear", "program", "programcode", "department"
 const blankViewFilter = { field: "academicyear", value: "" };
 const blankForm = { ...fields.reduce((acc, field) => ({ ...acc, [field]: staticDropdownOptions[field]?.[0] || "" }), {}), customFields: {} };
 const normalizeKey = (key) => String(key || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+const geminiModelOptions = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash"];
 
 const valueFromRow = (row, field) => {
   const aliases = {
@@ -123,6 +124,10 @@ export default function StudentDataUploadPage() {
   const [subjectOptions, setSubjectOptions] = useState({});
   const [customFields, setCustomFields] = useState([]);
   const [aiRules, setAiRules] = useState([{ field: "", rule: "" }]);
+  const [aiProvider, setAiProvider] = useState("Gemini");
+  const [geminiModel, setGeminiModel] = useState("gemini-2.5-flash");
+  const [ollamaConfigs, setOllamaConfigs] = useState([]);
+  const [ollamaConfigId, setOllamaConfigId] = useState("");
   const [aiGenerating, setAiGenerating] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [bulkUploading, setBulkUploading] = useState(false);
@@ -137,6 +142,7 @@ export default function StudentDataUploadPage() {
   useEffect(() => {
     loadAcademicOptions();
     loadCustomFields();
+    loadOllamaConfigurations();
     loadRows();
   }, []);
 
@@ -153,6 +159,18 @@ export default function StudentDataUploadPage() {
       setCustomFields((res.data || []).filter((item) => item.fieldname));
     } catch {
       setCustomFields([]);
+    }
+  };
+
+  const loadOllamaConfigurations = async () => {
+    try {
+      const res = await ep1.get("/api/v2/ollama-configuration", { params: { colid: global1.colid } });
+      const activeConfigs = (res.data || []).filter((item) => String(item.active || "").toLowerCase() === "yes");
+      setOllamaConfigs(activeConfigs);
+      const defaultConfig = activeConfigs.find((item) => String(item.default || "").toLowerCase() === "yes") || activeConfigs[0];
+      if (defaultConfig) setOllamaConfigId((prev) => prev || defaultConfig._id);
+    } catch {
+      setOllamaConfigs([]);
     }
   };
 
@@ -290,6 +308,9 @@ export default function StudentDataUploadPage() {
         field: choice.fieldname,
         label: choice.label,
         rule: rule.rule,
+        provider: aiProvider,
+        geminiModel,
+        ollamaConfigId,
         rowData: rowDataForAi(next)
       });
       const value = res.data?.value || "";
@@ -635,7 +656,7 @@ export default function StudentDataUploadPage() {
       {aiGenerating && (
         <Paper sx={{ p: 2, mb: 2 }}>
           <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={1} sx={{ mb: 1 }}>
-            <Typography fontWeight={700}>Applying Gemini field rules...</Typography>
+            <Typography fontWeight={700}>Applying {aiProvider} field rules...</Typography>
             <Typography variant="body2" color="text.secondary">Fields without rules will keep their direct values.</Typography>
           </Stack>
           <LinearProgress />
@@ -648,14 +669,50 @@ export default function StudentDataUploadPage() {
       <Paper sx={{ p: 2, mb: 2 }}>
         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} sx={{ mb: 2 }}>
           <Box>
-            <Typography variant="h6">Optional Gemini Field Rules</Typography>
+            <Typography variant="h6">Optional AI Field Rules</Typography>
             <Typography variant="body2" color="text.secondary">
-              Select any standard or custom field and describe how Gemini should generate it from the current row data. Leave empty to use direct values.
+              Select any standard or custom field and describe how AI should generate it from the current row data. Leave empty to use direct values.
             </Typography>
           </Box>
           <Button startIcon={<AddIcon />} onClick={() => setAiRules((prev) => [...prev, { field: "", rule: "" }])}>Add Rule</Button>
         </Stack>
         <Grid container spacing={2}>
+          <Grid item xs={12} md={3}>
+            <TextField select fullWidth label="AI Provider" value={aiProvider} onChange={(event) => setAiProvider(event.target.value)}>
+              <MenuItem value="Gemini">Gemini</MenuItem>
+              <MenuItem value="Ollama">Ollama</MenuItem>
+            </TextField>
+          </Grid>
+          {aiProvider === "Gemini" && (
+            <Grid item xs={12} md={3}>
+              <TextField select fullWidth label="Gemini Model" value={geminiModel} onChange={(event) => setGeminiModel(event.target.value)}>
+                {geminiModelOptions.map((model) => <MenuItem key={model} value={model}>{model}</MenuItem>)}
+              </TextField>
+            </Grid>
+          )}
+          {aiProvider === "Ollama" && (
+            <Grid item xs={12} md={5}>
+              <TextField
+                select
+                fullWidth
+                label="Ollama Configuration"
+                value={ollamaConfigId}
+                onChange={(event) => setOllamaConfigId(event.target.value)}
+                helperText={ollamaConfigs.length ? "Selected model/server will be used for field generation." : "No active Ollama configuration found."}
+              >
+                {ollamaConfigs.map((item) => (
+                  <MenuItem key={item._id} value={item._id}>
+                    {item.name} - {item.modelname} ({item.serveraddress || "http://localhost:11434"})
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+          )}
+          <Grid item xs={12} md={aiProvider === "Gemini" ? 6 : 4}>
+            <Alert severity="info" sx={{ alignItems: "center" }}>
+              Future AI actions should expose the model/config selector before generation.
+            </Alert>
+          </Grid>
           {aiRules.map((rule, index) => (
             <React.Fragment key={`ai-rule-${index}`}>
               <Grid item xs={12} md={3}>

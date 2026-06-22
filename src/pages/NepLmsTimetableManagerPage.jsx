@@ -10,6 +10,7 @@ import {
   FormControl,
   Grid,
   InputLabel,
+  LinearProgress,
   MenuItem,
   Paper,
   Select,
@@ -112,6 +113,8 @@ export default function NepLmsTimetableManagerPage() {
   const [swapSecond, setSwapSecond] = useState("");
   const [institution, setInstitution] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [selectedClassIds, setSelectedClassIds] = useState([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [calendarView, setCalendarView] = useState("Weekly");
@@ -392,6 +395,27 @@ export default function NepLmsTimetableManagerPage() {
       loadRows();
     } catch (err) {
       setError(err.response?.data?.message || "Unable to delete class");
+    }
+  };
+
+  const bulkDeleteRows = async () => {
+    if (!selectedClassIds.length) {
+      setError("Select at least one class to delete");
+      return;
+    }
+    if (!window.confirm(`Delete ${selectedClassIds.length} selected class${selectedClassIds.length === 1 ? "" : "es"}?`)) return;
+    try {
+      setBulkDeleting(true);
+      setError("");
+      setMessage("");
+      await Promise.all(selectedClassIds.map((id) => ep1.post("/api/v2/neplms/timetable/delete", { id, colid: global1.colid })));
+      setMessage(`${selectedClassIds.length} selected class${selectedClassIds.length === 1 ? "" : "es"} deleted`);
+      setSelectedClassIds([]);
+      loadRows();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete selected classes");
+    } finally {
+      setBulkDeleting(false);
     }
   };
 
@@ -817,10 +841,29 @@ export default function NepLmsTimetableManagerPage() {
       </Paper>
 
       <Paper className="no-print" sx={{ p: 1, mb: 2, overflowX: "auto" }}>
+        {bulkDeleting && <LinearProgress sx={{ mb: 1 }} />}
+        <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} spacing={1} sx={{ p: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            {selectedClassIds.length ? `${selectedClassIds.length} class${selectedClassIds.length === 1 ? "" : "es"} selected` : "Select classes with the checkbox for bulk delete"}
+          </Typography>
+          <Button
+            color="error"
+            variant="contained"
+            startIcon={<Delete />}
+            onClick={bulkDeleteRows}
+            disabled={!selectedClassIds.length || bulkDeleting}
+          >
+            {bulkDeleting ? "Deleting..." : "Bulk Delete"}
+          </Button>
+        </Stack>
         <DataGrid
           rows={filteredRows.map((row) => ({ ...row, id: row._id }))}
           columns={columns}
           loading={loading}
+          checkboxSelection
+          disableRowSelectionOnClick
+          rowSelectionModel={selectedClassIds}
+          onRowSelectionModelChange={(newSelection) => setSelectedClassIds(newSelection)}
           autoHeight
           slots={{ toolbar: GridToolbar }}
           slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "nep_lms_timetable" } } }}

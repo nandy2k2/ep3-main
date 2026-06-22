@@ -1663,7 +1663,36 @@ import {
   PurchaseNewIndentHistoryPage,
   PurchaseNewIndentPage,
   PurchaseNewInstitutionApprovalPage,
-  PurchaseNewInstitutionWorkflowPage
+  PurchaseNewInstitutionWorkflowPage,
+  PurchaseNewPoWorkflowPage,
+  PurchaseNewFinanceWorkflowPage,
+  PurchaseNewRfpWorkflowPage,
+  PurchaseNewCategoryOfficerPage,
+  PurchaseNewOfficerWorkbenchPage,
+  PurchaseNewRfpApprovalPage,
+  PurchaseNewVendorPage,
+  PurchaseNewRfpVendorAssignmentPage,
+  PurchaseNewApprovedRfpsPage,
+  PurchaseNewApprovedRfpsBlockchainVerifyPage,
+  PurchaseNewRfpBlockchainVerifyPage,
+  PurchaseNewVendorLoginPage,
+  PurchaseNewVendorDashboardPage,
+  PurchaseNewVendorProfilePage,
+  PurchaseNewVendorRfpsPage,
+  PurchaseNewVendorPoPage,
+  PurchaseNewRfpSubmissionVerifyPage,
+  PurchaseNewPoVerifyPage,
+  PurchaseNewVendorComparisonPage,
+  PurchaseNewPoApprovalPage,
+  PurchaseNewApprovedPoPage,
+  PurchaseNewVendorDeliverySchedulePage,
+  PurchaseNewVendorDeliveryStatusPage,
+  PurchaseNewVendorInvoicePage,
+  PurchaseNewQualityPage,
+  PurchaseNewInvoiceApprovalPage,
+  PurchaseNewInvoiceStatusPage,
+  PurchaseNewDeliveryNoteVerifyPage,
+  PurchaseNewInvoiceVerifyPage
 } from './pages/PurchaseNewPages';
 
 import Dashchattestadmin from './pages/Dashchattestadmin';
@@ -2208,6 +2237,35 @@ function App() {
                                         <Route path="/purchasenewinstitutionapproval" element={<PurchaseNewInstitutionApprovalPage />} />
                                         <Route path="/purchasenewapprovedindents" element={<PurchaseNewApprovedIndentsPage />} />
                                         <Route path="/purchasenewindentauditlog" element={<PurchaseNewIndentAuditLogPage />} />
+                                        <Route path="/purchasenewpoworkflow" element={<PurchaseNewPoWorkflowPage />} />
+                                        <Route path="/purchasenewfinanceworkflow" element={<PurchaseNewFinanceWorkflowPage />} />
+                                        <Route path="/purchasenewrfpworkflow" element={<PurchaseNewRfpWorkflowPage />} />
+                                        <Route path="/purchasenewcategoryofficer" element={<PurchaseNewCategoryOfficerPage />} />
+                                        <Route path="/purchasenewvendor" element={<PurchaseNewVendorPage />} />
+                                        <Route path="/purchasenewrfpvendorassignment" element={<PurchaseNewRfpVendorAssignmentPage />} />
+                                        <Route path="/purchasenewapprovedrfps" element={<PurchaseNewApprovedRfpsPage />} />
+                                        <Route path="/purchasenewofficerworkbench" element={<PurchaseNewOfficerWorkbenchPage />} />
+                                        <Route path="/purchasenewrfpapproval" element={<PurchaseNewRfpApprovalPage />} />
+                                        <Route path="/purchasenewvendorcomparison" element={<PurchaseNewVendorComparisonPage />} />
+                                        <Route path="/purchasenewpoapproval" element={<PurchaseNewPoApprovalPage />} />
+                                        <Route path="/purchasenewapprovedpo" element={<PurchaseNewApprovedPoPage />} />
+                                        <Route path="/purchase-new-vendor-login" element={<PurchaseNewVendorLoginPage />} />
+                                        <Route path="/purchase-new-vendor-dashboard" element={<PurchaseNewVendorDashboardPage />} />
+                                        <Route path="/purchase-new-vendor-profile" element={<PurchaseNewVendorProfilePage />} />
+                                        <Route path="/purchase-new-vendor-rfps" element={<PurchaseNewVendorRfpsPage />} />
+                                        <Route path="/purchase-new-vendor-pos" element={<PurchaseNewVendorPoPage />} />
+                                        <Route path="/purchase-new-vendor-deliveries" element={<PurchaseNewVendorDeliverySchedulePage />} />
+                                        <Route path="/purchase-new-vendor-delivery-status" element={<PurchaseNewVendorDeliveryStatusPage />} />
+                                        <Route path="/purchase-new-vendor-invoices" element={<PurchaseNewVendorInvoicePage />} />
+                                        <Route path="/purchasenewquality" element={<PurchaseNewQualityPage />} />
+                                        <Route path="/purchasenewinvoiceapproval" element={<PurchaseNewInvoiceApprovalPage />} />
+                                        <Route path="/purchasenewinvoicestatus" element={<PurchaseNewInvoiceStatusPage />} />
+                                        <Route path="/verify-purchase-rfp-blockchain" element={<PurchaseNewRfpBlockchainVerifyPage />} />
+                                        <Route path="/verify-approved-rfps-blockchain" element={<PurchaseNewApprovedRfpsBlockchainVerifyPage />} />
+                                        <Route path="/verify-purchase-new-rfp-submission" element={<PurchaseNewRfpSubmissionVerifyPage />} />
+                                        <Route path="/verify-purchase-new-po" element={<PurchaseNewPoVerifyPage />} />
+                                        <Route path="/verify-purchase-new-delivery-note" element={<PurchaseNewDeliveryNoteVerifyPage />} />
+                                        <Route path="/verify-purchase-new-invoice" element={<PurchaseNewInvoiceVerifyPage />} />
 
         <Route path="/dashmunivampus" element={<Dashmunivampus />} />
         <Route path="/dashmunivampusadmin" element={<Dashmunivampusadmin />} />
