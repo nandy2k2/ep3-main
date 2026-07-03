@@ -111,6 +111,10 @@ const hasMenuAccess = (group, page, allowedKeys, allowedPaths, deniedKeys, denie
   const pathKey = normalizeMenuText(page.path);
   const groupTitleKey = `${groupKey}|${titleKey}`;
 
+  if (pathKey === '/menusearch') {
+    return normalizeMenuText(global1.role) !== 'student';
+  }
+
   if (deniedKeys.has(groupTitleKey) || deniedPaths.has(pathKey)) {
     return false;
   }

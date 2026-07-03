@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 import {
   Alert,
   Autocomplete,
@@ -16,20 +17,26 @@ import {
   Paper,
   Select,
   Stack,
+  Tab,
+  Tabs,
   TextField,
   Tooltip,
   Typography
 } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import { Delete, Edit, Logout, Print, Refresh, Save, Send, Verified } from "@mui/icons-material";
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from "recharts";
 import { useNavigate } from "react-router-dom";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
 
 const money = (value) => Number(value || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" });
-const blankWorkflow = { id: "", department: "", level: 1, approverrole: "", approvername: "", approveremail: "", active: "Yes", remarks: "" };
-const blankIndent = { id: "", department: global1.department || "", category: "", categorytype: "", item: "", description: "", quantity: 1, approximatevalue: 0, approximatetotalcost: 0 };
+const chartColors = ["#2563eb", "#16a34a", "#f97316", "#dc2626", "#7c3aed", "#0891b2", "#ca8a04", "#db2777", "#475569"];
+const blankWorkflow = { id: "", department: "", store: "", level: 1, approverrole: "", approvername: "", approveremail: "", active: "Yes", remarks: "" };
+const blankIndent = { id: "", department: global1.department || "", store: "", storedescription: "", category: "", categorytype: "", item: "", description: "", quantity: 1, approxprice: 0, approximatevalue: 0, approximatetotalcost: 0 };
+const blankStore = { id: "", store: "", description: "", status: "Active" };
+const blankItemMaster = { id: "", store: "", storedescription: "", category: "", categorytype: "", item: "", description: "", approximateprice: 0, quantityavailable: 0, unit: "", dimension: "", status: "Active" };
 
 const useMessage = () => {
   const [error, setError] = useState("");
@@ -57,6 +64,28 @@ const loadInstitutionDetails = async () => {
 const dateTime = (value) => value ? new Date(value).toLocaleString() : "";
 const stopGridInputKeys = (event) => {
   event.stopPropagation();
+};
+
+const readExcelRows = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    try {
+      const workbook = XLSX.read(event.target.result, { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      resolve(XLSX.utils.sheet_to_json(sheet, { defval: "" }));
+    } catch (err) {
+      reject(err);
+    }
+  };
+  reader.onerror = reject;
+  reader.readAsArrayBuffer(file);
+});
+
+const downloadXlsxTemplate = (filename, headers) => {
+  const ws = XLSX.utils.json_to_sheet([headers]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Template");
+  XLSX.writeFile(wb, filename);
 };
 
 const IndentPrintPreview = ({ institution, indent, block }) => {
@@ -194,7 +223,7 @@ const EmployeeIndentPrintPreview = ({ institution, employee, indents = [], block
   );
 };
 
-function PageTop({ title, subtitle, crumbs = [] }) {
+function PageTop({ title, subtitle, crumbs = [], actions = null }) {
   const logout = () => {
     localStorage.clear();
     window.location.href = "/";
@@ -213,7 +242,10 @@ function PageTop({ title, subtitle, crumbs = [] }) {
           <Typography variant="h5" fontWeight={900}>{title}</Typography>
           {subtitle && <Typography color="text.secondary">{subtitle}</Typography>}
         </Box>
-        <Button color="error" variant="outlined" startIcon={<Logout />} onClick={logout}>Logout</Button>
+        <Stack direction="row" spacing={1} alignItems="center">
+          {actions}
+          <Button color="error" variant="outlined" startIcon={<Logout />} onClick={logout}>Logout</Button>
+        </Stack>
       </Stack>
     </Paper>
   );
@@ -233,16 +265,23 @@ function usePurchaseUsers() {
   return { users, departments, roles };
 }
 
-function WorkflowPage({ institution = false }) {
+function WorkflowPage({ institution = false, storeWorkflow = false }) {
   const { users, departments, roles } = usePurchaseUsers();
   const { error, message, setError, setMessage, clear } = useMessage();
+  const [stores, setStores] = useState([]);
   const [rows, setRows] = useState([]);
   const [form, setForm] = useState(blankWorkflow);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const base = institution ? "/api/v2/purchasenew/institution-workflow" : "/api/v2/purchasenew/department-workflow";
+  const base = storeWorkflow ? "/api/v2/purchasenew/store-workflow" : institution ? "/api/v2/purchasenew/institution-workflow" : "/api/v2/purchasenew/department-workflow";
+  const title = storeWorkflow ? "Store indent workflow" : institution ? "Institution indent workflow" : "Department indent workflow";
 
   const reset = () => setForm(blankWorkflow);
+  const loadStores = async () => {
+    if (!storeWorkflow) return;
+    const res = await ep1.get("/api/v2/purchasenew/stores", { params: { colid: global1.colid, status: "Active" } });
+    setStores(res.data.data || []);
+  };
   const loadRows = async () => {
     setLoading(true);
     try {
@@ -254,10 +293,11 @@ function WorkflowPage({ institution = false }) {
       setLoading(false);
     }
   };
-  useEffect(() => { loadRows(); }, [base]);
+  useEffect(() => { loadStores().catch(() => {}); loadRows(); }, [base]);
 
   const save = async () => {
-    if (!institution && !form.department) return setError("Department is required.");
+    if (storeWorkflow && !form.store) return setError("Store is required.");
+    if (!institution && !storeWorkflow && !form.department) return setError("Department is required.");
     if (!form.approverrole) return setError("Approver role is required.");
     setSaving(true);
     clear();
@@ -292,7 +332,7 @@ function WorkflowPage({ institution = false }) {
   };
 
   const columns = [
-    ...(!institution ? [{ field: "department", headerName: "Department", minWidth: 170 }] : []),
+    ...(storeWorkflow ? [{ field: "store", headerName: "Store", minWidth: 170 }] : !institution ? [{ field: "department", headerName: "Department", minWidth: 170 }] : []),
     { field: "level", headerName: "Level", width: 90 },
     { field: "approverrole", headerName: "Role", minWidth: 150 },
     { field: "approvername", headerName: "Approver", minWidth: 190 },
@@ -315,19 +355,18 @@ function WorkflowPage({ institution = false }) {
   ];
 
   return (
-    <MenuPageShell title={institution ? "Institution indent workflow" : "Department indent workflow"}>
+    <MenuPageShell title={title}>
       <Box p={3}>
-        <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" sx={{ mb: 2 }}>
-          <Box>
-            <Typography variant="h5" fontWeight={900}>{institution ? "Institution indent workflow" : "Department indent workflow"}</Typography>
-            <Typography color="text.secondary">Define dynamic indent approval levels.</Typography>
-          </Box>
-          <Button startIcon={<Refresh />} onClick={loadRows}>Refresh</Button>
-        </Stack>
+        <PageTop title={title} subtitle="Define dynamic indent approval levels." crumbs={[{ label: "Workflow" }, { label: title }]} actions={<Button startIcon={<Refresh />} onClick={loadRows}>Refresh</Button>} />
         <Status error={error} message={message} />
         <Paper sx={{ p: 2, mb: 2 }}>
           <Grid container spacing={2}>
-            {!institution && (
+            {storeWorkflow && (
+              <Grid item xs={12} md={3}>
+                <Autocomplete options={stores.map((item) => ({ label: item.store, ...item }))} value={stores.map((item) => ({ label: item.store, ...item })).find((item) => item.store === form.store) || null} onChange={(_, value) => setForm({ ...form, store: value?.store || "" })} renderInput={(params) => <TextField {...params} label="Store" />} />
+              </Grid>
+            )}
+            {!institution && !storeWorkflow && (
               <Grid item xs={12} md={3}>
                 <Autocomplete freeSolo options={["All", ...departments]} value={form.department} onInputChange={(_, value) => setForm({ ...form, department: value || "" })} renderInput={(params) => <TextField {...params} label="Department" />} />
               </Grid>
@@ -375,6 +414,7 @@ function indentColumns({ onEdit, onDelete, actionColumn = false, onApprove, onRe
       ) : null
     }]),
     { field: "department", headerName: "Department", minWidth: 150 },
+    { field: "store", headerName: "Store", minWidth: 150 },
     { field: "category", headerName: "Category", minWidth: 160 },
     { field: "categorytype", headerName: "Budget type", minWidth: 130 },
     { field: "item", headerName: "Item", minWidth: 180 },
@@ -389,9 +429,394 @@ function indentColumns({ onEdit, onDelete, actionColumn = false, onApprove, onRe
   ];
 }
 
-export function PurchaseNewIndentPage() {
+export function PurchaseNewStorePage() {
   const { error, message, setError, setMessage, clear } = useMessage();
+  const [rows, setRows] = useState([]);
+  const [form, setForm] = useState(blankStore);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const loadRows = async () => {
+    setLoading(true);
+    try {
+      const res = await ep1.get("/api/v2/purchasenew/stores", { params: { colid: global1.colid } });
+      setRows((res.data.data || []).map((row) => ({ ...row, id: row._id })));
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load stores");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { loadRows(); }, []);
+  const reset = () => setForm(blankStore);
+  const save = async () => {
+    setSaving(true); clear();
+    try {
+      await ep1.post("/api/v2/purchasenew/stores", { ...form, colid: global1.colid, user: global1.user });
+      setMessage("Store saved.");
+      reset();
+      await loadRows();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to save store");
+    } finally {
+      setSaving(false);
+    }
+  };
+  const remove = async (row) => {
+    if (!window.confirm("Delete this store?")) return;
+    await ep1.post("/api/v2/purchasenew/stores-delete", { id: row._id, colid: global1.colid, store: row.store });
+    await loadRows();
+  };
+  const bulk = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setSaving(true); clear();
+    try {
+      const rows = await readExcelRows(file);
+      const res = await ep1.post("/api/v2/purchasenew/stores-bulk", { colid: global1.colid, user: global1.user, rows });
+      setMessage(`${res.data.inserted || 0} stores uploaded.`);
+      await loadRows();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to bulk upload stores");
+    } finally {
+      setSaving(false);
+      event.target.value = "";
+    }
+  };
+  const columns = [
+    { field: "store", headerName: "Store", minWidth: 220, flex: 1 },
+    { field: "description", headerName: "Description", minWidth: 280, flex: 1 },
+    { field: "status", headerName: "Status", width: 130 },
+    {
+      field: "actions", headerName: "Actions", width: 120, sortable: false, filterable: false,
+      renderCell: ({ row }) => <Stack direction="row"><IconButton size="small" onClick={() => setForm({ ...row, id: row._id })}><Edit fontSize="small" /></IconButton><IconButton size="small" color="error" onClick={() => remove(row)}><Delete fontSize="small" /></IconButton></Stack>
+    }
+  ];
+  return (
+    <MenuPageShell title="Store description">
+      <Box p={3}>
+        <PageTop title="Store description" subtitle="Create store descriptions for Purchase new." crumbs={[{ label: "Store description" }]} />
+        <Status error={error} message={message} />
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={3}><TextField fullWidth label="Store" value={form.store} onChange={(e) => setForm({ ...form, store: e.target.value })} /></Grid>
+            <Grid item xs={12} md={5}><TextField fullWidth label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Grid>
+            <Grid item xs={12} md={2}><FormControl fullWidth><InputLabel>Status</InputLabel><Select label="Status" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}><MenuItem value="Active">Active</MenuItem><MenuItem value="Inactive">Inactive</MenuItem></Select></FormControl></Grid>
+            <Grid item xs={12} md={2}><Stack direction="row" spacing={1}><Button variant="contained" startIcon={<Save />} disabled={saving} onClick={save}>{saving ? "Saving..." : "Save"}</Button><Button variant="outlined" onClick={reset}>Cancel</Button></Stack></Grid>
+            <Grid item xs={12}><Stack direction="row" spacing={1} flexWrap="wrap"><Button variant="outlined" onClick={() => downloadXlsxTemplate("purchase-new-store-template.xlsx", { store: "", description: "", status: "Active" })}>Download template</Button><Button component="label" variant="outlined">Bulk upload<input hidden type="file" accept=".xlsx,.xls,.csv" onChange={bulk} /></Button></Stack></Grid>
+          </Grid>
+        </Paper>
+        {loading && <LinearProgress />}
+        <Paper sx={{ height: 560 }}><DataGrid rows={rows} columns={columns} loading={loading} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} /></Paper>
+      </Box>
+    </MenuPageShell>
+  );
+}
+
+export function PurchaseNewItemMasterPage() {
+  const { error, message, setError, setMessage, clear } = useMessage();
+  const [stores, setStores] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [rows, setRows] = useState([]);
+  const [form, setForm] = useState(blankItemMaster);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const loadContext = async () => {
+    const [storeRes, categoryRes] = await Promise.all([
+      ep1.get("/api/v2/purchasenew/stores", { params: { colid: global1.colid, status: "Active" } }),
+      ep1.get("/api/v2/purchasenew/categories", { params: { colid: global1.colid, department: global1.department } })
+    ]);
+    setStores(storeRes.data.data || []);
+    setCategories(categoryRes.data.data || []);
+  };
+  const loadRows = async () => {
+    setLoading(true);
+    try {
+      const res = await ep1.get("/api/v2/purchasenew/item-masters", { params: { colid: global1.colid } });
+      setRows((res.data.data || []).map((row) => ({ ...row, id: row._id })));
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load item master");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { loadContext().catch(() => {}); loadRows(); }, []);
+  const storeOptions = stores.map((item) => ({ label: item.store, ...item }));
+  const categoryOptions = categories.map((item) => ({ label: `${item.category} (${item.type})`, category: item.category, categorytype: item.type }));
+  const reset = () => setForm(blankItemMaster);
+  const save = async () => {
+    setSaving(true); clear();
+    try {
+      await ep1.post("/api/v2/purchasenew/item-masters", { ...form, colid: global1.colid, user: global1.user });
+      setMessage("Item saved.");
+      reset();
+      await loadRows();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to save item");
+    } finally {
+      setSaving(false);
+    }
+  };
+  const remove = async (row) => {
+    if (!window.confirm("Delete this item?")) return;
+    await ep1.post("/api/v2/purchasenew/item-masters-delete", { id: row._id, colid: global1.colid });
+    await loadRows();
+  };
+  const bulk = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setSaving(true); clear();
+    try {
+      const rows = await readExcelRows(file);
+      const res = await ep1.post("/api/v2/purchasenew/item-masters-bulk", { colid: global1.colid, user: global1.user, rows });
+      setMessage(`${res.data.inserted || 0} items uploaded.`);
+      await loadRows();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to bulk upload items");
+    } finally {
+      setSaving(false);
+      event.target.value = "";
+    }
+  };
+  const columns = [
+    { field: "store", headerName: "Store", minWidth: 150 },
+    { field: "category", headerName: "Category", minWidth: 150 },
+    { field: "categorytype", headerName: "Budget type", minWidth: 130 },
+    { field: "item", headerName: "Item", minWidth: 180 },
+    { field: "description", headerName: "Description", minWidth: 240, flex: 1 },
+    { field: "approximateprice", headerName: "Approx price", minWidth: 130, valueFormatter: (params) => money(params.value) },
+    { field: "quantityavailable", headerName: "Qty available", minWidth: 140, type: "number" },
+    { field: "unit", headerName: "Unit", width: 110 },
+    { field: "dimension", headerName: "Dimension", minWidth: 130 },
+    { field: "status", headerName: "Status", width: 120 },
+    {
+      field: "actions", headerName: "Actions", width: 120, sortable: false, filterable: false,
+      renderCell: ({ row }) => <Stack direction="row"><IconButton size="small" onClick={() => setForm({ ...row, id: row._id })}><Edit fontSize="small" /></IconButton><IconButton size="small" color="error" onClick={() => remove(row)}><Delete fontSize="small" /></IconButton></Stack>
+    }
+  ];
+  return (
+    <MenuPageShell title="Item master">
+      <Box p={3}>
+        <PageTop title="Item master" subtitle="Map stores, categories and items for cascaded indent creation." crumbs={[{ label: "Item master" }]} />
+        <Status error={error} message={message} />
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={3}><Autocomplete options={storeOptions} value={storeOptions.find((item) => item.store === form.store) || null} onChange={(_, value) => setForm({ ...form, store: value?.store || "", storedescription: value?.description || "" })} renderInput={(params) => <TextField {...params} label="Store" />} /></Grid>
+            <Grid item xs={12} md={3}><Autocomplete options={categoryOptions} value={categoryOptions.find((item) => item.category === form.category && item.categorytype === form.categorytype) || null} onChange={(_, value) => setForm({ ...form, category: value?.category || "", categorytype: value?.categorytype || "" })} renderInput={(params) => <TextField {...params} label="Category" />} /></Grid>
+            <Grid item xs={12} md={3}><TextField fullWidth label="Item" value={form.item} onChange={(e) => setForm({ ...form, item: e.target.value })} /></Grid>
+            <Grid item xs={12} md={3}><TextField fullWidth label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth type="number" label="Approx price" value={form.approximateprice} onChange={(e) => setForm({ ...form, approximateprice: e.target.value })} /></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth type="number" label="Quantity available" value={form.quantityavailable} onChange={(e) => setForm({ ...form, quantityavailable: e.target.value })} /></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth label="Unit" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} /></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth label="Dimension" value={form.dimension} onChange={(e) => setForm({ ...form, dimension: e.target.value })} /></Grid>
+            <Grid item xs={12} md={2}><FormControl fullWidth><InputLabel>Status</InputLabel><Select label="Status" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}><MenuItem value="Active">Active</MenuItem><MenuItem value="Inactive">Inactive</MenuItem></Select></FormControl></Grid>
+            <Grid item xs={12} md={4}><Stack direction="row" spacing={1}><Button variant="contained" startIcon={<Save />} disabled={saving} onClick={save}>{saving ? "Saving..." : "Save"}</Button><Button variant="outlined" onClick={reset}>Cancel</Button></Stack></Grid>
+            <Grid item xs={12}><Stack direction="row" spacing={1} flexWrap="wrap"><Button variant="outlined" onClick={() => downloadXlsxTemplate("purchase-new-item-master-template.xlsx", { store: "", storedescription: "", category: "", categorytype: "", item: "", description: "", approximateprice: 0, quantityavailable: 0, unit: "", dimension: "", status: "Active" })}>Download template</Button><Button component="label" variant="outlined">Bulk upload<input hidden type="file" accept=".xlsx,.xls,.csv" onChange={bulk} /></Button></Stack></Grid>
+          </Grid>
+        </Paper>
+        {loading && <LinearProgress />}
+        <Paper sx={{ height: 600 }}><DataGrid rows={rows} columns={columns} loading={loading} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} /></Paper>
+      </Box>
+    </MenuPageShell>
+  );
+}
+
+export function PurchaseNewStoreUserAssignmentPage() {
+  const { users } = usePurchaseUsers();
+  const { error, message, setError, setMessage, clear } = useMessage();
+  const [stores, setStores] = useState([]);
+  const [rows, setRows] = useState([]);
+  const [form, setForm] = useState({ id: "", store: "", storedescription: "", username: "", useremail: "", role: "", status: "Active" });
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const loadStores = async () => {
+    const res = await ep1.get("/api/v2/purchasenew/stores", { params: { colid: global1.colid, status: "Active" } });
+    setStores(res.data.data || []);
+  };
+  const loadRows = async () => {
+    setLoading(true);
+    try {
+      const res = await ep1.get("/api/v2/purchasenew/store-users", { params: { colid: global1.colid } });
+      setRows((res.data.data || []).map((row) => ({ ...row, id: row._id })));
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load store assignments");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { loadStores().catch(() => {}); loadRows(); }, []);
+
+  const storeOptions = stores.map((item) => ({ label: item.store, ...item }));
+  const userOptions = users.map((item) => ({ label: `${item.name || ""} - ${item.email || ""}`, ...item }));
+  const reset = () => setForm({ id: "", store: "", storedescription: "", username: "", useremail: "", role: "", status: "Active" });
+  const save = async () => {
+    if (!form.store || !form.useremail) return setError("Store and user are required.");
+    setSaving(true);
+    clear();
+    try {
+      await ep1.post("/api/v2/purchasenew/store-users", { ...form, colid: global1.colid, user: global1.user });
+      setMessage("Store user assignment saved.");
+      reset();
+      await loadRows();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to save store assignment");
+    } finally {
+      setSaving(false);
+    }
+  };
+  const remove = async (row) => {
+    if (!window.confirm("Delete this store assignment?")) return;
+    setSaving(true);
+    try {
+      await ep1.post("/api/v2/purchasenew/store-users-delete", { id: row._id, colid: global1.colid });
+      setMessage("Store assignment deleted.");
+      await loadRows();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete store assignment");
+    } finally {
+      setSaving(false);
+    }
+  };
+  const columns = [
+    { field: "store", headerName: "Store", minWidth: 180 },
+    { field: "username", headerName: "User", minWidth: 200 },
+    { field: "useremail", headerName: "Email", minWidth: 230 },
+    { field: "role", headerName: "Role", minWidth: 140 },
+    { field: "status", headerName: "Status", width: 120 },
+    {
+      field: "actions",
+      headerName: "Actions",
+      width: 130,
+      sortable: false,
+      filterable: false,
+      renderCell: ({ row }) => (
+        <Stack direction="row">
+          <IconButton size="small" onClick={() => setForm({ ...row, id: row._id })}><Edit fontSize="small" /></IconButton>
+          <IconButton size="small" color="error" onClick={() => remove(row)}><Delete fontSize="small" /></IconButton>
+        </Stack>
+      )
+    }
+  ];
+  return (
+    <MenuPageShell title="Store user assignment">
+      <Box p={3}>
+        <PageTop title="Store user assignment" subtitle="Assign users to stores for store-wise indent tracking." crumbs={[{ label: "Purchase new" }, { label: "Store user assignment" }]} actions={<Button startIcon={<Refresh />} onClick={loadRows}>Refresh</Button>} />
+        <Status error={error} message={message} />
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={3}>
+              <Autocomplete options={storeOptions} value={storeOptions.find((item) => item.store === form.store) || null} onChange={(_, value) => setForm({ ...form, store: value?.store || "", storedescription: value?.description || "" })} renderInput={(params) => <TextField {...params} label="Store" />} />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Autocomplete options={userOptions} value={userOptions.find((item) => item.email === form.useremail) || null} onChange={(_, value) => setForm({ ...form, username: value?.name || "", useremail: value?.email || "", role: value?.role || "" })} renderInput={(params) => <TextField {...params} label="User" />} />
+            </Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth label="Role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} /></Grid>
+            <Grid item xs={12} md={1.5}><FormControl fullWidth><InputLabel>Status</InputLabel><Select label="Status" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}><MenuItem value="Active">Active</MenuItem><MenuItem value="Inactive">Inactive</MenuItem></Select></FormControl></Grid>
+            <Grid item xs={12} md={1.5}><Stack direction="row" spacing={1}><Button variant="contained" startIcon={<Save />} disabled={saving} onClick={save}>{saving ? "Saving..." : "Save"}</Button><Button variant="outlined" onClick={reset}>Cancel</Button></Stack></Grid>
+          </Grid>
+        </Paper>
+        {loading && <LinearProgress />}
+        <Paper sx={{ height: 600 }}><DataGrid rows={rows} columns={columns} loading={loading} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} /></Paper>
+      </Box>
+    </MenuPageShell>
+  );
+}
+
+export function PurchaseNewAssignedStoreIndentsPage() {
+  const { error, message, setError } = useMessage();
+  const [stores, setStores] = useState([]);
+  const [store, setStore] = useState("");
+  const [rows, setRows] = useState([]);
+  const [tab, setTab] = useState("Pending");
+  const [filters, setFilters] = useState({ fromdate: "", todate: "", department: "", category: "", item: "", submittedby: "" });
+  const [loading, setLoading] = useState(false);
+
+  const loadAssignedStores = async () => {
+    try {
+      const res = await ep1.get("/api/v2/purchasenew/assigned-store-indents", { params: { colid: global1.colid, useremail: global1.user } });
+      const assigned = res.data.stores || [];
+      setStores(assigned);
+      if (!store && assigned.length) setStore(assigned[0].store || "");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load assigned stores");
+    }
+  };
+  const loadRows = async (nextStore = store) => {
+    if (!nextStore) return;
+    setLoading(true);
+    try {
+      const params = { colid: global1.colid, useremail: global1.user, store: nextStore, ...filters };
+      Object.keys(params).forEach((key) => { if (!params[key]) delete params[key]; });
+      const res = await ep1.get("/api/v2/purchasenew/assigned-store-indents", { params });
+      setRows((res.data.data || []).map((row) => ({ ...row, id: row._id })));
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load store indents");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { loadAssignedStores(); }, []);
+  useEffect(() => { if (store) loadRows(store); }, [store]);
+
+  const visibleRows = useMemo(() => {
+    if (tab === "Approved") return rows.filter((row) => row.status === "Approved" || row.stage === "Approved");
+    return rows.filter((row) => row.status !== "Approved" && row.stage !== "Approved");
+  }, [rows, tab]);
+  const assignedStoreOptions = stores.map((item) => ({ label: item.store, ...item }));
+  const columns = [
+    { field: "createdAt", headerName: "Date", minWidth: 150, valueFormatter: (params) => params.value ? new Date(params.value).toLocaleDateString() : "" },
+    { field: "store", headerName: "Store", minWidth: 150 },
+    { field: "department", headerName: "Department", minWidth: 150 },
+    { field: "category", headerName: "Category", minWidth: 150 },
+    { field: "item", headerName: "Item", minWidth: 180 },
+    { field: "description", headerName: "Description", minWidth: 240, flex: 1 },
+    { field: "quantity", headerName: "Qty", width: 90 },
+    { field: "approximatevalue", headerName: "Approx price", minWidth: 130, valueFormatter: (params) => money(params.value) },
+    { field: "approximatetotalcost", headerName: "Total", minWidth: 130, valueFormatter: (params) => money(params.value) },
+    { field: "status", headerName: "Status", minWidth: 190 },
+    { field: "stage", headerName: "Stage", minWidth: 120 },
+    { field: "submittedbyname", headerName: "Submitted by", minWidth: 170 },
+    { field: "submittedby", headerName: "Submitted email", minWidth: 210 }
+  ];
+  const total = visibleRows.reduce((sum, row) => sum + Number(row.approximatetotalcost || 0), 0);
+  return (
+    <MenuPageShell title="Store indents">
+      <Box p={3}>
+        <PageTop title="Store indents" subtitle="View approved and pending indents for stores assigned to you." crumbs={[{ label: "Purchase new" }, { label: "Store indents" }]} actions={<Button startIcon={<Refresh />} onClick={() => loadRows()}>Refresh</Button>} />
+        <Status error={error} message={message} />
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={3}><Autocomplete options={assignedStoreOptions} value={assignedStoreOptions.find((item) => item.store === store) || null} onChange={(_, value) => setStore(value?.store || "")} renderInput={(params) => <TextField {...params} label="Assigned store" />} /></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth type="date" label="From date" InputLabelProps={{ shrink: true }} value={filters.fromdate} onChange={(e) => setFilters({ ...filters, fromdate: e.target.value })} /></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth type="date" label="To date" InputLabelProps={{ shrink: true }} value={filters.todate} onChange={(e) => setFilters({ ...filters, todate: e.target.value })} /></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth label="Department" value={filters.department} onChange={(e) => setFilters({ ...filters, department: e.target.value })} /></Grid>
+            <Grid item xs={12} md={3}><TextField fullWidth label="Category" value={filters.category} onChange={(e) => setFilters({ ...filters, category: e.target.value })} /></Grid>
+            <Grid item xs={12} md={3}><TextField fullWidth label="Item" value={filters.item} onChange={(e) => setFilters({ ...filters, item: e.target.value })} /></Grid>
+            <Grid item xs={12} md={3}><TextField fullWidth label="Submitted by email" value={filters.submittedby} onChange={(e) => setFilters({ ...filters, submittedby: e.target.value })} /></Grid>
+            <Grid item xs={12} md={3}><Stack direction="row" spacing={1}><Button variant="contained" onClick={() => loadRows()}>Apply</Button><Button variant="outlined" onClick={() => { setFilters({ fromdate: "", todate: "", department: "", category: "", item: "", submittedby: "" }); }}>Clear</Button></Stack></Grid>
+          </Grid>
+        </Paper>
+        <Paper sx={{ p: 1.5, mb: 2 }}>
+          <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", md: "center" }} spacing={1}>
+            <Tabs value={tab} onChange={(_, value) => setTab(value)}>
+              <Tab value="Pending" label="Pending indents" />
+              <Tab value="Approved" label="Approved indents" />
+            </Tabs>
+            <Stack direction="row" spacing={1}><Chip label={`Rows ${visibleRows.length}`} color="primary" /><Chip label={money(total)} color="success" /></Stack>
+          </Stack>
+        </Paper>
+        {loading && <LinearProgress />}
+        <Paper sx={{ height: 650 }}><DataGrid rows={visibleRows} columns={columns} loading={loading} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} /></Paper>
+      </Box>
+    </MenuPageShell>
+  );
+}
+
+export function PurchaseNewIndentPage({ title = "Create indent", subtitle = "Create Purchase new indents with store, category and item mapping." }) {
+  const { error, message, setError, setMessage, clear } = useMessage();
+  const [stores, setStores] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [items, setItems] = useState([]);
   const [rows, setRows] = useState([]);
   const [form, setForm] = useState(blankIndent);
   const [budgetSummary, setBudgetSummary] = useState({ approved: 0, utilized: 0, remaining: 0, rows: [] });
@@ -402,6 +827,18 @@ export function PurchaseNewIndentPage() {
   const loadCategories = async () => {
     const res = await ep1.get("/api/v2/purchasenew/categories", { params: { colid: global1.colid, department: global1.department } });
     setCategories(res.data.data || []);
+  };
+  const loadStores = async () => {
+    const res = await ep1.get("/api/v2/purchasenew/stores", { params: { colid: global1.colid, status: "Active" } });
+    setStores(res.data.data || []);
+  };
+  const loadItems = async () => {
+    const params = { colid: global1.colid, status: "Active" };
+    if (form.store) params.store = form.store;
+    if (form.category) params.category = form.category;
+    if (form.categorytype) params.categorytype = form.categorytype;
+    const res = await ep1.get("/api/v2/purchasenew/item-masters", { params });
+    setItems(res.data.data || []);
   };
   const loadRows = async () => {
     setLoading(true);
@@ -415,16 +852,21 @@ export function PurchaseNewIndentPage() {
       setLoading(false);
     }
   };
-  useEffect(() => { loadCategories().catch(() => {}); loadRows(); }, []);
+  useEffect(() => { loadStores().catch(() => {}); loadCategories().catch(() => {}); loadRows(); }, []);
   useEffect(() => {
     loadBudgetSummary();
   }, [form.category, form.categorytype]);
+  useEffect(() => { loadItems().catch(() => setItems([])); }, [form.store, form.category, form.categorytype]);
 
+  const storeOptions = useMemo(() => stores.map((item) => ({ label: item.store, ...item })), [stores]);
   const categoryOptions = useMemo(() => categories.map((item) => ({ label: `${item.category} (${item.type})`, category: item.category, categorytype: item.type })), [categories]);
+  const itemOptions = useMemo(() => items.map((item) => ({ label: `${item.item}${item.description ? ` - ${item.description}` : ""}`, ...item })), [items]);
   const updateNumber = (field, value) => {
     const next = { ...form, [field]: value };
     const qty = Number(field === "quantity" ? value : next.quantity || 0);
-    const rate = Number(field === "approximatevalue" ? value : next.approximatevalue || 0);
+    const rate = Number(field === "approximatevalue" || field === "approxprice" ? value : next.approximatevalue || next.approxprice || 0);
+    next.approxprice = rate;
+    next.approximatevalue = rate;
     next.approximatetotalcost = qty * rate;
     setForm(next);
   };
@@ -483,19 +925,22 @@ export function PurchaseNewIndentPage() {
     await loadRows();
   };
   return (
-    <MenuPageShell title="Create indent">
+    <MenuPageShell title={title}>
       <Box p={3}>
-        <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" sx={{ mb: 2 }}>
-          <Box><Typography variant="h5" fontWeight={900}>Create indent</Typography><Typography color="text.secondary">Department is taken from your login: {global1.department || "NA"}</Typography></Box>
-          <Button startIcon={<Refresh />} onClick={loadRows}>Refresh</Button>
-        </Stack>
+        <PageTop
+          title={title}
+          subtitle={`${subtitle} Department is taken from your login: ${global1.department || "NA"}.`}
+          crumbs={[{ label: title }]}
+          actions={<Button startIcon={<Refresh />} onClick={loadRows}>Refresh</Button>}
+        />
         <Status error={error} message={message} />
         <Paper sx={{ p: 2, mb: 2 }}>
           <Grid container spacing={2}>
             <Grid item xs={12} md={3}><TextField fullWidth label="Department" value={global1.department || ""} InputProps={{ readOnly: true }} /></Grid>
-            <Grid item xs={12} md={3}><Autocomplete options={categoryOptions} value={categoryOptions.find((item) => item.category === form.category && item.categorytype === form.categorytype) || null} onChange={(_, value) => setForm({ ...form, category: value?.category || "", categorytype: value?.categorytype || "" })} renderInput={(params) => <TextField {...params} label="Budget category" />} /></Grid>
-            <Grid item xs={12} md={3}><TextField fullWidth label="Item" value={form.item} onChange={(e) => setForm({ ...form, item: e.target.value })} /></Grid>
-            <Grid item xs={12} md={3}><TextField fullWidth label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Grid>
+            <Grid item xs={12} md={3}><Autocomplete options={storeOptions} value={storeOptions.find((item) => item.store === form.store) || null} onChange={(_, value) => setForm({ ...form, store: value?.store || "", storedescription: value?.description || "", item: "", description: "", approxprice: 0, approximatevalue: 0, approximatetotalcost: 0 })} renderInput={(params) => <TextField {...params} label="Store" />} /></Grid>
+            <Grid item xs={12} md={3}><Autocomplete options={categoryOptions} value={categoryOptions.find((item) => item.category === form.category && item.categorytype === form.categorytype) || null} onChange={(_, value) => setForm({ ...form, category: value?.category || "", categorytype: value?.categorytype || "", item: "", description: "", approxprice: 0, approximatevalue: 0, approximatetotalcost: 0 })} renderInput={(params) => <TextField {...params} label="Budget category" />} /></Grid>
+            <Grid item xs={12} md={3}><Autocomplete freeSolo options={itemOptions} getOptionLabel={(option) => typeof option === "string" ? option : option.label || option.item || ""} value={itemOptions.find((item) => item.item === form.item) || (form.item ? { label: form.item, item: form.item } : null)} onInputChange={(_, value, reason) => { if (reason === "input") setForm({ ...form, item: value }); }} onChange={(_, value) => { const rate = Number(value?.approximateprice || 0); setForm({ ...form, item: value?.item || value || "", description: value?.description || "", approxprice: rate, approximatevalue: rate, approximatetotalcost: Number(form.quantity || 0) * rate }); }} renderInput={(params) => <TextField {...params} label="Item" />} /></Grid>
+            <Grid item xs={12} md={6}><TextField fullWidth label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Grid>
             <Grid item xs={12}>
               <Grid container spacing={1.5}>
                 <Grid item xs={12} md={4}><Paper variant="outlined" sx={{ p: 1.5, borderLeft: "5px solid #2563eb" }}><Typography variant="body2" color="text.secondary">Approved budget</Typography><Typography variant="h6" fontWeight={900}>{money(budgetSummary.approved)}</Typography></Paper></Grid>
@@ -504,7 +949,7 @@ export function PurchaseNewIndentPage() {
               </Grid>
             </Grid>
             <Grid item xs={12} md={2}><TextField fullWidth type="number" label="Quantity" value={form.quantity} onChange={(e) => updateNumber("quantity", e.target.value)} /></Grid>
-            <Grid item xs={12} md={2}><TextField fullWidth type="number" label="Approx value/item" value={form.approximatevalue} onChange={(e) => updateNumber("approximatevalue", e.target.value)} /></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth type="number" label="Approx price" value={form.approxprice || form.approximatevalue} onChange={(e) => updateNumber("approxprice", e.target.value)} /></Grid>
             <Grid item xs={12} md={2}><TextField fullWidth type="number" label="Approx total cost" value={form.approximatetotalcost} InputProps={{ readOnly: true }} /></Grid>
             <Grid item xs={12} md={6}><Stack direction="row" spacing={1}><Button variant="contained" startIcon={<Save />} disabled={saving} onClick={save}>{saving ? "Saving..." : form.id ? "Update" : "Save draft"}</Button><Button variant="contained" color="success" startIcon={<Send />} disabled={saving || !selected.length} onClick={submit}>Submit selected</Button><Button variant="outlined" onClick={reset}>Cancel</Button></Stack></Grid>
           </Grid>
@@ -515,6 +960,10 @@ export function PurchaseNewIndentPage() {
       </Box>
     </MenuPageShell>
   );
+}
+
+export function PurchaseNewStoreIndentPage() {
+  return <PurchaseNewIndentPage title="Create store indent" subtitle="Create indents through cascaded store, category and item selection." />;
 }
 
 function ApprovalPage({ stage }) {
@@ -2584,6 +3033,91 @@ const InvoicePrintPreview = ({ institution, invoice, block }) => {
   );
 };
 
+const PaymentVoucherPrintPreview = ({ institution, invoice }) => {
+  if (!invoice) return <Paper sx={{ p: 3, textAlign: "center", color: "text.secondary" }}>Select an invoice and create a payment voucher to preview.</Paper>;
+  const rows = [
+    ["Voucher No", invoice.paymentvoucherid || "Draft"],
+    ["Voucher Date", invoice.paymentvoucherdate ? new Date(invoice.paymentvoucherdate).toLocaleDateString() : new Date().toLocaleDateString()],
+    ["Invoice", invoice.invoiceid],
+    ["Invoice No", invoice.invoiceno],
+    ["PO", invoice.poid],
+    ["Vendor", invoice.vendorname],
+    ["Payment mode", invoice.paymentmode],
+    ["Payment date", invoice.paymentdate ? new Date(invoice.paymentdate).toLocaleDateString() : ""],
+    ["Reference No", invoice.paymentrefno],
+    ["Beneficiary", invoice.beneficiary],
+    ["Bank account", invoice.bankaccount],
+    ["IFSC", invoice.ifsc],
+    ["Voucher status", invoice.paymentvoucherstatus || invoice.paymentstatus || invoice.status]
+  ];
+  return (
+    <Paper elevation={0} sx={{ p: 2.5, bgcolor: "#fff", border: "1px solid #d1d5db" }}>
+      <Stack alignItems="center" spacing={0.5} sx={{ textAlign: "center", mb: 2 }}>
+        {institution?.logolink && <Box component="img" src={institution.logolink} sx={{ height: 70, maxWidth: 160, objectFit: "contain" }} alt="Logo" />}
+        <Typography variant="h6" fontWeight={900}>{institution?.institutionname || global1.insname || "Institution"}</Typography>
+        <Typography variant="body2">{institution?.address || ""}</Typography>
+        <Typography variant="h6" fontWeight={900} sx={{ mt: 1 }}>Payment Voucher</Typography>
+      </Stack>
+      <Grid container spacing={1.2} sx={{ mb: 2 }}>
+        {rows.map(([label, value]) => (
+          <Grid item xs={12} md={4} key={label}>
+            <Paper variant="outlined" sx={{ p: 1, minHeight: 56 }}>
+              <Typography variant="caption" color="text.secondary">{label}</Typography>
+              <Typography fontWeight={800}>{value || "NA"}</Typography>
+            </Paper>
+          </Grid>
+        ))}
+      </Grid>
+      <Box component="table" sx={{ width: "100%", borderCollapse: "collapse", "& th,& td": { border: "1px solid #d1d5db", p: 0.8, fontSize: 12 }, "& th": { bgcolor: "#f3f4f6" } }}>
+        <thead><tr><th>Invoice amount</th><th>Payment amount</th><th>Remarks</th></tr></thead>
+        <tbody><tr><td>{money(invoice.grandtotal)}</td><td>{money(invoice.paidamount)}</td><td>{invoice.paymentremarks || "NA"}</td></tr></tbody>
+      </Box>
+      <Stack direction="row" justifyContent="space-between" sx={{ mt: 5 }}>
+        <Typography>Prepared by</Typography>
+        <Typography>Checked by</Typography>
+        <Typography>Approved by</Typography>
+      </Stack>
+    </Paper>
+  );
+};
+
+const ProcurementContextPanel = ({ context }) => {
+  const [tab, setTab] = useState(0);
+  if (!context) return <Paper sx={{ p: 3, textAlign: "center", color: "text.secondary" }}>Select a payment voucher to view linked PO, RFP, indent, delivery, GRN, return note and invoice.</Paper>;
+  const table = (rows, columns, empty = "No records found.") => (
+    <Box sx={{ overflowX: "auto" }}>
+      <Box component="table" sx={{ minWidth: 720, width: "100%", borderCollapse: "collapse", "& th,& td": { border: "1px solid #e5e7eb", p: 1, fontSize: 13 }, "& th": { bgcolor: "#f8fafc" } }}>
+        <thead><tr>{columns.map((col) => <th key={col.field}>{col.label}</th>)}</tr></thead>
+        <tbody>
+          {rows?.length ? rows.map((row, index) => (
+            <tr key={row._id || index}>{columns.map((col) => <td key={col.field}>{col.format ? col.format(row[col.field], row) : (row[col.field] || "NA")}</td>)}</tr>
+          )) : <tr><td colSpan={columns.length}>{empty}</td></tr>}
+        </tbody>
+      </Box>
+    </Box>
+  );
+  const po = context.po;
+  const rfp = context.rfp;
+  const submission = context.submission;
+  const invoice = context.invoice;
+  return (
+    <Paper sx={{ p: 2, mt: 2 }}>
+      <Typography variant="h6" fontWeight={900} sx={{ mb: 1 }}>Associated procurement details</Typography>
+      <Tabs value={tab} onChange={(_, value) => setTab(value)} variant="scrollable" scrollButtons="auto" sx={{ mb: 2 }}>
+        {["PO", "RFP", "Indent", "Vendor submission", "Delivery", "GRN", "Return note", "Invoice"].map((label) => <Tab key={label} label={label} />)}
+      </Tabs>
+      {tab === 0 && <Grid container spacing={1.2}>{[["PO ID", po?.poid], ["Title", po?.title], ["Vendor", po?.vendorname], ["RFP", po?.rfpid], ["Grand total", money(po?.grandtotal)], ["Status", po?.status]].map(([label, value]) => <Grid item xs={12} md={4} key={label}><Paper variant="outlined" sx={{ p: 1 }}><Typography variant="caption" color="text.secondary">{label}</Typography><Typography fontWeight={800}>{value || "NA"}</Typography></Paper></Grid>)}</Grid>}
+      {tab === 1 && <Box><Typography fontWeight={900}>{rfp?.rfpid || "NA"} - {rfp?.title || ""}</Typography><Typography sx={{ whiteSpace: "pre-wrap", mt: 1 }}><b>Qualification:</b> {rfp?.qualificationcriteria || "NA"}</Typography><Typography sx={{ whiteSpace: "pre-wrap" }}><b>Experience:</b> {rfp?.experience || "NA"}</Typography><Typography sx={{ whiteSpace: "pre-wrap" }}><b>Payment terms:</b> {rfp?.paymentterms || "NA"}</Typography></Box>}
+      {tab === 2 && table(context.indents || [], [{ field: "department", label: "Department" }, { field: "category", label: "Category" }, { field: "item", label: "Item" }, { field: "description", label: "Description" }, { field: "quantity", label: "Qty" }, { field: "status", label: "Status" }])}
+      {tab === 3 && <Box><Typography fontWeight={900}>{submission?.vendorname || "NA"}</Typography>{table(submission?.items || [], [{ field: "item", label: "Item" }, { field: "quantity", label: "Qty" }, { field: "unitprice", label: "Unit price", format: money }, { field: "gstpercent", label: "GST %" }, { field: "total", label: "Total", format: money }])}</Box>}
+      {tab === 4 && table(context.deliverySchedules || [], [{ field: "item", label: "Item" }, { field: "quantity", label: "Delivered" }, { field: "deliverydatetime", label: "Delivery date", format: dateTime }, { field: "vehicledetails", label: "Vehicle" }, { field: "status", label: "Status" }])}
+      {tab === 5 && table(context.goodsReceiptNotes || [], [{ field: "item", label: "Item" }, { field: "acceptedquantity", label: "Accepted" }, { field: "qualityremarks", label: "Remarks" }, { field: "grnhash", label: "Blockchain hash" }])}
+      {tab === 6 && table(context.goodsReturnNotes || [], [{ field: "item", label: "Item" }, { field: "returnedquantity", label: "Returned" }, { field: "qualityremarks", label: "Remarks" }, { field: "returnhash", label: "Blockchain hash" }])}
+      {tab === 7 && <InvoicePrintPreview institution={null} invoice={invoice} block={null} />}
+    </Paper>
+  );
+};
+
 export function PurchaseNewVendorDeliverySchedulePage() {
   const vendor = vendorSession();
   const { error, message, setError, setMessage } = useMessage();
@@ -2966,7 +3500,9 @@ export function PurchaseNewInvoiceApprovalPage() {
   const { error, message, setError, setMessage } = useMessage();
   const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(null);
+  const [context, setContext] = useState(null);
   const [institution, setInstitution] = useState(null);
+  const [loadingContext, setLoadingContext] = useState(false);
   const load = async () => {
     try {
       const res = await ep1.get("/api/v2/purchasenew/invoice-approval-queue", { params: { colid: global1.colid, role: global1.role, useremail: global1.user } });
@@ -2975,19 +3511,47 @@ export function PurchaseNewInvoiceApprovalPage() {
     } catch (err) { setError(err.response?.data?.message || "Unable to load invoice approval queue"); }
   };
   useEffect(() => { load(); }, []);
+  const selectForApproval = async (row) => {
+    setSelected(row);
+    setContext(null);
+    setLoadingContext(true);
+    try {
+      const res = await ep1.get("/api/v2/purchasenew/invoice-approval-context", { params: { colid: global1.colid, id: row._id } });
+      setContext(res.data.data || null);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load associated procurement details");
+    } finally {
+      setLoadingContext(false);
+    }
+  };
   const action = async (type) => {
     if (!selected) return setError("Select one invoice.");
     await ep1.post(`/api/v2/purchasenew/invoices-${type}`, { id: selected._id, user: global1.user, useremail: global1.user, username: global1.name, role: global1.role });
-    setMessage(`Invoice ${type}d.`); setSelected(null); await load();
+    setMessage(`Finance payment ${type}d.`); setSelected(null); setContext(null); await load();
   };
   return (
     <MenuPageShell title="Invoice Approval">
       <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
-        <PageTop title="Invoice Approval" subtitle="Approve vendor invoices through finance approval workflow." crumbs={[{ label: "Purchase new" }, { label: "Invoice Approval" }]} />
+        <PageTop title="Invoice Approval" subtitle="Approve vendor invoices and payment vouchers through finance approval workflow." crumbs={[{ label: "Purchase new" }, { label: "Invoice Approval" }]} />
         <Status error={error} message={message} />
-        <Paper sx={{ height: 420, mb: 2 }}><DataGrid rows={rows} columns={[{ field: "invoiceid", headerName: "Invoice", minWidth: 160 }, { field: "poid", headerName: "PO", minWidth: 140 }, { field: "vendorname", headerName: "Vendor", minWidth: 200 }, { field: "grandtotal", headerName: "Amount", minWidth: 150, valueFormatter: (p) => money(p.value) }, { field: "status", headerName: "Status", minWidth: 180 }]} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} onRowClick={(p) => setSelected(p.row)} /></Paper>
+        <Paper sx={{ height: 420, mb: 2 }}><DataGrid rows={rows} columns={[
+          { field: "paymentvoucherid", headerName: "Voucher", minWidth: 160 },
+          { field: "invoiceid", headerName: "Invoice", minWidth: 160 },
+          { field: "poid", headerName: "PO", minWidth: 140 },
+          { field: "vendorname", headerName: "Vendor", minWidth: 200 },
+          { field: "paidamount", headerName: "Payment amount", minWidth: 150, valueFormatter: (p) => money(p.value) },
+          { field: "grandtotal", headerName: "Invoice amount", minWidth: 150, valueFormatter: (p) => money(p.value) },
+          { field: "paymentvoucherstatus", headerName: "Voucher status", minWidth: 160 },
+          { field: "status", headerName: "Status", minWidth: 180 },
+          { field: "currentlevel", headerName: "Level", width: 90 }
+        ]} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} onRowClick={(p) => selectForApproval(p.row)} /></Paper>
         <Stack direction="row" spacing={1} sx={{ mb: 2 }}><Button variant="contained" color="success" onClick={() => action("approve")} disabled={!selected}>Approve</Button><Button variant="outlined" color="error" onClick={() => action("reject")} disabled={!selected}>Reject</Button></Stack>
-        <InvoicePrintPreview institution={institution} invoice={selected} block={null} />
+        {loadingContext && <LinearProgress sx={{ mb: 2 }} />}
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={6}><PaymentVoucherPrintPreview institution={institution} invoice={selected} /></Grid>
+          <Grid item xs={12} md={6}><InvoicePrintPreview institution={institution} invoice={selected} block={null} /></Grid>
+        </Grid>
+        <ProcurementContextPanel context={context} />
       </Box>
     </MenuPageShell>
   );
@@ -3031,7 +3595,315 @@ export function PurchaseNewInvoiceStatusPage() {
     </MenuPageShell>
   );
 }
+
+export function PurchaseNewInvoicePaymentPage() {
+  const { error, message, setError, setMessage } = useMessage();
+  const [rows, setRows] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [institution, setInstitution] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [filters, setFilters] = useState({ invoiceid: "", poid: "", vendorname: "", fromdate: "", todate: "" });
+  const [payment, setPayment] = useState({ paymentmode: "", paidamount: "", paymentdate: "", bankaccount: "", ifsc: "", beneficiary: "", paymentrefno: "", paymentremarks: "" });
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const params = { colid: global1.colid, status: "Approved", datefield: "invoicedate" };
+      Object.entries(filters).forEach(([key, value]) => { if (value) params[key] = value; });
+      const res = await ep1.get("/api/v2/purchasenew/invoices", { params });
+      setRows((res.data.data || []).map((r) => ({ ...r, id: r._id })));
+      loadInstitutionDetails().then(setInstitution);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load approved invoices");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const selectInvoice = (row) => {
+    setSelected(row);
+    setPayment({
+      paymentmode: row.paymentmode || "",
+      paidamount: row.paidamount || row.grandtotal || "",
+      paymentdate: row.paymentdate ? String(row.paymentdate).slice(0, 10) : new Date().toISOString().slice(0, 10),
+      bankaccount: row.bankaccount || "",
+      ifsc: row.ifsc || "",
+      beneficiary: row.beneficiary || row.vendorname || "",
+      paymentrefno: row.paymentrefno || "",
+      paymentremarks: row.paymentremarks || ""
+    });
+  };
+
+  const recordPayment = async () => {
+    if (!selected) return setError("Select one approved invoice first.");
+    if (!payment.paymentmode || !payment.paidamount || !payment.paymentdate) return setError("Payment mode, amount and payment date are required.");
+    setPaying(true);
+    try {
+      const res = await ep1.post("/api/v2/purchasenew/invoice-payment", {
+        ...payment,
+        id: selected._id,
+        colid: global1.colid,
+        user: global1.user,
+        useremail: global1.user,
+        username: global1.name,
+        role: global1.role
+      });
+      setSelected(res.data.data);
+      setMessage(res.data.message || "Payment voucher created and sent for approval.");
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to record payment");
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const columns = [
+    { field: "invoiceid", headerName: "Invoice", minWidth: 160 },
+    { field: "invoiceno", headerName: "Invoice No", minWidth: 150 },
+    { field: "poid", headerName: "PO", minWidth: 140 },
+    { field: "vendorname", headerName: "Vendor", minWidth: 220, flex: 1 },
+    { field: "invoicedate", headerName: "Invoice date", minWidth: 150, valueFormatter: (p) => p.value ? new Date(p.value).toLocaleDateString() : "" },
+    { field: "grandtotal", headerName: "Amount", minWidth: 150, valueFormatter: (p) => money(p.value) },
+    { field: "paymentstatus", headerName: "Payment status", minWidth: 160 },
+    { field: "status", headerName: "Status", minWidth: 140 }
+  ];
+
+  return (
+    <MenuPageShell title="Invoice Payment">
+      <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
+        <style>{`@media print{body *{visibility:hidden}#invoice-payment-print,#invoice-payment-print *{visibility:visible}#invoice-payment-print{position:absolute;left:0;top:0;width:100%;background:#fff;padding:14px}.screen-only{display:none!important}}`}</style>
+        <PageTop title="Invoice Payment" subtitle="Search approved invoices, create payment voucher and send it through finance approval." crumbs={[{ label: "Purchase new" }, { label: "Invoice Payment" }]} />
+        <Status error={error} message={message} />
+        <Paper className="screen-only" sx={{ p: 2, mb: 2 }}>
+          <Grid container spacing={1.5}>
+            {[
+              ["invoiceid", "Invoice ID"],
+              ["poid", "PO ID"],
+              ["vendorname", "Vendor"]
+            ].map(([field, label]) => (
+              <Grid item xs={12} md={2.4} key={field}>
+                <TextField fullWidth size="small" label={label} value={filters[field]} onChange={(e) => setFilters({ ...filters, [field]: e.target.value })} />
+              </Grid>
+            ))}
+            <Grid item xs={12} md={2.2}><TextField fullWidth size="small" type="date" label="From invoice date" InputLabelProps={{ shrink: true }} value={filters.fromdate} onChange={(e) => setFilters({ ...filters, fromdate: e.target.value })} /></Grid>
+            <Grid item xs={12} md={2.2}><TextField fullWidth size="small" type="date" label="To invoice date" InputLabelProps={{ shrink: true }} value={filters.todate} onChange={(e) => setFilters({ ...filters, todate: e.target.value })} /></Grid>
+            <Grid item xs={12}><Stack direction="row" spacing={1} flexWrap="wrap"><Button variant="contained" onClick={load} disabled={loading}>Apply search</Button><Button variant="outlined" startIcon={<Refresh />} onClick={() => { setFilters({ invoiceid: "", poid: "", vendorname: "", fromdate: "", todate: "" }); setTimeout(load, 0); }}>Clear</Button><Button variant="outlined" startIcon={<Print />} onClick={() => window.print()} disabled={!selected}>Print voucher</Button></Stack></Grid>
+          </Grid>
+          {loading && <LinearProgress sx={{ mt: 2 }} />}
+        </Paper>
+        <Paper className="screen-only" sx={{ height: 380, mb: 2 }}>
+          <DataGrid rows={rows} columns={columns} slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "purchase_new_approved_invoices" } } }} pageSizeOptions={[25, 50, 100]} onRowClick={(p) => selectInvoice(p.row)} />
+        </Paper>
+        <Grid container spacing={2} className="screen-only" sx={{ mb: 2 }}>
+          <Grid item xs={12} md={7}>
+            <Box id="invoice-payment-print"><PaymentVoucherPrintPreview institution={institution} invoice={selected} /></Box>
+          </Grid>
+          <Grid item xs={12} md={5}>
+            <Paper sx={{ p: 2 }}>
+              <Typography variant="h6" fontWeight={900} sx={{ mb: 2 }}>Create payment voucher</Typography>
+              <Grid container spacing={1.5}>
+                <Grid item xs={12} md={6}><TextField select fullWidth label="Payment mode" value={payment.paymentmode} onChange={(e) => setPayment({ ...payment, paymentmode: e.target.value })}><MenuItem value="">Select</MenuItem>{["NEFT", "RTGS", "Cheque", "UPI", "Cash", "Bank Transfer", "Other"].map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+                <Grid item xs={12} md={6}><TextField fullWidth type="number" label="Amount" value={payment.paidamount} onChange={(e) => setPayment({ ...payment, paidamount: e.target.value })} /></Grid>
+                <Grid item xs={12} md={6}><TextField fullWidth type="date" label="Payment date" InputLabelProps={{ shrink: true }} value={payment.paymentdate} onChange={(e) => setPayment({ ...payment, paymentdate: e.target.value })} /></Grid>
+                <Grid item xs={12} md={6}><TextField fullWidth label="Reference number" value={payment.paymentrefno} onChange={(e) => setPayment({ ...payment, paymentrefno: e.target.value })} /></Grid>
+                <Grid item xs={12} md={6}><TextField fullWidth label="Bank account" value={payment.bankaccount} onChange={(e) => setPayment({ ...payment, bankaccount: e.target.value })} /></Grid>
+                <Grid item xs={12} md={6}><TextField fullWidth label="IFSC" value={payment.ifsc} onChange={(e) => setPayment({ ...payment, ifsc: e.target.value })} /></Grid>
+                <Grid item xs={12}><TextField fullWidth label="Beneficiary" value={payment.beneficiary} onChange={(e) => setPayment({ ...payment, beneficiary: e.target.value })} /></Grid>
+                <Grid item xs={12}><TextField fullWidth multiline minRows={2} label="Remarks" value={payment.paymentremarks} onChange={(e) => setPayment({ ...payment, paymentremarks: e.target.value })} /></Grid>
+                <Grid item xs={12}><Button fullWidth variant="contained" color="success" onClick={recordPayment} disabled={!selected || paying}>{paying ? "Creating voucher..." : "Create payment voucher"}</Button>{paying && <LinearProgress sx={{ mt: 1 }} />}</Grid>
+              </Grid>
+            </Paper>
+          </Grid>
+        </Grid>
+      </Box>
+    </MenuPageShell>
+  );
+}
+
+export function PurchaseNewInvoiceAgingPage() {
+  const { error, message, setError } = useMessage();
+  const [rows, setRows] = useState([]);
+  const [institution, setInstitution] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [filters, setFilters] = useState({ vendorname: "", poid: "", paymentstatus: "" });
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const params = { colid: global1.colid, status: filters.paymentstatus === "Paid" ? "Paid" : "Approved" };
+      if (filters.vendorname) params.vendorname = filters.vendorname;
+      if (filters.poid) params.poid = filters.poid;
+      if (filters.paymentstatus) params.paymentstatus = filters.paymentstatus;
+      const res = await ep1.get("/api/v2/purchasenew/invoices", { params });
+      setRows((res.data.data || []).map((row) => ({ ...row, id: row._id })));
+      loadInstitutionDetails().then(setInstitution);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load aging report");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const withAge = useMemo(() => rows.map((row) => {
+    const baseDate = row.paymentdate || row.invoicedate || row.createdAt;
+    const age = baseDate ? Math.max(0, Math.floor((Date.now() - new Date(baseDate).getTime()) / 86400000)) : 0;
+    const bucket = age <= 30 ? "0-30" : age <= 60 ? "31-60" : age <= 90 ? "61-90" : age <= 180 ? "91-180" : "180+";
+    return { ...row, age, bucket, outstanding: row.paymentstatus === "Paid" || row.status === "Paid" ? 0 : Number(row.grandtotal || 0) };
+  }), [rows]);
+
+  const bucketSummary = useMemo(() => {
+    const order = ["0-30", "31-60", "61-90", "91-180", "180+"];
+    const map = new Map(order.map((bucket) => [bucket, { id: bucket, bucket, invoices: 0, amount: 0 }]));
+    withAge.forEach((row) => {
+      const item = map.get(row.bucket);
+      item.invoices += 1;
+      item.amount += Number(row.outstanding || 0);
+    });
+    return [...map.values()];
+  }, [withAge]);
+
+  const vendorSummary = useMemo(() => {
+    const map = new Map();
+    withAge.forEach((row) => {
+      const vendor = row.vendorname || "Not specified";
+      const current = map.get(vendor) || { id: vendor, vendor, invoices: 0, outstanding: 0, maxage: 0 };
+      current.invoices += 1;
+      current.outstanding += Number(row.outstanding || 0);
+      current.maxage = Math.max(current.maxage, Number(row.age || 0));
+      map.set(vendor, current);
+    });
+    return [...map.values()].sort((a, b) => b.outstanding - a.outstanding);
+  }, [withAge]);
+
+  const heatmapRows = useMemo(() => vendorSummary.slice(0, 12).map((vendor) => {
+    const row = { id: vendor.vendor, vendor: vendor.vendor };
+    bucketSummary.forEach((bucket) => {
+      row[bucket.bucket] = withAge.filter((item) => item.vendorname === vendor.vendor && item.bucket === bucket.bucket).reduce((sum, item) => sum + Number(item.outstanding || 0), 0);
+    });
+    return row;
+  }), [vendorSummary, bucketSummary, withAge]);
+
+  const totalOutstanding = withAge.reduce((sum, row) => sum + Number(row.outstanding || 0), 0);
+  const overdueInvoices = withAge.filter((row) => row.outstanding > 0 && row.age > 30).length;
+
+  const invoiceColumns = [
+    { field: "invoiceid", headerName: "Invoice", minWidth: 160 },
+    { field: "poid", headerName: "PO", minWidth: 140 },
+    { field: "vendorname", headerName: "Vendor", minWidth: 220, flex: 1 },
+    { field: "invoicedate", headerName: "Invoice date", minWidth: 150, valueFormatter: (p) => p.value ? new Date(p.value).toLocaleDateString() : "" },
+    { field: "age", headerName: "Age days", width: 120, type: "number" },
+    { field: "bucket", headerName: "Aging bucket", width: 130 },
+    { field: "grandtotal", headerName: "Invoice amount", minWidth: 160, valueFormatter: (p) => money(p.value) },
+    { field: "outstanding", headerName: "Outstanding", minWidth: 160, valueFormatter: (p) => money(p.value) },
+    { field: "paymentstatus", headerName: "Payment status", minWidth: 150 }
+  ];
+  const heatColumns = [
+    { field: "vendor", headerName: "Vendor", minWidth: 220, flex: 1 },
+    ...["0-30", "31-60", "61-90", "91-180", "180+"].map((bucket) => ({
+      field: bucket,
+      headerName: bucket,
+      minWidth: 120,
+      renderCell: (params) => {
+        const amount = Number(params.value || 0);
+        const opacity = Math.min(1, amount / Math.max(totalOutstanding, 1) * 8);
+        return <Box sx={{ width: "100%", height: "100%", px: 1, display: "flex", alignItems: "center", bgcolor: amount ? `rgba(220,38,38,${0.15 + opacity * 0.65})` : "transparent", color: amount && opacity > 0.45 ? "#fff" : "#111827", fontWeight: 800 }}>{money(amount)}</Box>;
+      }
+    }))
+  ];
+
+  const StatCard = ({ label, value, color }) => (
+    <Paper variant="outlined" sx={{ p: 1.5, borderLeft: `5px solid ${color}`, borderColor: color, bgcolor: "#fff" }}>
+      <Typography variant="body2" color="text.secondary">{label}</Typography>
+      <Typography variant="h6" fontWeight={900}>{value}</Typography>
+    </Paper>
+  );
+
+  return (
+    <MenuPageShell title="Invoice Aging">
+      <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
+        <style>{`@media print{body *{visibility:hidden}#invoice-aging-print,#invoice-aging-print *{visibility:visible}#invoice-aging-print{position:absolute;left:0;top:0;width:100%;background:#fff;padding:14px}.screen-only{display:none!important}.MuiDataGrid-footerContainer,.MuiDataGrid-toolbarContainer{display:none!important}}`}</style>
+        <PageTop title="Invoice Aging" subtitle="Overall aging by days, vendor and aging heatmap." crumbs={[{ label: "Purchase new" }, { label: "Invoice Aging" }]} />
+        <Status error={error} message={message} />
+        <Paper className="screen-only" sx={{ p: 2, mb: 2 }}>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={1}>
+            <TextField size="small" label="Vendor" value={filters.vendorname} onChange={(e) => setFilters({ ...filters, vendorname: e.target.value })} />
+            <TextField size="small" label="PO ID" value={filters.poid} onChange={(e) => setFilters({ ...filters, poid: e.target.value })} />
+            <TextField select size="small" label="Payment status" value={filters.paymentstatus} onChange={(e) => setFilters({ ...filters, paymentstatus: e.target.value })} sx={{ minWidth: 180 }}><MenuItem value="">Unpaid approved</MenuItem><MenuItem value="Paid">Paid</MenuItem></TextField>
+            <Button variant="contained" onClick={load} disabled={loading}>Apply</Button>
+            <Button variant="outlined" startIcon={<Print />} onClick={() => window.print()}>Print</Button>
+          </Stack>
+          {loading && <LinearProgress sx={{ mt: 2 }} />}
+        </Paper>
+
+        <Box id="invoice-aging-print">
+          <Paper sx={{ p: 2.5, mb: 2, border: "1px solid #d1d5db" }}>
+            <Stack alignItems="center" spacing={0.5} sx={{ textAlign: "center", mb: 2 }}>
+              {institution?.logolink && <Box component="img" src={institution.logolink} sx={{ height: 70, maxWidth: 160, objectFit: "contain" }} alt="Logo" />}
+              <Typography variant="h6" fontWeight={900}>{institution?.institutionname || global1.insname || "Institution"}</Typography>
+              <Typography variant="body2">{institution?.address || ""}</Typography>
+              <Typography variant="h6" fontWeight={900} sx={{ mt: 1 }}>Invoice Aging Report</Typography>
+            </Stack>
+            <Grid container spacing={1.5} sx={{ mb: 2 }}>
+              <Grid item xs={12} md={3}><StatCard label="Invoices" value={withAge.length} color="#2563eb" /></Grid>
+              <Grid item xs={12} md={3}><StatCard label="Outstanding" value={money(totalOutstanding)} color="#dc2626" /></Grid>
+              <Grid item xs={12} md={3}><StatCard label="Over 30 days" value={overdueInvoices} color="#f97316" /></Grid>
+              <Grid item xs={12} md={3}><StatCard label="Vendors" value={vendorSummary.length} color="#7c3aed" /></Grid>
+            </Grid>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12} md={7}>
+                <Paper variant="outlined" sx={{ p: 1, height: 310 }}>
+                  <Typography variant="subtitle2" fontWeight={800}>Aging by days</Typography>
+                  <ResponsiveContainer width="100%" height="88%">
+                    <BarChart data={bucketSummary}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="bucket" />
+                      <YAxis tickFormatter={(value) => Number(value || 0).toLocaleString("en-IN")} />
+                      <RechartsTooltip formatter={(value) => money(value)} />
+                      <Legend />
+                      <Bar dataKey="amount" name="Outstanding" fill="#dc2626">
+                        {bucketSummary.map((entry, index) => <Cell key={entry.bucket} fill={chartColors[index % chartColors.length]} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Paper>
+              </Grid>
+              <Grid item xs={12} md={5}>
+                <Paper variant="outlined" sx={{ p: 1, height: 310 }}>
+                  <Typography variant="subtitle2" fontWeight={800}>Aging by vendor</Typography>
+                  <ResponsiveContainer width="100%" height="88%">
+                    <PieChart>
+                      <Pie data={vendorSummary.slice(0, 10)} dataKey="outstanding" nameKey="vendor" outerRadius={95} label>
+                        {vendorSummary.slice(0, 10).map((entry, index) => <Cell key={entry.vendor} fill={chartColors[index % chartColors.length]} />)}
+                      </Pie>
+                      <RechartsTooltip formatter={(value) => money(value)} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </Paper>
+              </Grid>
+            </Grid>
+            <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 1 }}>Aging heatmap by vendor</Typography>
+            <Box sx={{ height: 340, mb: 2 }}>
+              <DataGrid rows={heatmapRows} columns={heatColumns} slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "purchase_new_invoice_aging_heatmap" } } }} pageSizeOptions={[10, 25, 50, 100]} />
+            </Box>
+            <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 1 }}>Invoice details</Typography>
+            <Box sx={{ height: 430 }}>
+              <DataGrid rows={withAge} columns={invoiceColumns} slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "purchase_new_invoice_aging_details" } } }} pageSizeOptions={[10, 25, 50, 100]} />
+            </Box>
+          </Paper>
+        </Box>
+      </Box>
+    </MenuPageShell>
+  );
+}
 export function PurchaseNewDepartmentWorkflowPage() { return <WorkflowPage />; }
 export function PurchaseNewInstitutionWorkflowPage() { return <WorkflowPage institution />; }
+export function PurchaseNewStoreWorkflowPage() { return <WorkflowPage storeWorkflow />; }
 export function PurchaseNewDepartmentApprovalPage() { return <ApprovalPage stage="Department" />; }
 export function PurchaseNewInstitutionApprovalPage() { return <ApprovalPage stage="Institution" />; }
+export function PurchaseNewStoreApprovalPage() { return <ApprovalPage stage="Store" />; }

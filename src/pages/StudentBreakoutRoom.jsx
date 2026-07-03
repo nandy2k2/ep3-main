@@ -38,6 +38,8 @@ import {
   CheckCircle,
   Download,
   Share,
+  Videocam,
+  VideocamOff,
 } from "@mui/icons-material";
 import { useParams, useNavigate } from "react-router-dom";
 import ep1 from "../api/ep1";
@@ -50,6 +52,10 @@ export default function StudentBreakoutRoom() {
   const [classmates, setClassmates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [cameraOn, setCameraOn] = useState(false);
+  const [cameraError, setCameraError] = useState("");
+  const [cameraStream, setCameraStream] = useState(null);
+  const videoRef = React.useRef(null);
 
   useEffect(() => {
     fetchRoomData();
@@ -61,6 +67,37 @@ export default function StudentBreakoutRoom() {
 
     return () => clearInterval(interval);
   }, [roomid]);
+
+  useEffect(() => () => {
+    if (cameraStream) cameraStream.getTracks().forEach((track) => track.stop());
+  }, [cameraStream]);
+
+  useEffect(() => {
+    if (videoRef.current && cameraStream) {
+      videoRef.current.srcObject = cameraStream;
+    }
+  }, [cameraStream]);
+
+  const toggleCamera = async () => {
+    setCameraError("");
+    if (cameraOn) {
+      if (cameraStream) cameraStream.getTracks().forEach((track) => track.stop());
+      setCameraStream(null);
+      setCameraOn(false);
+      return;
+    }
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraError("Camera is not supported in this browser.");
+        return;
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      setCameraStream(stream);
+      setCameraOn(true);
+    } catch (err) {
+      setCameraError("Unable to start camera. Please allow camera permission.");
+    }
+  };
 
   const fetchRoomData = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -212,6 +249,19 @@ export default function StudentBreakoutRoom() {
             </Grid>
             <Grid item xs={12} md={4}>
               <Stack direction="row" spacing={2} justifyContent={{ xs: "center", md: "flex-end" }}>
+                <Button
+                  startIcon={cameraOn ? <VideocamOff /> : <Videocam />}
+                  onClick={toggleCamera}
+                  variant="contained"
+                  sx={{
+                    backgroundColor: "rgba(255,255,255,0.2)",
+                    color: "white",
+                    borderRadius: 3,
+                    "&:hover": { backgroundColor: "rgba(255,255,255,0.3)" }
+                  }}
+                >
+                  {cameraOn ? "Camera Off" : "Camera On"}
+                </Button>
                 <Tooltip title="Refresh Room Data">
                   <IconButton
                     onClick={handleRefresh}
@@ -255,6 +305,7 @@ export default function StudentBreakoutRoom() {
           Collaborate with your teammates and access shared resources below.
         </Alert>
       )}
+      {cameraError && <Alert severity="warning" sx={{ mb: 3, borderRadius: 3 }}>{cameraError}</Alert>}
 
       <Grid container spacing={4}>
         {/* Enhanced Room Members */}
@@ -308,10 +359,11 @@ export default function StudentBreakoutRoom() {
                           '&:hover': {
                             transform: 'translateY(-2px)',
                             boxShadow: 3
-                          }
+                          },
+                          alignItems: "flex-start"
                         }}
                       >
-                        <ListItemAvatar>
+                        <ListItemAvatar sx={{ minWidth: 80, pt: 0.5 }}>
                           <Badge
                             overlap="circular"
                             anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
@@ -329,21 +381,42 @@ export default function StudentBreakoutRoom() {
                               ) : null
                             }
                           >
-                            <Avatar
-                              src={
-                                classmate.studentphoto
-                                  ? `${process.env.REACT_APP_API_URL}/uploads/${classmate.studentphoto}`
-                                  : ""
-                              }
-                              alt={classmate.studentname}
-                              sx={{ 
-                                width: 50, 
-                                height: 50,
-                                border: isCurrentUser ? '3px solid #2196f3' : '2px solid #e0e0e0'
-                              }}
-                            >
-                              {classmate.studentname?.charAt(0)?.toUpperCase()}
-                            </Avatar>
+                            <Stack alignItems="center" spacing={0.75}>
+                              {isCurrentUser && cameraOn && cameraStream && (
+                                <Box
+                                  component="video"
+                                  ref={videoRef}
+                                  autoPlay
+                                  muted
+                                  playsInline
+                                  sx={{
+                                    width: 96,
+                                    height: 64,
+                                    objectFit: "cover",
+                                    borderRadius: 2,
+                                    border: "2px solid #2196f3",
+                                    boxShadow: "0 8px 18px rgba(15,23,42,0.18)",
+                                    backgroundColor: "#0f172a"
+                                  }}
+                                />
+                              )}
+                              <Avatar
+                                src={
+                                  classmate.studentphoto
+                                    ? `${process.env.REACT_APP_API_URL}/uploads/${classmate.studentphoto}`
+                                    : ""
+                                }
+                                alt={classmate.studentname}
+                                sx={{ 
+                                  width: 64, 
+                                  height: 64,
+                                  fontSize: 26,
+                                  border: isCurrentUser ? '3px solid #2196f3' : '2px solid #e0e0e0'
+                                }}
+                              >
+                                {classmate.studentname?.charAt(0)?.toUpperCase()}
+                              </Avatar>
+                            </Stack>
                           </Badge>
                         </ListItemAvatar>
                         <ListItemText

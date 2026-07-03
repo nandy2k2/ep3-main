@@ -42,6 +42,8 @@ export default function UserCustomFieldsPage() {
   const [editingId, setEditingId] = useState("");
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState("");
+  const [selectedRows, setSelectedRows] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -124,6 +126,30 @@ export default function UserCustomFieldsPage() {
       setError(err.response?.data?.msg || "Unable to delete custom field");
     } finally {
       setDeletingId("");
+    }
+  };
+
+  const bulkDeleteRows = async () => {
+    if (!selectedRows.length) {
+      setError("Select at least one custom field to delete");
+      return;
+    }
+    if (!window.confirm(`Delete ${selectedRows.length} selected custom field${selectedRows.length === 1 ? "" : "s"}?`)) return;
+    try {
+      setBulkDeleting(true);
+      setError("");
+      setMessage("");
+      await ep1.post("/api/v2/user-custom-fields-bulk-delete", {
+        ids: selectedRows,
+        colid: global1.colid
+      });
+      setRows((prev) => prev.filter((item) => !selectedRows.includes(item._id)));
+      setSelectedRows([]);
+      setMessage("Selected custom fields deleted");
+    } catch (err) {
+      setError(err.response?.data?.msg || "Unable to delete selected custom fields");
+    } finally {
+      setBulkDeleting(false);
     }
   };
 
@@ -326,11 +352,29 @@ export default function UserCustomFieldsPage() {
       </Paper>
 
       <Paper sx={{ p: 1, overflowX: "auto" }}>
+        <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} spacing={1} sx={{ p: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            {selectedRows.length} selected
+          </Typography>
+          <Button
+            color="error"
+            variant="contained"
+            startIcon={<DeleteIcon />}
+            disabled={!selectedRows.length || bulkDeleting}
+            onClick={bulkDeleteRows}
+          >
+            {bulkDeleting ? "Deleting selected..." : "Delete selected"}
+          </Button>
+        </Stack>
         <DataGrid
           rows={rows}
           getRowId={(row) => row._id}
           columns={columns}
           loading={loading}
+          checkboxSelection
+          disableRowSelectionOnClick
+          rowSelectionModel={selectedRows}
+          onRowSelectionModelChange={(newSelection) => setSelectedRows(Array.isArray(newSelection) ? newSelection : Array.from(newSelection?.ids || []))}
           autoHeight
           slots={{ toolbar: GridToolbar }}
           slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "user_custom_fields" } } }}

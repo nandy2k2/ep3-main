@@ -42,6 +42,7 @@ import {
 } from "recharts";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const colors = ["#1e88e5", "#43a047", "#fb8c00", "#8e24aa", "#00acc1", "#e53935", "#3949ab"];
 
@@ -121,6 +122,7 @@ export default function NepLmsStudentDashboardPage() {
   }, [summary.attendancePercentage]);
 
   return (
+    <MenuPageShell title="Student Dashboard" menuType="student">
     <Container maxWidth="xl" sx={{ py: 3 }}>
       <Paper
         sx={{
@@ -283,5 +285,6 @@ export default function NepLmsStudentDashboardPage() {
         </Grid>
       </Grid>
     </Container>
+    </MenuPageShell>
   );
 }

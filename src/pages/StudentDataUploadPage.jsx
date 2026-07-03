@@ -6,6 +6,8 @@ import {
   Autocomplete,
   Box,
   Button,
+  Checkbox,
+  FormControlLabel,
   Grid,
   IconButton,
   LinearProgress,
@@ -24,11 +26,12 @@ import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SaveIcon from "@mui/icons-material/Save";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
+import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 
 const subjectFields = ["Major", "Minor", "AEC", "SEC", "VAC", "IDC", "MDC"];
-const fields = ["name", "regno", "email", "phone", "regulation", "program", "programcode", ...subjectFields, "academicyear", "admissionyear", "rollno", "gender", "category", "state", "city", "district", "pincode", "guardianname", "guardianmobile", "guardianemail", "photo", "semester", "section"];
+const fields = ["name", "regno", "scholarnumber", "password", "email", "phone", "regulation", "program", "programcode", ...subjectFields, "academicyear", "admissionyear", "rollno", "gender", "category", "state", "city", "district", "pincode", "guardianname", "guardianmobile", "guardianemail", "photo", "semester", "section"];
 const academicYears = ["2023-24", "2024-25", "2025-26", "2026-27", "2027-28"];
 const semesters = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
 const staticDropdownOptions = {
@@ -41,6 +44,8 @@ const staticDropdownOptions = {
 const labels = {
   name: "Name",
   regno: "Reg No",
+  scholarnumber: "Scholar Number",
+  password: "Password",
   email: "Email",
   phone: "Phone",
   program: "Program",
@@ -71,7 +76,7 @@ const labels = {
   department: "Department",
   institution: "Institution"
 };
-const viewFilterFields = ["academicyear", "program", "programcode", "department", "semester", "section", "Major", "Minor", "IDC", "AEC", "SEC", "VAC", "name", "email", "phone", "institution"];
+const viewFilterFields = ["academicyear", "program", "programcode", "department", "semester", "section", "Major", "Minor", "IDC", "AEC", "SEC", "VAC", "name", "regno", "scholarnumber", "email", "phone", "institution"];
 const blankViewFilter = { field: "academicyear", value: "" };
 const blankForm = { ...fields.reduce((acc, field) => ({ ...acc, [field]: staticDropdownOptions[field]?.[0] || "" }), {}), customFields: {} };
 const normalizeKey = (key) => String(key || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -80,6 +85,8 @@ const geminiModelOptions = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini
 const valueFromRow = (row, field) => {
   const aliases = {
     regno: ["regno", "reg no", "registration no", "registration number"],
+    scholarnumber: ["scholarnumber", "scholar number", "scholar no"],
+    password: ["password"],
     programcode: ["programcode", "program code"],
     Major: ["major", "Major"],
     Minor: ["minor", "Minor"],
@@ -132,6 +139,8 @@ export default function StudentDataUploadPage() {
   const [photoUploading, setPhotoUploading] = useState(false);
   const [bulkUploading, setBulkUploading] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [passwordLength, setPasswordLength] = useState(10);
+  const [autoScholarNumber, setAutoScholarNumber] = useState(true);
   const [selectedIds, setSelectedIds] = useState([]);
   const [viewFilters, setViewFilters] = useState([{ ...blankViewFilter }]);
   const [bulkSubject, setBulkSubject] = useState({ oldMajor: "", newMajor: "", oldMinor: "", newMinor: "" });
@@ -244,6 +253,7 @@ export default function StudentDataUploadPage() {
     setForm(blankForm);
     setEditingId("");
     setError("");
+    setAutoScholarNumber(true);
   };
 
   const fieldOptions = (field) => {
@@ -323,6 +333,20 @@ export default function StudentDataUploadPage() {
     return next;
   };
 
+  const generatePassword = (length = passwordLength) => {
+    const size = Math.max(6, Math.min(32, Number(length) || 10));
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*";
+    let password = "";
+    if (window.crypto?.getRandomValues) {
+      const values = new Uint32Array(size);
+      window.crypto.getRandomValues(values);
+      password = Array.from(values).map((value) => chars[value % chars.length]).join("");
+    } else {
+      password = Array.from({ length: size }).map(() => chars[Math.floor(Math.random() * chars.length)]).join("");
+    }
+    updateField("password", password);
+  };
+
   const uploadPhoto = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -351,7 +375,9 @@ export default function StudentDataUploadPage() {
       setError("");
       setMessage("");
       setAiGenerating(true);
-      const aiForm = await applyAiRulesToItem(form);
+      const baseForm = autoScholarNumber ? { ...form, scholarnumber: "", autogeneratescholarnumber: "Yes" } : { ...form, autogeneratescholarnumber: "No" };
+      const aiResult = await applyAiRulesToItem(baseForm);
+      const aiForm = autoScholarNumber ? { ...aiResult, scholarnumber: "", autogeneratescholarnumber: "Yes" } : aiResult;
       if (!aiForm.email) {
         setError("Email is required");
         return;
@@ -389,6 +415,7 @@ export default function StudentDataUploadPage() {
     next.IDC = row.IDC || row.idc || "";
     next.MDC = row.MDC || row.mdc || row.mdcsub || "";
     setForm(next);
+    setAutoScholarNumber(false);
     setEditingId(row._id);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -573,6 +600,7 @@ export default function StudentDataUploadPage() {
         fields.forEach((field) => {
           item[field] = valueFromRow(row, field);
         });
+        if (!item.password) item.password = "";
         item.customFields = {};
         customFields.forEach((field) => {
           item.customFields[field.fieldname] = valueFromRow(row, field.fieldname) || valueFromRow(row, field.label);
@@ -623,6 +651,7 @@ export default function StudentDataUploadPage() {
   ], [customFields]);
 
   return (
+    <MenuPageShell title="Student Data Upload">
     <Box p={3}>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
         <Box>
@@ -708,11 +737,6 @@ export default function StudentDataUploadPage() {
               </TextField>
             </Grid>
           )}
-          <Grid item xs={12} md={aiProvider === "Gemini" ? 6 : 4}>
-            <Alert severity="info" sx={{ alignItems: "center" }}>
-              Future AI actions should expose the model/config selector before generation.
-            </Alert>
-          </Grid>
           {aiRules.map((rule, index) => (
             <React.Fragment key={`ai-rule-${index}`}>
               <Grid item xs={12} md={3}>
@@ -748,16 +772,44 @@ export default function StudentDataUploadPage() {
           <Typography variant="body2" color="text.secondary">Records loaded: {rows.length}</Typography>
         </Stack>
         <Grid container spacing={2}>
+          <Grid item xs={12}>
+            <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "#f8fafc" }}>
+              <Grid container spacing={2} alignItems="center">
+                <Grid item xs={12} md={3}>
+                  <FormControlLabel
+                    control={<Checkbox checked={autoScholarNumber} onChange={(event) => setAutoScholarNumber(event.target.checked)} />}
+                    label="Auto-generate scholar number"
+                  />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Password length"
+                    value={passwordLength}
+                    inputProps={{ min: 6, max: 32 }}
+                    onChange={(event) => setPasswordLength(event.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Button fullWidth variant="outlined" sx={{ height: 56 }} onClick={() => generatePassword()}>
+                    Generate Password
+                  </Button>
+                </Grid>
+              </Grid>
+            </Paper>
+          </Grid>
           {fields.map((field) => (
             <Grid item xs={12} sm={6} md={3} key={field}>
               <TextField
                 fullWidth
                 select={fieldOptions(field).length > 0 && field !== "programcode"}
-                disabled={field === "programcode"}
+                disabled={field === "programcode" || (field === "scholarnumber" && autoScholarNumber)}
                 required={field === "email"}
                 label={labels[field]}
-                value={fieldValue(field)}
+                value={field === "scholarnumber" && autoScholarNumber ? "" : fieldValue(field)}
                 onChange={(event) => updateField(field, event.target.value)}
+                helperText={field === "scholarnumber" && autoScholarNumber ? "Will be generated on save" : ""}
               >
                 {fieldOptions(field).map((option) => (
                   <MenuItem key={option} value={option}>{option}</MenuItem>
@@ -903,5 +955,6 @@ export default function StudentDataUploadPage() {
         />
       </Paper>
     </Box>
+    </MenuPageShell>
   );
 }

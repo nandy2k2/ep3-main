@@ -640,6 +640,10 @@ function NewBudgetApprovalStagePage({ stage }) {
   const [rows, setRows] = useState([]);
   const [allRows, setAllRows] = useState([]);
   const [levels, setLevels] = useState([]);
+  const [selectedDepartment, setSelectedDepartment] = useState("");
+  const [selectedDepartments, setSelectedDepartments] = useState([]);
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [selectedItems, setSelectedItems] = useState([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ id: "", academicyear: "2026-27", department: global1.department || "", category: "", categorytype: "", item: "", amount: "", utilized: 0, remarks: "" });
@@ -663,6 +667,9 @@ function NewBudgetApprovalStagePage({ stage }) {
       setRows((queue.data.data || []).map((row) => ({ ...row, id: row._id })));
       setAllRows((all.data.data || []).map((row) => ({ ...row, id: row._id })));
       setLevels(stage === "Department" ? queue.data.departmentLevels || [] : queue.data.institutionLevels || []);
+      setSelectedDepartments([]);
+      setSelectedCategories([]);
+      setSelectedItems([]);
     } catch (err) {
       setError(err.response?.data?.message || err.message);
     } finally {
@@ -681,6 +688,63 @@ function NewBudgetApprovalStagePage({ stage }) {
     try {
       await ep1.post("/api/v2/newbudget/items-approve", { ...row, id: row._id, useremail: global1.user, username: global1.name, role: global1.role, comments: "Approved" });
       setMessage("Budget item approved.");
+      await loadRows();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const approveMany = async (targetRows, label = "items") => {
+    const validRows = targetRows.filter(Boolean);
+    if (!validRows.length) {
+      setError(`Select at least one ${label} for approval.`);
+      return;
+    }
+    setSaving(true);
+    clear();
+    try {
+      for (const row of validRows) {
+        await ep1.post("/api/v2/newbudget/items-approve", {
+          ...row,
+          id: row._id || row.id,
+          useremail: global1.user,
+          username: global1.name,
+          role: global1.role,
+          comments: "Bulk approved"
+        });
+      }
+      setMessage(`${validRows.length} budget item(s) approved.`);
+      await loadRows();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const rejectMany = async (targetRows, label = "items") => {
+    const validRows = targetRows.filter(Boolean);
+    if (!validRows.length) {
+      setError(`Select at least one ${label} for rejection.`);
+      return;
+    }
+    const comments = window.prompt("Reason for rejection");
+    if (comments === null) return;
+    setSaving(true);
+    clear();
+    try {
+      for (const row of validRows) {
+        await ep1.post("/api/v2/newbudget/items-reject", {
+          id: row._id || row.id,
+          useremail: global1.user,
+          username: global1.name,
+          role: global1.role,
+          comments
+        });
+      }
+      setMessage(`${validRows.length} budget item(s) rejected.`);
       await loadRows();
     } catch (err) {
       setError(err.response?.data?.message || err.message);
@@ -759,11 +823,63 @@ function NewBudgetApprovalStagePage({ stage }) {
       .map((column) => canEditAndAdd && ["item", "amount", "category", "categorytype", "department"].includes(column.field) ? { ...column, editable: true } : column)
   ];
 
+  const groupRows = (sourceRows, field) => {
+    const map = new Map();
+    sourceRows.forEach((row) => {
+      const key = String(row[field] || "Not specified");
+      const current = map.get(key) || { id: key, name: key, count: 0, amount: 0 };
+      current.count += 1;
+      current.amount += Number(row.amount || 0);
+      map.set(key, current);
+    });
+    return [...map.values()].sort((a, b) => b.amount - a.amount);
+  };
+
+  const departmentSummary = useMemo(() => groupRows(rows, "department"), [rows]);
+  const allDepartmentSummary = useMemo(() => groupRows(allRows, "department"), [allRows]);
+  const selectedDepartmentRows = useMemo(() => (
+    selectedDepartment ? rows.filter((row) => String(row.department || "Not specified") === selectedDepartment) : []
+  ), [rows, selectedDepartment]);
+  const categorySummary = useMemo(() => groupRows(selectedDepartmentRows, "category"), [selectedDepartmentRows]);
+  const rowsForSelectedDepartments = useMemo(() => {
+    const selected = new Set(selectedDepartments);
+    return rows.filter((row) => selected.has(String(row.department || "Not specified")));
+  }, [rows, selectedDepartments]);
+  const rowsForSelectedCategories = useMemo(() => {
+    const selected = new Set(selectedCategories);
+    return selectedDepartmentRows.filter((row) => selected.has(String(row.category || "Not specified")));
+  }, [selectedDepartmentRows, selectedCategories]);
+  const rowsForSelectedItems = useMemo(() => {
+    const selected = new Set(selectedItems);
+    return selectedDepartmentRows.filter((row) => selected.has(row.id || row._id));
+  }, [selectedDepartmentRows, selectedItems]);
+
   const summary = useMemo(() => {
     const total = allRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
     const queueTotal = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
-    return { total, queueTotal, count: rows.length };
+    const selectedDepartmentTotal = selectedDepartmentRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+    return { total, queueTotal, count: rows.length, departmentTotal: selectedDepartmentTotal, departments: departmentSummary.length };
   }, [allRows, rows]);
+
+  const summaryColumns = [
+    { field: "name", headerName: "Department / Category", minWidth: 240, flex: 1 },
+    { field: "count", headerName: "Items", width: 120, type: "number" },
+    { field: "amount", headerName: "Amount", minWidth: 170, valueFormatter: (params) => money(params.value) }
+  ];
+
+  const StatCard = ({ label, value, color }) => (
+    <Paper elevation={0} sx={{ p: 2, border: "1px solid #e5e7eb", borderLeft: `6px solid ${color}`, borderRadius: 2, bgcolor: "#fff" }}>
+      <Typography variant="body2" color="text.secondary">{label}</Typography>
+      <Typography variant="h6" fontWeight={900}>{value}</Typography>
+    </Paper>
+  );
+
+  const ChartPanel = ({ title, children }) => (
+    <Paper elevation={0} sx={{ p: 2, height: 310, border: "1px solid #e5e7eb", borderRadius: 2 }}>
+      <Typography fontWeight={800} sx={{ mb: 1 }}>{title}</Typography>
+      {children}
+    </Paper>
+  );
 
   return (
     <MenuPageShell title={`${stage} budget approval`}>
@@ -781,15 +897,154 @@ function NewBudgetApprovalStagePage({ stage }) {
           </Stack>
         </Stack>
         <StatusAlert error={error} message={message} />
+        {isInstitution && (
+          <>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12} md={3}><StatCard label="Total institution budget" value={money(summary.total)} color="#2563eb" /></Grid>
+              <Grid item xs={12} md={3}><StatCard label="Pending for your approval" value={money(summary.queueTotal)} color="#f97316" /></Grid>
+              <Grid item xs={12} md={3}><StatCard label="Pending items" value={summary.count} color="#16a34a" /></Grid>
+              <Grid item xs={12} md={3}><StatCard label={selectedDepartment ? `${selectedDepartment} pending` : "Departments in queue"} value={selectedDepartment ? money(summary.departmentTotal) : summary.departments} color="#7c3aed" /></Grid>
+            </Grid>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12} lg={7}>
+                <ChartPanel title="Departmentwise pending budget">
+                  <ResponsiveContainer width="100%" height="88%">
+                    <BarChart data={departmentSummary}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" interval={0} angle={-20} textAnchor="end" height={75} />
+                      <YAxis />
+                      <Tooltip formatter={(value) => money(value)} />
+                      <Bar dataKey="amount" name="Amount">
+                        {departmentSummary.map((entry, index) => <Cell key={entry.name} fill={chartColors[index % chartColors.length]} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartPanel>
+              </Grid>
+              <Grid item xs={12} lg={5}>
+                <ChartPanel title="Overall department share">
+                  <ResponsiveContainer width="100%" height="88%">
+                    <PieChart>
+                      <Pie data={allDepartmentSummary} dataKey="amount" nameKey="name" outerRadius={95} label>
+                        {allDepartmentSummary.map((entry, index) => <Cell key={entry.name} fill={chartColors[index % chartColors.length]} />)}
+                      </Pie>
+                      <Tooltip formatter={(value) => money(value)} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </ChartPanel>
+              </Grid>
+            </Grid>
+            <Paper sx={{ p: 1.5, mb: 2, borderRadius: 2 }}>
+              <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1.5} sx={{ mb: 1 }}>
+                <Box>
+                  <Typography variant="h6" fontWeight={900}>Departmentwise summary</Typography>
+                  <Typography color="text.secondary">Click a department to view category summary and item details.</Typography>
+                </Box>
+                <Stack direction="row" spacing={1}>
+                  <Button variant="contained" disabled={saving || !selectedDepartments.length} onClick={() => approveMany(rowsForSelectedDepartments, "departments")}>Approve Selected Departments</Button>
+                  <Button variant="outlined" color="error" disabled={saving || !selectedDepartments.length} onClick={() => rejectMany(rowsForSelectedDepartments, "departments")}>Reject Selected Departments</Button>
+                </Stack>
+              </Stack>
+              <DataGrid
+                rows={departmentSummary}
+                columns={summaryColumns}
+                checkboxSelection
+                disableRowSelectionOnClick
+                autoHeight
+                loading={loading}
+                rowSelectionModel={selectedDepartments}
+                onRowSelectionModelChange={(ids) => setSelectedDepartments(Array.from(ids))}
+                onRowClick={(params) => { setSelectedDepartment(params.row.name); setSelectedCategories([]); setSelectedItems([]); }}
+                slots={{ toolbar: GridToolbar }}
+                pageSizeOptions={[10, 25, 50, 100]}
+                initialState={{ pagination: { paginationModel: { pageSize: 10, page: 0 } } }}
+              />
+            </Paper>
+          </>
+        )}
         {isInstitution && canEditAndAdd && (
           <BudgetItemForm form={form} setForm={setForm} categories={categories} departments={departments} saving={saving} onSave={addInstitutionItem} institutionMode />
         )}
         {isInstitution && !canEditAndAdd && (
           <Alert severity="info" sx={{ mb: 2 }}>Your current institution workflow access is approve only. Item editing and adding is hidden.</Alert>
         )}
-        <Paper sx={{ height: 640 }}>
-          <DataGrid rows={rows} columns={queueColumns} loading={loading} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} processRowUpdate={processUpdate} onProcessRowUpdateError={(err) => setError(err.message)} />
-        </Paper>
+        {isInstitution && selectedDepartment && (
+          <>
+            <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1.5} sx={{ mb: 1 }}>
+              <Box>
+                <Typography variant="h6" fontWeight={900}>{selectedDepartment} category summary</Typography>
+                <Typography color="text.secondary">Approve or reject selected categories, or use the item grid below for line-level action.</Typography>
+              </Box>
+              <Stack direction="row" spacing={1}>
+                <Button variant="outlined" onClick={() => setSelectedDepartment("")}>Back to Departments</Button>
+                <Button variant="contained" disabled={saving || !selectedCategories.length} onClick={() => approveMany(rowsForSelectedCategories, "categories")}>Approve Selected Categories</Button>
+                <Button variant="outlined" color="error" disabled={saving || !selectedCategories.length} onClick={() => rejectMany(rowsForSelectedCategories, "categories")}>Reject Selected Categories</Button>
+              </Stack>
+            </Stack>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12} lg={7}>
+                <Paper sx={{ p: 1, borderRadius: 2 }}>
+                  <DataGrid
+                    rows={categorySummary}
+                    columns={summaryColumns}
+                    checkboxSelection
+                    disableRowSelectionOnClick
+                    autoHeight
+                    loading={loading}
+                    rowSelectionModel={selectedCategories}
+                    onRowSelectionModelChange={(ids) => setSelectedCategories(Array.from(ids))}
+                    slots={{ toolbar: GridToolbar }}
+                    pageSizeOptions={[10, 25, 50, 100]}
+                    initialState={{ pagination: { paginationModel: { pageSize: 10, page: 0 } } }}
+                  />
+                </Paper>
+              </Grid>
+              <Grid item xs={12} lg={5}>
+                <ChartPanel title={`${selectedDepartment} category share`}>
+                  <ResponsiveContainer width="100%" height="88%">
+                    <PieChart>
+                      <Pie data={categorySummary} dataKey="amount" nameKey="name" outerRadius={95} label>
+                        {categorySummary.map((entry, index) => <Cell key={entry.name} fill={chartColors[index % chartColors.length]} />)}
+                      </Pie>
+                      <Tooltip formatter={(value) => money(value)} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </ChartPanel>
+              </Grid>
+            </Grid>
+            <Paper sx={{ p: 1, borderRadius: 2, overflowX: "auto" }}>
+              <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1.5} sx={{ p: 1 }}>
+                <Typography variant="h6" fontWeight={900}>Details for {selectedDepartment}</Typography>
+                <Stack direction="row" spacing={1}>
+                  <Button variant="contained" disabled={saving || !selectedItems.length} onClick={() => approveMany(rowsForSelectedItems, "items")}>Approve Selected Items</Button>
+                  <Button variant="outlined" color="error" disabled={saving || !selectedItems.length} onClick={() => rejectMany(rowsForSelectedItems, "items")}>Reject Selected Items</Button>
+                </Stack>
+              </Stack>
+              <DataGrid
+                rows={selectedDepartmentRows}
+                columns={queueColumns}
+                checkboxSelection
+                disableRowSelectionOnClick
+                loading={loading}
+                autoHeight
+                rowSelectionModel={selectedItems}
+                onRowSelectionModelChange={(ids) => setSelectedItems(Array.from(ids))}
+                slots={{ toolbar: GridToolbar }}
+                pageSizeOptions={[10, 25, 50, 100]}
+                processRowUpdate={processUpdate}
+                onProcessRowUpdateError={(err) => setError(err.message)}
+                sx={{ minWidth: 1500 }}
+              />
+            </Paper>
+          </>
+        )}
+        {!isInstitution && (
+          <Paper sx={{ height: 640 }}>
+            <DataGrid rows={rows} columns={queueColumns} loading={loading} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} processRowUpdate={processUpdate} onProcessRowUpdateError={(err) => setError(err.message)} />
+          </Paper>
+        )}
       </Box>
     </MenuPageShell>
   );
@@ -1117,6 +1372,248 @@ export function NewBudgetAnalysisPage() {
                 disableRowSelectionOnClick
               />
             </Box>
+          </Paper>
+        </Box>
+      </Box>
+    </MenuPageShell>
+  );
+}
+
+export function NewBudgetDepartmentReportPage() {
+  const { error, message, setError } = useMessage();
+  const [academicyear, setAcademicyear] = useState(years[0]);
+  const [rows, setRows] = useState([]);
+  const [institution, setInstitution] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [selectedDepartment, setSelectedDepartment] = useState("");
+
+  const loadRows = async () => {
+    setLoading(true);
+    try {
+      const res = await ep1.get("/api/v2/newbudget/items", {
+        params: { colid: global1.colid, academicyear, status: "Approved" }
+      });
+      setRows((res.data.data || []).map((row) => ({ ...row, id: row._id })));
+      setSelectedDepartment("");
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || "Unable to load approved budget report.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadInstitution = async () => {
+    try {
+      const res = await ep1.get("/api/institution", { params: { colid: global1.colid } });
+      const data = Array.isArray(res.data) ? res.data[0] : res.data;
+      setInstitution(data || null);
+    } catch {
+      setInstitution(null);
+    }
+  };
+
+  useEffect(() => {
+    loadInstitution();
+  }, []);
+
+  useEffect(() => {
+    if (academicyear) loadRows();
+  }, [academicyear]);
+
+  const departmentSummary = useMemo(() => {
+    const map = new Map();
+    rows.forEach((row) => {
+      const department = row.department || "Not specified";
+      const current = map.get(department) || {
+        id: department,
+        department,
+        items: 0,
+        approvedamount: 0,
+        categories: new Set()
+      };
+      current.items += 1;
+      current.approvedamount += Number(row.amount || 0);
+      if (row.category) current.categories.add(row.category);
+      map.set(department, current);
+    });
+    return [...map.values()]
+      .map((item) => ({ ...item, categories: item.categories.size }))
+      .sort((a, b) => b.approvedamount - a.approvedamount);
+  }, [rows]);
+
+  const selectedItems = useMemo(() => (
+    selectedDepartment
+      ? rows.filter((row) => String(row.department || "Not specified") === selectedDepartment)
+      : rows
+  ), [rows, selectedDepartment]);
+
+  const categorySummary = useMemo(() => {
+    const map = new Map();
+    selectedItems.forEach((row) => {
+      const category = row.category || "Not specified";
+      const current = map.get(category) || { id: category, name: category, items: 0, amount: 0 };
+      current.items += 1;
+      current.amount += Number(row.amount || 0);
+      map.set(category, current);
+    });
+    return [...map.values()].sort((a, b) => b.amount - a.amount);
+  }, [selectedItems]);
+
+  const totalApproved = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const selectedTotal = selectedItems.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+
+  const departmentColumns = [
+    { field: "department", headerName: "Department", minWidth: 220, flex: 1 },
+    { field: "items", headerName: "Items", width: 120, type: "number" },
+    { field: "categories", headerName: "Categories", width: 140, type: "number" },
+    { field: "approvedamount", headerName: "Approved budget", minWidth: 180, valueFormatter: (params) => money(params.value) }
+  ];
+
+  const itemColumns = [
+    { field: "academicyear", headerName: "Academic year", minWidth: 130 },
+    { field: "department", headerName: "Department", minWidth: 170 },
+    { field: "category", headerName: "Category", minWidth: 170 },
+    { field: "categorytype", headerName: "Type", minWidth: 140 },
+    { field: "item", headerName: "Item", minWidth: 260, flex: 1 },
+    { field: "amount", headerName: "Approved amount", minWidth: 170, valueFormatter: (params) => money(params.value) },
+    { field: "submittedbyname", headerName: "Submitted by", minWidth: 170 },
+    { field: "approvedat", headerName: "Approved at", minWidth: 180, valueGetter: (params) => params.row.approvedat ? new Date(params.row.approvedat).toLocaleString() : "" },
+    { field: "remarks", headerName: "Remarks", minWidth: 220 }
+  ];
+
+  const StatCard = ({ label, value, color }) => (
+    <Paper variant="outlined" sx={{ p: 1.5, borderLeft: `5px solid ${color}`, borderColor: color, bgcolor: "#fff" }}>
+      <Typography variant="body2" color="text.secondary">{label}</Typography>
+      <Typography variant="h6" fontWeight={900}>{value}</Typography>
+    </Paper>
+  );
+
+  return (
+    <MenuPageShell title="Budget department report">
+      <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
+        <style>{`
+          @media print {
+            body * { visibility: hidden; }
+            #new-budget-department-report-print, #new-budget-department-report-print * { visibility: visible; }
+            #new-budget-department-report-print { position: absolute; left: 0; top: 0; width: 100%; background: #fff; padding: 14px; }
+            .screen-only { display: none !important; }
+            .MuiDataGrid-footerContainer, .MuiDataGrid-toolbarContainer { display: none !important; }
+          }
+        `}</style>
+
+        <Paper className="screen-only" elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
+          <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2}>
+            <Box>
+              <Typography variant="h5" fontWeight={900}>Budget department report</Typography>
+              <Typography color="text.secondary">Select academic year, review approved budget departmentwise, then click a department to view item details.</Typography>
+            </Box>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+              <FormControl size="small" sx={{ minWidth: 160 }}>
+                <InputLabel>Academic year</InputLabel>
+                <Select label="Academic year" value={academicyear} onChange={(event) => setAcademicyear(event.target.value)}>
+                  {years.map((year) => <MenuItem key={year} value={year}>{year}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <Button variant="outlined" startIcon={<Refresh />} onClick={loadRows} disabled={loading}>Refresh</Button>
+              <Button variant="contained" onClick={() => window.print()}>Print preview</Button>
+            </Stack>
+          </Stack>
+          {loading && <LinearProgress sx={{ mt: 2 }} />}
+        </Paper>
+
+        <StatusAlert error={error} message={message} />
+
+        <Box id="new-budget-department-report-print">
+          <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #d1d5db", borderRadius: 2 }}>
+            <Stack alignItems="center" spacing={0.5} sx={{ textAlign: "center", mb: 2 }}>
+              {institution?.logolink && <Box component="img" src={institution.logolink} alt="Logo" sx={{ height: 68, maxWidth: 150, objectFit: "contain" }} />}
+              <Typography variant="h6" fontWeight={900}>{institution?.institutionname || global1.insname || "Institution"}</Typography>
+              <Typography variant="body2">{institution?.address || ""}</Typography>
+              <Typography variant="h6" fontWeight={900} sx={{ mt: 1 }}>Department wise approved budget report</Typography>
+              <Typography variant="body2">Academic year: {academicyear}</Typography>
+            </Stack>
+
+            <Grid container spacing={1.5} sx={{ mb: 2 }}>
+              <Grid item xs={12} md={3}><StatCard label="Departments" value={departmentSummary.length} color="#2563eb" /></Grid>
+              <Grid item xs={12} md={3}><StatCard label="Approved items" value={rows.length} color="#16a34a" /></Grid>
+              <Grid item xs={12} md={3}><StatCard label="Total approved budget" value={money(totalApproved)} color="#7c3aed" /></Grid>
+              <Grid item xs={12} md={3}><StatCard label={selectedDepartment ? `${selectedDepartment} total` : "Selected total"} value={money(selectedTotal)} color="#f97316" /></Grid>
+            </Grid>
+
+            <Grid container spacing={2} sx={{ mb: 2 }}>
+              <Grid item xs={12} md={7}>
+                <Paper variant="outlined" sx={{ p: 1, height: 320 }}>
+                  <Typography variant="subtitle2" fontWeight={800} sx={{ px: 1 }}>Department wise approved budget</Typography>
+                  <ResponsiveContainer width="100%" height="88%">
+                    <BarChart data={departmentSummary}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="department" hide />
+                      <YAxis tickFormatter={(value) => Number(value || 0).toLocaleString("en-IN")} />
+                      <Tooltip formatter={(value) => money(value)} />
+                      <Legend />
+                      <Bar dataKey="approvedamount" name="Approved budget" fill="#2563eb">
+                        {departmentSummary.map((entry, index) => <Cell key={entry.department} fill={chartColors[index % chartColors.length]} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Paper>
+              </Grid>
+              <Grid item xs={12} md={5}>
+                <Paper variant="outlined" sx={{ p: 1, height: 320 }}>
+                  <Typography variant="subtitle2" fontWeight={800} sx={{ px: 1 }}>{selectedDepartment || "All departments"} category split</Typography>
+                  <ResponsiveContainer width="100%" height="88%">
+                    <PieChart>
+                      <Pie data={categorySummary} dataKey="amount" nameKey="name" outerRadius={95} label>
+                        {categorySummary.map((entry, index) => <Cell key={entry.name} fill={chartColors[index % chartColors.length]} />)}
+                      </Pie>
+                      <Tooltip formatter={(value) => money(value)} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </Paper>
+              </Grid>
+            </Grid>
+
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={5}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                  <Typography variant="subtitle1" fontWeight={900}>Department totals</Typography>
+                  {selectedDepartment && <Button className="screen-only" size="small" onClick={() => setSelectedDepartment("")}>Show all</Button>}
+                </Stack>
+                <Box sx={{ height: 390 }}>
+                  <DataGrid
+                    rows={departmentSummary}
+                    columns={departmentColumns}
+                    loading={loading}
+                    onRowClick={(params) => setSelectedDepartment(params.row.department)}
+                    slots={{ toolbar: GridToolbar }}
+                    slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "department_approved_budget" } } }}
+                    pageSizeOptions={[10, 25, 50, 100]}
+                    sx={{ cursor: "pointer" }}
+                  />
+                </Box>
+              </Grid>
+              <Grid item xs={12} md={7}>
+                <Typography variant="subtitle1" fontWeight={900} sx={{ mb: 1 }}>
+                  {selectedDepartment ? `${selectedDepartment} item details` : "All approved item details"}
+                </Typography>
+                <Box sx={{ height: 390 }}>
+                  <DataGrid
+                    rows={selectedItems}
+                    columns={itemColumns}
+                    loading={loading}
+                    slots={{ toolbar: GridToolbar }}
+                    slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: selectedDepartment ? `${selectedDepartment}_budget_items` : "approved_budget_items" } } }}
+                    pageSizeOptions={[10, 25, 50, 100]}
+                    disableRowSelectionOnClick
+                  />
+                </Box>
+              </Grid>
+            </Grid>
+
+            <Grid container spacing={4} sx={{ mt: 4 }}>
+              <Grid item xs={6}><Box sx={{ borderTop: "1px solid #111827", pt: 1 }}><Typography variant="body2">Prepared By</Typography></Box></Grid>
+              <Grid item xs={6}><Box sx={{ borderTop: "1px solid #111827", pt: 1 }}><Typography variant="body2">Approved By</Typography></Box></Grid>
+            </Grid>
           </Paper>
         </Box>
       </Box>

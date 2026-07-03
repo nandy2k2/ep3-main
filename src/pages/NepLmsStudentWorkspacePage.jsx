@@ -42,10 +42,12 @@ export default function NepLmsStudentWorkspacePage() {
   const [submissions, setSubmissions] = useState([]);
   const [upcomingAssignments, setUpcomingAssignments] = useState([]);
   const [activeQuizzes, setActiveQuizzes] = useState([]);
+  const [lessonContent, setLessonContent] = useState([]);
   const [quizAttempts, setQuizAttempts] = useState([]);
   const [selectedAssignmentId, setSelectedAssignmentId] = useState("");
   const [selectedQuizId, setSelectedQuizId] = useState("");
   const [quizAnswers, setQuizAnswers] = useState({});
+  const [flippedFlashcards, setFlippedFlashcards] = useState({});
   const [comments, setComments] = useState("");
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -87,6 +89,7 @@ export default function NepLmsStudentWorkspacePage() {
       setSubmissions([]);
       setUpcomingAssignments([]);
       setActiveQuizzes([]);
+      setLessonContent([]);
       setQuizAttempts([]);
     }
   }, [courseId]);
@@ -134,12 +137,53 @@ export default function NepLmsStudentWorkspacePage() {
       setUpcomingAssignments(res.data?.upcomingAssignments || []);
       setActiveQuizzes(res.data?.activeQuizzes || []);
       setQuizAttempts(res.data?.quizAttempts || []);
+      await loadLessonContent(course);
       setSelectedQuizId((res.data?.activeQuizzes || [])[0]?._id || "");
       setQuizAnswers({});
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load course workspace");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadLessonContent = async (course = selectedCourse) => {
+    if (!course) {
+      setLessonContent([]);
+      return;
+    }
+    try {
+      const res = await ep1.get("/api/v2/neplms/student-workspace/lesson-content", {
+        params: baseParams({
+          academicyear: course.academicyear,
+          semester: course.semester,
+          coursecode: course.coursecode
+        })
+      });
+      setLessonContent(res.data?.data || []);
+    } catch (err) {
+      setLessonContent([]);
+      setError(err.response?.data?.message || "Unable to load lesson content");
+    }
+  };
+
+  const completeLessonContent = async (content) => {
+    try {
+      setSubmitting(true);
+      setError("");
+      setMessage("");
+      await ep1.post("/api/v2/neplms/student-workspace/lesson-content-complete", {
+        colid: global1.colid,
+        regno: global1.regno,
+        user: global1.user,
+        contentid: content._id
+      });
+      setMessage("Content completed.");
+      await loadLessonContent();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to complete content");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -322,6 +366,199 @@ export default function NepLmsStudentWorkspacePage() {
     </Paper>
   );
 
+  const renderLessonContentItem = (item) => {
+    const locked = Boolean(item.locked);
+    const completed = Boolean(item.completed);
+    const isQuiz = item.contenttype === "Quiz";
+    const linkedQuizAttempted = isQuiz && quizAttempts.some((attempt) => String(attempt.quizid) === String(item.quizid));
+    return (
+      <Paper
+        key={item._id}
+        variant="outlined"
+        sx={{
+          p: 2,
+          mb: 2,
+          borderColor: completed ? "success.light" : locked ? "grey.300" : "primary.light",
+          bgcolor: locked ? "#f7f7f7" : "#fff"
+        }}
+      >
+        <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} sx={{ mb: 1 }}>
+          <Box>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
+              <Chip size="small" label={`Seq ${item.sequence}`} color={completed ? "success" : locked ? "default" : "primary"} />
+              <Chip size="small" label={item.contenttype} />
+              {completed && <Chip size="small" label={`Completed ${item.completedat ? new Date(item.completedat).toLocaleString() : ""}`} color="success" />}
+              {locked && <Chip size="small" label="Locked" />}
+            </Stack>
+            <Typography variant="h6">{item.title}</Typography>
+            <Typography variant="body2" color="text.secondary">{item.lessonplantitle}</Typography>
+          </Box>
+          <Button
+            variant={completed ? "outlined" : "contained"}
+            disabled={locked || completed || submitting || (isQuiz && !linkedQuizAttempted)}
+            onClick={() => completeLessonContent(item)}
+          >
+            {completed ? "Completed" : isQuiz && !linkedQuizAttempted ? "Submit quiz first" : "Mark complete"}
+          </Button>
+        </Stack>
+        {item.description && <Typography variant="body2" sx={{ mb: 1 }}>{item.description}</Typography>}
+        {item.topics && <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Topics: {item.topics}</Typography>}
+        {locked ? (
+          <Alert severity="info">Complete the previous content item to access this item.</Alert>
+        ) : (
+          <Box>
+            {["Text", "File Link", "Infographics"].includes(item.contenttype) && item.filelink && (
+              <Button variant="outlined" href={item.filelink} target="_blank" rel="noreferrer">Open file</Button>
+            )}
+            {item.contenttype === "Video Link" && item.videolink && (
+              <Box>
+                <Button variant="outlined" href={item.videolink} target="_blank" rel="noreferrer" sx={{ mb: 1 }}>Open video</Button>
+                {/^https?:\/\//i.test(item.videolink) && (
+                  <Typography variant="caption" display="block" color="text.secondary">After watching the video, mark this item complete.</Typography>
+                )}
+              </Box>
+            )}
+            {item.contenttype === "Quiz" && (
+              <Alert severity={linkedQuizAttempted ? "success" : "warning"}>
+                {linkedQuizAttempted ? "Linked quiz has been submitted. You may mark this item complete." : `Complete the linked quiz: ${item.quiztitle || "Quiz"}.`}
+              </Alert>
+            )}
+            {item.contenttype === "Flash Card" && (
+              <Grid container spacing={2}>
+                {(item.flashcards || []).map((card, index) => {
+                  const key = flashcardKey(item, card, index);
+                  const flipped = Boolean(flippedFlashcards[key]);
+                  return (
+                    <Grid item xs={12} md={6} key={key}>
+                      <Box
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => toggleFlashcard(key)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            toggleFlashcard(key);
+                          }
+                        }}
+                        sx={{
+                          perspective: "1200px",
+                          cursor: "pointer",
+                          outline: "none",
+                          "&:focus-visible .flash-card-inner": {
+                            boxShadow: "0 0 0 3px rgba(25, 118, 210, 0.35)"
+                          }
+                        }}
+                      >
+                        <Box
+                          className="flash-card-inner"
+                          sx={{
+                            position: "relative",
+                            minHeight: 240,
+                            transformStyle: "preserve-3d",
+                            transition: "transform 0.65s cubic-bezier(.2,.7,.2,1)",
+                            transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
+                            borderRadius: 2,
+                            boxShadow: "0 12px 28px rgba(15, 23, 42, 0.16)"
+                          }}
+                        >
+                          <Paper
+                            sx={{
+                              position: "absolute",
+                              inset: 0,
+                              p: 2.5,
+                              display: "flex",
+                              flexDirection: "column",
+                              justifyContent: "space-between",
+                              border: "1px solid #bfdbfe",
+                              bgcolor: "linear-gradient(135deg, #eff6ff 0%, #ffffff 100%)",
+                              backfaceVisibility: "hidden",
+                              borderRadius: 2,
+                              overflow: "hidden"
+                            }}
+                          >
+                            <Box>
+                              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+                                <Chip size="small" color="primary" label={`Card ${index + 1}`} />
+                                <Typography variant="caption" color="text.secondary">Click to flip</Typography>
+                              </Stack>
+                              <Typography variant="overline" color="primary">Question</Typography>
+                              <Typography variant="h6" fontWeight={800} sx={{ mt: 1 }}>{card.question}</Typography>
+                              {card.questionimage && (
+                                <Box
+                                  component="img"
+                                  src={card.questionimage}
+                                  alt="Flash card"
+                                  sx={{ maxWidth: "100%", maxHeight: 110, objectFit: "contain", borderRadius: 1, mt: 1.5 }}
+                                />
+                              )}
+                            </Box>
+                            <Typography variant="caption" color="text.secondary">Reveal the answer after trying it yourself.</Typography>
+                          </Paper>
+                          <Paper
+                            sx={{
+                              position: "absolute",
+                              inset: 0,
+                              p: 2.5,
+                              display: "flex",
+                              flexDirection: "column",
+                              justifyContent: "space-between",
+                              border: "1px solid #bbf7d0",
+                              bgcolor: "#f0fdf4",
+                              backfaceVisibility: "hidden",
+                              transform: "rotateY(180deg)",
+                              borderRadius: 2,
+                              overflow: "hidden"
+                            }}
+                          >
+                            <Box>
+                              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+                                <Chip size="small" color="success" label={`Card ${index + 1}`} />
+                                <Typography variant="caption" color="text.secondary">Click to return</Typography>
+                              </Stack>
+                              <Typography variant="overline" color="success.main">Answer</Typography>
+                              <Typography variant="h6" fontWeight={800} sx={{ mt: 1 }}>{card.answer}</Typography>
+                            </Box>
+                            <Typography variant="caption" color="text.secondary">Use this for quick recall before marking the item complete.</Typography>
+                          </Paper>
+                        </Box>
+                      </Box>
+                    </Grid>
+                  );
+                })}
+              </Grid>
+            )}
+          </Box>
+        )}
+      </Paper>
+    );
+  };
+
+  const flashcardKey = (item, card, index) => `${item._id}-${card._id || index}`;
+
+  const toggleFlashcard = (key) => {
+    setFlippedFlashcards((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const renderLessonContentTab = () => {
+    const lessonGroups = lessonContent.reduce((acc, item) => {
+      const key = item.lessonresourceid || "general";
+      if (!acc[key]) acc[key] = { title: item.lessonplantitle || "Lesson content", rows: [] };
+      acc[key].rows.push(item);
+      return acc;
+    }, {});
+    return (
+      <Box>
+        {!lessonContent.length && <Alert severity="info">No sequential lesson content is available for this course yet.</Alert>}
+        {Object.entries(lessonGroups).map(([key, group]) => (
+          <Paper key={key} sx={{ p: 2, mb: 2 }}>
+            <Typography variant="h6" sx={{ mb: 2 }}>{group.title}</Typography>
+            {group.rows.sort((a, b) => Number(a.sequence || 0) - Number(b.sequence || 0)).map(renderLessonContentItem)}
+          </Paper>
+        ))}
+      </Box>
+    );
+  };
+
   return (
     <Container maxWidth="xl" sx={{ py: 3 }}>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
@@ -394,6 +631,7 @@ export default function NepLmsStudentWorkspacePage() {
           <Tab label="Timetable" />
           <Tab label="My Submissions" />
           <Tab label="Quiz" />
+          <Tab label="Sequential Content" />
         </Tabs>
       </Paper>
 
@@ -531,6 +769,7 @@ export default function NepLmsStudentWorkspacePage() {
           </Paper>
         </Box>
       )}
+      {tab === 7 && renderLessonContentTab()}
     </Container>
   );
 }

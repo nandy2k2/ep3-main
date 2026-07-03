@@ -95,6 +95,51 @@ export function mainListItems({ open }) {
       </Accordion>
 
       <Accordion>
+        <AccordionSummary aria-controls="panel-profile-content" id="panel-profile-header">
+          <AccountCircleIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{fontSize: 14}}>Profile</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+
+        <ListItem button component={RouterLink} to="/studentprofiledynamic">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Profile" />}
+</ListItem>
+
+        <ListItem button component={RouterLink} to="/userdocumentupload">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Upload documents" />}
+</ListItem>
+
+        <ListItem button component={RouterLink} to="/userprofileprint">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Profile print" />}
+</ListItem>
+
+        <ListItem button component={RouterLink} to="/userconsent">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Give consent" />}
+</ListItem>
+
+        <ListItem button component={RouterLink} to="/userconsentwithdraw">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Withdraw consent" />}
+</ListItem>
+
+        </AccordionDetails>
+      </Accordion>
+
+      <Accordion>
         <AccordionSummary aria-controls="panel1-content" id="panel1-header">
           <AccountCircleIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{fontSize: 14}}>Academics</Typography>}
@@ -282,6 +327,30 @@ export function mainListItems({ open }) {
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Hostel dashboard" />}
+</ListItem>
+
+           <ListItem button component={RouterLink} to="/studenthostelbedapply">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Apply for hostel bed" />}
+</ListItem>
+
+        </AccordionDetails>
+        </Accordion>
+
+       <Accordion>
+        <AccordionSummary aria-controls="panel-student-fees-payment-content" id="panel-student-fees-payment-header">
+          <AccountBalanceWalletIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{fontSize: 14}}>Fees payment</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+
+           <ListItem button component={RouterLink} to="/studentonlinefeepayment">
+<ListItemIcon>
+<AccountBalanceWalletIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Pay fees online" />}
 </ListItem>
 
         </AccordionDetails>

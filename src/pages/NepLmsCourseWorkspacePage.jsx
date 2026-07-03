@@ -6,6 +6,7 @@ import {
   Button,
   Checkbox,
   Chip,
+  Divider,
   FormControl,
   Grid,
   InputLabel,
@@ -30,6 +31,19 @@ import global1 from "./global1";
 
 const blankResource = { title: "", module: "", topic: "", description: "", duedate: "", fullmarks: "", file: null };
 const blankQuiz = { title: "", module: "", topic: "", startdatetime: "", enddatetime: "", status: "Active" };
+const blankLessonContent = {
+  lessonresourceid: "",
+  sequence: "1",
+  contenttype: "Text",
+  title: "",
+  description: "",
+  topics: "",
+  filelink: "",
+  videolink: "",
+  quizid: "",
+  flashcards: [{ question: "", questionimage: "", answer: "" }]
+};
+const blankLessonAiForm = { provider: "Gemini", geminiModel: "gemini-2.5-flash", ollamaConfigId: "", language: "English", flashcardcount: "6" };
 const blankQuestion = {
   sectionid: "",
   question: "",
@@ -44,6 +58,7 @@ const blankQuestion = {
 const blankAiQuestionForm = { provider: "Gemini", questioncount: "5", difficulty: "Medium", language: "English" };
 const blankAiResourceForm = { provider: "Gemini", geminiModel: "gemini-2.5-flash", difficulty: "Medium", language: "English", noofclasses: "4" };
 const aiProviders = ["Gemini", "ChatGPT", "Claude"];
+const lessonContentTypes = ["Text", "File Link", "Infographics", "Video Link", "Quiz", "Flash Card"];
 const geminiModels = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
 const difficultyLevels = ["Easy", "Medium", "Hard"];
 const languages = [
@@ -134,6 +149,9 @@ export default function NepLmsCourseWorkspacePage() {
   const [coursecode, setCoursecode] = useState("");
   const [tab, setTab] = useState(0);
   const [resources, setResources] = useState([]);
+  const [lessonContents, setLessonContents] = useState([]);
+  const [lessonProgress, setLessonProgress] = useState([]);
+  const [selectedLessonResourceId, setSelectedLessonResourceId] = useState("");
   const [syllabusRows, setSyllabusRows] = useState([]);
   const [timetable, setTimetable] = useState([]);
   const [timetableTab, setTimetableTab] = useState(0);
@@ -145,6 +163,10 @@ export default function NepLmsCourseWorkspacePage() {
   const [gradingForm, setGradingForm] = useState({ id: "", student: "", fullmarks: "", marks: "", facultycomments: "" });
   const [resourceForm, setResourceForm] = useState(blankResource);
   const [lessonForm, setLessonForm] = useState(blankResource);
+  const [lessonContentForm, setLessonContentForm] = useState(blankLessonContent);
+  const [lessonAiForm, setLessonAiForm] = useState(blankLessonAiForm);
+  const [editingLessonContentId, setEditingLessonContentId] = useState("");
+  const [ollamaConfigs, setOllamaConfigs] = useState([]);
   const [quizForm, setQuizForm] = useState(blankQuiz);
   const [sectionTitle, setSectionTitle] = useState("");
   const [questionForm, setQuestionForm] = useState(blankQuestion);
@@ -152,6 +174,8 @@ export default function NepLmsCourseWorkspacePage() {
   const [aiResourceForm, setAiResourceForm] = useState(blankAiResourceForm);
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
   const [generatingResourceType, setGeneratingResourceType] = useState("");
+  const [generatingLessonFile, setGeneratingLessonFile] = useState(false);
+  const [generatingFlashcards, setGeneratingFlashcards] = useState(false);
   const [editingResourceId, setEditingResourceId] = useState("");
   const [editingResourceType, setEditingResourceType] = useState("");
   const [editingQuizId, setEditingQuizId] = useState("");
@@ -164,11 +188,28 @@ export default function NepLmsCourseWorkspacePage() {
 
   useEffect(() => {
     loadCourses();
+    loadOllamaConfigs();
   }, []);
 
   useEffect(() => {
     if (selectedCourse) loadCourseData();
   }, [coursecode]);
+
+  useEffect(() => {
+    const lessons = resources.filter((row) => row.resourcetype === "Lesson Plan");
+    if (!selectedLessonResourceId && lessons.length) {
+      setSelectedLessonResourceId(lessons[0]._id);
+      setLessonContentForm((prev) => ({ ...prev, lessonresourceid: lessons[0]._id }));
+    }
+    if (selectedLessonResourceId && lessons.some((row) => row._id === selectedLessonResourceId)) {
+      loadLessonContent(selectedLessonResourceId);
+    }
+    if (selectedLessonResourceId && !lessons.some((row) => row._id === selectedLessonResourceId)) {
+      setSelectedLessonResourceId("");
+      setLessonContents([]);
+      setLessonProgress([]);
+    }
+  }, [resources, selectedLessonResourceId]);
 
   const loadCourses = async () => {
     try {
@@ -190,6 +231,15 @@ export default function NepLmsCourseWorkspacePage() {
       setError(err.response?.data?.message || "Unable to load assigned courses");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadOllamaConfigs = async () => {
+    try {
+      const res = await ep1.get("/api/v2/ollama-configuration", { params: { colid: global1.colid } });
+      setOllamaConfigs((res.data?.data || []).filter((item) => String(item.active || "").toLowerCase() === "yes"));
+    } catch (err) {
+      setOllamaConfigs([]);
     }
   };
 
@@ -296,6 +346,172 @@ export default function NepLmsCourseWorkspacePage() {
     } catch (err) {
       setAssignmentSubmissions([]);
       setError(err.response?.data?.message || "Unable to load assignment submissions");
+    }
+  };
+
+  const loadLessonContent = async (lessonId = selectedLessonResourceId) => {
+    if (!selectedCourse || !lessonId) {
+      setLessonContents([]);
+      setLessonProgress([]);
+      return;
+    }
+    try {
+      const params = {
+        colid: global1.colid,
+        lessonresourceid: lessonId,
+        academicyear: selectedCourse.academicyear,
+        semester: selectedCourse.semester,
+        coursecode: selectedCourse.coursecode,
+        facultyemail: global1.user
+      };
+      const [contentRes, progressRes] = await Promise.all([
+        ep1.get("/api/v2/neplms/lesson-content", { params }),
+        ep1.get("/api/v2/neplms/lesson-content/progress", { params })
+      ]);
+      setLessonContents(contentRes.data?.data || []);
+      setLessonProgress(progressRes.data?.data || []);
+    } catch (err) {
+      setLessonContents([]);
+      setLessonProgress([]);
+      setError(err.response?.data?.message || "Unable to load lesson content");
+    }
+  };
+
+  const uploadLessonContentFile = async (file, applyLink) => {
+    if (!file) return;
+    try {
+      setError("");
+      const data = new FormData();
+      data.append("colid", global1.colid || "");
+      data.append("coursecode", selectedCourse?.coursecode || "");
+      data.append("file", file);
+      const res = await ep1.post("/api/v2/neplms/lesson-content/upload", data, { headers: { "Content-Type": "multipart/form-data" } });
+      applyLink(res.data?.url || res.data?.data?.filelink || "");
+      setMessage("File uploaded to AWS");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to upload file");
+    }
+  };
+
+  const saveLessonContent = async () => {
+    if (!selectedCourse || !selectedLessonResourceId) {
+      setError("Select a lesson plan first");
+      return;
+    }
+    if (!lessonContentForm.title) {
+      setError("Title is required");
+      return;
+    }
+    try {
+      setError("");
+      setMessage("");
+      const lesson = resources.find((row) => row._id === selectedLessonResourceId);
+      await ep1.post("/api/v2/neplms/lesson-content", {
+        ...coursePayload(),
+        ...lessonContentForm,
+        id: editingLessonContentId,
+        lessonresourceid: selectedLessonResourceId,
+        lessonplantitle: lesson?.title || "",
+        quiztitle: quizzes.find((quiz) => quiz._id === lessonContentForm.quizid)?.title || "",
+        flashcards: lessonContentForm.flashcards
+      });
+      setLessonContentForm({ ...blankLessonContent, lessonresourceid: selectedLessonResourceId, sequence: String((lessonContents.length || 0) + 1) });
+      setEditingLessonContentId("");
+      setMessage("Lesson sequence content saved");
+      loadLessonContent(selectedLessonResourceId);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to save lesson content");
+    }
+  };
+
+  const editLessonContent = (row) => {
+    setEditingLessonContentId(row._id);
+    setLessonContentForm({
+      lessonresourceid: row.lessonresourceid || selectedLessonResourceId,
+      sequence: String(row.sequence || 1),
+      contenttype: row.contenttype || "Text",
+      title: row.title || "",
+      description: row.description || "",
+      topics: row.topics || "",
+      filelink: row.filelink || "",
+      videolink: row.videolink || "",
+      quizid: row.quizid || "",
+      flashcards: row.flashcards?.length ? row.flashcards : [{ question: "", questionimage: "", answer: "" }]
+    });
+  };
+
+  const deleteLessonContent = async (row) => {
+    if (!window.confirm("Delete this lesson content and related progress?")) return;
+    try {
+      await ep1.post("/api/v2/neplms/lesson-content/delete", { id: row._id, colid: global1.colid });
+      setMessage("Lesson content deleted");
+      loadLessonContent(selectedLessonResourceId);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete lesson content");
+    }
+  };
+
+  const generateLessonTextFile = async () => {
+    if (!selectedLessonResourceId || !lessonContentForm.title) {
+      setError("Select lesson plan and enter title before generating content");
+      return;
+    }
+    try {
+      setGeneratingLessonFile(true);
+      setError("");
+      setMessage("");
+      const lesson = resources.find((row) => row._id === selectedLessonResourceId);
+      const res = await ep1.post("/api/v2/neplms/lesson-content/generate-file", {
+        ...coursePayload(),
+        ...lessonContentForm,
+        lessonresourceid: selectedLessonResourceId,
+        lessonplantitle: lesson?.title || "",
+        provider: lessonAiForm.provider,
+        model: lessonAiForm.geminiModel,
+        ollamaConfigId: lessonAiForm.ollamaConfigId,
+        language: lessonAiForm.language
+      });
+      setLessonContentForm((prev) => ({ ...prev, contenttype: "Text", filelink: res.data?.url || "" }));
+      setMessage("AI text file created and uploaded to AWS");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to generate lesson content file");
+    } finally {
+      setGeneratingLessonFile(false);
+    }
+  };
+
+  const generateLessonFlashcards = async () => {
+    if (!selectedLessonResourceId || !lessonContentForm.title) {
+      setError("Select lesson plan and enter title before generating flashcards");
+      return;
+    }
+    try {
+      setGeneratingFlashcards(true);
+      setError("");
+      setMessage("");
+      const lesson = resources.find((row) => row._id === selectedLessonResourceId);
+      const res = await ep1.post("/api/v2/neplms/lesson-content/generate-flashcards", {
+        ...coursePayload(),
+        ...lessonContentForm,
+        contenttype: "Flash Card",
+        lessonresourceid: selectedLessonResourceId,
+        lessonplantitle: lesson?.title || "",
+        provider: lessonAiForm.provider,
+        model: lessonAiForm.geminiModel,
+        ollamaConfigId: lessonAiForm.ollamaConfigId,
+        language: lessonAiForm.language,
+        flashcardcount: lessonAiForm.flashcardcount
+      });
+      setLessonContentForm((prev) => ({
+        ...prev,
+        contenttype: "Flash Card",
+        flashcards: res.data?.data?.length ? res.data.data : prev.flashcards
+      }));
+      setMessage("AI flashcards created. Review and save them.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to generate flashcards");
+    } finally {
+      setGeneratingFlashcards(false);
     }
   };
 
@@ -757,6 +973,47 @@ export default function NepLmsCourseWorkspacePage() {
     }
   ];
 
+  const lessonContentColumns = [
+    { field: "sequence", headerName: "Seq", width: 80 },
+    { field: "contenttype", headerName: "Type", width: 140 },
+    { field: "title", headerName: "Title", width: 220 },
+    { field: "topics", headerName: "Topics", width: 220 },
+    { field: "description", headerName: "Description", width: 260 },
+    { field: "quiztitle", headerName: "Quiz", width: 180 },
+    {
+      field: "filelink",
+      headerName: "File",
+      width: 110,
+      renderCell: (params) => params.value ? <Button size="small" href={params.value} target="_blank" rel="noreferrer">Open</Button> : "-"
+    },
+    {
+      field: "videolink",
+      headerName: "Video",
+      width: 110,
+      renderCell: (params) => params.value ? <Button size="small" href={params.value} target="_blank" rel="noreferrer">Open</Button> : "-"
+    },
+    {
+      field: "actions",
+      type: "actions",
+      headerName: "Actions",
+      width: 110,
+      getActions: (params) => [
+        <GridActionsCellItem icon={<Edit />} label="Edit" onClick={() => editLessonContent(params.row)} />,
+        <GridActionsCellItem icon={<Delete />} label="Delete" onClick={() => deleteLessonContent(params.row)} />
+      ]
+    }
+  ];
+
+  const lessonProgressColumns = [
+    { field: "contenttitle", headerName: "Content", width: 240 },
+    { field: "sequence", headerName: "Seq", width: 80 },
+    { field: "contenttype", headerName: "Type", width: 140 },
+    { field: "student", headerName: "Student", width: 180 },
+    { field: "regno", headerName: "Reg No", width: 130 },
+    { field: "email", headerName: "Email", width: 220 },
+    { field: "completedat", headerName: "Completed At", width: 190, valueGetter: (params) => params.row.completedat ? new Date(params.row.completedat).toLocaleString() : "" }
+  ];
+
   const timetableColumns = [
     { field: "program", headerName: "Program", width: 180 },
     { field: "faculty", headerName: "Faculty", width: 180 },
@@ -1030,6 +1287,254 @@ export default function NepLmsCourseWorkspacePage() {
       </Paper>
     </Box>
   );
+
+  const updateFlashcard = (index, key, value) => {
+    setLessonContentForm((prev) => ({
+      ...prev,
+      flashcards: (prev.flashcards || []).map((card, cardIndex) => (
+        cardIndex === index ? { ...card, [key]: value } : card
+      ))
+    }));
+  };
+
+  const renderLessonSequencePanel = () => {
+    const lessonOptions = resourceRows("Lesson Plan");
+    return (
+      <Box>
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>Sequential Lesson Content</Typography>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={8}>
+              <FormControl fullWidth>
+                <InputLabel>Lesson Plan Item</InputLabel>
+                <Select
+                  label="Lesson Plan Item"
+                  value={selectedLessonResourceId}
+                  onChange={(e) => {
+                    setSelectedLessonResourceId(e.target.value);
+                    setLessonContentForm({ ...blankLessonContent, lessonresourceid: e.target.value, sequence: "1" });
+                    setEditingLessonContentId("");
+                  }}
+                >
+                  {lessonOptions.map((lesson) => (
+                    <MenuItem key={lesson._id} value={lesson._id}>
+                      {lesson.title || lesson.originalname || "Untitled lesson"} {lesson.module ? `| ${lesson.module}` : ""} {lesson.topic ? `| ${lesson.topic}` : ""}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Button fullWidth variant="outlined" startIcon={<Refresh />} sx={{ height: 56 }} onClick={() => loadLessonContent(selectedLessonResourceId)}>
+                Refresh Sequence
+              </Button>
+            </Grid>
+            {!lessonOptions.length && (
+              <Grid item xs={12}>
+                <Alert severity="info">Upload or create a lesson plan first. Then add sequential content against each lesson plan item.</Alert>
+              </Grid>
+            )}
+          </Grid>
+        </Paper>
+
+        {selectedLessonResourceId && (
+          <Paper sx={{ p: 2, mb: 2 }}>
+            <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 2 }}>
+              {editingLessonContentId ? "Edit content item" : "Add content item"}
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={1.5}>
+                <TextField fullWidth type="number" label="Sequence" value={lessonContentForm.sequence} onChange={(e) => setLessonContentForm((prev) => ({ ...prev, sequence: e.target.value }))} />
+              </Grid>
+              <Grid item xs={12} md={2.5}>
+                <FormControl fullWidth>
+                  <InputLabel>Content Type</InputLabel>
+                  <Select label="Content Type" value={lessonContentForm.contenttype} onChange={(e) => setLessonContentForm((prev) => ({ ...prev, contenttype: e.target.value }))}>
+                    {lessonContentTypes.map((type) => <MenuItem key={type} value={type}>{type}</MenuItem>)}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={4}><TextField fullWidth label="Title" value={lessonContentForm.title} onChange={(e) => setLessonContentForm((prev) => ({ ...prev, title: e.target.value }))} /></Grid>
+              <Grid item xs={12} md={4}><TextField fullWidth label="Topics" value={lessonContentForm.topics} onChange={(e) => setLessonContentForm((prev) => ({ ...prev, topics: e.target.value }))} /></Grid>
+              <Grid item xs={12}><TextField fullWidth multiline minRows={2} label="Description" value={lessonContentForm.description} onChange={(e) => setLessonContentForm((prev) => ({ ...prev, description: e.target.value }))} /></Grid>
+
+              {["Text", "File Link", "Infographics"].includes(lessonContentForm.contenttype) && (
+                <>
+                  <Grid item xs={12} md={8}>
+                    <TextField fullWidth label="File Link" value={lessonContentForm.filelink} onChange={(e) => setLessonContentForm((prev) => ({ ...prev, filelink: e.target.value }))} />
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <Button component="label" fullWidth variant="outlined" startIcon={<UploadFile />} sx={{ height: 56 }}>
+                      Upload file to AWS
+                      <input hidden type="file" onChange={(e) => uploadLessonContentFile(e.target.files?.[0], (url) => setLessonContentForm((prev) => ({ ...prev, filelink: url })))} />
+                    </Button>
+                  </Grid>
+                </>
+              )}
+
+              {lessonContentForm.contenttype === "Video Link" && (
+                <Grid item xs={12}>
+                  <TextField fullWidth label="Video Link" value={lessonContentForm.videolink} onChange={(e) => setLessonContentForm((prev) => ({ ...prev, videolink: e.target.value }))} />
+                </Grid>
+              )}
+
+              {lessonContentForm.contenttype === "Quiz" && (
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Linked Quiz</InputLabel>
+                    <Select label="Linked Quiz" value={String(lessonContentForm.quizid || "")} onChange={(e) => setLessonContentForm((prev) => ({ ...prev, quizid: e.target.value }))}>
+                      <MenuItem value="">Select quiz</MenuItem>
+                      {quizzes.map((quiz) => <MenuItem key={quiz._id} value={quiz._id}>{quiz.title}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              )}
+
+              {lessonContentForm.contenttype === "Flash Card" && (
+                <Grid item xs={12}>
+                  <Stack spacing={2}>
+                    {(lessonContentForm.flashcards || []).map((card, index) => (
+                      <Paper key={`flash-${index}`} variant="outlined" sx={{ p: 2 }}>
+                        <Grid container spacing={2}>
+                          <Grid item xs={12} md={5}><TextField fullWidth label="Front side question" value={card.question} onChange={(e) => updateFlashcard(index, "question", e.target.value)} /></Grid>
+                          <Grid item xs={12} md={4}><TextField fullWidth label="Back side answer" value={card.answer} onChange={(e) => updateFlashcard(index, "answer", e.target.value)} /></Grid>
+                          <Grid item xs={12} md={2}>
+                            <Button component="label" fullWidth variant="outlined" startIcon={<UploadFile />} sx={{ height: 56 }}>
+                              Image
+                              <input hidden type="file" accept="image/*" onChange={(e) => uploadLessonContentFile(e.target.files?.[0], (url) => updateFlashcard(index, "questionimage", url))} />
+                            </Button>
+                          </Grid>
+                          <Grid item xs={12} md={1}>
+                            <Button fullWidth color="error" variant="outlined" sx={{ height: 56 }} onClick={() => setLessonContentForm((prev) => ({ ...prev, flashcards: prev.flashcards.filter((_, cardIndex) => cardIndex !== index) }))}>X</Button>
+                          </Grid>
+                          {card.questionimage && (
+                            <Grid item xs={12}>
+                              <Button size="small" href={card.questionimage} target="_blank" rel="noreferrer">Open uploaded image</Button>
+                            </Grid>
+                          )}
+                        </Grid>
+                      </Paper>
+                    ))}
+                    <Button variant="outlined" startIcon={<Add />} onClick={() => setLessonContentForm((prev) => ({ ...prev, flashcards: [...(prev.flashcards || []), { question: "", questionimage: "", answer: "" }] }))}>
+                      Add flash card
+                    </Button>
+                  </Stack>
+                </Grid>
+              )}
+
+              <Grid item xs={12}>
+                <Divider sx={{ my: 1 }} />
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <FormControl fullWidth>
+                  <InputLabel>AI Provider</InputLabel>
+                  <Select label="AI Provider" value={lessonAiForm.provider} onChange={(e) => setLessonAiForm((prev) => ({ ...prev, provider: e.target.value }))}>
+                    <MenuItem value="Gemini">Gemini</MenuItem>
+                    <MenuItem value="Ollama">Ollama</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              {lessonAiForm.provider === "Gemini" ? (
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth>
+                    <InputLabel>Gemini Model</InputLabel>
+                    <Select label="Gemini Model" value={lessonAiForm.geminiModel} onChange={(e) => setLessonAiForm((prev) => ({ ...prev, geminiModel: e.target.value }))}>
+                      {geminiModels.map((model) => <MenuItem key={model} value={model}>{model}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              ) : (
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth>
+                    <InputLabel>Ollama</InputLabel>
+                    <Select label="Ollama" value={lessonAiForm.ollamaConfigId} onChange={(e) => setLessonAiForm((prev) => ({ ...prev, ollamaConfigId: e.target.value }))}>
+                      {ollamaConfigs.map((item) => <MenuItem key={item._id} value={item._id}>{item.name} - {item.modelname}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              )}
+              <Grid item xs={12} md={3}>
+                <FormControl fullWidth>
+                  <InputLabel>Language</InputLabel>
+                  <Select label="Language" value={lessonAiForm.language} onChange={(e) => setLessonAiForm((prev) => ({ ...prev, language: e.target.value }))}>
+                    {languages.map((language) => <MenuItem key={language} value={language}>{language}</MenuItem>)}
+                  </Select>
+                </FormControl>
+              </Grid>
+              {lessonContentForm.contenttype === "Flash Card" && (
+                <Grid item xs={12} md={2}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="No. of cards"
+                    value={lessonAiForm.flashcardcount}
+                    inputProps={{ min: 1, max: 50 }}
+                    onChange={(e) => setLessonAiForm((prev) => ({ ...prev, flashcardcount: e.target.value }))}
+                  />
+                </Grid>
+              )}
+              {lessonContentForm.contenttype !== "Flash Card" && (
+                <Grid item xs={12} md={4}>
+                  <Button fullWidth variant="outlined" disabled={generatingLessonFile || (lessonAiForm.provider === "Ollama" && !lessonAiForm.ollamaConfigId)} sx={{ height: 56 }} onClick={generateLessonTextFile}>
+                    {generatingLessonFile
+                      ? "Generating file..."
+                      : lessonContentForm.contenttype === "Infographics"
+                        ? "Create infographic with AI"
+                        : "Create text as AWS file"}
+                  </Button>
+                </Grid>
+              )}
+              {lessonContentForm.contenttype === "Flash Card" && (
+                <Grid item xs={12} md={2}>
+                  <Button fullWidth variant="outlined" disabled={generatingFlashcards || (lessonAiForm.provider === "Ollama" && !lessonAiForm.ollamaConfigId)} sx={{ height: 56 }} onClick={generateLessonFlashcards}>
+                    {generatingFlashcards ? "Generating..." : "Create flashcards"}
+                  </Button>
+                </Grid>
+              )}
+              {lessonContentForm.contenttype === "Infographics" && lessonContentForm.filelink && (
+                <Grid item xs={12}>
+                  <Alert severity="success">Infographic file is ready. Review the link and save this content item.</Alert>
+                </Grid>
+              )}
+              <Grid item xs={12}>
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  <Button variant="contained" startIcon={<Save />} onClick={saveLessonContent}>{editingLessonContentId ? "Update content" : "Save content"}</Button>
+                  {editingLessonContentId && (
+                    <Button variant="outlined" onClick={() => { setEditingLessonContentId(""); setLessonContentForm({ ...blankLessonContent, lessonresourceid: selectedLessonResourceId }); }}>Cancel</Button>
+                  )}
+                </Stack>
+              </Grid>
+            </Grid>
+          </Paper>
+        )}
+
+        <Paper sx={{ p: 1, mb: 2, overflowX: "auto" }}>
+          <DataGrid
+            rows={lessonContents.map((row) => ({ ...row, id: row._id }))}
+            columns={lessonContentColumns}
+            autoHeight
+            slots={{ toolbar: GridToolbar }}
+            slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "lesson_sequence_content" } } }}
+            pageSizeOptions={[10, 25, 50, 100]}
+            sx={{ minWidth: 1500 }}
+          />
+        </Paper>
+
+        <Paper sx={{ p: 1, overflowX: "auto" }}>
+          <Typography variant="h6" sx={{ p: 1 }}>Student Completion</Typography>
+          <DataGrid
+            rows={lessonProgress.map((row) => ({ ...row, id: row._id }))}
+            columns={lessonProgressColumns}
+            autoHeight
+            slots={{ toolbar: GridToolbar }}
+            slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "lesson_completion" } } }}
+            pageSizeOptions={[10, 25, 50, 100]}
+            sx={{ minWidth: 1300 }}
+          />
+        </Paper>
+      </Box>
+    );
+  };
 
   const renderTimetableGrid = (rows, fileName) => (
     <Paper sx={{ p: 1, overflowX: "auto" }}>
@@ -1365,7 +1870,12 @@ export default function NepLmsCourseWorkspacePage() {
 
       {tab === 0 && renderUploadTab("Assignment", resourceForm, setResourceForm)}
       {tab === 1 && renderUploadTab("Course Material", resourceForm, setResourceForm)}
-      {tab === 2 && renderUploadTab("Lesson Plan", lessonForm, setLessonForm)}
+      {tab === 2 && (
+        <Box>
+          {renderUploadTab("Lesson Plan", lessonForm, setLessonForm)}
+          <Box sx={{ mt: 2 }}>{renderLessonSequencePanel()}</Box>
+        </Box>
+      )}
       {tab === 3 && (
         <Box>
           <Paper sx={{ p: 2, mb: 2 }}>

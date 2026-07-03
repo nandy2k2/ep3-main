@@ -23,6 +23,7 @@ import {
   ListItemText,
   ListItemIcon,
   Badge,
+  Alert,
 } from "@mui/material";
 import {
   DndContext,
@@ -50,6 +51,8 @@ import {
   Link as LinkIcon,
   Description,
   OpenInNew,
+  Videocam,
+  VideocamOff,
 } from "@mui/icons-material";
 import { useLocation, useNavigate } from "react-router-dom";
 import ep1 from "../api/ep1";
@@ -106,8 +109,9 @@ function DraggableStudent({ student }) {
         }
         alt={student.student}
         sx={{
-          width: 45,
-          height: 45,
+          width: 58,
+          height: 58,
+          fontSize: 24,
           border: "2px solid",
           borderColor: "primary.light",
         }}
@@ -236,6 +240,10 @@ export default function BreakoutRoomManagement() {
   const [linkDialog, setLinkDialog] = useState(false);
   const [viewLinksDialog, setViewLinksDialog] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState(null);
+  const [cameraOn, setCameraOn] = useState(false);
+  const [cameraStream, setCameraStream] = useState(null);
+  const [cameraError, setCameraError] = useState("");
+  const videoRef = React.useRef(null);
 
   // Form states
   const [roomForm, setRoomForm] = useState({
@@ -261,6 +269,35 @@ export default function BreakoutRoomManagement() {
   useEffect(() => {
     fetchEnrolledStudents();
   }, []);
+
+  useEffect(() => {
+    if (videoRef.current && cameraStream) videoRef.current.srcObject = cameraStream;
+  }, [cameraStream]);
+
+  useEffect(() => () => {
+    if (cameraStream) cameraStream.getTracks().forEach((track) => track.stop());
+  }, [cameraStream]);
+
+  const toggleCamera = async () => {
+    setCameraError("");
+    if (cameraOn) {
+      if (cameraStream) cameraStream.getTracks().forEach((track) => track.stop());
+      setCameraStream(null);
+      setCameraOn(false);
+      return;
+    }
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraError("Camera is not supported in this browser.");
+        return;
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      setCameraStream(stream);
+      setCameraOn(true);
+    } catch (err) {
+      setCameraError("Unable to start camera. Please allow camera permission.");
+    }
+  };
 
   useEffect(() => {
     if (enrolledStudents.length > 0) {
@@ -515,8 +552,47 @@ export default function BreakoutRoomManagement() {
               }}
             />
           </Stack>
+          <Stack alignItems="center" spacing={1.5} sx={{ mt: 3 }}>
+            <Typography variant="subtitle1" fontWeight={800}>{global1.name || "Faculty"}</Typography>
+            {cameraOn && cameraStream && (
+              <Box
+                component="video"
+                ref={videoRef}
+                autoPlay
+                muted
+                playsInline
+                sx={{
+                  width: 180,
+                  height: 108,
+                  objectFit: "cover",
+                  borderRadius: 2,
+                  border: "2px solid rgba(255,255,255,0.75)",
+                  boxShadow: "0 12px 28px rgba(15,23,42,0.25)",
+                  backgroundColor: "#0f172a"
+                }}
+              />
+            )}
+            <Avatar sx={{ width: 72, height: 72, fontSize: 30, border: "3px solid rgba(255,255,255,0.85)", bgcolor: "primary.dark" }}>
+              {(global1.name || global1.user || "F").charAt(0).toUpperCase()}
+            </Avatar>
+            <Button
+              startIcon={cameraOn ? <VideocamOff /> : <Videocam />}
+              onClick={toggleCamera}
+              variant="contained"
+              sx={{
+                backgroundColor: "rgba(255,255,255,0.2)",
+                color: "white",
+                fontWeight: 800,
+                "&:hover": { backgroundColor: "rgba(255,255,255,0.3)" }
+              }}
+            >
+              {cameraOn ? "Camera Off" : "Camera On"}
+            </Button>
+          </Stack>
         </Box>
       </Paper>
+
+      {cameraError && <Alert severity="warning" sx={{ mb: 2, borderRadius: 2 }}>{cameraError}</Alert>}
 
       {loading ? (
         <Box

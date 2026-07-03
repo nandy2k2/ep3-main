@@ -930,6 +930,7 @@ import WorkloadAssignmentPage from "./pages/WorkloadAssignmentPage";
 import WorkloadDynamicReportPage from "./pages/WorkloadDynamicReportPage";
 import NepLmsAssignedCoursesPage from "./pages/NepLmsAssignedCoursesPage";
 import NepLmsCourseWorkspacePage from "./pages/NepLmsCourseWorkspacePage";
+import NepLmsQuizAnalyticsPage from "./pages/NepLmsQuizAnalyticsPage";
 import NepLmsClassGroupsPage from "./pages/NepLmsClassGroupsPage";
 import NepLmsClassGroupsAdminPage from "./pages/NepLmsClassGroupsAdminPage";
 import NepLmsAiCourseGenerationPage from "./pages/NepLmsAiCourseGenerationPage";
@@ -941,6 +942,7 @@ import NepLmsRemedialPage from "./pages/NepLmsRemedialPage";
 import NepLmsStudentRemedialPage from "./pages/NepLmsStudentRemedialPage";
 import NepLmsStudentDashboardPage from "./pages/NepLmsStudentDashboardPage";
 import NepLmsFacultyDashboardPage from "./pages/NepLmsFacultyDashboardPage";
+import { DashboardWidgetBuilderPage, DashboardWidgetCatalogPage, DashboardWidgetViewPage } from "./pages/DashboardWidgetPages";
 import MentoringWorkspacePage from "./pages/MentoringWorkspacePage";
 import StudentMentoringWorkspacePage from "./pages/StudentMentoringWorkspacePage";
 import CrmManagementPage from "./pages/CrmManagementPage";
@@ -949,6 +951,7 @@ import CrmReportsPage from "./pages/CrmReportsPage";
 import CrmMyLeadsPage from "./pages/CrmMyLeadsPage";
 import CrmMyFollowupsPage from "./pages/CrmMyFollowupsPage";
 import CrmCounselorMappingPage from "./pages/CrmCounselorMappingPage";
+import NepLmsMasterTimetableReportPage from "./pages/NepLmsMasterTimetableReportPage";
 import NepLmsTimetableManagerPage from "./pages/NepLmsTimetableManagerPage";
 import NepLmsAttendancePage from "./pages/NepLmsAttendancePage";
 import NepLmsGroupAttendancePage from "./pages/NepLmsGroupAttendancePage";
@@ -967,6 +970,7 @@ import NepLmsStudentwiseAttendanceReportPage from "./pages/NepLmsStudentwiseAtte
 import NepLmsStudentCoursewiseAttendanceReportPage from "./pages/NepLmsStudentCoursewiseAttendanceReportPage";
 import NepLmsLowAttendanceReportPage from "./pages/NepLmsLowAttendanceReportPage";
 import NepLmsFacultyCourseLowAttendanceReportPage from "./pages/NepLmsFacultyCourseLowAttendanceReportPage";
+import NepLmsStudentLearningProfilePage from "./pages/NepLmsStudentLearningProfilePage";
 import ConductExamMasterPage from "./pages/ConductExamMasterPage";
 import ConductExamCoursePage from "./pages/ConductExamCoursePage";
 import ConductExamCourseSchedulerPage from "./pages/ConductExamCourseSchedulerPage";
@@ -1005,6 +1009,10 @@ import HrEmployeeAttendanceApprovalPage from "./pages/HrEmployeeAttendanceApprov
 import HostelBuildingRoomPage from "./pages/HostelBuildingRoomPage";
 import HostelAssignmentPage from "./pages/HostelAssignmentPage";
 import HostelVacancyReportPage from "./pages/HostelVacancyReportPage";
+import HostelCardPage from "./pages/HostelCardPage";
+import StudentHostelBedApplyPage from "./pages/StudentHostelBedApplyPage";
+import HostelBedRequestApprovalPage from "./pages/HostelBedRequestApprovalPage";
+import HostelLightBillPage from "./pages/HostelLightBillPage";
 import EmployeeDatabasePage from "./pages/EmployeeDatabasePage";
 import EmployeeDatabaseReportPage from "./pages/EmployeeDatabaseReportPage";
 import EmployeeProfileEditPage from "./pages/EmployeeProfileEditPage";
@@ -1058,12 +1066,30 @@ import DynamicAdmissionToUserPage from "./pages/DynamicAdmissionToUserPage";
 import ProvisionalAdmissionLetterPage from "./pages/ProvisionalAdmissionLetterPage";
 import OfferLetterPage from "./pages/OfferLetterPage";
 import ProgramManagementPage from "./pages/ProgramManagementPage";
+import SchoolClassManagementPage from "./pages/SchoolClassManagementPage";
+import SchoolSyllabusYearPage from "./pages/SchoolSyllabusYearPage";
+import SchoolSubjectGroupPage from "./pages/SchoolSubjectGroupPage";
+import SchoolCourseListPage from "./pages/SchoolCourseListPage";
 import EmailConfigurationPage from "./pages/EmailConfigurationPage";
 import ConfigurationSetupPage from "./pages/ConfigurationSetupPage";
 import AiConfigurationPage from "./pages/AiConfigurationPage";
 import OllamaConfigurationPage from "./pages/OllamaConfigurationPage";
 import UserCustomFieldsPage from "./pages/UserCustomFieldsPage";
 import UserDataUploadPage from "./pages/UserDataUploadPage";
+import UserDocumentRequirementPage from "./pages/UserDocumentRequirementPage";
+import UserDocumentUploadPage from "./pages/UserDocumentUploadPage";
+import UserProfileLayoutPage from "./pages/UserProfileLayoutPage";
+import UserProfileEditPage from "./pages/UserProfileEditPage";
+import UserProfileApprovalWorkflowPage from "./pages/UserProfileApprovalWorkflowPage";
+import UserProfileApprovalPage from "./pages/UserProfileApprovalPage";
+import UserProfileApprovalReportPage from "./pages/UserProfileApprovalReportPage";
+import UserProfilePrintPage from "./pages/UserProfilePrintPage";
+import UserProfileAuditLogPage from "./pages/UserProfileAuditLogPage";
+import UserConsentContentPage from "./pages/UserConsentContentPage";
+import UserConsentPage from "./pages/UserConsentPage";
+import UserConsentWithdrawPage from "./pages/UserConsentWithdrawPage";
+import UserConsentAuditLogPage from "./pages/UserConsentAuditLogPage";
+import MenuSearchPage from "./pages/MenuSearchPage";
 import UserPivotReportPage from "./pages/UserPivotReportPage";
 import UserPivotCountPage from "./pages/UserPivotCountPage";
 import StudentDetailsReportPage from "./pages/StudentDetailsReportPage";
@@ -1276,6 +1302,8 @@ import IciciGatewayPage from "./pages/IciciGatewayPage";
 import EasebuzzPaymentProcessPage from "./pages/EasebuzzPaymentProcessPage";
 import EasebuzzPaymentViewPage from "./pages/EasebuzzPaymentViewPage";
 import IciciPaymentViewPage from "./pages/IciciPaymentViewPage";
+import StudentOnlineFeePaymentPage from "./pages/StudentOnlineFeePaymentPage";
+import StudentOnlinePaymentReportPage from "./pages/StudentOnlinePaymentReportPage";
 import Purchase2CrudPage from "./pages/Purchase2CrudPage";
 
 import FacultyRegistrationFormPage from "./pages/FacultyRegistrationFormPage";
@@ -1450,6 +1478,9 @@ import Dashmconvgh from './pages/Dashmconvgh';
 import Dashmconvghadmin from './pages/Dashmconvghadmin';
 import Dashmconvtransport from './pages/Dashmconvtransport';
 import Dashmconvtransportadmin from './pages/Dashmconvtransportadmin';
+import TransportDriverPage from './pages/TransportDriverPage';
+import TransportDriverRosterPage from './pages/TransportDriverRosterPage';
+import TransportBusPassPage from './pages/TransportBusPassPage';
 import Dashmconvguests from './pages/Dashmconvguests';
 import Dashmconvguestsadmin from './pages/Dashmconvguestsadmin';
 import Dashmconvattendees from './pages/Dashmconvattendees';
@@ -1649,6 +1680,7 @@ import {
   NewBudgetAnalysisPage,
   NewBudgetBlockchainPage,
   NewBudgetBlockchainVerifyPage,
+  NewBudgetDepartmentReportPage,
   NewBudgetDepartmentApprovalPage,
   NewBudgetDepartmentWorkflowPage,
   NewBudgetEntryPage,
@@ -1662,8 +1694,15 @@ import {
   PurchaseNewIndentAuditLogPage,
   PurchaseNewIndentHistoryPage,
   PurchaseNewIndentPage,
+  PurchaseNewItemMasterPage,
+  PurchaseNewAssignedStoreIndentsPage,
   PurchaseNewInstitutionApprovalPage,
   PurchaseNewInstitutionWorkflowPage,
+  PurchaseNewStoreIndentPage,
+  PurchaseNewStoreApprovalPage,
+  PurchaseNewStoreWorkflowPage,
+  PurchaseNewStorePage,
+  PurchaseNewStoreUserAssignmentPage,
   PurchaseNewPoWorkflowPage,
   PurchaseNewFinanceWorkflowPage,
   PurchaseNewRfpWorkflowPage,
@@ -1690,10 +1729,23 @@ import {
   PurchaseNewVendorInvoicePage,
   PurchaseNewQualityPage,
   PurchaseNewInvoiceApprovalPage,
+  PurchaseNewInvoiceAgingPage,
+  PurchaseNewInvoicePaymentPage,
   PurchaseNewInvoiceStatusPage,
   PurchaseNewDeliveryNoteVerifyPage,
   PurchaseNewInvoiceVerifyPage
 } from './pages/PurchaseNewPages';
+import {
+  RequisitionCreatePage,
+  RequisitionDepartmentApprovalPage,
+  RequisitionDepartmentWorkflowPage,
+  RequisitionInstitutionApprovalPage,
+  RequisitionInstitutionWorkflowPage,
+  RequisitionStoreApprovalPage,
+  RequisitionStockRegisterPage,
+  RequisitionStoreViewPage,
+  RequisitionStoreWorkflowPage
+} from './pages/RequisitionPages';
 
 import Dashchattestadmin from './pages/Dashchattestadmin';
 
@@ -2188,6 +2240,21 @@ function App() {
         <Route path="/menuaccesscontrol" element={<MenuAccessControlPage />} />
         <Route path="/usercustomfields" element={<UserCustomFieldsPage />} />
         <Route path="/userdataupload" element={<UserDataUploadPage />} />
+        <Route path="/userdocumentrequirements" element={<UserDocumentRequirementPage />} />
+        <Route path="/userdocumentupload" element={<UserDocumentUploadPage />} />
+        <Route path="/userprofilelayout" element={<UserProfileLayoutPage />} />
+        <Route path="/userprofileedit" element={<UserProfileEditPage />} />
+        <Route path="/studentprofiledynamic" element={<UserProfileEditPage student />} />
+        <Route path="/userprofileapprovalworkflow" element={<UserProfileApprovalWorkflowPage />} />
+        <Route path="/userprofileapproval" element={<UserProfileApprovalPage />} />
+        <Route path="/userprofileapprovalreport" element={<UserProfileApprovalReportPage />} />
+        <Route path="/userprofileprint" element={<UserProfilePrintPage />} />
+        <Route path="/userprofileauditlog" element={<UserProfileAuditLogPage />} />
+        <Route path="/userconsentcontent" element={<UserConsentContentPage />} />
+        <Route path="/userconsent" element={<UserConsentPage />} />
+        <Route path="/userconsentwithdraw" element={<UserConsentWithdrawPage />} />
+        <Route path="/userconsentauditlog" element={<UserConsentAuditLogPage />} />
+        <Route path="/menusearch" element={<MenuSearchPage />} />
 
         <Route path="/dashmhrstructure" element={<Dashmhrstructure />} />
         <Route path="/dashmhrstructureadmin" element={<Dashmhrstructureadmin />} />
@@ -2227,14 +2294,22 @@ function App() {
                                         <Route path="/newbudgetinstitutionapproval" element={<NewBudgetInstitutionApprovalPage />} />
                                         <Route path="/newbudgetauditlog" element={<NewBudgetAuditLogPage />} />
                                         <Route path="/newbudgetanalysis" element={<NewBudgetAnalysisPage />} />
+                                        <Route path="/newbudgetdepartmentreport" element={<NewBudgetDepartmentReportPage />} />
                                         <Route path="/newbudgetblockchain" element={<NewBudgetBlockchainPage />} />
                                         <Route path="/verify-budget-blockchain" element={<NewBudgetBlockchainVerifyPage />} />
                                         <Route path="/purchasenewdepartmentworkflow" element={<PurchaseNewDepartmentWorkflowPage />} />
                                         <Route path="/purchasenewinstitutionworkflow" element={<PurchaseNewInstitutionWorkflowPage />} />
+                                        <Route path="/purchasenewstoreworkflow" element={<PurchaseNewStoreWorkflowPage />} />
+                                        <Route path="/purchasenewstores" element={<PurchaseNewStorePage />} />
+                                        <Route path="/purchasenewitemmaster" element={<PurchaseNewItemMasterPage />} />
+                                        <Route path="/purchasenewstoreusers" element={<PurchaseNewStoreUserAssignmentPage />} />
+                                        <Route path="/purchasenewassignedstoreindents" element={<PurchaseNewAssignedStoreIndentsPage />} />
                                         <Route path="/purchasenewindent" element={<PurchaseNewIndentPage />} />
+                                        <Route path="/purchasenewstoreindent" element={<PurchaseNewStoreIndentPage />} />
                                         <Route path="/purchasenewindenthistory" element={<PurchaseNewIndentHistoryPage />} />
                                         <Route path="/purchasenewdepartmentapproval" element={<PurchaseNewDepartmentApprovalPage />} />
                                         <Route path="/purchasenewinstitutionapproval" element={<PurchaseNewInstitutionApprovalPage />} />
+                                        <Route path="/purchasenewstoreapproval" element={<PurchaseNewStoreApprovalPage />} />
                                         <Route path="/purchasenewapprovedindents" element={<PurchaseNewApprovedIndentsPage />} />
                                         <Route path="/purchasenewindentauditlog" element={<PurchaseNewIndentAuditLogPage />} />
                                         <Route path="/purchasenewpoworkflow" element={<PurchaseNewPoWorkflowPage />} />
@@ -2259,6 +2334,8 @@ function App() {
                                         <Route path="/purchase-new-vendor-invoices" element={<PurchaseNewVendorInvoicePage />} />
                                         <Route path="/purchasenewquality" element={<PurchaseNewQualityPage />} />
                                         <Route path="/purchasenewinvoiceapproval" element={<PurchaseNewInvoiceApprovalPage />} />
+                                        <Route path="/purchasenewinvoicepayment" element={<PurchaseNewInvoicePaymentPage />} />
+                                        <Route path="/purchasenewinvoiceaging" element={<PurchaseNewInvoiceAgingPage />} />
                                         <Route path="/purchasenewinvoicestatus" element={<PurchaseNewInvoiceStatusPage />} />
                                         <Route path="/verify-purchase-rfp-blockchain" element={<PurchaseNewRfpBlockchainVerifyPage />} />
                                         <Route path="/verify-approved-rfps-blockchain" element={<PurchaseNewApprovedRfpsBlockchainVerifyPage />} />
@@ -2266,6 +2343,15 @@ function App() {
                                         <Route path="/verify-purchase-new-po" element={<PurchaseNewPoVerifyPage />} />
                                         <Route path="/verify-purchase-new-delivery-note" element={<PurchaseNewDeliveryNoteVerifyPage />} />
                                         <Route path="/verify-purchase-new-invoice" element={<PurchaseNewInvoiceVerifyPage />} />
+                                        <Route path="/requisitiondepartmentworkflow" element={<RequisitionDepartmentWorkflowPage />} />
+                                        <Route path="/requisitioninstitutionworkflow" element={<RequisitionInstitutionWorkflowPage />} />
+                                        <Route path="/requisitionstoreworkflow" element={<RequisitionStoreWorkflowPage />} />
+                                        <Route path="/requisitioncreate" element={<RequisitionCreatePage />} />
+                                        <Route path="/requisitiondepartmentapproval" element={<RequisitionDepartmentApprovalPage />} />
+                                        <Route path="/requisitioninstitutionapproval" element={<RequisitionInstitutionApprovalPage />} />
+                                        <Route path="/requisitionstoreapproval" element={<RequisitionStoreApprovalPage />} />
+                                        <Route path="/requisitionstoreview" element={<RequisitionStoreViewPage />} />
+                                        <Route path="/requisitionstockregister" element={<RequisitionStockRegisterPage />} />
 
         <Route path="/dashmunivampus" element={<Dashmunivampus />} />
         <Route path="/dashmunivampusadmin" element={<Dashmunivampusadmin />} />
@@ -2478,6 +2564,9 @@ function App() {
 <Route path="/dashmconvghadmin" element={<Dashmconvghadmin />} />
 <Route path="/dashmconvtransport" element={<Dashmconvtransport />} />
 <Route path="/dashmconvtransportadmin" element={<Dashmconvtransportadmin />} />
+<Route path="/transportdrivers" element={<TransportDriverPage />} />
+<Route path="/transportdriverroster" element={<TransportDriverRosterPage />} />
+<Route path="/transportbuspass" element={<TransportBusPassPage />} />
 <Route path="/dashmconvguests" element={<Dashmconvguests />} />
 <Route path="/dashmconvguestsadmin" element={<Dashmconvguestsadmin />} />
 <Route path="/dashmconvattendees" element={<Dashmconvattendees />} />
@@ -2671,6 +2760,8 @@ function App() {
         <Route path="/easebuzzpaymentprocess" element={<EasebuzzPaymentProcessPage />} />
         <Route path="/easebuzzpaymentview" element={<EasebuzzPaymentViewPage />} />
         <Route path="/icicipaymentview" element={<IciciPaymentViewPage />} />
+        <Route path="/studentonlinefeepayment" element={<StudentOnlineFeePaymentPage />} />
+        <Route path="/studentonlinepaymentreport" element={<StudentOnlinePaymentReportPage />} />
         <Route path="/purchase2/:modelKey" element={<Purchase2CrudPage />} />
         <Route path="/researchapprovalmatrix" element={<ResearchApprovalMatrixPage />} />
         <Route path="/researchcomponents" element={<ResearchComponentPage />} />
@@ -2889,6 +2980,7 @@ function App() {
         <Route path="/workloaddynamicreport" element={<WorkloadDynamicReportPage />} />
         <Route path="/neplmsassignedcourses" element={<NepLmsAssignedCoursesPage />} />
         <Route path="/neplmscourseworkspace" element={<NepLmsCourseWorkspacePage />} />
+        <Route path="/neplmsquizanalytics" element={<NepLmsQuizAnalyticsPage />} />
         <Route path="/neplmsclassgroups" element={<NepLmsClassGroupsPage />} />
         <Route path="/neplmsclassgroupsadmin" element={<NepLmsClassGroupsAdminPage />} />
         <Route path="/neplmsassessment" element={<NepLmsAssessmentPage />} />
@@ -2896,6 +2988,7 @@ function App() {
         <Route path="/neplmsremedial" element={<NepLmsRemedialPage />} />
         <Route path="/studentneplmsremedial" element={<NepLmsStudentRemedialPage />} />
         <Route path="/neplmsaicoursegeneration" element={<NepLmsAiCourseGenerationPage />} />
+        <Route path="/neplmsmastertimetable" element={<NepLmsMasterTimetableReportPage />} />
         <Route path="/neplmstimetablemanager" element={<NepLmsTimetableManagerPage />} />
         <Route path="/neplmsattendance" element={<NepLmsAttendancePage />} />
         <Route path="/neplmsgroupattendance" element={<NepLmsGroupAttendancePage />} />
@@ -2912,6 +3005,7 @@ function App() {
         <Route path="/verify-grade-card-blockchain" element={<PublicGradeCardBlockchainVerifyPage />} />
         <Route path="/neplmsstudentwiseattendance" element={<NepLmsStudentwiseAttendanceReportPage />} />
         <Route path="/neplmsstudentcoursewiseattendance" element={<NepLmsStudentCoursewiseAttendanceReportPage />} />
+        <Route path="/neplmsstudentlearningprofile" element={<NepLmsStudentLearningProfilePage />} />
         <Route path="/neplmslowattendance" element={<NepLmsLowAttendanceReportPage />} />
         <Route path="/neplmsfacultycourselowattendance" element={<NepLmsFacultyCourseLowAttendanceReportPage />} />
         <Route path="/facultydashboard" element={<NepLmsFacultyDashboardPage />} />
@@ -2941,6 +3035,10 @@ function App() {
         <Route path="/hostelbuildingrooms" element={<HostelBuildingRoomPage />} />
         <Route path="/hostelassignment" element={<HostelAssignmentPage />} />
         <Route path="/hostelvacancyreport" element={<HostelVacancyReportPage />} />
+        <Route path="/hostelcard" element={<HostelCardPage />} />
+        <Route path="/studenthostelbedapply" element={<StudentHostelBedApplyPage />} />
+        <Route path="/hostelbedrequests" element={<HostelBedRequestApprovalPage />} />
+        <Route path="/hostellightbill" element={<HostelLightBillPage />} />
         <Route path="/employeedatabase" element={<EmployeeDatabasePage />} />
         <Route path="/employeedatabasereport" element={<EmployeeDatabaseReportPage />} />
         <Route path="/employeeprofileedit" element={<EmployeeProfileEditPage />} />
@@ -3013,6 +3111,10 @@ function App() {
         <Route path="/provisional-admission-letter" element={<ProvisionalAdmissionLetterPage />} />
         <Route path="/offer-letter" element={<OfferLetterPage />} />
         <Route path="/programmanagement" element={<ProgramManagementPage />} />
+        <Route path="/schoolclassmanagement" element={<SchoolClassManagementPage />} />
+        <Route path="/schoolsyllabusyear" element={<SchoolSyllabusYearPage />} />
+        <Route path="/schoolsubjectgroup" element={<SchoolSubjectGroupPage />} />
+        <Route path="/schoolcourselist" element={<SchoolCourseListPage />} />
         <Route path="/configuration" element={<ConfigurationSetupPage />} />
         <Route path="/aiconfiguration" element={<AiConfigurationPage />} />
         <Route path="/ollamaconfiguration" element={<OllamaConfigurationPage />} />
@@ -3300,6 +3402,9 @@ function App() {
         <Route path = "/eventreport" element = {<EventReport />} />
 
         <Route path="/studadmission" element={<Studadmission />} />
+        <Route path="/dashboard-widgets" element={<DashboardWidgetCatalogPage />} />
+        <Route path="/dashboard-widget-builder" element={<DashboardWidgetBuilderPage />} />
+        <Route path="/dashboard-widget-view" element={<DashboardWidgetViewPage />} />
         <Route path="/studbonafide" element={<Studbonafide />} />
         <Route path="/studmarksheet" element={<Studmarksheet />} />
         <Route path="/dashmarksheet" element={<Dashmarksheet />} />

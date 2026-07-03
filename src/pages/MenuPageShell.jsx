@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
   Box,
+  Button,
   CssBaseline,
   Divider,
   Drawer,
@@ -12,8 +13,10 @@ import {
 import { createTheme, styled, ThemeProvider } from "@mui/material/styles";
 import AppBar from "@mui/material/AppBar";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import LogoutIcon from "@mui/icons-material/Logout";
 import MenuIcon from "@mui/icons-material/Menu";
 import { mainListItems } from "./menucas1";
+import { mainListItems as studentListItems } from "./menustud1";
 import global1 from "./global1";
 
 const drawerWidth = 250;
@@ -64,7 +67,7 @@ const DrawerStyled = styled(Drawer, {
   }
 }));
 
-export default function MenuPageShell({ title, children }) {
+export default function MenuPageShell({ title, children, menuType }) {
   const [open, setOpen] = useState(() => {
     try {
       const saved = localStorage.getItem(menuStorageKey);
@@ -81,6 +84,15 @@ export default function MenuPageShell({ title, children }) {
       // Ignore storage errors and keep the in-memory drawer state.
     }
   }, [open]);
+
+  const menuItems = menuType === "student" || String(global1.role || "").toLowerCase() === "student"
+    ? studentListItems
+    : mainListItems;
+
+  const logout = () => {
+    localStorage.clear();
+    window.location.href = "/";
+  };
 
   return (
     <ThemeProvider theme={theme}>
@@ -100,6 +112,9 @@ export default function MenuPageShell({ title, children }) {
             <Typography component="h1" variant="h6" color="inherit" noWrap sx={{ flexGrow: 1 }}>
               {title}
             </Typography>
+            <Button color="inherit" startIcon={<LogoutIcon />} onClick={logout} sx={{ whiteSpace: "nowrap" }}>
+              Logout
+            </Button>
           </Toolbar>
         </AppBarStyled>
         <DrawerStyled variant="permanent" open={open}>
@@ -112,7 +127,7 @@ export default function MenuPageShell({ title, children }) {
             </IconButton>
           </Toolbar>
           <Divider />
-          <List>{mainListItems({ open })}</List>
+          <List>{menuItems({ open })}</List>
         </DrawerStyled>
         <Box component="main" sx={{ flexGrow: 1, height: "100vh", overflow: "auto", backgroundColor: "#f6f7fb" }}>
           <Toolbar />
