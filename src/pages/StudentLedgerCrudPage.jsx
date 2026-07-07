@@ -30,6 +30,7 @@ const fields = [
   "academicyear", "admissionyear", "programcode", "regulation", "major", "minor",
   "student", "regno", "user", "name", "feegroup", "feeitem", "feecategory", "feetype",
   "feebook", "cashbook", "semester", "amount", "paid", "concession", "balance",
+  "Latefinedue", "Latefinepaid",
   "cash", "upi", "cheque", "card", "pg", "neft", "paymode", "paydetails",
   "feecounter", "institution", "type", "installment", "status", "classdate",
   "duedate", "paiddate", "comments", "doclink", "feeid"
@@ -57,6 +58,8 @@ const labels = {
   paid: "Paid",
   concession: "Concession",
   balance: "Balance",
+  Latefinedue: "Late Fine Due",
+  Latefinepaid: "Late Fine Paid",
   cash: "Cash",
   upi: "UPI",
   cheque: "Cheque",
@@ -78,7 +81,7 @@ const labels = {
   feeid: "Fee ID"
 };
 
-const numberFields = ["amount", "paid", "concession", "balance", "cash", "upi", "cheque", "card", "pg", "neft"];
+const numberFields = ["amount", "paid", "concession", "balance", "Latefinedue", "Latefinepaid", "cash", "upi", "cheque", "card", "pg", "neft"];
 const dateFields = ["classdate", "duedate", "paiddate"];
 const defaultForm = {
   id: "",
@@ -103,6 +106,8 @@ const defaultForm = {
   paid: 0,
   concession: 0,
   balance: 0,
+  Latefinedue: 0,
+  Latefinepaid: 0,
   cash: 0,
   upi: 0,
   cheque: 0,
@@ -286,6 +291,8 @@ export default function StudentLedgerCrudPage() {
       paid: 0,
       concession: 0,
       balance: 10000,
+      Latefinedue: 0,
+      Latefinepaid: 0,
       status: "Active",
       classdate: new Date().toISOString().slice(0, 10),
       duedate: "",
@@ -325,7 +332,7 @@ export default function StudentLedgerCrudPage() {
     reader.readAsArrayBuffer(file);
   };
 
-  const formFields = ["academicyear", "admissionyear", "student", "regno", "user", "programcode", "regulation", "major", "minor", "semester", "feegroup", "feeitem", "feecategory", "feetype", "amount", "paid", "concession", "balance", "feebook", "cashbook", "paymode", "paydetails", "type", "installment", "status", "classdate", "duedate", "paiddate", "comments", "doclink"];
+  const formFields = ["academicyear", "admissionyear", "student", "regno", "user", "programcode", "regulation", "major", "minor", "semester", "feegroup", "feeitem", "feecategory", "feetype", "amount", "paid", "concession", "balance", "Latefinedue", "Latefinepaid", "feebook", "cashbook", "paymode", "paydetails", "type", "installment", "status", "classdate", "duedate", "paiddate", "comments", "doclink"];
 
   const columns = [
     {

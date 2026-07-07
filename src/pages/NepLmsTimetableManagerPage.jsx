@@ -30,6 +30,11 @@ const blankClass = {
   programcode: "",
   faculty: "",
   facultyemail: "",
+  campus: "",
+  building: "",
+  floor: "",
+  roomid: "",
+  roomno: "",
   major: "",
   semester: "",
   course: "",
@@ -54,6 +59,11 @@ const filterFields = [
   { field: "coursecode", label: "Course Code" },
   { field: "faculty", label: "Faculty" },
   { field: "facultyemail", label: "Faculty Email" },
+  { field: "campus", label: "Campus" },
+  { field: "building", label: "Building" },
+  { field: "floor", label: "Floor" },
+  { field: "roomid", label: "Room ID" },
+  { field: "roomno", label: "Room No" },
   { field: "classdate", label: "Class Date" },
   { field: "status", label: "Status" }
 ];
@@ -371,6 +381,11 @@ export default function NepLmsTimetableManagerPage() {
       programcode: row.programcode || "",
       faculty: row.faculty || "",
       facultyemail: row.facultyemail || "",
+      campus: row.campus || "",
+      building: row.building || "",
+      floor: row.floor || "",
+      roomid: row.roomid || "",
+      roomno: row.roomno || "",
       major: row.major || "",
       semester: row.semester || "",
       course: row.course || "",
@@ -427,6 +442,11 @@ export default function NepLmsTimetableManagerPage() {
       programcode: "BCOM",
       faculty: "Faculty Name",
       facultyemail: "faculty@example.com",
+      campus: "Main Campus",
+      building: "Academic Block",
+      floor: "1",
+      roomid: "R101",
+      roomno: "101",
       major: "Accountancy",
       semester: "1",
       course: "Financial Accounting",
@@ -472,6 +492,11 @@ export default function NepLmsTimetableManagerPage() {
       programcode: "BCOM",
       faculty: "Faculty Name",
       facultyemail: "faculty@example.com",
+      campus: "Main Campus",
+      building: "Academic Block",
+      floor: "1",
+      roomid: "R101",
+      roomno: "101",
       major: "Accountancy",
       semester: "1",
       course: "Financial Accounting",
@@ -564,6 +589,11 @@ export default function NepLmsTimetableManagerPage() {
     { field: "programcode", headerName: "Program Code", width: 140 },
     { field: "faculty", headerName: "Faculty", width: 180 },
     { field: "facultyemail", headerName: "Faculty Email", width: 220 },
+    { field: "campus", headerName: "Campus", width: 150 },
+    { field: "building", headerName: "Building", width: 170 },
+    { field: "floor", headerName: "Floor", width: 110 },
+    { field: "roomid", headerName: "Room ID", width: 130 },
+    { field: "roomno", headerName: "Room No", width: 130 },
     { field: "major", headerName: "Major", width: 180 },
     { field: "semester", headerName: "Semester", width: 110 },
     { field: "course", headerName: "Course", width: 220 },
@@ -590,7 +620,8 @@ export default function NepLmsTimetableManagerPage() {
 
   const formFields = [
     ["academicyear", "Academic Year"], ["regulation", "Regulation"], ["program", "Program"], ["programcode", "Program Code"],
-    ["faculty", "Faculty"], ["facultyemail", "Faculty Email"], ["major", "Major"], ["semester", "Semester"],
+    ["faculty", "Faculty"], ["facultyemail", "Faculty Email"], ["campus", "Campus"], ["building", "Building"], ["floor", "Floor"], ["roomid", "Room ID"], ["roomno", "Room No"],
+    ["major", "Major"], ["semester", "Semester"],
     ["course", "Course"], ["coursecode", "Course Code"], ["classdate", "Class Date", "date"], ["classtime", "Class Time", "time"],
     ["period", "Period"], ["durationminutes", "Duration in minutes", "number"], ["module", "Module"], ["topic", "Topic"],
     ["workcompleted", "Work Completed"], ["status", "Status"]
@@ -869,7 +900,7 @@ export default function NepLmsTimetableManagerPage() {
           slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "nep_lms_timetable" } } }}
           pageSizeOptions={[10, 25, 50, 100]}
           initialState={{ pagination: { paginationModel: { pageSize: 10, page: 0 } } }}
-          sx={{ minWidth: 2700 }}
+          sx={{ minWidth: 3300 }}
         />
       </Paper>
 

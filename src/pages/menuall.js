@@ -17,7 +17,9 @@ import BusinessIcon from '@mui/icons-material/Business';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import HostelIcon from '@mui/icons-material/Hotel';
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import SearchIcon from '@mui/icons-material/Search';
+import InfoIcon from '@mui/icons-material/Info';
 import { Typography } from '@mui/material';
 import AcUnitIcon from '@mui/icons-material/AcUnit';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
@@ -96,6 +98,24 @@ export function menuitemsall() {
               <DashboardIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Faculty dashboard" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/management-dashboard">
+            <ListItemIcon>
+              <DashboardIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Management Dashboard" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/hod-dashboard">
+            <ListItemIcon>
+              <DashboardIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="HoD dashboard" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/fees-dashboard">
+            <ListItemIcon>
+              <DashboardIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Fees dashboard" />}
           </ListItem>
           <ListItem button component={RouterLink} to="/dashboard-widgets">
             <ListItemIcon>
@@ -479,6 +499,12 @@ export function menuitemsall() {
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Regulation Course Map" />}
           </ListItem>
+          <ListItem button component={RouterLink} to="/specialization">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Specialization" />}
+          </ListItem>
           <ListItem button component={RouterLink} to="/courseassessment">
             <ListItemIcon>
               <PersonIcon />
@@ -526,6 +552,31 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Academic Calendar" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/accreditationstatus">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Accreditation Status" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/gracemarkspolicy">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Grace marks policy" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/atktrules">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="ATKT rule" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/programwise-marksheet-configuration">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Programwise marksheet configuration" />}
           </ListItem>
         </AccordionDetails>
       </Accordion>
@@ -654,6 +705,13 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Student data upload" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/specializationassignment">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Specialization assignment" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/studentphotoupload">
@@ -1079,6 +1137,13 @@ export function menuitemsall() {
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Generate grade card" />}
           </ListItem>
+
+          <ListItem button component={RouterLink} to="/neplmsadvancedgradecard">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Advanced Grade card" />}
+          </ListItem>
         </AccordionDetails>
       </Accordion>
       <Accordion>
@@ -1108,6 +1173,13 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Quiz score analytics" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/neplmslivequiz">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Live quiz" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/neplmsclassgroups">
             <ListItemIcon>
               <PersonIcon />
@@ -1120,6 +1192,20 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Class group admin" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/neplmselectiveenrollment">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Elective enrollment" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/neplmselectiveapproval">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Elective approval" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/neplmsassessment">
@@ -1148,6 +1234,55 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Timetable manager" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/neplmstimetablecreator">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Timetable creator" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/neplmstimetableroomcreator">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Timetable room creator" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/roomconfiguration">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Room configuration" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/roomcalendar">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Room calendar" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/periodconfiguration">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Period configuration" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/facultyavailability">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Faculty availability" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/facultyavailabilityadmin">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Employee availability" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/neplmsmastertimetable">
@@ -1190,6 +1325,27 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Attendance review" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/neplmsconsecutiveabsence">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Consecutive absence" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/neplmsmissingtimetable">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Missing timetable" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/neplmscourseprogression">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Course progression" />}
           </ListItem>
 
           {/* <ListItem button component={RouterLink} to="/neplmsassessmentmarks">
@@ -1326,6 +1482,13 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Create exam" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/conduct-exam-dates">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Exam dates" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/conduct-exam-rooms">
             <ListItemIcon>
               <PersonIcon />
@@ -1394,6 +1557,43 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Exam roll" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/examrollrulescheck">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Examroll rules check" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/detainedstudents">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Detained students" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/examrolldisciplinary">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Disciplinary" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/feesdefaulters">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Fees defaulters" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/conduct-exam-hall-ticket">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Generate hall ticket" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/student-view-control">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Student view control" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/conduct-exam-seat-allocation">
@@ -1662,6 +1862,13 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Fee Application" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/feesapplicationauto">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Fees Application Auto" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/studentledgercrud">
             <ListItemIcon>
               <PersonIcon />
@@ -1760,11 +1967,32 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Fees paid report" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/pendingfees">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Pending fees" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/studentledgercounterpayment">
             <ListItemIcon>
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Counter Fee Payment" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/counterfee2">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Counter Fee 2" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/counterfee2receipt">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Counter Fee 2 Receipt" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/studentfeesreceipt">
@@ -1921,6 +2149,28 @@ export function menuitemsall() {
 
 
 
+        </AccordionDetails>
+      </Accordion>
+
+      <Accordion>
+        <AccordionSummary aria-controls="panel-disciplinary-action-content" id="panel-disciplinary-action-header">
+          <PersonIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{ fontSize: 14 }}>Disciplinary action</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          <ListItem button component={RouterLink} to="/disciplinaryaction">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Add disciplinary action" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/disciplinaryactionupdate">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Update disciplinary action" />}
+          </ListItem>
         </AccordionDetails>
       </Accordion>
 
@@ -2649,6 +2899,51 @@ export function menuitemsall() {
 
 
 
+        </AccordionDetails>
+      </Accordion>
+
+      <Accordion>
+        <AccordionSummary aria-controls="panel-cas-new-content" id="panel-cas-new-header">
+          <AssignmentIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{ fontSize: 14 }}>CAS New</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          <ListItem button component={RouterLink} to="/casnewentry">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="CAS appraisal entry" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/casnewworkflow">
+            <ListItemIcon>
+              <SettingsIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="CAS workflow" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/casnewapproval">
+            <ListItemIcon>
+              <AssignmentTurnedInIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="CAS approval" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/casnewstatus">
+            <ListItemIcon>
+              <InfoIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="CAS approval status" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/casnewsummary">
+            <ListItemIcon>
+              <BarChartIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="CAS Summary" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/casnewmasterreport">
+            <ListItemIcon>
+              <DashboardIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="CAS Master Report" />}
+          </ListItem>
         </AccordionDetails>
       </Accordion>
 

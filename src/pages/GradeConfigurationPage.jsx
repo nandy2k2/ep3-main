@@ -2,11 +2,14 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Checkbox,
   Chip,
+  CircularProgress,
   Container,
+  Divider,
   FormControl,
   Grid,
   IconButton,
@@ -20,7 +23,7 @@ import {
   Tooltip,
   Typography
 } from "@mui/material";
-import { Add, ArrowBack, Cancel, Delete, Edit, FileDownload, Refresh, Save, UploadFile } from "@mui/icons-material";
+import { Add, ArrowBack, AutoAwesome, Cancel, Delete, Edit, FileDownload, Refresh, Save, UploadFile } from "@mui/icons-material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
@@ -80,12 +83,31 @@ export default function GradeConfigurationPage() {
   const [options, setOptions] = useState({ academicyears: [], regulations: [], programs: [], types: [], subjects: [], semesters: [], courses: [], grades: [] });
   const [editingId, setEditingId] = useState("");
   const [uploadRows, setUploadRows] = useState([]);
+  const [aiOptions, setAiOptions] = useState({ geminiModels: [], ollama: [] });
+  const [validationForm, setValidationForm] = useState({
+    academicyear: "2026-27",
+    coursecode: "",
+    provider: "Gemini",
+    geminiModel: "gemini-2.5-flash",
+    ollamaId: "",
+    rules: "Check coverage of 0 to 100, gaps, overlaps, grade order and grade point consistency."
+  });
+  const [validationReport, setValidationReport] = useState("");
+  const [validating, setValidating] = useState(false);
+  const [programValidationForm, setProgramValidationForm] = useState({
+    academicyear: "2026-27",
+    programcode: "",
+    rules: "Check every course for missing grade rows, full 0 to 100 coverage, gaps, overlaps, grade order and grade point consistency."
+  });
+  const [programValidationReport, setProgramValidationReport] = useState("");
+  const [programValidating, setProgramValidating] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     loadOptions();
+    loadAiOptions();
     loadRows();
   }, []);
 
@@ -118,6 +140,24 @@ export default function GradeConfigurationPage() {
       });
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load options");
+    }
+  };
+
+  const loadAiOptions = async () => {
+    try {
+      const res = await ep1.get("/api/v2/gradeconfiguration/ai-options", { params: { colid } });
+      const nextOptions = {
+        geminiModels: res.data.geminiModels || [],
+        ollama: res.data.ollama || []
+      };
+      setAiOptions(nextOptions);
+      setValidationForm((prev) => ({
+        ...prev,
+        geminiModel: nextOptions.geminiModels.includes(prev.geminiModel) ? prev.geminiModel : (nextOptions.geminiModels[0] || prev.geminiModel),
+        ollamaId: prev.ollamaId || nextOptions.ollama.find((item) => /^yes$/i.test(item.default || ""))?._id || nextOptions.ollama[0]?._id || ""
+      }));
+    } catch (err) {
+      setAiOptions({ geminiModels: [], ollama: [] });
     }
   };
 
@@ -170,6 +210,24 @@ export default function GradeConfigurationPage() {
     });
     return [...map.values()].sort((a, b) => String(a.course || "").localeCompare(String(b.course || "")));
   }, [options.courses, rows]);
+  const validationCourseOptions = useMemo(() => {
+    const map = new Map();
+    [...options.courses, ...rows].forEach((item) => {
+      if (item.coursecode && (!validationForm.academicyear || item.academicyear === validationForm.academicyear)) {
+        map.set(`${item.academicyear || ""}-${item.programcode || ""}-${item.coursecode}`, item);
+      }
+    });
+    return [...map.values()].sort((a, b) => String(a.coursecode || "").localeCompare(String(b.coursecode || ""), undefined, { numeric: true }));
+  }, [options.courses, rows, validationForm.academicyear]);
+  const programValidationOptions = useMemo(() => {
+    const map = new Map();
+    [...options.programs, ...options.courses, ...rows].forEach((item) => {
+      if (item.programcode && (!programValidationForm.academicyear || item.academicyear === programValidationForm.academicyear)) {
+        map.set(item.programcode, { programcode: item.programcode, program: item.program || "" });
+      }
+    });
+    return [...map.values()].sort((a, b) => String(a.programcode || "").localeCompare(String(b.programcode || ""), undefined, { numeric: true }));
+  }, [options.programs, options.courses, rows, programValidationForm.academicyear]);
 
   const updateFormValue = (field, value) => {
     setForm((prev) => ({
@@ -366,6 +424,76 @@ export default function GradeConfigurationPage() {
     }
   };
 
+  const validateWithAi = async () => {
+    const coursecode = validationForm.coursecode || form.coursecode || filters.coursecode || form.coursecodes?.[0] || "";
+    if (!coursecode) {
+      setError("Please select a course code for validation");
+      return;
+    }
+    if (validationForm.provider === "Ollama" && !validationForm.ollamaId) {
+      setError("Please select an Ollama configuration");
+      return;
+    }
+    try {
+      setValidating(true);
+      setError("");
+      setValidationReport("");
+      const res = await ep1.post("/api/v2/gradeconfiguration/validate-ai", {
+        colid,
+        coursecode,
+        academicyear: validationForm.academicyear || form.academicyear || filters.academicyear,
+        regulation: form.regulation || filters.regulation,
+        programcode: form.programcode || filters.programcode,
+        semester: form.semester || filters.semester,
+        provider: validationForm.provider,
+        geminiModel: validationForm.geminiModel,
+        ollamaId: validationForm.ollamaId,
+        rules: validationForm.rules
+      });
+      setValidationReport(res.data.report || "No validation report returned.");
+      setMessage("Grade validation completed");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to validate grade configuration");
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  const validateProgramWithAi = async () => {
+    if (!programValidationForm.academicyear) {
+      setError("Please select academic year for program validation");
+      return;
+    }
+    if (!programValidationForm.programcode) {
+      setError("Please select program for validation");
+      return;
+    }
+    if (validationForm.provider === "Ollama" && !validationForm.ollamaId) {
+      setError("Please select an Ollama configuration");
+      return;
+    }
+    try {
+      setProgramValidating(true);
+      setError("");
+      setProgramValidationReport("");
+      const res = await ep1.post("/api/v2/gradeconfiguration/validate-program-ai", {
+        colid,
+        academicyear: programValidationForm.academicyear,
+        programcode: programValidationForm.programcode,
+        provider: validationForm.provider,
+        geminiModel: validationForm.geminiModel,
+        ollamaId: validationForm.ollamaId,
+        rules: programValidationForm.rules
+      });
+      setProgramValidationReport(res.data.report || "No program validation report returned.");
+      setMessage("Program grade validation completed");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to validate program grade configuration");
+    } finally {
+      setProgramValidating(false);
+    }
+  };
+
   const filterSelect = (field, label, values, renderValue = (value) => value) => (
     <FormControl size="small" sx={{ flex: "1 1 180px", minWidth: 160, maxWidth: { xs: "100%", md: 260 } }}>
       <InputLabel>{label}</InputLabel>
@@ -508,6 +636,199 @@ export default function GradeConfigurationPage() {
         <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
           <Button type="submit" variant="contained" startIcon={<Save />}>{editingId ? "Update" : "Save"}</Button>
           <Button variant="outlined" startIcon={<Cancel />} onClick={resetForm}>Cancel</Button>
+        </Stack>
+      </Paper>
+
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack spacing={1.5}>
+          <Box>
+            <Typography variant="h6" fontWeight={800}>AI Grade Validation</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Select a course code and validate the configured ranges with Gemini or Ollama before publishing grades.
+            </Typography>
+          </Box>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={2}>
+              <FormControl fullWidth>
+                <InputLabel>Academic Year</InputLabel>
+                <Select
+                  label="Academic Year"
+                  value={validationForm.academicyear}
+                  onChange={(e) => setValidationForm((prev) => ({ ...prev, academicyear: e.target.value, coursecode: "" }))}
+                >
+                  {academicYearOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Autocomplete
+                options={validationCourseOptions}
+                value={validationCourseOptions.find((item) => item.coursecode === validationForm.coursecode) || null}
+                onChange={(event, value) => setValidationForm((prev) => ({ ...prev, coursecode: value?.coursecode || "" }))}
+                getOptionLabel={(option) => option?.coursecode ? `${option.coursecode}${option.course ? ` - ${option.course}` : ""}` : ""}
+                isOptionEqualToValue={(option, value) => option.coursecode === value.coursecode}
+                renderInput={(params) => <TextField {...params} label="Search Course Code" />}
+              />
+            </Grid>
+            {/* <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Course Code</InputLabel>
+                <Select
+                  label="Course Code"
+                  value={validationForm.coursecode}
+                  onChange={(e) => setValidationForm((prev) => ({ ...prev, coursecode: e.target.value }))}
+                >
+                  <MenuItem value="">Use selected course</MenuItem>
+                  {validationCourseOptions.map((item) => (
+                    <MenuItem key={item.coursecode} value={item.coursecode}>
+                      {item.coursecode}{item.course ? ` - ${item.course}` : ""}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid> */}
+            <Grid item xs={12} md={2}>
+              <TextField
+                select
+                fullWidth
+                label="AI Provider"
+                value={validationForm.provider}
+                onChange={(e) => setValidationForm((prev) => ({ ...prev, provider: e.target.value }))}
+              >
+                <MenuItem value="Gemini">Gemini</MenuItem>
+                <MenuItem value="Ollama">Ollama</MenuItem>
+              </TextField>
+            </Grid>
+            {validationForm.provider === "Gemini" ? (
+              <Grid item xs={12} md={3}>
+                <TextField
+                  select
+                  fullWidth
+                  label="Gemini Model"
+                  value={validationForm.geminiModel}
+                  onChange={(e) => setValidationForm((prev) => ({ ...prev, geminiModel: e.target.value }))}
+                >
+                  {(aiOptions.geminiModels.length ? aiOptions.geminiModels : ["gemini-2.5-flash"]).map((model) => (
+                    <MenuItem key={model} value={model}>{model}</MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+            ) : (
+              <Grid item xs={12} md={3}>
+                <TextField
+                  select
+                  fullWidth
+                  label="Ollama Config"
+                  value={validationForm.ollamaId}
+                  onChange={(e) => setValidationForm((prev) => ({ ...prev, ollamaId: e.target.value }))}
+                >
+                  {(aiOptions.ollama || []).map((item) => (
+                    <MenuItem key={item._id} value={item._id}>{item.name} ({item.modelname})</MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+            )}
+            <Grid item xs={12} md={4}>
+              <Button
+                fullWidth
+                variant="contained"
+                startIcon={validating ? <CircularProgress size={18} color="inherit" /> : <AutoAwesome />}
+                onClick={validateWithAi}
+                disabled={validating}
+                sx={{ height: "100%" }}
+              >
+                {validating ? "Validating..." : "Validate Grade"}
+              </Button>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                multiline
+                minRows={3}
+                label="Validation Rules"
+                value={validationForm.rules}
+                onChange={(e) => setValidationForm((prev) => ({ ...prev, rules: e.target.value }))}
+              />
+            </Grid>
+            {validationReport && (
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={6}
+                  label="Validation Report"
+                  value={validationReport}
+                  InputProps={{ readOnly: true }}
+                />
+              </Grid>
+            )}
+          </Grid>
+          <Divider />
+          <Box>
+            <Typography variant="subtitle1" fontWeight={800}>AI Program Grade Validation</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Select an academic year and program to validate grade rules for all courses of that program.
+            </Typography>
+          </Box>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={2}>
+              <FormControl fullWidth>
+                <InputLabel>Academic Year</InputLabel>
+                <Select
+                  label="Academic Year"
+                  value={programValidationForm.academicyear}
+                  onChange={(e) => setProgramValidationForm((prev) => ({ ...prev, academicyear: e.target.value, programcode: "" }))}
+                >
+                  {academicYearOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Autocomplete
+                options={programValidationOptions}
+                value={programValidationOptions.find((item) => item.programcode === programValidationForm.programcode) || null}
+                onChange={(event, value) => setProgramValidationForm((prev) => ({ ...prev, programcode: value?.programcode || "" }))}
+                getOptionLabel={(option) => option?.programcode ? `${option.programcode}${option.program ? ` - ${option.program}` : ""}` : ""}
+                isOptionEqualToValue={(option, value) => option.programcode === value.programcode}
+                renderInput={(params) => <TextField {...params} label="Search Program / Program Code" />}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Button
+                fullWidth
+                variant="contained"
+                color="secondary"
+                startIcon={programValidating ? <CircularProgress size={18} color="inherit" /> : <AutoAwesome />}
+                onClick={validateProgramWithAi}
+                disabled={programValidating}
+                sx={{ height: "100%" }}
+              >
+                {programValidating ? "Validating Program..." : "Validate All Courses for Program"}
+              </Button>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                multiline
+                minRows={3}
+                label="Program Validation Rules"
+                value={programValidationForm.rules}
+                onChange={(e) => setProgramValidationForm((prev) => ({ ...prev, rules: e.target.value }))}
+              />
+            </Grid>
+            {programValidationReport && (
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={7}
+                  label="Program Validation Report"
+                  value={programValidationReport}
+                  InputProps={{ readOnly: true }}
+                />
+              </Grid>
+            )}
+          </Grid>
         </Stack>
       </Paper>
 

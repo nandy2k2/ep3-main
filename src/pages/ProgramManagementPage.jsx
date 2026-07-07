@@ -25,6 +25,13 @@ const emptyForm = {
   type: "",
   program: "",
   programcode: "",
+  institution: global1.insname || "",
+  department: "",
+  durationinyear: "",
+  typeofsession: "Semester",
+  introductionyear: "",
+  discontinueyear: "",
+  lastrevisionyear: "",
   Order: "",
   status1: "Active",
   comments: ""
@@ -34,6 +41,7 @@ const defaultYears = ["2023-24", "2024-25", "2025-26", "2026-27", "2027-28", "20
 const defaultLevels = ["UG", "PG", "Diploma", "Certificate", "PhD"];
 const defaultTypes = ["Grant-in", "Non Grant", "Regular", "Self financed"];
 const defaultStatuses = ["Active", "Inactive"];
+const defaultSessionTypes = ["Yearly", "Semester"];
 
 export default function ProgramManagementPage({ embedded = false, onRowsChange }) {
   const navigate = useNavigate();
@@ -41,7 +49,13 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
   const currentUser = useMemo(() => global1.user, []);
   const [form, setForm] = useState(emptyForm);
   const [rows, setRows] = useState([]);
-  const [options, setOptions] = useState({ years: defaultYears, types: defaultTypes, levels: defaultLevels, statuses: defaultStatuses });
+  const [options, setOptions] = useState({
+    years: defaultYears,
+    types: defaultTypes,
+    levels: defaultLevels,
+    statuses: defaultStatuses,
+    sessionTypes: defaultSessionTypes
+  });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -55,7 +69,8 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
       years: merged(defaultYears, res.data.years),
       types: merged(defaultTypes, res.data.types),
       levels: merged(defaultLevels, res.data.levels),
-      statuses: merged(defaultStatuses, res.data.statuses)
+      statuses: merged(defaultStatuses, res.data.statuses),
+      sessionTypes: merged(defaultSessionTypes, res.data.sessionTypes)
     });
   };
 
@@ -133,6 +148,13 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
       type: row.type || "",
       program: row.program || row.name || "",
       programcode: row.programcode || "",
+      institution: row.institution || "",
+      department: row.department || "",
+      durationinyear: row.durationinyear ?? "",
+      typeofsession: row.typeofsession || "Semester",
+      introductionyear: row.introductionyear || "",
+      discontinueyear: row.discontinueyear || "",
+      lastrevisionyear: row.lastrevisionyear || "",
       Order: row.Order ?? "",
       status1: row.status1 || "Active",
       comments: row.comments || ""
@@ -161,6 +183,13 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
       type: "Grant-in",
       program: "B.Com",
       programcode: "BCOM",
+      institution: global1.insname || "",
+      department: "Commerce",
+      durationinyear: 3,
+      typeofsession: "Semester",
+      introductionyear: "2026",
+      discontinueyear: "",
+      lastrevisionyear: "2026",
       Order: 1,
       status1: "Active",
       comments: ""
@@ -217,6 +246,13 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
     { field: "type", headerName: "Type", minWidth: 150 },
     { field: "program", headerName: "Program", minWidth: 260, flex: 1 },
     { field: "programcode", headerName: "Program code", minWidth: 150 },
+    { field: "institution", headerName: "Institution", minWidth: 220 },
+    { field: "department", headerName: "Department", minWidth: 180 },
+    { field: "durationinyear", headerName: "Duration in year", minWidth: 150, type: "number" },
+    { field: "typeofsession", headerName: "Type of session", minWidth: 160 },
+    { field: "introductionyear", headerName: "Introduction year", minWidth: 160 },
+    { field: "discontinueyear", headerName: "Discontinue year", minWidth: 160 },
+    { field: "lastrevisionyear", headerName: "Last revision year", minWidth: 170 },
     { field: "Order", headerName: "Order", minWidth: 110, type: "number" },
     { field: "status1", headerName: "Status", minWidth: 120 },
     { field: "comments", headerName: "Comments", minWidth: 260 },
@@ -250,6 +286,15 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
           </TextField>
           <TextField size="small" label="Program" value={form.program} onChange={(e) => updateForm("program", e.target.value)} sx={{ gridColumn: { xs: "1", md: "span 2" } }} />
           <TextField size="small" label="Program code" value={form.programcode} onChange={(e) => updateForm("programcode", e.target.value)} />
+          <TextField size="small" label="Institution" value={form.institution} onChange={(e) => updateForm("institution", e.target.value)} />
+          <TextField size="small" label="Department" value={form.department} onChange={(e) => updateForm("department", e.target.value)} />
+          <TextField size="small" type="number" label="Duration in year" value={form.durationinyear} onChange={(e) => updateForm("durationinyear", e.target.value)} />
+          <TextField select size="small" label="Type of session" value={form.typeofsession} onChange={(e) => updateForm("typeofsession", e.target.value)}>
+            {options.sessionTypes.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+          </TextField>
+          <TextField size="small" label="Introduction year" value={form.introductionyear} onChange={(e) => updateForm("introductionyear", e.target.value)} />
+          <TextField size="small" label="Discontinue year" value={form.discontinueyear} onChange={(e) => updateForm("discontinueyear", e.target.value)} />
+          <TextField size="small" label="Last revision year" value={form.lastrevisionyear} onChange={(e) => updateForm("lastrevisionyear", e.target.value)} />
           <TextField size="small" type="number" label="Order" value={form.Order} onChange={(e) => updateForm("Order", e.target.value)} />
           <TextField size="small" label="Comments" value={form.comments} onChange={(e) => updateForm("comments", e.target.value)} />
         </Box>
@@ -278,7 +323,7 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
           slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "program_management" } } }}
           pageSizeOptions={[10, 25, 50, 100]}
           initialState={{ pagination: { paginationModel: { pageSize: 10, page: 0 } } }}
-          sx={{ minWidth: 1450 }}
+          sx={{ minWidth: 2500 }}
         />
       </Paper>
     </Container>

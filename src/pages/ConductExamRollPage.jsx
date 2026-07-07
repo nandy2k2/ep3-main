@@ -24,6 +24,8 @@ const filterFields = [
   { key: "applied", label: "Applied" },
   { key: "admitcardeligible", label: "Admit Eligible" },
   { key: "attended", label: "Attended" },
+  { key: "atkt", label: "ATKT" },
+  { key: "remarks", label: "Remarks" },
   { key: "examdate", label: "Exam Date" },
   { key: "examslot", label: "Exam Slot" },
   { key: "campus", label: "Campus" },
@@ -50,6 +52,9 @@ const blankForm = {
   applied: "Yes",
   admitcardeligible: "Yes",
   attended: "No",
+  noofbacklogs: 0,
+  atkt: "",
+  remarks: "",
   examdate: "",
   examslot: "",
   campus: "",
@@ -257,7 +262,7 @@ export default function ConductExamRollPage() {
   };
 
   const downloadTemplate = () => {
-    const worksheet = XLSX.utils.json_to_sheet([{ academicyear: "2026-27", regulation: "NEP 2026", exam: "Semester End Examination", examcode: "SEE-2026-ODD", program: "B.Com", programcode: "BCOM", type: "Major", subject: "Accountancy", semester: "1", course: "Financial Accounting", coursecode: "BCOM-MAJ-101", student: "Student Name", regno: "REG001", email: "student@example.com", phone: "9999999999", section: "A", applied: "Yes", admitcardeligible: "Yes", attended: "No", examdate: "2026-12-10", examslot: "10:00 AM - 1:00 PM", campus: "Main Campus", building: "Academic Block", examroom: "", seatno: "" }]);
+    const worksheet = XLSX.utils.json_to_sheet([{ academicyear: "2026-27", regulation: "NEP 2026", exam: "Semester End Examination", examcode: "SEE-2026-ODD", program: "B.Com", programcode: "BCOM", type: "Major", subject: "Accountancy", semester: "1", course: "Financial Accounting", coursecode: "BCOM-MAJ-101", student: "Student Name", regno: "REG001", email: "student@example.com", phone: "9999999999", section: "A", applied: "Yes", admitcardeligible: "Yes", attended: "No", noofbacklogs: 0, atkt: "", remarks: "", examdate: "2026-12-10", examslot: "10:00 AM - 1:00 PM", campus: "Main Campus", building: "Academic Block", examroom: "", seatno: "" }]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Exam Roll");
     XLSX.writeFile(workbook, "conduct_exam_roll_template.xlsx");
@@ -318,6 +323,9 @@ export default function ConductExamRollPage() {
     { field: "applied", headerName: "Applied", width: 100 },
     { field: "admitcardeligible", headerName: "Admit Eligible", width: 130 },
     { field: "attended", headerName: "Attended", width: 110 },
+    { field: "noofbacklogs", headerName: "Backlogs", width: 110 },
+    { field: "atkt", headerName: "ATKT", width: 100 },
+    { field: "remarks", headerName: "Remarks", width: 220 },
     { field: "examdate", headerName: "Exam Date", width: 130 },
     { field: "examslot", headerName: "Exam Slot", width: 170 },
     { field: "campus", headerName: "Campus", width: 140 },

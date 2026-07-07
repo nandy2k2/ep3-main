@@ -2,11 +2,14 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Checkbox,
   Chip,
+  CircularProgress,
   Container,
+  Divider,
   FormControl,
   Grid,
   IconButton,
@@ -20,7 +23,7 @@ import {
   Tooltip,
   Typography
 } from "@mui/material";
-import { Add, ArrowBack, Cancel, Delete, Edit, FileDownload, Refresh, Save, UploadFile } from "@mui/icons-material";
+import { Add, ArrowBack, AutoAwesome, Cancel, Delete, Edit, FileDownload, Refresh, Save, UploadFile } from "@mui/icons-material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
@@ -109,12 +112,24 @@ export default function CourseAssessmentPage() {
   const [selectedCourseCodes, setSelectedCourseCodes] = useState(blankSelectedCourses);
   const [editingId, setEditingId] = useState("");
   const [uploadRows, setUploadRows] = useState([]);
+  const [aiOptions, setAiOptions] = useState({ geminiModels: [], ollama: [] });
+  const [validationForm, setValidationForm] = useState({
+    academicyear: "2026-27",
+    programcode: "",
+    provider: "Gemini",
+    geminiModel: "gemini-2.5-flash",
+    ollamaId: "",
+    rules: "Validate that each course has a complete assessment scheme, total weightage is 100, pass marks do not exceed marks, and internal/external components are appropriate."
+  });
+  const [validationReport, setValidationReport] = useState("");
+  const [validating, setValidating] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     loadOptions();
+    loadAiOptions();
     loadRows();
   }, []);
 
@@ -140,6 +155,24 @@ export default function CourseAssessmentPage() {
       });
     } catch (err) {
       setError(err.response?.data?.message || "Error loading options");
+    }
+  };
+
+  const loadAiOptions = async () => {
+    try {
+      const res = await ep1.get("/api/v2/courseassessment/ai-options", { params: { colid } });
+      const nextOptions = {
+        geminiModels: res.data.geminiModels || [],
+        ollama: res.data.ollama || []
+      };
+      setAiOptions(nextOptions);
+      setValidationForm((prev) => ({
+        ...prev,
+        geminiModel: nextOptions.geminiModels.includes(prev.geminiModel) ? prev.geminiModel : (nextOptions.geminiModels[0] || prev.geminiModel),
+        ollamaId: prev.ollamaId || nextOptions.ollama.find((item) => /^yes$/i.test(item.default || ""))?._id || nextOptions.ollama[0]?._id || ""
+      }));
+    } catch (err) {
+      setAiOptions({ geminiModels: [], ollama: [] });
     }
   };
 
@@ -214,6 +247,15 @@ export default function CourseAssessmentPage() {
     });
     return [...map.values()].sort((a, b) => String(a.programcode).localeCompare(String(b.programcode)));
   }, [options.programs, rows]);
+  const validationProgramOptions = useMemo(() => {
+    const map = new Map();
+    [...options.programs, ...options.courses, ...rows].forEach((item) => {
+      if (item.programcode && (!validationForm.academicyear || item.academicyear === validationForm.academicyear)) {
+        map.set(item.programcode, { programcode: item.programcode, program: item.program || "" });
+      }
+    });
+    return [...map.values()].sort((a, b) => String(a.programcode || "").localeCompare(String(b.programcode || ""), undefined, { numeric: true }));
+  }, [options.programs, options.courses, rows, validationForm.academicyear]);
   const allCourses = useMemo(() => {
     const map = new Map();
     [...options.courses, ...courses].forEach((item) => {
@@ -442,6 +484,41 @@ export default function CourseAssessmentPage() {
     }
   };
 
+  const validateProgramWithAi = async () => {
+    if (!validationForm.academicyear) {
+      setError("Please select academic year for AI validation");
+      return;
+    }
+    if (!validationForm.programcode) {
+      setError("Please select program for AI validation");
+      return;
+    }
+    if (validationForm.provider === "Ollama" && !validationForm.ollamaId) {
+      setError("Please select an Ollama configuration");
+      return;
+    }
+    try {
+      setValidating(true);
+      setError("");
+      setValidationReport("");
+      const res = await ep1.post("/api/v2/courseassessment/validate-program-ai", {
+        colid,
+        academicyear: validationForm.academicyear,
+        programcode: validationForm.programcode,
+        provider: validationForm.provider,
+        geminiModel: validationForm.geminiModel,
+        ollamaId: validationForm.ollamaId,
+        rules: validationForm.rules
+      });
+      setValidationReport(res.data.report || "No validation report returned.");
+      setMessage("Course assessment validation completed");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to validate course assessment data");
+    } finally {
+      setValidating(false);
+    }
+  };
+
   const filterSelect = (field, label, values, renderValue = (value) => value) => (
     <FormControl size="small" sx={{ flex: "1 1 180px", minWidth: 160, maxWidth: { xs: "100%", md: 240 } }}>
       <InputLabel>{label}</InputLabel>
@@ -620,6 +697,119 @@ export default function CourseAssessmentPage() {
         <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
           <Button type="submit" variant="contained" startIcon={<Save />}>{editingId ? "Update" : "Save"}</Button>
           <Button variant="outlined" startIcon={<Cancel />} onClick={resetForm}>Cancel</Button>
+        </Stack>
+      </Paper>
+
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack spacing={1.5}>
+          <Box>
+            <Typography variant="h6" fontWeight={800}>AI Course Assessment Validation</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Select an academic year and program to validate all course assessment schemes with Gemini or Ollama.
+            </Typography>
+          </Box>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={2}>
+              <FormControl fullWidth>
+                <InputLabel>Academic Year</InputLabel>
+                <Select
+                  label="Academic Year"
+                  value={validationForm.academicyear}
+                  onChange={(e) => setValidationForm((prev) => ({ ...prev, academicyear: e.target.value, programcode: "" }))}
+                >
+                  {yearOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Autocomplete
+                options={validationProgramOptions}
+                value={validationProgramOptions.find((item) => item.programcode === validationForm.programcode) || null}
+                onChange={(event, value) => setValidationForm((prev) => ({ ...prev, programcode: value?.programcode || "" }))}
+                getOptionLabel={(option) => option?.programcode ? `${option.programcode}${option.program ? ` - ${option.program}` : ""}` : ""}
+                isOptionEqualToValue={(option, value) => option.programcode === value.programcode}
+                renderInput={(params) => <TextField {...params} label="Search Program / Program Code" />}
+              />
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <TextField
+                select
+                fullWidth
+                label="AI Provider"
+                value={validationForm.provider}
+                onChange={(e) => setValidationForm((prev) => ({ ...prev, provider: e.target.value }))}
+              >
+                <MenuItem value="Gemini">Gemini</MenuItem>
+                <MenuItem value="Ollama">Ollama</MenuItem>
+              </TextField>
+            </Grid>
+            {validationForm.provider === "Gemini" ? (
+              <Grid item xs={12} md={2}>
+                <TextField
+                  select
+                  fullWidth
+                  label="Gemini Model"
+                  value={validationForm.geminiModel}
+                  onChange={(e) => setValidationForm((prev) => ({ ...prev, geminiModel: e.target.value }))}
+                >
+                  {(aiOptions.geminiModels.length ? aiOptions.geminiModels : ["gemini-2.5-flash"]).map((model) => (
+                    <MenuItem key={model} value={model}>{model}</MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+            ) : (
+              <Grid item xs={12} md={2}>
+                <TextField
+                  select
+                  fullWidth
+                  label="Ollama Config"
+                  value={validationForm.ollamaId}
+                  onChange={(e) => setValidationForm((prev) => ({ ...prev, ollamaId: e.target.value }))}
+                >
+                  {(aiOptions.ollama || []).map((item) => (
+                    <MenuItem key={item._id} value={item._id}>{item.name} ({item.modelname})</MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+            )}
+            <Grid item xs={12} md={2}>
+              <Button
+                fullWidth
+                variant="contained"
+                startIcon={validating ? <CircularProgress size={18} color="inherit" /> : <AutoAwesome />}
+                onClick={validateProgramWithAi}
+                disabled={validating}
+                sx={{ height: "100%" }}
+              >
+                {validating ? "Validating..." : "Validate"}
+              </Button>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                multiline
+                minRows={3}
+                label="Validation Rules"
+                value={validationForm.rules}
+                onChange={(e) => setValidationForm((prev) => ({ ...prev, rules: e.target.value }))}
+              />
+            </Grid>
+            {validationReport && (
+              <>
+                <Grid item xs={12}><Divider /></Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    multiline
+                    minRows={8}
+                    label="Validation Report"
+                    value={validationReport}
+                    InputProps={{ readOnly: true }}
+                  />
+                </Grid>
+              </>
+            )}
+          </Grid>
         </Stack>
       </Paper>
 

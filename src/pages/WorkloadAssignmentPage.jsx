@@ -30,6 +30,7 @@ import global1 from "./global1";
 const fallbackYears = ["2026-27", "2027-28", "2028-29", "2029-30", "2030-31"];
 const fallbackTypes = ["Major", "Minor"];
 const uniqueSorted = (values = []) => [...new Set(values.map((item) => String(item || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+const norm = (value) => String(value || "").trim().toLowerCase();
 const normalizeHeader = (value) => String(value || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
 
 const blankForm = {
@@ -42,9 +43,11 @@ const blankForm = {
   semester: "",
   course: "",
   coursecode: "",
+  coursetype: "",
   facultyname: "",
   facultyemail: "",
   facultydepartment: "",
+  hoursperweek: "",
   status: "Active"
 };
 
@@ -58,10 +61,13 @@ const headerMap = {
   semester: "semester",
   course: "course",
   coursecode: "coursecode",
+  coursetype: "coursetype",
+  courseType: "coursetype",
   facultyname: "facultyname",
   facultyemail: "facultyemail",
   facultydepartment: "facultydepartment",
   department: "facultydepartment",
+  hoursperweek: "hoursperweek",
   status: "status"
 };
 
@@ -89,6 +95,14 @@ export default function WorkloadAssignmentPage() {
   useEffect(() => {
     loadCourses(form);
   }, [form.academicyear, form.regulation, form.programcode, form.type, form.subject, form.semester]);
+
+  useEffect(() => {
+    if (!form.coursecode || form.coursetype) return;
+    const selected = findMatchingCourse(courses, form);
+    if (selected?.coursetype) {
+      setForm((prev) => ({ ...prev, coursetype: selected.coursetype }));
+    }
+  }, [courses, form.academicyear, form.regulation, form.programcode, form.type, form.subject, form.semester, form.coursecode, form.coursetype]);
 
   useEffect(() => {
     loadFaculty(department);
@@ -193,9 +207,9 @@ export default function WorkloadAssignmentPage() {
     setForm((prev) => ({
       ...prev,
       [field]: value,
-      ...(["academicyear", "regulation", "programcode", "type"].includes(field) ? { course: "", coursecode: "", subject: "", semester: "" } : {}),
-      ...(field === "subject" ? { course: "", coursecode: "", semester: "" } : {}),
-      ...(field === "semester" ? { course: "", coursecode: "" } : {})
+      ...(["academicyear", "regulation", "programcode", "type"].includes(field) ? { course: "", coursecode: "", coursetype: "", subject: "", semester: "" } : {}),
+      ...(field === "subject" ? { course: "", coursecode: "", coursetype: "", semester: "" } : {}),
+      ...(field === "semester" ? { course: "", coursecode: "", coursetype: "" } : {})
     }));
   };
 
@@ -208,6 +222,7 @@ export default function WorkloadAssignmentPage() {
       program: selected?.program || "",
       course: "",
       coursecode: "",
+      coursetype: "",
       subject: "",
       semester: ""
     }));
@@ -222,14 +237,25 @@ export default function WorkloadAssignmentPage() {
     }));
   };
 
+  const findMatchingCourse = (courseList, source) => courseList.find((item) => (
+    norm(item.coursecode) === norm(source.coursecode)
+    && (!source.academicyear || norm(item.academicyear) === norm(source.academicyear))
+    && (!source.regulation || norm(item.regulation) === norm(source.regulation))
+    && (!source.programcode || norm(item.programcode) === norm(source.programcode))
+    && (!source.type || norm(item.type) === norm(source.type))
+    && (!source.subject || norm(item.subject) === norm(source.subject))
+    && (!source.semester || norm(item.semester) === norm(source.semester))
+  )) || courseList.find((item) => norm(item.coursecode) === norm(source.coursecode));
+
   const selectCourses = (coursecodes) => {
     const nextCodes = Array.isArray(coursecodes) ? coursecodes : [];
     setSelectedCourseCodes(nextCodes);
-    const selected = courses.find((item) => item.coursecode === nextCodes[0]);
+    const selected = findMatchingCourse(courses, { ...form, coursecode: nextCodes[0] });
     setForm((prev) => ({
       ...prev,
       course: selected?.course || "",
       coursecode: selected?.coursecode || "",
+      coursetype: selected?.coursetype || "",
       subject: selected?.subject || prev.subject,
       semester: selected?.semester || prev.semester
     }));
@@ -264,6 +290,7 @@ export default function WorkloadAssignmentPage() {
             ...form,
             course: courseItem.course,
             coursecode: courseItem.coursecode,
+            coursetype: courseItem.coursetype || form.coursetype,
             subject: courseItem.subject || form.subject,
             semester: courseItem.semester || form.semester,
             colid,
@@ -294,9 +321,11 @@ export default function WorkloadAssignmentPage() {
       semester: row.semester || "",
       course: row.course || "",
       coursecode: row.coursecode || "",
+      coursetype: row.coursetype || "",
       facultyname: row.facultyname || "",
       facultyemail: row.facultyemail || "",
       facultydepartment: row.facultydepartment || "",
+      hoursperweek: row.hoursperweek ?? "",
       status: row.status || "Active"
     });
   };
@@ -326,9 +355,11 @@ export default function WorkloadAssignmentPage() {
       Semester: firstCourse.semester || "",
       Course: firstCourse.course || "",
       "Course Code": firstCourse.coursecode || "",
+      "Course Type": firstCourse.coursetype || "",
       "Faculty Name": firstFaculty.name || "",
       "Faculty Email": firstFaculty.email || "",
       "Faculty Department": firstFaculty.department || "",
+      "Hours Per Week": 4,
       Status: "Active"
     };
     const ws = XLSX.utils.json_to_sheet([row]);
@@ -402,9 +433,11 @@ export default function WorkloadAssignmentPage() {
     { field: "semester", headerName: "Semester", width: 110 },
     { field: "course", headerName: "Course", width: 220 },
     { field: "coursecode", headerName: "Course Code", width: 140 },
+    { field: "coursetype", headerName: "Course Type", width: 140 },
     { field: "facultyname", headerName: "Faculty Name", width: 190 },
     { field: "facultyemail", headerName: "Faculty Email", width: 230 },
     { field: "facultydepartment", headerName: "Department", width: 160 },
+    { field: "hoursperweek", headerName: "Hours Per Week", width: 150, type: "number" },
     { field: "status", headerName: "Status", width: 110 }
   ];
 
@@ -463,6 +496,14 @@ export default function WorkloadAssignmentPage() {
             </FormControl>
           </Grid>
           <Grid item xs={12} md={2}>
+            <TextField
+              fullWidth
+              label="Course Type"
+              value={form.coursetype}
+              InputProps={{ readOnly: true }}
+            />
+          </Grid>
+          <Grid item xs={12} md={2}>
             <FormControl fullWidth>
               <InputLabel>Department</InputLabel>
               <Select label="Department" value={department} onChange={(e) => setDepartment(e.target.value)}>
@@ -478,6 +519,16 @@ export default function WorkloadAssignmentPage() {
               onChange={(event, value) => selectFaculty(value)}
               getOptionLabel={(option) => `${option.name || ""}${option.email ? ` (${option.email})` : ""}`}
               renderInput={(params) => <TextField {...params} required label="Faculty" />}
+            />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField
+              fullWidth
+              type="number"
+              label="Hours Per Week"
+              value={form.hoursperweek}
+              inputProps={{ min: 0, step: 0.5 }}
+              onChange={(event) => updateFormValue("hoursperweek", event.target.value)}
             />
           </Grid>
         </Grid>

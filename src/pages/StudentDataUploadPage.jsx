@@ -31,7 +31,7 @@ import ep1 from "../api/ep1";
 import global1 from "./global1";
 
 const subjectFields = ["Major", "Minor", "AEC", "SEC", "VAC", "IDC", "MDC"];
-const fields = ["name", "regno", "scholarnumber", "password", "email", "phone", "regulation", "program", "programcode", ...subjectFields, "academicyear", "admissionyear", "rollno", "gender", "category", "state", "city", "district", "pincode", "guardianname", "guardianmobile", "guardianemail", "photo", "semester", "section"];
+const fields = ["name", "regno", "scholarnumber", "password", "email", "phone", "regulation", "program", "programcode", "Mediumofinstruction", "specialization1", "specialization2", ...subjectFields, "academicyear", "admissionyear", "rollno", "gender", "category", "state", "city", "district", "pincode", "guardianname", "guardianmobile", "guardianemail", "photo", "semester", "section"];
 const academicYears = ["2023-24", "2024-25", "2025-26", "2026-27", "2027-28"];
 const semesters = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
 const staticDropdownOptions = {
@@ -50,7 +50,10 @@ const labels = {
   phone: "Phone",
   program: "Program",
   programcode: "Program Code",
+  Mediumofinstruction: "Medium of Instruction",
   regulation: "Regulation",
+  specialization1: "Specialization 1",
+  specialization2: "Specialization 2",
   Major: "Major",
   Minor: "Minor",
   AEC: "AEC",
@@ -76,7 +79,7 @@ const labels = {
   department: "Department",
   institution: "Institution"
 };
-const viewFilterFields = ["academicyear", "program", "programcode", "department", "semester", "section", "Major", "Minor", "IDC", "AEC", "SEC", "VAC", "name", "regno", "scholarnumber", "email", "phone", "institution"];
+const viewFilterFields = ["academicyear", "program", "programcode", "Mediumofinstruction", "department", "semester", "section", "specialization1", "specialization2", "Major", "Minor", "IDC", "AEC", "SEC", "VAC", "name", "regno", "scholarnumber", "email", "phone", "institution"];
 const blankViewFilter = { field: "academicyear", value: "" };
 const blankForm = { ...fields.reduce((acc, field) => ({ ...acc, [field]: staticDropdownOptions[field]?.[0] || "" }), {}), customFields: {} };
 const normalizeKey = (key) => String(key || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -88,6 +91,9 @@ const valueFromRow = (row, field) => {
     scholarnumber: ["scholarnumber", "scholar number", "scholar no"],
     password: ["password"],
     programcode: ["programcode", "program code"],
+    Mediumofinstruction: ["Mediumofinstruction", "mediumofinstruction", "medium of instruction"],
+    specialization1: ["specialization1", "specialization 1", "specialisation1", "specialisation 1"],
+    specialization2: ["specialization2", "specialization 2", "specialisation2", "specialisation 2"],
     Major: ["major", "Major"],
     Minor: ["minor", "Minor"],
     AEC: ["aec", "AEC"],
@@ -140,6 +146,8 @@ export default function StudentDataUploadPage() {
   const [bulkUploading, setBulkUploading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [passwordLength, setPasswordLength] = useState(10);
+  const [bulkGeneratePasswords, setBulkGeneratePasswords] = useState(false);
+  const [bulkPasswordLength, setBulkPasswordLength] = useState(10);
   const [autoScholarNumber, setAutoScholarNumber] = useState(true);
   const [selectedIds, setSelectedIds] = useState([]);
   const [viewFilters, setViewFilters] = useState([{ ...blankViewFilter }]);
@@ -333,18 +341,34 @@ export default function StudentDataUploadPage() {
     return next;
   };
 
-  const generatePassword = (length = passwordLength) => {
+  const generatePasswordValue = (length = passwordLength) => {
     const size = Math.max(6, Math.min(32, Number(length) || 10));
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*";
-    let password = "";
-    if (window.crypto?.getRandomValues) {
-      const values = new Uint32Array(size);
-      window.crypto.getRandomValues(values);
-      password = Array.from(values).map((value) => chars[value % chars.length]).join("");
-    } else {
-      password = Array.from({ length: size }).map(() => chars[Math.floor(Math.random() * chars.length)]).join("");
+    const groups = [
+      "ABCDEFGHJKLMNPQRSTUVWXYZ",
+      "abcdefghijkmnopqrstuvwxyz",
+      "23456789",
+      "!@#$%&*"
+    ];
+    const chars = groups.join("");
+    const next = groups.map((group) => group[Math.floor(Math.random() * group.length)]);
+    const randomIndex = (max) => {
+      if (window.crypto?.getRandomValues) {
+        const values = new Uint32Array(1);
+        window.crypto.getRandomValues(values);
+        return values[0] % max;
+      }
+      return Math.floor(Math.random() * max);
+    };
+    while (next.length < size) next.push(chars[randomIndex(chars.length)]);
+    for (let index = next.length - 1; index > 0; index -= 1) {
+      const swapIndex = randomIndex(index + 1);
+      [next[index], next[swapIndex]] = [next[swapIndex], next[index]];
     }
-    updateField("password", password);
+    return next.join("");
+  };
+
+  const generatePassword = (length = passwordLength) => {
+    updateField("password", generatePasswordValue(length));
   };
 
   const uploadPhoto = async (event) => {
@@ -600,6 +624,7 @@ export default function StudentDataUploadPage() {
         fields.forEach((field) => {
           item[field] = valueFromRow(row, field);
         });
+        if (bulkGeneratePasswords) item.password = generatePasswordValue(bulkPasswordLength);
         if (!item.password) item.password = "";
         item.customFields = {};
         customFields.forEach((field) => {
@@ -611,6 +636,8 @@ export default function StudentDataUploadPage() {
         colid: global1.colid,
         user: global1.user,
         institution: global1.insname,
+        generateRandomPassword: bulkGeneratePasswords ? "Yes" : "No",
+        passwordLength: bulkPasswordLength,
         items
       });
       const errors = res.data?.errors || [];
@@ -681,6 +708,27 @@ export default function StudentDataUploadPage() {
           <LinearProgress />
         </Paper>
       )}
+
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "stretch", md: "center" }}>
+          <FormControlLabel
+            control={<Checkbox checked={bulkGeneratePasswords} onChange={(event) => setBulkGeneratePasswords(event.target.checked)} />}
+            label="Generate random password for bulk upload"
+          />
+          <TextField
+            type="number"
+            label="Bulk password length"
+            value={bulkPasswordLength}
+            inputProps={{ min: 6, max: 32 }}
+            onChange={(event) => setBulkPasswordLength(event.target.value)}
+            disabled={!bulkGeneratePasswords}
+            sx={{ width: { xs: "100%", md: 220 } }}
+          />
+          <Typography variant="body2" color="text.secondary">
+            When selected, generated passwords override the password column during Excel upload.
+          </Typography>
+        </Stack>
+      </Paper>
 
       {aiGenerating && (
         <Paper sx={{ p: 2, mb: 2 }}>

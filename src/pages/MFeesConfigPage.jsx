@@ -40,6 +40,7 @@ const blankForm = {
   minor: "",
   IDC: "",
   gender: "",
+  Medium: "",
   feegroup: "",
   semester: "1",
   feeeitem: "",
@@ -75,11 +76,12 @@ export default function MFeesConfigPage() {
     minors: [],
     idcs: [],
     genders: [],
+    mediums: [],
     semesters: [],
     statuses: []
   });
   const [form, setForm] = useState(blankForm);
-  const [filters, setFilters] = useState({ academicyear: "", programcode: "", regulation: "", major: "", minor: "", IDC: "", gender: "", semester: "", status: "" });
+  const [filters, setFilters] = useState({ academicyear: "", programcode: "", regulation: "", major: "", minor: "", IDC: "", gender: "", Medium: "", semester: "", status: "" });
   const [editingId, setEditingId] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -118,6 +120,7 @@ export default function MFeesConfigPage() {
         minors: unique(res.data.feeFilterOptions?.minors || []),
         idcs: unique(res.data.feeFilterOptions?.idcs || []),
         genders: unique(res.data.feeFilterOptions?.genders || []),
+        mediums: unique(res.data.feeFilterOptions?.mediums || []),
         semesters: unique(res.data.feeFilterOptions?.semesters || []),
         statuses: unique(res.data.feeFilterOptions?.statuses || [])
       });
@@ -201,6 +204,7 @@ export default function MFeesConfigPage() {
       minor: row.minor || "",
       IDC: row.IDC || row.idc || "",
       gender: row.gender || "",
+      Medium: row.Medium || row.medium || "",
       feegroup: row.feegroup || "",
       semester: row.semester || "1",
       feeeitem: row.feeeitem || "",
@@ -268,6 +272,7 @@ export default function MFeesConfigPage() {
         minor: row.minor || row.Minor,
         IDC: row.IDC || row.idc || row["IDC"],
         gender: row.gender || row.Gender,
+        Medium: row.Medium || row.medium || row["Medium"],
         feegroup: row.feegroup || row["Fee Group"],
         semester: row.semester || row.Semester,
         feeeitem: row.feeeitem || row.feeitem || row["Fee Item"],
@@ -308,6 +313,7 @@ export default function MFeesConfigPage() {
       "Minor",
       "IDC",
       "Gender",
+      "Medium",
       "Fee Group",
       "Semester",
       "Fee Item",
@@ -330,6 +336,7 @@ export default function MFeesConfigPage() {
       Minor: minors[0] || "",
       IDC: idcs[0] || "",
       Gender: "Not specified",
+      Medium: "",
       "Fee Group": "Tuition",
       Semester: "1",
       "Fee Item": "Tuition Fee",
@@ -358,6 +365,7 @@ export default function MFeesConfigPage() {
     { field: "minor", headerName: "Minor", width: 180 },
     { field: "IDC", headerName: "IDC", width: 180 },
     { field: "gender", headerName: "Gender", width: 140 },
+    { field: "Medium", headerName: "Medium", width: 150 },
     { field: "feegroup", headerName: "Fee Group", width: 160 },
     { field: "semester", headerName: "Semester", width: 110 },
     { field: "feeeitem", headerName: "Fee Item", width: 190 },
@@ -450,6 +458,7 @@ export default function MFeesConfigPage() {
                   <MenuItem value="">All</MenuItem>
                   {genderOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
                 </TextField>
+                <TextField size="small" label="Medium" value={form.Medium} onChange={(e) => setField("Medium", e.target.value)} />
                 <TextField size="small" label="Fee Group" value={form.feegroup} onChange={(e) => setField("feegroup", e.target.value)} required />
                 <TextField select size="small" label="Semester" value={form.semester} onChange={(e) => setField("semester", e.target.value)} required>
                   {semesterOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
@@ -502,6 +511,13 @@ export default function MFeesConfigPage() {
                 <Select label="Gender" value={filters.gender} onChange={(e) => setFilters((prev) => ({ ...prev, gender: e.target.value }))}>
                   <MenuItem value="">All</MenuItem>
                   {feeFilterOptions.genders.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel>Medium</InputLabel>
+                <Select label="Medium" value={filters.Medium} onChange={(e) => setFilters((prev) => ({ ...prev, Medium: e.target.value }))}>
+                  <MenuItem value="">All</MenuItem>
+                  {feeFilterOptions.mediums.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
                 </Select>
               </FormControl>
             </Stack>

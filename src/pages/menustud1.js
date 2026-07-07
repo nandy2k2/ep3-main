@@ -229,6 +229,27 @@ export function mainListItems({ open }) {
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="OTP Attendance" />}
 </ListItem>
 
+           <ListItem button component={RouterLink} to="/studentneplmslivequiz">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Live quiz" />}
+</ListItem>
+
+           <ListItem button component={RouterLink} to="/studentelectiveapplication">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Elective Application" />}
+</ListItem>
+
+           <ListItem button component={RouterLink} to="/studentmyelectives">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="My Electives" />}
+</ListItem>
+
             <ListItem button component={RouterLink} to="/studentneplmsassessment">
 <ListItemIcon>
 <PersonIcon />
@@ -529,6 +550,13 @@ export function mainListItems({ open }) {
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Download admit card" />}
+</ListItem>
+
+<ListItem button component={RouterLink} to="/student-admit-card-new">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Admit card new" />}
 </ListItem>
 
 <ListItem button component={RouterLink} to="/dashmarksheet">

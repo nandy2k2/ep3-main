@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
   Box, Button, Dialog, DialogTitle, DialogContent,
-  DialogActions, Stack, TextField, Autocomplete
+  DialogActions, Stack, TextField, Autocomplete, Checkbox, FormControlLabel
 } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -12,6 +12,11 @@ import global1 from './global1';
 import readXlsxFile from "read-excel-file";
 
 const roles = ["Admin", "crm", "Faculty", "HOD", "REGISTRAR","ACCOUNTS","MANAGEMENT", "HOI"];
+const generateRandomPassword = (length = 12) => {
+  const size = Math.max(6, Math.min(Number(length) || 12, 64));
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*?";
+  return Array.from({ length: size }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+};
 const emptyForm = {
   name: "",
   email: "",
@@ -28,6 +33,8 @@ export default function MbUserPage({ embedded = false, onRowsChange }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState("");
+  const [autoPassword, setAutoPassword] = useState(false);
+  const [passwordLength, setPasswordLength] = useState(12);
   const navigate = useNavigate();
   const colid = global1.colid; // global1.colid later
 
@@ -54,6 +61,8 @@ export default function MbUserPage({ embedded = false, onRowsChange }) {
 const openAddDialog = () => {
   setEditId("");
   setForm(emptyForm);
+  setAutoPassword(false);
+  setPasswordLength(12);
   setOpen(true);
 };
 
@@ -69,6 +78,8 @@ const openEditDialog = (row) => {
     department: row.department || "",
     admissionyear: row.admissionyear || ""
   });
+  setAutoPassword(false);
+  setPasswordLength(12);
   setOpen(true);
 };
 
@@ -76,11 +87,30 @@ const handleClose = () => {
   setOpen(false);
   setEditId("");
   setForm(emptyForm);
+  setAutoPassword(false);
+  setPasswordLength(12);
+};
+
+const handleAutoPasswordChange = (checked) => {
+  setAutoPassword(checked);
+  if (checked) {
+    setForm((prev) => ({ ...prev, password: generateRandomPassword(passwordLength) }));
+  }
+};
+
+const handlePasswordLengthChange = (value) => {
+  const nextLength = Math.max(6, Math.min(Number(value) || 6, 64));
+  setPasswordLength(nextLength);
+  if (autoPassword) {
+    setForm((prev) => ({ ...prev, password: generateRandomPassword(nextLength) }));
+  }
 };
 
 const handleSave = async () => {
+  const finalPassword = autoPassword && !form.password ? generateRandomPassword(passwordLength) : form.password;
   const payload = {
     ...form,
+    password: finalPassword,
     user: global1.user,
     colid: global1.colid
   };
@@ -266,6 +296,23 @@ const handleFileUpload = async (e) => {
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
           />
+
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ xs: "stretch", sm: "center" }}>
+            <FormControlLabel
+              control={<Checkbox checked={autoPassword} onChange={(e) => handleAutoPasswordChange(e.target.checked)} />}
+              label="Generate random password"
+            />
+            <TextField
+              label="Password length"
+              type="number"
+              margin="dense"
+              value={passwordLength}
+              onChange={(e) => handlePasswordLengthChange(e.target.value)}
+              inputProps={{ min: 6, max: 64 }}
+              sx={{ width: { xs: "100%", sm: 180 } }}
+              disabled={!autoPassword}
+            />
+          </Stack>
 
            <TextField label="Institution" fullWidth margin="dense"
             value={form.institution}
