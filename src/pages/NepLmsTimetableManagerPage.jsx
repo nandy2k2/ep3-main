@@ -22,6 +22,7 @@ import { Add, ArrowBack, Delete, Edit, FileDownload, Print, Refresh, Save, SwapH
 import { DataGrid, GridActionsCellItem, GridToolbar } from "@mui/x-data-grid";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const blankClass = {
   academicyear: "",
@@ -37,6 +38,8 @@ const blankClass = {
   roomno: "",
   major: "",
   semester: "",
+  section: "",
+  classgroup: "",
   course: "",
   coursecode: "",
   classdate: "",
@@ -55,6 +58,8 @@ const filterFields = [
   { field: "programcode", label: "Program Code" },
   { field: "major", label: "Major" },
   { field: "semester", label: "Semester" },
+  { field: "section", label: "Section" },
+  { field: "classgroup", label: "Class Group" },
   { field: "course", label: "Course" },
   { field: "coursecode", label: "Course Code" },
   { field: "faculty", label: "Faculty" },
@@ -114,7 +119,7 @@ const monthTitle = (year, month) => new Date(year, month, 1).toLocaleDateString(
 const longDate = (date) => date.toLocaleDateString(undefined, { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
 const shortDate = (date) => date.toLocaleDateString(undefined, { day: "2-digit", month: "short" });
 
-export default function NepLmsTimetableManagerPage() {
+export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle = "NEP LMS Timetable" }) {
   const [rows, setRows] = useState([]);
   const [form, setForm] = useState(blankClass);
   const [editingId, setEditingId] = useState("");
@@ -131,8 +136,13 @@ export default function NepLmsTimetableManagerPage() {
   const [calendarDate, setCalendarDate] = useState("");
   const [courseMaps, setCourseMaps] = useState([]);
   const [facultyOptions, setFacultyOptions] = useState([]);
+  const [sectionOptions, setSectionOptions] = useState([]);
+  const [classGroupOptions, setClassGroupOptions] = useState([]);
   const [weeklyFromDate, setWeeklyFromDate] = useState("");
   const [weeklyToDate, setWeeklyToDate] = useState("");
+
+  const sectionMode = mode === "section";
+  const classGroupMode = mode === "classgroup";
 
   useEffect(() => {
     loadRows();
@@ -140,6 +150,11 @@ export default function NepLmsTimetableManagerPage() {
     loadCourseMaps();
     loadFacultyOptions();
   }, []);
+
+  useEffect(() => {
+    if (sectionMode) loadSectionOptions();
+    if (classGroupMode) loadClassGroupOptions();
+  }, [form.academicyear, form.regulation, form.programcode, form.semester, form.coursecode, form.facultyemail, sectionMode, classGroupMode]);
 
   const loadInstitution = async () => {
     try {
@@ -180,6 +195,42 @@ export default function NepLmsTimetableManagerPage() {
       setFacultyOptions(faculty.length ? faculty : users);
     } catch (err) {
       setFacultyOptions([]);
+    }
+  };
+
+  const loadSectionOptions = async () => {
+    try {
+      const res = await ep1.get("/api/v2/neplms/class-groups/sections", {
+        params: {
+          colid: global1.colid,
+          academicyear: form.academicyear,
+          regulation: form.regulation,
+          programcode: form.programcode,
+          semester: form.semester
+        }
+      });
+      setSectionOptions(res.data?.data || []);
+    } catch (err) {
+      setSectionOptions([]);
+    }
+  };
+
+  const loadClassGroupOptions = async () => {
+    try {
+      const res = await ep1.get("/api/v2/neplms/class-groups", {
+        params: {
+          colid: global1.colid,
+          facultyemail: form.facultyemail || global1.user,
+          academicyear: form.academicyear,
+          regulation: form.regulation,
+          programcode: form.programcode,
+          semester: form.semester,
+          coursecode: form.coursecode
+        }
+      });
+      setClassGroupOptions(uniqueSorted((res.data?.data || []).map((item) => item.groupname)));
+    } catch (err) {
+      setClassGroupOptions([]);
     }
   };
 
@@ -388,6 +439,8 @@ export default function NepLmsTimetableManagerPage() {
       roomno: row.roomno || "",
       major: row.major || "",
       semester: row.semester || "",
+      section: row.section || "",
+      classgroup: row.classgroup || "",
       course: row.course || "",
       coursecode: row.coursecode || "",
       classdate: row.classdate || "",
@@ -449,6 +502,8 @@ export default function NepLmsTimetableManagerPage() {
       roomno: "101",
       major: "Accountancy",
       semester: "1",
+      section: sectionMode ? "A" : "",
+      classgroup: classGroupMode ? "Group 1" : "",
       course: "Financial Accounting",
       coursecode: "FAC101",
       classdate: "2026-07-01",
@@ -499,6 +554,8 @@ export default function NepLmsTimetableManagerPage() {
       roomno: "101",
       major: "Accountancy",
       semester: "1",
+      section: sectionMode ? "A" : "",
+      classgroup: classGroupMode ? "Group 1" : "",
       course: "Financial Accounting",
       coursecode: "FAC101",
       classtime: "10:00",
@@ -596,6 +653,8 @@ export default function NepLmsTimetableManagerPage() {
     { field: "roomno", headerName: "Room No", width: 130 },
     { field: "major", headerName: "Major", width: 180 },
     { field: "semester", headerName: "Semester", width: 110 },
+    ...(sectionMode ? [{ field: "section", headerName: "Section", width: 120 }] : []),
+    ...(classGroupMode ? [{ field: "classgroup", headerName: "Class Group", width: 160 }] : []),
     { field: "course", headerName: "Course", width: 220 },
     { field: "coursecode", headerName: "Course Code", width: 140 },
     { field: "classdate", headerName: "Class Date", width: 130 },
@@ -622,13 +681,15 @@ export default function NepLmsTimetableManagerPage() {
     ["academicyear", "Academic Year"], ["regulation", "Regulation"], ["program", "Program"], ["programcode", "Program Code"],
     ["faculty", "Faculty"], ["facultyemail", "Faculty Email"], ["campus", "Campus"], ["building", "Building"], ["floor", "Floor"], ["roomid", "Room ID"], ["roomno", "Room No"],
     ["major", "Major"], ["semester", "Semester"],
+    ...(sectionMode ? [["section", "Section"]] : []),
+    ...(classGroupMode ? [["classgroup", "Class Group"]] : []),
     ["course", "Course"], ["coursecode", "Course Code"], ["classdate", "Class Date", "date"], ["classtime", "Class Time", "time"],
     ["period", "Period"], ["durationminutes", "Duration in minutes", "number"], ["module", "Module"], ["topic", "Topic"],
     ["workcompleted", "Work Completed"], ["status", "Status"]
   ];
   const courseMapDropdownFields = new Set(["academicyear", "regulation", "program", "programcode", "major", "semester", "course", "coursecode"]);
 
-  return (
+  const pageBody = (
     <Box p={3}>
       <style>
         {`
@@ -644,7 +705,7 @@ export default function NepLmsTimetableManagerPage() {
 
       <Stack className="no-print" direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
         <Box>
-          <Typography variant="h5" fontWeight={700}>NEP LMS Timetable</Typography>
+          <Typography variant="h5" fontWeight={700}>{pageTitle}</Typography>
           <Typography variant="body2" color="text.secondary">Bulk upload, CRUD, swap classes, filter and print calendar view.</Typography>
         </Box>
         <Stack direction="row" spacing={1}>
@@ -697,6 +758,26 @@ export default function NepLmsTimetableManagerPage() {
                     isOptionEqualToValue={(option, value) => (option._id && value._id ? option._id === value._id : (option.email || option.user) === (value.email || value.user))}
                     renderInput={(params) => <TextField {...params} label="Faculty" />}
                   />
+                </Grid>
+              );
+            }
+            if (field === "section") {
+              return (
+                <Grid item xs={12} md={2} key={field}>
+                  <TextField select fullWidth label={label} value={form.section} onChange={(e) => updateForm("section", e.target.value)}>
+                    <MenuItem value="">Select</MenuItem>
+                    {sectionOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                  </TextField>
+                </Grid>
+              );
+            }
+            if (field === "classgroup") {
+              return (
+                <Grid item xs={12} md={2} key={field}>
+                  <TextField select fullWidth label={label} value={form.classgroup} onChange={(e) => updateForm("classgroup", e.target.value)}>
+                    <MenuItem value="">Select</MenuItem>
+                    {classGroupOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                  </TextField>
                 </Grid>
               );
             }
@@ -1039,4 +1120,19 @@ export default function NepLmsTimetableManagerPage() {
       </Paper>
     </Box>
   );
+
+  if (mode === "default") return pageBody;
+  return (
+    <MenuPageShell title={pageTitle}>
+      {pageBody}
+    </MenuPageShell>
+  );
+}
+
+export function NepLmsSectionwiseTimetablePage() {
+  return <NepLmsTimetableManagerPage mode="section" pageTitle="Sectionwise Timetable" />;
+}
+
+export function NepLmsClassGroupwiseTimetablePage() {
+  return <NepLmsTimetableManagerPage mode="classgroup" pageTitle="Classgroupwise Timetable" />;
 }

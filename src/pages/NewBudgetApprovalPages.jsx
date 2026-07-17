@@ -443,7 +443,7 @@ const budgetColumns = [
   { field: "submittedbyname", headerName: "Submitted by", minWidth: 160 }
 ];
 
-function BudgetItemForm({ form, setForm, categories, departments, saving, onSave, onSubmit, selectedCount, institutionMode, lockDepartment = false }) {
+function BudgetItemForm({ form, setForm, categories, departments, saving, onSave, onSubmit, selectedCount, institutionMode, lockDepartment = false, saveDisabled = false, lockMessage = "" }) {
   const selectedCategory = useMemo(() => categories.find((cat) => cat.category === form.category), [categories, form.category]);
 
   useEffect(() => {
@@ -484,9 +484,10 @@ function BudgetItemForm({ form, setForm, categories, departments, saving, onSave
         <Grid item xs={12} md={4}><TextField fullWidth label="Remarks" value={form.remarks} onChange={(e) => setForm({ ...form, remarks: e.target.value })} /></Grid>
         <Grid item xs={12} md={4}>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <Button variant="contained" startIcon={<Save />} disabled={saving} onClick={onSave}>{form.id ? "Update" : institutionMode ? "Add item" : "Save"}</Button>
+            <Button variant="contained" startIcon={<Save />} disabled={saving || saveDisabled} onClick={onSave}>{form.id ? "Update" : institutionMode ? "Add item" : "Save"}</Button>
             {onSubmit && <Button variant="outlined" startIcon={<Send />} disabled={saving || !selectedCount} onClick={onSubmit}>Submit selected</Button>}
           </Stack>
+          {saveDisabled && lockMessage && <Typography variant="caption" color="error">{lockMessage}</Typography>}
         </Grid>
       </Grid>
     </Paper>
@@ -502,6 +503,7 @@ export function NewBudgetEntryPage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ id: "", academicyear: "2026-27", department: global1.department || "", category: "", categorytype: "", item: "", amount: "", utilized: 0, remarks: "" });
+  const [submissionStatus, setSubmissionStatus] = useState(null);
 
   const loadCategories = async () => {
     const res = await ep1.get("/api/v2/newbudget/categories", { params: { colid: global1.colid, active: "Yes" } });
@@ -521,10 +523,27 @@ export function NewBudgetEntryPage() {
     }
   };
 
+  const loadSubmissionStatus = async (academicyear = form.academicyear) => {
+    if (!academicyear || !global1.user) return;
+    try {
+      const res = await ep1.get("/api/v2/newbudget/submission-status", {
+        params: { colid: global1.colid, academicyear, useremail: global1.user }
+      });
+      setSubmissionStatus(res.data.data || null);
+    } catch (err) {
+      setSubmissionStatus(null);
+    }
+  };
+
   useEffect(() => {
     loadCategories().catch(() => {});
     loadRows();
+    loadSubmissionStatus();
   }, []);
+
+  useEffect(() => {
+    loadSubmissionStatus(form.academicyear);
+  }, [form.academicyear]);
 
   const save = async () => {
     if (!form.academicyear || !form.department || !form.category || !form.item) {
@@ -545,6 +564,7 @@ export function NewBudgetEntryPage() {
       setForm({ id: "", academicyear: "2026-27", department: global1.department || "", category: "", categorytype: "", item: "", amount: "", utilized: 0, remarks: "" });
       setMessage("Budget item saved as draft.");
       await loadRows();
+      await loadSubmissionStatus(form.academicyear);
     } catch (err) {
       setError(err.response?.data?.message || err.message);
     } finally {
@@ -555,10 +575,10 @@ export function NewBudgetEntryPage() {
   const submitSelected = async () => {
     const draftIds = selectedMy.filter((id) => {
       const row = myRows.find((item) => item.id === id || item._id === id);
-      return row?.status === "Draft";
+      return ["Draft", "Rejected"].includes(row?.status);
     });
     if (!draftIds.length) {
-      setError("Select at least one draft item to submit.");
+      setError("Select at least one draft or rejected item to submit.");
       return;
     }
     setSaving(true);
@@ -575,6 +595,7 @@ export function NewBudgetEntryPage() {
       setSelectedMy([]);
       setMessage("Selected budget items submitted for approval.");
       await loadRows();
+      await loadSubmissionStatus(form.academicyear);
     } catch (err) {
       setError(err.response?.data?.message || err.message);
     } finally {
@@ -591,7 +612,7 @@ export function NewBudgetEntryPage() {
       filterable: false,
       renderCell: ({ row }) => (
         <Stack direction="row" spacing={1}>
-          <Button size="small" disabled={row.status !== "Draft"} onClick={() => setForm({ ...row, id: row._id })}>Edit</Button>
+          <Button size="small" disabled={!["Draft", "Rejected"].includes(row.status)} onClick={() => setForm({ ...row, id: row._id })}>Edit</Button>
           <Button size="small" color="error" disabled={saving || row.status !== "Draft"} onClick={async () => {
             if (!window.confirm("Delete this item?")) return;
             await ep1.post("/api/v2/newbudget/items-delete", { id: row._id });
@@ -614,19 +635,178 @@ export function NewBudgetEntryPage() {
           <Button startIcon={<Refresh />} onClick={loadRows}>Refresh</Button>
         </Stack>
         <StatusAlert error={error} message={message} />
-        <BudgetItemForm form={form} setForm={setForm} categories={categories} departments={departments} saving={saving} onSave={save} onSubmit={submitSelected} selectedCount={selectedMy.length} lockDepartment />
+        {submissionStatus?.submittedCount > 0 && !submissionStatus?.canCreateNew && (
+          <Alert severity={submissionStatus?.canResubmitRejected ? "warning" : "info"} sx={{ mb: 2 }}>
+            Budget is already submitted for {form.academicyear}. New entries are locked. {submissionStatus?.canResubmitRejected ? "Edit rejected item(s) below and resubmit them." : "An admin can activate one more submission for this user and academic year."}
+          </Alert>
+        )}
+        {submissionStatus?.hasUnusedActivation && (
+          <Alert severity="success" sx={{ mb: 2 }}>One-time submission is active for {form.academicyear}. You can add and submit a new budget batch once.</Alert>
+        )}
+        <BudgetItemForm
+          form={form}
+          setForm={setForm}
+          categories={categories}
+          departments={departments}
+          saving={saving}
+          onSave={save}
+          onSubmit={submitSelected}
+          selectedCount={selectedMy.length}
+          lockDepartment
+          saveDisabled={!form.id && submissionStatus?.submittedCount > 0 && !submissionStatus?.canCreateNew}
+          lockMessage={`New entries are locked for ${form.academicyear}.`}
+        />
         <Paper sx={{ height: 600 }}>
           <DataGrid
             rows={myRows}
             columns={myColumns}
             checkboxSelection
-            isRowSelectable={(params) => params.row.status === "Draft"}
+            isRowSelectable={(params) => ["Draft", "Rejected"].includes(params.row.status)}
             loading={loading}
             onRowSelectionModelChange={(ids) => setSelectedMy(ids)}
             rowSelectionModel={selectedMy}
             slots={{ toolbar: GridToolbar }}
             pageSizeOptions={[25, 50, 100]}
           />
+        </Paper>
+      </Box>
+    </MenuPageShell>
+  );
+}
+
+export function NewBudgetSubmissionActivationPage() {
+  const { users } = useBudgetUsers();
+  const { error, message, setError, setMessage, clear } = useMessage();
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ id: "", academicyear: "2026-27", useremail: "", username: "", department: "", active: "Yes", used: "No", remarks: "" });
+
+  const loadRows = async () => {
+    setLoading(true);
+    clear();
+    try {
+      const res = await ep1.get("/api/v2/newbudget/submission-activations", { params: { colid: global1.colid } });
+      setRows((res.data.data || []).map((row) => ({ ...row, id: row._id })));
+    } catch (err) {
+      setError(err.response?.data?.message || err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRows();
+  }, []);
+
+  const save = async () => {
+    if (!form.academicyear || !form.useremail) {
+      setError("Academic year and user are required.");
+      return;
+    }
+    setSaving(true);
+    clear();
+    try {
+      await ep1.post("/api/v2/newbudget/submission-activations", {
+        ...form,
+        colid: global1.colid,
+        activatedby: global1.user,
+        activatedbyname: global1.name,
+        role: global1.role
+      });
+      setMessage("Budget submission activated.");
+      setForm({ id: "", academicyear: "2026-27", useremail: "", username: "", department: "", active: "Yes", used: "No", remarks: "" });
+      await loadRows();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const columns = [
+    {
+      field: "actions",
+      headerName: "Actions",
+      width: 160,
+      sortable: false,
+      filterable: false,
+      renderCell: ({ row }) => (
+        <Stack direction="row" spacing={1}>
+          <Button size="small" onClick={() => setForm({ ...row, id: row._id })}>Edit</Button>
+          <Button size="small" color="error" disabled={saving || row.used === "Yes"} onClick={async () => {
+            if (!window.confirm("Delete this activation?")) return;
+            await ep1.post("/api/v2/newbudget/submission-activations-delete", { id: row._id, useremail: global1.user, username: global1.name, role: global1.role });
+            loadRows();
+          }}>Delete</Button>
+        </Stack>
+      )
+    },
+    { field: "academicyear", headerName: "Academic year", width: 150 },
+    { field: "username", headerName: "User", minWidth: 180 },
+    { field: "useremail", headerName: "Email", minWidth: 240 },
+    { field: "department", headerName: "Department", minWidth: 180 },
+    { field: "active", headerName: "Active", width: 120 },
+    { field: "used", headerName: "Used", width: 120 },
+    { field: "usedat", headerName: "Used at", minWidth: 190, valueFormatter: (params) => params.value ? new Date(params.value).toLocaleString() : "" },
+    { field: "activatedbyname", headerName: "Activated by", minWidth: 180 },
+    { field: "remarks", headerName: "Remarks", minWidth: 260, flex: 1 }
+  ];
+
+  return (
+    <MenuPageShell title="Budget submission activation">
+      <Box p={3}>
+        <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
+          <Box>
+            <Typography variant="h5" fontWeight={700}>Budget submission activation</Typography>
+            <Typography color="text.secondary">Activate one additional budget submission for a selected user and academic year.</Typography>
+          </Box>
+          <Button startIcon={<Refresh />} onClick={loadRows}>Refresh</Button>
+        </Stack>
+        <StatusAlert error={error} message={message} />
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={2}>
+              <FormControl fullWidth>
+                <InputLabel>Academic year</InputLabel>
+                <Select label="Academic year" value={form.academicyear} onChange={(e) => setForm({ ...form, academicyear: e.target.value })}>
+                  {years.map((year) => <MenuItem key={year} value={year}>{year}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Autocomplete
+                options={users}
+                getOptionLabel={(option) => `${option.name || ""} - ${option.email || ""}`}
+                value={users.find((user) => user.email === form.useremail) || null}
+                onChange={(e, value) => setForm({ ...form, useremail: value?.email || "", username: value?.name || "", department: value?.department || "" })}
+                renderInput={(params) => <TextField {...params} label="User" />}
+              />
+            </Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth label="Department" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} /></Grid>
+            <Grid item xs={12} md={1.5}>
+              <FormControl fullWidth>
+                <InputLabel>Active</InputLabel>
+                <Select label="Active" value={form.active} onChange={(e) => setForm({ ...form, active: e.target.value })}>{["Yes", "No"].map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}</Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={1.5}>
+              <FormControl fullWidth>
+                <InputLabel>Used</InputLabel>
+                <Select label="Used" value={form.used} onChange={(e) => setForm({ ...form, used: e.target.value })}>{["No", "Yes"].map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}</Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={8}><TextField fullWidth label="Remarks" value={form.remarks} onChange={(e) => setForm({ ...form, remarks: e.target.value })} /></Grid>
+            <Grid item xs={12} md={4}>
+              <Stack direction="row" spacing={1}>
+                <Button variant="contained" startIcon={<Save />} disabled={saving} onClick={save}>{form.id ? "Update" : "Activate"}</Button>
+                <Button variant="outlined" onClick={() => setForm({ id: "", academicyear: "2026-27", useremail: "", username: "", department: "", active: "Yes", used: "No", remarks: "" })}>Clear</Button>
+              </Stack>
+            </Grid>
+          </Grid>
+        </Paper>
+        <Paper sx={{ height: 620 }}>
+          <DataGrid rows={rows} columns={columns} loading={loading} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} />
         </Paper>
       </Box>
     </MenuPageShell>

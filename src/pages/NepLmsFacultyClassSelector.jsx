@@ -41,7 +41,7 @@ const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export const classLabel = (row = {}) => `${row.classdate || ""} ${row.classtime || ""} | ${row.coursecode || ""} - ${row.course || ""} | ${row.programcode || ""} | Sem ${row.semester || ""}`;
 
-export default function NepLmsFacultyClassSelector({ selectedClassId, onSelectClass, title = "Select Class" }) {
+export default function NepLmsFacultyClassSelector({ selectedClassId, onSelectClass, title = "Select Class", initialClassId = "" }) {
   const [classes, setClasses] = useState([]);
   const [filters, setFilters] = useState({ academicyear: "", programcode: "", coursecode: "", semester: "" });
   const [calendarView, setCalendarView] = useState("month");
@@ -78,6 +78,13 @@ export default function NepLmsFacultyClassSelector({ selectedClassId, onSelectCl
         ));
       });
       setClasses(classRows);
+      if (initialClassId) {
+        const requestedClass = classRows.find((row) => row._id === initialClassId);
+        if (requestedClass) {
+          onSelectClass(requestedClass);
+          setCalendarDate(requestedClass.classdate || toDateInput(new Date()));
+        }
+      }
       if (!assignedRows.length) setError(`No assigned courses found for ${global1.user || "-"}`);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load classes.");

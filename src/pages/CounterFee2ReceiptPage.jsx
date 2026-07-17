@@ -52,6 +52,7 @@ export default function CounterFee2ReceiptPage() {
   const [todate, setTodate] = useState("");
   const [receipt, setReceipt] = useState(null);
   const [institution, setInstitution] = useState(null);
+  const [receiptNote, setReceiptNote] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -99,6 +100,7 @@ export default function CounterFee2ReceiptPage() {
       const res = await ep1.get("/api/v2/counterfee2/receipt", { params: { colid: global1.colid, transactionid } });
       setReceipt(res.data.data || null);
       setInstitution(res.data.institution || null);
+      setReceiptNote(res.data.note || null);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load receipt");
     }
@@ -203,7 +205,7 @@ export default function CounterFee2ReceiptPage() {
           />
         </Paper>
 
-        {receipt && <CounterFee2ReceiptView receipt={receipt} institution={institution} />}
+        {receipt && <CounterFee2ReceiptView receipt={receipt} institution={institution} note={receiptNote} />}
       </Box>
     </MenuPageShell>
   );

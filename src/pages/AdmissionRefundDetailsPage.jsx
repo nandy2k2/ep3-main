@@ -44,6 +44,8 @@ const columns = [
   { field: "amount", headerName: "Amount", minWidth: 120, type: "number", valueFormatter: (params) => currency(params.value) },
   { field: "paid", headerName: "Paid", minWidth: 120, type: "number", valueFormatter: (params) => currency(params.value) },
   { field: "refunded", headerName: "Refunded", minWidth: 130, type: "number", valueFormatter: (params) => currency(params.value) },
+  { field: "administrativecharges", headerName: "Admin Charges", minWidth: 150, type: "number", valueFormatter: (params) => currency(params.value) },
+  { field: "netrefund", headerName: "Net Refund", minWidth: 140, type: "number", valueFormatter: (params) => currency(params.value || params.row.refunded) },
   { field: "refundmode", headerName: "Mode", minWidth: 130 },
   { field: "refundrefno", headerName: "Ref No", minWidth: 160 }
 ];
@@ -199,7 +201,9 @@ export default function AdmissionRefundDetailsPage() {
           <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mb: 2 }}>
             <Chip color="primary" label={`Entries: ${totals.count || rows.length}`} />
             <Chip color="success" label={`Paid: ${currency(totals.paid)}`} />
-            <Chip color="warning" label={`Refunded: ${currency(totals.refunded)}`} />
+            <Chip color="warning" label={`Gross Refund: ${currency(totals.refunded)}`} />
+            <Chip color="error" label={`Admin Charges: ${currency(totals.administrativecharges)}`} />
+            <Chip color="info" label={`Net Refund: ${currency(totals.netrefund || totals.refunded)}`} />
           </Stack>
           <Paper elevation={0} sx={{ p: 2, border: "1px solid #e5e7eb", height: 300, mb: 2 }}>
             <Typography fontWeight={800} sx={{ mb: 1 }}>Programwise Refund</Typography>

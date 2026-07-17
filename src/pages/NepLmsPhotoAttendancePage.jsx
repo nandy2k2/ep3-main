@@ -94,9 +94,10 @@ export default function NepLmsPhotoAttendancePage() {
         ep1.get("/api/v2/neplms/timetable", { params: { colid: global1.colid } })
       ]);
       const currentUser = cleanText(global1.user);
+      const requestedClassId = new URLSearchParams(window.location.search).get("classid");
       const assignedRows = (workloadRes.data?.data || []).filter((row) => currentUser && cleanText(row.facultyemail) === currentUser);
       const classRows = timetableRes.data?.data || [];
-      setClasses(classRows.filter((classRow) => {
+      const facultyClasses = classRows.filter((classRow) => {
         const classFacultyEmail = cleanText(classRow.facultyemail);
         if (classFacultyEmail && classFacultyEmail !== currentUser) return false;
         return assignedRows.some((assignment) => (
@@ -109,7 +110,15 @@ export default function NepLmsPhotoAttendancePage() {
           && fieldsMatch(assignment.coursecode, classRow.coursecode)
           && (!classFacultyEmail || fieldsMatch(assignment.facultyemail, classRow.facultyemail))
         ));
-      }));
+      });
+      setClasses(facultyClasses);
+      if (requestedClassId) {
+        const requestedClass = facultyClasses.find((row) => row._id === requestedClassId);
+        if (requestedClass) {
+          setSelectedClassId(requestedClass._id);
+          setCalendarDate(requestedClass.classdate || calendarDate);
+        }
+      }
       if (!assignedRows.length) setError(`No assigned courses found for ${global1.user || "-"}`);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load classes.");

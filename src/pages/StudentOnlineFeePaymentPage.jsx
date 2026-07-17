@@ -54,6 +54,7 @@ export default function StudentOnlineFeePaymentPage() {
   const [loading, setLoading] = useState(false);
   const [paying, setPaying] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageSeverity, setMessageSeverity] = useState("success");
   const [error, setError] = useState("");
 
   const colid = useMemo(() => global1.colid, []);
@@ -80,10 +81,13 @@ export default function StudentOnlineFeePaymentPage() {
         ep1.get("/api/v2/mastergateway", { params: { colid, status: "Active" } })
       ]);
       setFees(feeRes.data.data || []);
-      const activeGateways = gatewayRes.data.data || [];
+      const activeGateways = (gatewayRes.data.data || []).filter((gateway) => String(gateway.status || "").toLowerCase() === "active");
       setGateways(activeGateways);
       const preferred = activeGateways.find((gateway) => gateway.default === "Yes") || activeGateways[0];
-      if (preferred) setSelectedGatewayId(preferred._id);
+      setSelectedGatewayId((current) => {
+        if (current && activeGateways.some((gateway) => gateway._id === current)) return current;
+        return preferred?._id || "";
+      });
     } catch (err) {
       setError(err.response?.data?.message || err.message || "Unable to load pending fees");
     } finally {
@@ -94,7 +98,9 @@ export default function StudentOnlineFeePaymentPage() {
   useEffect(() => {
     if (searchParams.get("status")) {
       const status = searchParams.get("status");
-      setMessage(status === "SUCCESS" || status === "success" ? "Payment completed successfully. Ledger balance will refresh below." : `Payment status: ${status}`);
+      const success = String(status || "").toUpperCase() === "SUCCESS";
+      setMessageSeverity(success ? "success" : "error");
+      setMessage(success ? "Payment completed successfully. Ledger balance will refresh below." : `Payment failed or was not completed. Status: ${status}`);
     }
     if (colid && regno) loadData();
   }, [colid, regno]);
@@ -111,6 +117,7 @@ export default function StudentOnlineFeePaymentPage() {
     setPaying(true);
     setError("");
     setMessage("");
+    setMessageSeverity("success");
     try {
       const sessionRes = await ep1.post("/api/v2/studentonlinepayment/session", {
         colid,
@@ -146,7 +153,10 @@ export default function StudentOnlineFeePaymentPage() {
         return;
       }
 
-      const endpoint = gatewayName.includes("icici") ? "/api/v2/icicipayment/initiate" : "/api/v2/easebuzzpayment/initiate";
+      let endpoint = "";
+      if (gatewayName.includes("icici")) endpoint = "/api/v2/icicipayment/initiate";
+      if (gatewayName.includes("easebuzz")) endpoint = "/api/v2/easebuzzpayment/initiate";
+      if (!endpoint) throw new Error("Selected internal gateway must be configured as ICICI or Easebuzz in master gateway.");
       const payRes = await ep1.post(endpoint, {
         ...session.gatewayPayload,
         name: global1.name || session.payment.student || regno,
@@ -178,8 +188,13 @@ export default function StudentOnlineFeePaymentPage() {
           </Stack>
         </Stack>
 
-        {message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}
+        {message && <Alert severity={messageSeverity} sx={{ mb: 2 }}>{message}</Alert>}
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {!loading && gateways.length === 0 && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            No active payment gateway is configured in master gateway. Please add ICICI or Easebuzz in master gateway first.
+          </Alert>
+        )}
 
         <Grid container spacing={2} sx={{ mb: 2 }}>
           <Grid item xs={12} md={4}>
@@ -210,7 +225,7 @@ export default function StudentOnlineFeePaymentPage() {
                   </FormControl>
                 </Grid>
                 <Grid item xs={12} md={5}>
-                  <Button fullWidth variant="contained" startIcon={<Payment />} onClick={startPayment} disabled={paying || totalPayable <= 0}>
+                  <Button fullWidth variant="contained" startIcon={<Payment />} onClick={startPayment} disabled={paying || totalPayable <= 0 || !selectedGatewayId}>
                     {paying ? "Starting payment..." : "Pay selected fees"}
                   </Button>
                 </Grid>

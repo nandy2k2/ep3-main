@@ -17,6 +17,7 @@ import MenuPageShell from "./MenuPageShell";
 import NepLmsFacultyClassSelector, { classLabel } from "./NepLmsFacultyClassSelector";
 
 export default function NepLmsOtpAttendancePage() {
+  const initialClassId = new URLSearchParams(window.location.search).get("classid") || "";
   const [selectedClass, setSelectedClass] = useState(null);
   const [attendanceType, setAttendanceType] = useState("Regular");
   const [otps, setOtps] = useState([]);
@@ -79,6 +80,7 @@ export default function NepLmsOtpAttendancePage() {
             title="Select Class for OTP Attendance"
             selectedClassId={selectedClass?._id || ""}
             onSelectClass={setSelectedClass}
+            initialClassId={initialClassId}
           />
 
           <Paper sx={{ p: 2 }}>

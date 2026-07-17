@@ -22,6 +22,7 @@ import { Link as RouterLink } from "react-router-dom";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import { menuitemsall } from "./menuall";
+import MenuPageShell from "./MenuPageShell";
 
 const emptyForm = {
   _id: "",
@@ -310,7 +311,7 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
     }
   ];
 
-  return (
+  const pageContent = (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
       <Paper elevation={2} sx={{ p: 3 }}>
         <Stack spacing={3}>
@@ -542,6 +543,14 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
         </Stack>
       </Paper>
     </Container>
+  );
+
+  if (embedded) return pageContent;
+
+  return (
+    <MenuPageShell title="Menu Access Control">
+      {pageContent}
+    </MenuPageShell>
   );
 };
 

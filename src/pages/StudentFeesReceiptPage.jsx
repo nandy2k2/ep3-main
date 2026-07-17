@@ -25,6 +25,7 @@ import PrintIcon from "@mui/icons-material/Print";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import { amountInWords } from "./feesReceiptUtils";
 
 const filterFields = [
   { field: "academicyear", label: "Academic Year" },
@@ -70,6 +71,7 @@ export default function StudentFeesReceiptPage() {
   const [selectedRegno, setSelectedRegno] = useState("");
   const [selection, setSelection] = useState([]);
   const [institution, setInstitution] = useState(null);
+  const [receiptNote, setReceiptNote] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -84,10 +86,15 @@ export default function StudentFeesReceiptPage() {
 
   const loadInstitution = async () => {
     try {
-      const res = await ep1.get("/vins", { params: { colid: global1.colid } });
-      setInstitution(res.data || null);
+      const [insRes, noteRes] = await Promise.all([
+        ep1.get("/vins", { params: { colid: global1.colid } }),
+        ep1.get("/api/v2/fees-receipt-note/active", { params: { colid: global1.colid } })
+      ]);
+      setInstitution(insRes.data || null);
+      setReceiptNote(noteRes.data.data || null);
     } catch (err) {
       setInstitution(null);
+      setReceiptNote(null);
     }
   };
 
@@ -345,6 +352,13 @@ export default function StudentFeesReceiptPage() {
           <Grid item xs={1.666} sx={{ bgcolor: "#eef3f7", borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.75, textAlign: "right", fontWeight: 800 }}>{money(totals.paid)}</Grid>
           <Grid item xs={5.534} sx={{ bgcolor: "#eef3f7", borderBottom: "1px solid #cbd5e1", p: 0.75 }} />
         </Grid>
+        <Typography variant="body2" sx={{ mt: 1, fontWeight: 800 }}>Amount in Words: {amountInWords(totals.paid)}</Typography>
+        {receiptNote?.note && (
+          <Box sx={{ mt: 1.5, border: "1px solid #cbd5e1", p: 1, borderRadius: 1 }}>
+            <Typography variant="body2" fontWeight={800}>Note</Typography>
+            <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>{receiptNote.note}</Typography>
+          </Box>
+        )}
 
         <Grid container spacing={6} sx={{ mt: 7 }}>
           <Grid item xs={6}><Box sx={{ borderTop: "1px solid #111827", pt: 1, textAlign: "center", fontWeight: 700 }}>Checked by</Box></Grid>

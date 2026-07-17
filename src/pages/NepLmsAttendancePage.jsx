@@ -72,7 +72,7 @@ const dateTitle = (date) => date.toLocaleDateString(undefined, { weekday: "long"
 const weekTitle = (start, end) => `${start.toLocaleDateString(undefined, { day: "numeric", month: "short" })} - ${end.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}`;
 const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-export default function NepLmsAttendancePage() {
+export default function NepLmsAttendancePage({ sectionMode = false, pageTitle = "Attendance" }) {
   const [assignments, setAssignments] = useState([]);
   const [classes, setClasses] = useState([]);
   const [classFilters, setClassFilters] = useState([makeFilter()]);
@@ -82,6 +82,7 @@ export default function NepLmsAttendancePage() {
   const [selectedStudents, setSelectedStudents] = useState({});
   const [attendanceMap, setAttendanceMap] = useState({});
   const [attendanceType, setAttendanceType] = useState("Regular");
+  const [selectedSection, setSelectedSection] = useState("");
   const [comments, setComments] = useState("");
   const [loading, setLoading] = useState(false);
   const [studentLoading, setStudentLoading] = useState(false);
@@ -107,11 +108,31 @@ export default function NepLmsAttendancePage() {
         ep1.get("/api/v2/neplms/timetable", { params: { colid: global1.colid } })
       ]);
       const currentUser = cleanText(global1.user);
+      const requestedClassId = new URLSearchParams(window.location.search).get("classid");
       const assignedRows = (workloadRes.data?.data || []).filter((row) => (
         currentUser && cleanText(row.facultyemail) === currentUser
       ));
+      const classRows = timetableRes.data?.data || [];
       setAssignments(assignedRows);
-      setClasses(timetableRes.data?.data || []);
+      setClasses(classRows);
+      if (requestedClassId) {
+        const requestedClass = classRows.find((classRow) => classRow._id === requestedClassId && assignedRows.some((assignment) => {
+          const classFacultyEmail = cleanText(classRow.facultyemail);
+          if (classFacultyEmail && classFacultyEmail !== currentUser) return false;
+          return fieldsMatch(assignment.academicyear, classRow.academicyear)
+            && fieldsMatch(assignment.programcode, classRow.programcode)
+            && optionalFieldsMatch(assignment.regulation, classRow.regulation)
+            && optionalFieldsMatch(assignment.program, classRow.program)
+            && fieldsMatch(assignment.subject, classRow.major)
+            && fieldsMatch(assignment.semester, classRow.semester)
+            && fieldsMatch(assignment.coursecode, classRow.coursecode)
+            && (!classFacultyEmail || fieldsMatch(assignment.facultyemail, classRow.facultyemail));
+        }));
+        if (requestedClass) {
+          setSelectedClass(requestedClass);
+          setCalendarDate(requestedClass.classdate || calendarDate);
+        }
+      }
       if (!assignedRows.length) {
         setError(`No assigned courses found for faculty email ${global1.user || "-"}`);
       }
@@ -131,7 +152,7 @@ export default function NepLmsAttendancePage() {
 
   const filteredAssignments = useMemo(() => applyFilters(assignments, classFilters), [assignments, classFilters]);
 
-  const filteredClasses = useMemo(() => {
+  const matchedClasses = useMemo(() => {
     if (!filteredAssignments.length) return [];
     const currentUser = cleanText(global1.user);
     return classes.filter((classRow) => {
@@ -150,6 +171,15 @@ export default function NepLmsAttendancePage() {
       ));
     });
   }, [classes, filteredAssignments]);
+
+  const sectionOptions = useMemo(() => uniqueSorted(matchedClasses.map((row) => row.section)), [matchedClasses]);
+
+  const filteredClasses = useMemo(() => (
+    sectionMode && selectedSection
+      ? matchedClasses.filter((row) => fieldsMatch(row.section, selectedSection))
+      : matchedClasses
+  ), [matchedClasses, sectionMode, selectedSection]);
+
   const filteredStudents = useMemo(() => applyFilters(students, studentFilters), [students, studentFilters]);
 
   const assignmentSummary = useMemo(() => ({
@@ -265,7 +295,8 @@ export default function NepLmsAttendancePage() {
           academicyear: row.academicyear,
           semester: row.semester,
           major: row.major,
-          programcode: row.programcode
+          programcode: row.programcode,
+          section: sectionMode ? row.section : ""
         }
       });
       const list = res.data?.data || [];
@@ -384,7 +415,7 @@ export default function NepLmsAttendancePage() {
     <Box p={3}>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
         <Box>
-          <Typography variant="h5" fontWeight={700}>Attendance</Typography>
+          <Typography variant="h5" fontWeight={700}>{pageTitle}</Typography>
           <Typography variant="body2" color="text.secondary">Select assigned classes, load students and mark present or absent.</Typography>
         </Box>
         <Stack direction="row" spacing={1}>
@@ -415,6 +446,29 @@ export default function NepLmsAttendancePage() {
         onUpdate: updateFilter(setClassFilters),
         onRemove: removeFilter(setClassFilters, "academicyear")
       })}
+
+      {sectionMode && (
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth>
+                <InputLabel>Section</InputLabel>
+                <Select label="Section" value={selectedSection} onChange={(event) => {
+                  setSelectedSection(event.target.value);
+                  setSelectedClass(null);
+                  setStudents([]);
+                }}>
+                  <MenuItem value="">All</MenuItem>
+                  {sectionOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={8}>
+              <Typography color="text.secondary">Classes and students will be filtered by the selected section.</Typography>
+            </Grid>
+          </Grid>
+        </Paper>
+      )}
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
@@ -648,4 +702,8 @@ export default function NepLmsAttendancePage() {
       )}
     </Box>
   );
+}
+
+export function NepLmsSectionwiseAttendancePage() {
+  return <NepLmsAttendancePage sectionMode pageTitle="Sectionwise Attendance" />;
 }

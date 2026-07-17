@@ -32,6 +32,7 @@ function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const isOrthintelDomain = typeof window !== "undefined" && window.location.hostname.toLowerCase().includes("orthintel");
 
   const usernameref=useRef();
   const passwordref=useRef();
@@ -285,7 +286,15 @@ const username=email;
       <CssBaseline />
       <Container component="main" maxWidth="xl" sx={{ backgroundColor:'#e1f5fe', height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
         <Paper elevation={3} sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh', padding: 3, flexDirection: 'column', width: '100%', maxWidth: '400px', bgcolor: 'white' }}>
-        <Avatar sx={{ m: 1, bgcolor: 'secondary',borderRadius:'0', width: 200, height: 40 }} src="/images/LogoLogin.png" alt="Logo" /> 
+        {isOrthintelDomain ? (
+          <Box sx={{ m: 1, px: 2, py: 1, borderRadius: 1.5, border: "1px solid #c2410c", bgcolor: "#fff7ed", width: 220, textAlign: "center" }}>
+            <Typography sx={{ fontWeight: 950, fontSize: 28, color: "#9a3412", letterSpacing: 0 }}>
+              OrthIntel
+            </Typography>
+          </Box>
+        ) : (
+          <Avatar sx={{ m: 1, bgcolor: 'secondary',borderRadius:'0', width: 200, height: 40 }} src="/images/LogoLogin.png" alt="Logo" />
+        )}
           {/* <Typography component="h1" variant="h5">
             Login
           </Typography> */}

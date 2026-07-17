@@ -105,27 +105,44 @@ export default function UserProfilePrintPage() {
 
   const loadStudentProfile = async () => {
     const regno = String(global1.regno || "").trim();
+    const email = String(global1.user || global1.email || "").trim();
     setLoading(true);
     setError("");
-    if (!regno) {
+    if (!regno && !email) {
       setRows([]);
       setSelectedUser(null);
-      setError("Student registration number was not found in the login session.");
+      setError("Student email or registration number was not found in the login session.");
       setLoading(false);
       return;
     }
     try {
+      if (email && regno) {
+        const profileRes = await ep1.get("/api/v2/user-profile", {
+          params: { colid: global1.colid, email, regno, role: "Student" }
+        });
+        const exactProfileUser = profileRes.data?.user || null;
+        setRows(exactProfileUser ? [exactProfileUser] : []);
+        setSelectedUser(exactProfileUser);
+        if (!exactProfileUser) setError("No student profile was found for the logged-in email and registration number.");
+        return;
+      }
       const res = await ep1.post("/api/v2/user-data/search", {
         colid: global1.colid,
-        filters: [{ field: "regno", value: regno }],
+        filters: [regno ? { field: "regno", value: regno } : { field: "email", value: email }],
         limit: 10
       });
       const users = res.data || [];
-      const exactUser = users.find((user) => String(user.regno || "").trim() === regno) || users[0] || null;
+      const exactUser = users.find((user) => {
+        const rowRegno = String(user.regno || "").trim();
+        const rowEmail = String(user.email || user.user || "").trim();
+        if (regno && email) return rowRegno === regno && rowEmail === email;
+        if (regno) return rowRegno === regno;
+        return rowEmail === email;
+      }) || null;
       setRows(exactUser ? [exactUser] : []);
       setSelectedUser(exactUser);
       if (!exactUser) {
-        setError("No student profile was found for the logged-in registration number.");
+        setError("No student profile was found for the logged-in email/registration number.");
       }
     } catch (err) {
       setError(err.response?.data?.msg || "Unable to load student profile");

@@ -28,6 +28,7 @@ const emptyForm = {
   institution: global1.insname || "",
   department: "",
   durationinyear: "",
+  totalcredits: "",
   typeofsession: "Semester",
   introductionyear: "",
   discontinueyear: "",
@@ -151,6 +152,7 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
       institution: row.institution || "",
       department: row.department || "",
       durationinyear: row.durationinyear ?? "",
+      totalcredits: row.totalcredits ?? "",
       typeofsession: row.typeofsession || "Semester",
       introductionyear: row.introductionyear || "",
       discontinueyear: row.discontinueyear || "",
@@ -186,6 +188,7 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
       institution: global1.insname || "",
       department: "Commerce",
       durationinyear: 3,
+      totalcredits: 120,
       typeofsession: "Semester",
       introductionyear: "2026",
       discontinueyear: "",
@@ -249,6 +252,7 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
     { field: "institution", headerName: "Institution", minWidth: 220 },
     { field: "department", headerName: "Department", minWidth: 180 },
     { field: "durationinyear", headerName: "Duration in year", minWidth: 150, type: "number" },
+    { field: "totalcredits", headerName: "Total Credits", minWidth: 140, type: "number" },
     { field: "typeofsession", headerName: "Type of session", minWidth: 160 },
     { field: "introductionyear", headerName: "Introduction year", minWidth: 160 },
     { field: "discontinueyear", headerName: "Discontinue year", minWidth: 160 },
@@ -289,6 +293,7 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
           <TextField size="small" label="Institution" value={form.institution} onChange={(e) => updateForm("institution", e.target.value)} />
           <TextField size="small" label="Department" value={form.department} onChange={(e) => updateForm("department", e.target.value)} />
           <TextField size="small" type="number" label="Duration in year" value={form.durationinyear} onChange={(e) => updateForm("durationinyear", e.target.value)} />
+          <TextField size="small" type="number" label="Total Credits" value={form.totalcredits} onChange={(e) => updateForm("totalcredits", e.target.value)} />
           <TextField select size="small" label="Type of session" value={form.typeofsession} onChange={(e) => updateForm("typeofsession", e.target.value)}>
             {options.sessionTypes.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
           </TextField>

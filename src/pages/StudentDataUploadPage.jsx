@@ -31,7 +31,7 @@ import ep1 from "../api/ep1";
 import global1 from "./global1";
 
 const subjectFields = ["Major", "Minor", "AEC", "SEC", "VAC", "IDC", "MDC"];
-const fields = ["name", "regno", "scholarnumber", "password", "email", "phone", "regulation", "program", "programcode", "Mediumofinstruction", "specialization1", "specialization2", ...subjectFields, "academicyear", "admissionyear", "rollno", "gender", "category", "state", "city", "district", "pincode", "guardianname", "guardianmobile", "guardianemail", "photo", "semester", "section"];
+const fields = ["name", "regno", "scholarnumber", "abcid", "password", "email", "phone", "regulation", "program", "programcode", "Mediumofinstruction", "specialization1", "specialization2", ...subjectFields, "academicyear", "admissionyear", "rollno", "gender", "category", "state", "city", "district", "pincode", "guardianname", "guardianmobile", "guardianemail", "photo", "semester", "section"];
 const academicYears = ["2023-24", "2024-25", "2025-26", "2026-27", "2027-28"];
 const semesters = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
 const staticDropdownOptions = {
@@ -45,6 +45,7 @@ const labels = {
   name: "Name",
   regno: "Reg No",
   scholarnumber: "Scholar Number",
+  abcid: "ABC ID",
   password: "Password",
   email: "Email",
   phone: "Phone",
@@ -79,7 +80,7 @@ const labels = {
   department: "Department",
   institution: "Institution"
 };
-const viewFilterFields = ["academicyear", "program", "programcode", "Mediumofinstruction", "department", "semester", "section", "specialization1", "specialization2", "Major", "Minor", "IDC", "AEC", "SEC", "VAC", "name", "regno", "scholarnumber", "email", "phone", "institution"];
+const viewFilterFields = ["academicyear", "program", "programcode", "Mediumofinstruction", "department", "semester", "section", "specialization1", "specialization2", "Major", "Minor", "IDC", "AEC", "SEC", "VAC", "name", "regno", "scholarnumber", "abcid", "email", "phone", "institution"];
 const blankViewFilter = { field: "academicyear", value: "" };
 const blankForm = { ...fields.reduce((acc, field) => ({ ...acc, [field]: staticDropdownOptions[field]?.[0] || "" }), {}), customFields: {} };
 const normalizeKey = (key) => String(key || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -89,6 +90,7 @@ const valueFromRow = (row, field) => {
   const aliases = {
     regno: ["regno", "reg no", "registration no", "registration number"],
     scholarnumber: ["scholarnumber", "scholar number", "scholar no"],
+    abcid: ["abcid", "abc id", "abc"],
     password: ["password"],
     programcode: ["programcode", "program code"],
     Mediumofinstruction: ["Mediumofinstruction", "mediumofinstruction", "medium of instruction"],

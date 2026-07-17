@@ -30,8 +30,9 @@ const studentFields = [
   { field: "regulation", label: "Regulation", optionKey: "regulation" },
   { field: "program", label: "Program", optionKey: "program" },
   { field: "programcode", label: "Program Code", optionKey: "programcode" },
-  { field: "semester", label: "Semester" },
+  { field: "semester", label: "Semester", optionKey: "semester" },
   { field: "section", label: "Section" },
+  { field: "gender", label: "Gender", optionKey: "gender" },
   { field: "major", label: "Major", optionKey: "major" },
   { field: "minor", label: "Minor", optionKey: "minor" },
   { field: "IDC", label: "IDC", optionKey: "IDC" },
@@ -76,7 +77,7 @@ export default function FeesApplicationAutoPage() {
   const optionValues = (filter) => {
     const config = fieldConfig(filter.field);
     if (config.optionKey) return studentOptions[config.optionKey] || [];
-    if (["semester"].includes(filter.field)) return unique(["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]);
+    if (["semester"].includes(filter.field)) return unique(studentOptions.semester || ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]);
     if (["section"].includes(filter.field)) return unique(students.map((row) => row.section));
     return [];
   };

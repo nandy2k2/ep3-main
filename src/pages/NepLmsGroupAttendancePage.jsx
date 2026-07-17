@@ -48,12 +48,14 @@ const parseDate = (value) => {
 const monthTitle = (year, month) => new Date(year, month, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" });
 const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-export default function NepLmsGroupAttendancePage() {
+export default function NepLmsGroupAttendancePage({ classGroupMode = false, pageTitle = "Group attendance" }) {
   const [assignments, setAssignments] = useState([]);
   const [classes, setClasses] = useState([]);
+  const [classGroupRows, setClassGroupRows] = useState([]);
   const [classFilters, setClassFilters] = useState([makeFilter()]);
   const [selectedClass, setSelectedClass] = useState(null);
   const [groups, setGroups] = useState([]);
+  const [selectedClassGroup, setSelectedClassGroup] = useState("");
   const [groupName, setGroupName] = useState("");
   const [students, setStudents] = useState([]);
   const [selectedStudents, setSelectedStudents] = useState({});
@@ -71,7 +73,7 @@ export default function NepLmsGroupAttendancePage() {
     setStudents([]);
     setSelectedStudents({});
     setAttendanceMap({});
-    setGroupName("");
+    if (!classGroupMode) setGroupName("");
     if (selectedClass) loadGroups(selectedClass);
   }, [selectedClass]);
   useEffect(() => {
@@ -82,14 +84,16 @@ export default function NepLmsGroupAttendancePage() {
     try {
       setLoading(true);
       setError("");
-      const [workloadRes, timetableRes] = await Promise.all([
+      const [workloadRes, timetableRes, classGroupRes] = await Promise.all([
         ep1.get("/api/v2/workloadassignment", { params: { colid: global1.colid } }),
-        ep1.get("/api/v2/neplms/timetable", { params: { colid: global1.colid } })
+        ep1.get("/api/v2/neplms/timetable", { params: { colid: global1.colid } }),
+        ep1.get("/api/v2/neplms/class-groups", { params: { colid: global1.colid, facultyemail: global1.user } })
       ]);
       const currentUser = cleanText(global1.user);
       const assignedRows = (workloadRes.data?.data || []).filter((row) => currentUser && cleanText(row.facultyemail) === currentUser);
       setAssignments(assignedRows);
       setClasses(timetableRes.data?.data || []);
+      setClassGroupRows(classGroupRes.data?.data || []);
       if (!assignedRows.length) setError(`No assigned courses found for faculty email ${global1.user || "-"}`);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load attendance context");
@@ -105,7 +109,9 @@ export default function NepLmsGroupAttendancePage() {
   }));
 
   const filteredAssignments = useMemo(() => applyFilters(assignments, classFilters), [assignments, classFilters]);
-  const filteredClasses = useMemo(() => {
+  const classGroupOptions = useMemo(() => uniqueSorted(classGroupRows.map((row) => row.groupname)), [classGroupRows]);
+
+  const matchedClasses = useMemo(() => {
     if (!filteredAssignments.length) return [];
     const currentUser = cleanText(global1.user);
     return classes.filter((classRow) => {
@@ -123,6 +129,11 @@ export default function NepLmsGroupAttendancePage() {
       ));
     });
   }, [classes, filteredAssignments]);
+
+  const filteredClasses = useMemo(() => {
+    if (!classGroupMode || !selectedClassGroup) return matchedClasses;
+    return matchedClasses.filter((row) => fieldsMatch(row.classgroup, selectedClassGroup));
+  }, [matchedClasses, classGroupMode, selectedClassGroup]);
 
   const calendarMonths = useMemo(() => {
     const monthMap = new Map();
@@ -174,7 +185,7 @@ export default function NepLmsGroupAttendancePage() {
       });
       const options = uniqueSorted((res.data?.data || []).map((item) => item.groupname));
       setGroups(options);
-      setGroupName(options[0] || "");
+      setGroupName(classGroupMode && selectedClassGroup ? selectedClassGroup : options[0] || "");
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load class groups");
     } finally {
@@ -266,11 +277,11 @@ export default function NepLmsGroupAttendancePage() {
   const presentCount = students.filter((student) => selectedStudents[student._id] && attendanceMap[student._id] !== 0).length;
 
   return (
-    <MenuPageShell title="Group attendance">
+    <MenuPageShell title={pageTitle}>
       <Box sx={{ p: 3 }}>
         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
           <Box>
-            <Typography variant="h5" fontWeight={900}>Group attendance</Typography>
+            <Typography variant="h5" fontWeight={900}>{pageTitle}</Typography>
             <Typography variant="body2" color="text.secondary">Take regular attendance using class groups.</Typography>
           </Box>
           <Stack direction="row" spacing={1}>
@@ -302,6 +313,30 @@ export default function NepLmsGroupAttendancePage() {
             ))}
           </Grid>
         </Paper>
+
+        {classGroupMode && (
+          <Paper sx={{ p: 2, mb: 2 }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth>
+                  <InputLabel>Class Group</InputLabel>
+                  <Select label="Class Group" value={selectedClassGroup} onChange={(event) => {
+                    setSelectedClassGroup(event.target.value);
+                    setGroupName(event.target.value);
+                    setSelectedClass(null);
+                    setStudents([]);
+                  }}>
+                    <MenuItem value="">All</MenuItem>
+                    {classGroupOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={8}>
+                <Typography color="text.secondary">Only classes and students for the selected class group will be loaded.</Typography>
+              </Grid>
+            </Grid>
+          </Paper>
+        )}
 
         <Paper sx={{ p: 2, mb: 2 }}>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
@@ -405,4 +440,8 @@ export default function NepLmsGroupAttendancePage() {
       </Box>
     </MenuPageShell>
   );
+}
+
+export function NepLmsClassGroupAttendance2Page() {
+  return <NepLmsGroupAttendancePage classGroupMode pageTitle="Class Group Attendance 2" />;
 }

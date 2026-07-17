@@ -24,6 +24,7 @@ import MenuPageShell from "./MenuPageShell";
 
 const uniq = (items) => [...new Set(items.map((item) => String(item || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 const paperLabel = (row) => `${row.course || ""}${row.coursecode ? ` (${row.coursecode})` : ""} - ${row.programcode || ""}`;
+const paperStatuses = ["Default", "Backup", "Emergency", "Reserve"];
 const blockchainVerificationUrl = (paper = {}) => {
   if (!paper?._id) return "";
   const params = new URLSearchParams({ paperid: String(paper._id) });
@@ -35,6 +36,8 @@ export default function ConductExamReviewPapersPage() {
   const [courses, setCourses] = useState([]);
   const [papers, setPapers] = useState([]);
   const [paper, setPaper] = useState(null);
+  const [selectedPaperIds, setSelectedPaperIds] = useState([]);
+  const [bulkPaperStatus, setBulkPaperStatus] = useState("Default");
   const [audit, setAudit] = useState([]);
   const [blocks, setBlocks] = useState([]);
   const [filters, setFilters] = useState({ academicyear: "", examcode: "", regulation: "", programcode: "", coursecode: "", papersetteremail: "" });
@@ -87,6 +90,7 @@ export default function ConductExamReviewPapersPage() {
       const res = await ep1.get("/api/v2/conductexam/review-papers", { params });
       setPapers(res.data?.data || []);
       setPaper(null);
+      setSelectedPaperIds([]);
       setAudit([]);
       setBlocks([]);
     } catch (err) {
@@ -126,16 +130,48 @@ export default function ConductExamReviewPapersPage() {
     }));
   };
 
-  const acceptPaper = async () => {
-    if (!paper?._id) return;
+  const selectedIdsOrCurrent = () => selectedPaperIds.length ? selectedPaperIds : (paper?._id ? [paper._id] : []);
+
+  const refreshChangedRows = (changedRows = []) => {
+    setPapers((prev) => prev.map((row) => changedRows.find((item) => item._id === row._id) || row));
+    if (paper?._id) {
+      const changedPaper = changedRows.find((item) => item._id === paper._id);
+      if (changedPaper) setPaper(changedPaper);
+    }
+  };
+
+  const updatePaperStatus = async () => {
+    const paperids = selectedIdsOrCurrent();
+    if (!paperids.length) return;
     try {
       setAccepting(true);
       setError("");
       setMessage("");
-      const res = await ep1.post("/api/v2/conductexam/review-paper-accept", { colid: global1.colid, paperid: paper._id, user: global1.user });
-      setPaper(res.data?.data || paper);
-      setPapers((prev) => prev.map((row) => row._id === paper._id ? { ...row, status: "Accepted" } : row));
-      setMessage("Question paper accepted.");
+      const res = await ep1.post("/api/v2/conductexam/review-paper-status", {
+        colid: global1.colid,
+        paperids,
+        paperstatus: bulkPaperStatus,
+        user: global1.user
+      });
+      refreshChangedRows(res.data?.data || []);
+      setMessage(res.data?.message || "Paper status updated.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to update paper status.");
+    } finally {
+      setAccepting(false);
+    }
+  };
+
+  const acceptPaper = async () => {
+    const paperids = selectedIdsOrCurrent();
+    if (!paperids.length) return;
+    try {
+      setAccepting(true);
+      setError("");
+      setMessage("");
+      const res = await ep1.post("/api/v2/conductexam/review-paper-accept", { colid: global1.colid, paperids, user: global1.user });
+      refreshChangedRows(res.data?.data || []);
+      setMessage(res.data?.message || "Question paper accepted.");
     } catch (err) {
       setError(err.response?.data?.message || "Unable to accept question paper.");
     } finally {
@@ -144,20 +180,22 @@ export default function ConductExamReviewPapersPage() {
   };
 
   const storeBlockchain = async () => {
-    if (!paper?._id) return;
+    const paperids = selectedIdsOrCurrent();
+    if (!paperids.length) return;
     try {
       setStoring(true);
       setError("");
       setMessage("");
       const res = await ep1.post("/api/v2/conductexam/review-paper-blockchain-store", {
         colid: global1.colid,
-        paperid: paper._id,
+        paperids,
         user: global1.user,
         origin: window.location.origin
       });
-      setPaper(res.data?.paper || paper);
-      setMessage(`Question paper stored in blockchain. Hash: ${res.data?.data?.hash || ""}`);
-      await loadDetails(paper._id);
+      const changedRows = (res.data?.results || []).map((item) => item.paper).filter(Boolean);
+      refreshChangedRows(changedRows);
+      setMessage(res.data?.message || "Question paper stored in blockchain.");
+      if (paper?._id) await loadDetails(paper._id);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to store question paper in blockchain.");
     } finally {
@@ -175,6 +213,7 @@ export default function ConductExamReviewPapersPage() {
     { field: "coursecode", headerName: "Course Code", width: 140 },
     { field: "papersettername", headerName: "Paper Setter", width: 190 },
     { field: "status", headerName: "Status", width: 160 },
+    { field: "paperstatus", headerName: "Paper Status", width: 150 },
     { field: "blockchainhash", headerName: "Blockchain Hash", minWidth: 240, flex: 1 }
   ];
 
@@ -198,9 +237,15 @@ export default function ConductExamReviewPapersPage() {
               <Typography variant="h5" fontWeight={900}>Review Papers</Typography>
               <Typography color="text.secondary">Review final question papers, audit trail, accept and store in blockchain.</Typography>
             </Box>
-            <Stack direction="row" spacing={1}>
-              <Button variant="contained" color="success" startIcon={accepting ? <CircularProgress size={18} color="inherit" /> : <CheckCircleIcon />} disabled={!paper || /^Accepted$/i.test(paper.status || "") || accepting} onClick={acceptPaper}>{accepting ? "Accepting..." : "Accept"}</Button>
-              <Button variant="contained" startIcon={storing ? <CircularProgress size={18} color="inherit" /> : <VerifiedIcon />} disabled={!paper || !/^Accepted$/i.test(paper.status || "") || storing} onClick={storeBlockchain}>{storing ? "Storing..." : "Store Blockchain"}</Button>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }}>
+              <TextField select size="small" label="Paper status" value={bulkPaperStatus} onChange={(event) => setBulkPaperStatus(event.target.value)} sx={{ minWidth: 170 }}>
+                {paperStatuses.map((status) => <MenuItem key={status} value={status}>{status}</MenuItem>)}
+              </TextField>
+              <Button variant="outlined" disabled={!selectedIdsOrCurrent().length || accepting} onClick={updatePaperStatus}>
+                Update Status
+              </Button>
+              <Button variant="contained" color="success" startIcon={accepting ? <CircularProgress size={18} color="inherit" /> : <CheckCircleIcon />} disabled={!selectedIdsOrCurrent().length || accepting} onClick={acceptPaper}>{accepting ? "Accepting..." : `Accept ${selectedPaperIds.length ? `(${selectedPaperIds.length})` : ""}`}</Button>
+              <Button variant="contained" startIcon={storing ? <CircularProgress size={18} color="inherit" /> : <VerifiedIcon />} disabled={!selectedIdsOrCurrent().length || storing} onClick={storeBlockchain}>{storing ? "Storing..." : `Store Blockchain ${selectedPaperIds.length ? `(${selectedPaperIds.length})` : ""}`}</Button>
             </Stack>
           </Stack>
           {(loading || accepting || storing) && <LinearProgress sx={{ mt: 2 }} />}
@@ -223,7 +268,19 @@ export default function ConductExamReviewPapersPage() {
 
         <Paper elevation={0} sx={{ p: 2, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
           <Box sx={{ height: 340 }}>
-            <DataGrid rows={papers} getRowId={(row) => row._id} columns={paperColumns} loading={loading} slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "review_papers" } } }} onRowClick={(params) => loadDetails(params.row._id)} pageSizeOptions={[10, 25, 50]} />
+            <DataGrid
+              rows={papers}
+              getRowId={(row) => row._id}
+              columns={paperColumns}
+              loading={loading}
+              checkboxSelection
+              rowSelectionModel={selectedPaperIds}
+              onRowSelectionModelChange={(model) => setSelectedPaperIds(model)}
+              slots={{ toolbar: GridToolbar }}
+              slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "review_papers" } } }}
+              onRowClick={(params) => loadDetails(params.row._id)}
+              pageSizeOptions={[10, 25, 50]}
+            />
           </Box>
         </Paper>
 
@@ -239,7 +296,8 @@ export default function ConductExamReviewPapersPage() {
                   ["Subject", paper.subject],
                   ["Semester", paper.semester],
                   ["Paper Setter", `${paper.papersettername} (${paper.papersetteremail})`],
-                  ["Status", paper.status]
+                  ["Status", paper.status],
+                  ["Paper Status", paper.paperstatus || "Default"]
                 ].map(([label, value]) => <Grid item xs={12} md={3} key={label}><Typography variant="caption" color="text.secondary">{label}</Typography><Typography fontWeight={800}>{value || "-"}</Typography></Grid>)}
                 {(paper.blockchainverificationurl || paper.blockchainhash) && (
                   <Grid item xs={12}>

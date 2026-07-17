@@ -122,6 +122,13 @@ export function mainListItems({ open }) {
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Profile print" />}
 </ListItem>
 
+        <ListItem button component={RouterLink} to="/studentprofilelayoutdisplay">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Rolewise profile print" />}
+</ListItem>
+
         <ListItem button component={RouterLink} to="/userconsent">
 <ListItemIcon>
 <PersonIcon />
@@ -213,6 +220,13 @@ export function mainListItems({ open }) {
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="My NEP LMS" />}
+</ListItem>
+
+           <ListItem button component={RouterLink} to="/studentsequentialcontent">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Sequential Content" />}
 </ListItem>
 
            <ListItem button component={RouterLink} to="/studentmyattendancesummary">
@@ -372,6 +386,72 @@ export function mainListItems({ open }) {
 <AccountBalanceWalletIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Pay fees online" />}
+</ListItem>
+
+           <ListItem button component={RouterLink} to="/studentonlinefeepayment2">
+<ListItemIcon>
+<AccountBalanceWalletIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Pay fees online 2" />}
+</ListItem>
+
+           <ListItem button component={RouterLink} to="/studentmyonlinepaymentreport">
+<ListItemIcon>
+<AccountBalanceWalletIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="My online payments" />}
+</ListItem>
+
+           <ListItem button component={RouterLink} to="/studentinstallmentrequest">
+<ListItemIcon>
+<AccountBalanceWalletIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Apply installment" />}
+</ListItem>
+
+           {false && <ListItem button component={RouterLink} to="/studentdetailedledger">
+<ListItemIcon>
+<AccountBalanceWalletIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Detailed ledger" />}
+</ListItem>}
+
+           {false && <ListItem button component={RouterLink} to="/studentcounterfee2receipt">
+<ListItemIcon>
+<AccountBalanceWalletIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Counter fee receipt" />}
+</ListItem>}
+
+           {false && <ListItem button component={RouterLink} to="/studentfeesbalancereport">
+<ListItemIcon>
+<AccountBalanceWalletIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Fees balance report" />}
+</ListItem>}
+
+        </AccordionDetails>
+        </Accordion>
+
+       <Accordion>
+        <AccordionSummary aria-controls="panel-student-library-new-content" id="panel-student-library-new-header">
+          <BookIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{fontSize: 14}}>Library New</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+
+           <ListItem button component={RouterLink} to="/student-library-issued">
+<ListItemIcon>
+<BookIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="My library books" />}
+</ListItem>
+
+           <ListItem button component={RouterLink} to="/student-library-opac">
+<ListItemIcon>
+<BookIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Search library OPAC" />}
 </ListItem>
 
         </AccordionDetails>

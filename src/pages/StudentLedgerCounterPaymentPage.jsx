@@ -26,6 +26,7 @@ import PaymentIcon from "@mui/icons-material/Payment";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import { preventFutureDateProps, todayDate } from "./feesReceiptUtils";
 
 const filterFields = [
   { field: "academicyear", label: "Academic Year" },
@@ -50,9 +51,7 @@ function toNumber(value) {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
-function today() {
-  return new Date().toISOString().slice(0, 10);
-}
+const today = todayDate;
 
 function uniqueValues(rows, field, options) {
   const values = options?.[field]?.length
@@ -164,6 +163,7 @@ export default function StudentLedgerCounterPaymentPage() {
       const res = await ep1.post("/api/v2/studentledgercounterpayment/pay", {
         colid: global1.colid,
         user: global1.user,
+        name: global1.name,
         paiddate,
         paymode,
         paydetails,
@@ -171,7 +171,11 @@ export default function StudentLedgerCounterPaymentPage() {
         feecounter: global1.user,
         items
       });
-      setMessage(`${res.data.updated || items.length} fee item(s) updated`);
+      if (res.data.cheque) {
+        setMessage(`${res.data.pending || items.length} cheque payment(s) recorded as pending. Ledger will update after cheque realization.`);
+      } else {
+        setMessage(`${res.data.updated || items.length} fee item(s) updated`);
+      }
       setPaydetails("");
       setRemarks("");
       await loadRows();
@@ -279,7 +283,7 @@ export default function StudentLedgerCounterPaymentPage() {
       <Paper sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={1.5}>
           <Grid item xs={12} md={3}>
-            <TextField fullWidth size="small" label="Paid Date" type="date" value={paiddate} onChange={(event) => setPaiddate(event.target.value)} InputLabelProps={{ shrink: true }} />
+            <TextField fullWidth size="small" label="Receipt Date" type="date" value={paiddate} onChange={(event) => setPaiddate(event.target.value)} {...preventFutureDateProps} />
           </Grid>
           <Grid item xs={12} md={3}>
             <FormControl fullWidth size="small">

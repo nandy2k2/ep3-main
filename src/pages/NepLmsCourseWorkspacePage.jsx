@@ -20,14 +20,16 @@ import {
   TextField,
   Typography
 } from "@mui/material";
-import { Add, ArrowBack, Delete, Edit, Refresh, Save, UploadFile } from "@mui/icons-material";
+import { Add, ArrowBack, Delete, Edit, FileDownload, Refresh, Save, UploadFile } from "@mui/icons-material";
 import { DataGrid, GridActionsCellItem, GridToolbar } from "@mui/x-data-grid";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import dayjs from "dayjs";
+import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const blankResource = { title: "", module: "", topic: "", description: "", duedate: "", fullmarks: "", file: null };
 const blankQuiz = { title: "", module: "", topic: "", startdatetime: "", enddatetime: "", status: "Active" };
@@ -100,6 +102,19 @@ const blankClass = {
 
 const uniqueSorted = (values = []) => [...new Set(values.map((item) => String(item || "").trim()).filter(Boolean))]
   .sort((a, b) => a.localeCompare(b));
+const normalizeHeader = (value) => String(value || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+const resourceBulkHeaderMap = {
+  title: "title",
+  module: "module",
+  topic: "topic",
+  description: "description",
+  filelink: "url",
+  link: "url",
+  url: "url",
+  filename: "filename",
+  originalname: "originalname",
+  status: "status"
+};
 const listFromValue = (value) => {
   if (Array.isArray(value)) return value.map((item) => String(item || "").trim()).filter(Boolean);
   return String(value || "").split(",").map((item) => item.trim()).filter(Boolean);
@@ -147,6 +162,7 @@ export default function NepLmsCourseWorkspacePage() {
   const [academicYear, setAcademicYear] = useState("");
   const [semester, setSemester] = useState("");
   const [coursecode, setCoursecode] = useState("");
+  const [courseRowId, setCourseRowId] = useState("");
   const [tab, setTab] = useState(0);
   const [resources, setResources] = useState([]);
   const [lessonContents, setLessonContents] = useState([]);
@@ -162,6 +178,7 @@ export default function NepLmsCourseWorkspacePage() {
   const [selectedQuizId, setSelectedQuizId] = useState("");
   const [gradingForm, setGradingForm] = useState({ id: "", student: "", fullmarks: "", marks: "", facultycomments: "" });
   const [resourceForm, setResourceForm] = useState(blankResource);
+  const [materialForm, setMaterialForm] = useState(blankResource);
   const [lessonForm, setLessonForm] = useState(blankResource);
   const [lessonContentForm, setLessonContentForm] = useState(blankLessonContent);
   const [lessonAiForm, setLessonAiForm] = useState(blankLessonAiForm);
@@ -182,6 +199,7 @@ export default function NepLmsCourseWorkspacePage() {
   const [classForm, setClassForm] = useState(blankClass);
   const [editingClassId, setEditingClassId] = useState("");
   const [timetableFilters, setTimetableFilters] = useState([makeTimetableFilter()]);
+  const [bulkResourceRows, setBulkResourceRows] = useState({ "Course Material": [], "Lesson Plan": [] });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -192,8 +210,11 @@ export default function NepLmsCourseWorkspacePage() {
   }, []);
 
   useEffect(() => {
-    if (selectedCourse) loadCourseData();
-  }, [coursecode]);
+    if (selectedCourse) {
+      resetCourseForms();
+      loadCourseData(selectedCourse);
+    }
+  }, [courseRowId, coursecode]);
 
   useEffect(() => {
     const lessons = resources.filter((row) => row.resourcetype === "Lesson Plan");
@@ -223,10 +244,11 @@ export default function NepLmsCourseWorkspacePage() {
       const years = uniqueSorted(assigned.map((row) => row.academicyear));
       const firstYear = years[0] || "";
       const firstSemester = uniqueSorted(assigned.filter((row) => !firstYear || row.academicyear === firstYear).map((row) => row.semester))[0] || "";
-      const firstCourse = assigned.find((row) => (!firstYear || row.academicyear === firstYear) && (!firstSemester || row.semester === firstSemester))?.coursecode || "";
+      const firstCourse = assigned.find((row) => (!firstYear || row.academicyear === firstYear) && (!firstSemester || row.semester === firstSemester));
       setAcademicYear(firstYear);
       setSemester(firstSemester);
-      setCoursecode(firstCourse);
+      setCourseRowId(firstCourse?._id || "");
+      setCoursecode(firstCourse?.coursecode || "");
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load assigned courses");
     } finally {
@@ -250,7 +272,11 @@ export default function NepLmsCourseWorkspacePage() {
     && (!semester || row.semester === semester)
   )), [courses, academicYear, semester]);
 
-  const selectedCourse = useMemo(() => filteredCourses.find((row) => row.coursecode === coursecode) || null, [filteredCourses, coursecode]);
+  const selectedCourse = useMemo(() => (
+    filteredCourses.find((row) => row._id === courseRowId)
+    || filteredCourses.find((row) => row.coursecode === coursecode)
+    || null
+  ), [filteredCourses, courseRowId, coursecode]);
 
   const coursePayload = () => ({
     colid: global1.colid,
@@ -272,32 +298,66 @@ export default function NepLmsCourseWorkspacePage() {
     setAcademicYear(value);
     const nextSemester = uniqueSorted(courses.filter((row) => !value || row.academicyear === value).map((row) => row.semester))[0] || "";
     setSemester(nextSemester);
-    const nextCourse = courses.find((row) => (!value || row.academicyear === value) && (!nextSemester || row.semester === nextSemester))?.coursecode || "";
-    setCoursecode(nextCourse);
+    const nextCourse = courses.find((row) => (!value || row.academicyear === value) && (!nextSemester || row.semester === nextSemester));
+    setCourseRowId(nextCourse?._id || "");
+    setCoursecode(nextCourse?.coursecode || "");
   };
 
   const changeSemester = (value) => {
     setSemester(value);
-    const nextCourse = courses.find((row) => (!academicYear || row.academicyear === academicYear) && (!value || row.semester === value))?.coursecode || "";
-    setCoursecode(nextCourse);
+    const nextCourse = courses.find((row) => (!academicYear || row.academicyear === academicYear) && (!value || row.semester === value));
+    setCourseRowId(nextCourse?._id || "");
+    setCoursecode(nextCourse?.coursecode || "");
   };
 
-  const loadCourseData = async () => {
-    if (!selectedCourse) return;
+  const changeCourse = (value) => {
+    const nextCourse = filteredCourses.find((row) => row._id === value) || courses.find((row) => row._id === value);
+    setCourseRowId(value);
+    setCoursecode(nextCourse?.coursecode || "");
+  };
+
+  const resetCourseForms = () => {
+    setResources([]);
+    setSyllabusRows([]);
+    setTimetable([]);
+    setQuizzes([]);
+    setResourceForm(blankResource);
+    setMaterialForm(blankResource);
+    setLessonForm(blankResource);
+    setBulkResourceRows({ "Course Material": [], "Lesson Plan": [] });
+    setQuizForm(blankQuiz);
+    setClassForm(blankClass);
+    setLessonContentForm(blankLessonContent);
+    setEditingResourceId("");
+    setEditingResourceType("");
+    setEditingQuizId("");
+    setEditingClassId("");
+    setEditingLessonContentId("");
+    setSelectedAssignmentId("");
+    setSelectedQuizId("");
+    setSelectedLessonResourceId("");
+    setAssignmentSubmissions([]);
+    setQuizAttempts([]);
+    setLessonContents([]);
+    setLessonProgress([]);
+  };
+
+  const loadCourseData = async (course = selectedCourse) => {
+    if (!course) return;
     try {
       setError("");
-      const params = { colid: global1.colid, academicyear: selectedCourse.academicyear, semester: selectedCourse.semester, coursecode: selectedCourse.coursecode };
+      const params = { colid: global1.colid, academicyear: course.academicyear, semester: course.semester, coursecode: course.coursecode };
       const syllabusParams = {
         colid: global1.colid,
-        academicyear: selectedCourse.academicyear,
-        regulation: selectedCourse.regulation,
-        program: selectedCourse.program,
-        programcode: selectedCourse.programcode,
-        type: selectedCourse.type,
-        subject: selectedCourse.subject,
-        semester: selectedCourse.semester,
-        course: selectedCourse.course,
-        coursecode: selectedCourse.coursecode
+        academicyear: course.academicyear,
+        regulation: course.regulation,
+        program: course.program,
+        programcode: course.programcode,
+        type: course.type,
+        subject: course.subject,
+        semester: course.semester,
+        course: course.course,
+        coursecode: course.coursecode
       };
       const [resourceRes, timetableRes, syllabusRes, quizRes] = await Promise.all([
         ep1.get("/api/v2/neplms/resources", { params }),
@@ -531,8 +591,26 @@ export default function NepLmsCourseWorkspacePage() {
     }
   };
 
+  const getResourceForm = (resourcetype) => {
+    if (resourcetype === "Lesson Plan") return lessonForm;
+    if (resourcetype === "Course Material") return materialForm;
+    return resourceForm;
+  };
+
+  const setBlankResourceForm = (resourcetype) => {
+    if (resourcetype === "Lesson Plan") setLessonForm(blankResource);
+    else if (resourcetype === "Course Material") setMaterialForm(blankResource);
+    else setResourceForm(blankResource);
+  };
+
+  const setResourceFormByType = (resourcetype, nextForm) => {
+    if (resourcetype === "Lesson Plan") setLessonForm(nextForm);
+    else if (resourcetype === "Course Material") setMaterialForm(nextForm);
+    else setResourceForm(nextForm);
+  };
+
   const uploadResource = async (resourcetype) => {
-    const form = resourcetype === "Lesson Plan" ? lessonForm : resourceForm;
+    const form = getResourceForm(resourcetype);
     if (!selectedCourse) {
       setError("Select a course first");
       return;
@@ -559,8 +637,7 @@ export default function NepLmsCourseWorkspacePage() {
         setMessage(`${resourcetype} updated`);
         setEditingResourceId("");
         setEditingResourceType("");
-        if (resourcetype === "Lesson Plan") setLessonForm(blankResource);
-        else setResourceForm(blankResource);
+        setBlankResourceForm(resourcetype);
         loadCourseData();
         return;
       }
@@ -572,8 +649,7 @@ export default function NepLmsCourseWorkspacePage() {
       if (form.file) data.append("file", form.file);
       await ep1.post("/api/v2/neplms/resources", data, { headers: { "Content-Type": "multipart/form-data" } });
       setMessage(`${resourcetype} uploaded`);
-      if (resourcetype === "Lesson Plan") setLessonForm(blankResource);
-      else setResourceForm(blankResource);
+      setBlankResourceForm(resourcetype);
       loadCourseData();
     } catch (err) {
       setError(err.response?.data?.message || "Unable to upload file");
@@ -581,7 +657,7 @@ export default function NepLmsCourseWorkspacePage() {
   };
 
   const generateAiResource = async (resourcetype) => {
-    const form = resourcetype === "Lesson Plan" ? lessonForm : resourceForm;
+    const form = getResourceForm(resourcetype);
     if (!selectedCourse) {
       setError("Select a course first");
       return;
@@ -612,13 +688,99 @@ export default function NepLmsCourseWorkspacePage() {
         noofclasses: aiResourceForm.noofclasses
       });
       setMessage(`AI ${resourcetype} created and uploaded`);
-      if (resourcetype === "Lesson Plan") setLessonForm(blankResource);
-      else setResourceForm(blankResource);
+      setBlankResourceForm(resourcetype);
       loadCourseData();
     } catch (err) {
       setError(err.response?.data?.message || `Unable to generate ${resourcetype}`);
     } finally {
       setGeneratingResourceType("");
+    }
+  };
+
+  const buildResourceTemplate = (resourcetype) => {
+    const firstSyllabus = syllabusRows[0] || {};
+    const row = {
+      Title: `${resourcetype} - ${selectedCourse?.course || ""}`,
+      Module: firstSyllabus.module || "",
+      Topic: firstSyllabus.syllabus || "",
+      Description: `${resourcetype} for ${selectedCourse?.course || ""}`,
+      "File Link": "",
+      Filename: "",
+      "Original Name": "",
+      Status: "Active"
+    };
+    const ws = XLSX.utils.json_to_sheet([row]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, resourcetype);
+    XLSX.writeFile(wb, `${resourcetype.replace(/\s+/g, "_")}_Bulk_Template.xlsx`);
+  };
+
+  const readResourceBulkExcel = (resourcetype, event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const wb = XLSX.read(new Uint8Array(e.target.result), { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const jsonRows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+        const parsed = jsonRows.map((row, index) => {
+          const item = { rowNumber: index + 2, status: "Active" };
+          Object.entries(row).forEach(([header, value]) => {
+            const mapped = resourceBulkHeaderMap[normalizeHeader(header)];
+            if (mapped) item[mapped] = value;
+          });
+          return item;
+        }).filter((row) => row.title || row.module || row.topic || row.description || row.url);
+        setBulkResourceRows((prev) => ({ ...prev, [resourcetype]: parsed }));
+        setMessage(`${parsed.length} ${resourcetype} row${parsed.length === 1 ? "" : "s"} ready for upload`);
+      } catch (err) {
+        setError("Unable to read Excel file");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    event.target.value = "";
+  };
+
+  const uploadResourceBulkRows = async (resourcetype) => {
+    const rowsToUpload = bulkResourceRows[resourcetype] || [];
+    if (!selectedCourse) {
+      setError("Select a course first");
+      return;
+    }
+    if (!rowsToUpload.length) {
+      setError("Choose an Excel file first");
+      return;
+    }
+    try {
+      setLoading(true);
+      setError("");
+      setMessage("");
+      let inserted = 0;
+      for (const row of rowsToUpload) {
+        const data = new FormData();
+        Object.entries({
+          ...coursePayload(),
+          resourcetype,
+          title: row.title || `${resourcetype} - ${selectedCourse.course}`,
+          module: row.module || "",
+          topic: row.topic || "",
+          description: row.description || "",
+          url: row.url || "",
+          filename: row.filename || "",
+          originalname: row.originalname || row.filename || row.title || "",
+          status: row.status || "Active"
+        }).forEach(([key, value]) => data.append(key, value || ""));
+        await ep1.post("/api/v2/neplms/resources", data, { headers: { "Content-Type": "multipart/form-data" } });
+        inserted += 1;
+      }
+      setBulkResourceRows((prev) => ({ ...prev, [resourcetype]: [] }));
+      setMessage(`${inserted} ${resourcetype} row${inserted === 1 ? "" : "s"} uploaded`);
+      loadCourseData();
+    } catch (err) {
+      setError(err.response?.data?.message || `Unable to upload ${resourcetype} rows`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -634,8 +796,7 @@ export default function NepLmsCourseWorkspacePage() {
     };
     setEditingResourceId(row._id);
     setEditingResourceType(row.resourcetype);
-    if (row.resourcetype === "Lesson Plan") setLessonForm(nextForm);
-    else setResourceForm(nextForm);
+    setResourceFormByType(row.resourcetype, nextForm);
     setMessage("");
     setError("");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -644,8 +805,7 @@ export default function NepLmsCourseWorkspacePage() {
   const cancelResourceEdit = (type) => {
     setEditingResourceId("");
     setEditingResourceType("");
-    if (type === "Lesson Plan") setLessonForm(blankResource);
-    else setResourceForm(blankResource);
+    setBlankResourceForm(type);
   };
 
   const deleteResource = async (row) => {
@@ -911,13 +1071,6 @@ export default function NepLmsCourseWorkspacePage() {
   }, [resources, selectedCourse, classForm.workcompleted]);
   const selectedQuiz = useMemo(() => quizzes.find((row) => row._id === selectedQuizId) || null, [quizzes, selectedQuizId]);
   const moduleOptions = useMemo(() => uniqueSorted(syllabusRows.map((row) => row.module)), [syllabusRows]);
-  const topicOptions = useMemo(() => {
-    const selectedModules = listFromValue(resourceForm.module);
-    const rows = selectedModules.length
-      ? syllabusRows.filter((row) => selectedModules.includes(String(row.module || "").trim()))
-      : syllabusRows;
-    return uniqueSorted(rows.map((row) => row.syllabus));
-  }, [resourceForm.module, syllabusRows]);
   const quizTopicOptions = useMemo(() => {
     const selectedModules = listFromValue(quizForm.module);
     const rows = selectedModules.length
@@ -1105,7 +1258,16 @@ export default function NepLmsCourseWorkspacePage() {
     { field: "status", headerName: "Status", width: 130 }
   ];
 
-  const renderUploadTab = (type, form, setForm) => (
+  const renderUploadTab = (type, form, setForm) => {
+    const currentTopicOptions = (() => {
+      const selectedModules = listFromValue(form.module);
+      const rows = selectedModules.length
+        ? syllabusRows.filter((row) => selectedModules.includes(String(row.module || "").trim()))
+        : syllabusRows;
+      return uniqueSorted(rows.map((row) => row.syllabus));
+    })();
+
+    return (
     <Box>
       <Paper sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={2}>
@@ -1150,7 +1312,7 @@ export default function NepLmsCourseWorkspacePage() {
                     renderValue={(selected) => selected.join(", ")}
                     onChange={(e) => setForm((prev) => ({ ...prev, topic: Array.isArray(e.target.value) ? e.target.value : listFromValue(e.target.value) }))}
                   >
-                    {topicOptions.map((topic) => (
+                    {currentTopicOptions.map((topic) => (
                       <MenuItem key={topic} value={topic}>
                         <Checkbox checked={listFromValue(form.topic).includes(topic)} />
                         <ListItemText primary={topic} />
@@ -1191,6 +1353,32 @@ export default function NepLmsCourseWorkspacePage() {
           </Grid>
         </Grid>
       </Paper>
+      {["Course Material", "Lesson Plan"].includes(type) && (
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ md: "center" }}>
+            <Typography variant="subtitle2" fontWeight={800}>{type} Bulk Upload</Typography>
+            <Button variant="outlined" startIcon={<FileDownload />} onClick={() => buildResourceTemplate(type)}>
+              Template
+            </Button>
+            <Button variant="outlined" component="label" startIcon={<UploadFile />}>
+              Choose Excel
+              <input hidden type="file" accept=".xlsx,.xls" onChange={(event) => readResourceBulkExcel(type, event)} />
+            </Button>
+            <Chip label={`${bulkResourceRows[type]?.length || 0} rows ready`} />
+            <Button
+              variant="contained"
+              startIcon={<Save />}
+              disabled={loading || !(bulkResourceRows[type]?.length)}
+              onClick={() => uploadResourceBulkRows(type)}
+            >
+              Upload Rows
+            </Button>
+          </Stack>
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+            Excel columns: Title, Module, Topic, Description, File Link, Filename, Original Name, Status.
+          </Typography>
+        </Paper>
+      )}
       {["Assignment", "Course Material", "Lesson Plan"].includes(type) && (
         <Paper sx={{ p: 2, mb: 2, border: "1px solid #dbeafe", bgcolor: "#f8fbff" }}>
           <Typography variant="h6" sx={{ mb: 2 }}>Create {type} with AI</Typography>
@@ -1287,6 +1475,7 @@ export default function NepLmsCourseWorkspacePage() {
       </Paper>
     </Box>
   );
+  };
 
   const updateFlashcard = (index, key, value) => {
     setLessonContentForm((prev) => ({
@@ -1801,7 +1990,8 @@ export default function NepLmsCourseWorkspacePage() {
   );
 
   return (
-    <Box p={3}>
+    <MenuPageShell title="Course Workspace">
+      <Box p={3}>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
         <Box>
           <Typography variant="h5" fontWeight={700}>Course Workspace</Typography>
@@ -1837,9 +2027,9 @@ export default function NepLmsCourseWorkspacePage() {
           <Grid item xs={12} md={6}>
             <FormControl fullWidth>
               <InputLabel>Course</InputLabel>
-              <Select label="Course" value={coursecode} onChange={(e) => setCoursecode(e.target.value)}>
+              <Select label="Course" value={selectedCourse?._id || courseRowId} onChange={(e) => changeCourse(e.target.value)}>
                 {filteredCourses.map((row) => (
-                  <MenuItem key={`${row._id}-${row.coursecode}`} value={row.coursecode}>
+                  <MenuItem key={`${row._id}-${row.coursecode}`} value={row._id}>
                     {row.coursecode} - {row.course} ({row.subject})
                   </MenuItem>
                 ))}
@@ -1869,7 +2059,7 @@ export default function NepLmsCourseWorkspacePage() {
       </Paper>
 
       {tab === 0 && renderUploadTab("Assignment", resourceForm, setResourceForm)}
-      {tab === 1 && renderUploadTab("Course Material", resourceForm, setResourceForm)}
+      {tab === 1 && renderUploadTab("Course Material", materialForm, setMaterialForm)}
       {tab === 2 && (
         <Box>
           {renderUploadTab("Lesson Plan", lessonForm, setLessonForm)}
@@ -2061,6 +2251,7 @@ export default function NepLmsCourseWorkspacePage() {
         </Box>
       )}
       {tab === 5 && renderQuizTab()}
-    </Box>
+      </Box>
+    </MenuPageShell>
   );
 }

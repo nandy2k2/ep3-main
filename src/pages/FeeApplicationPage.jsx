@@ -29,6 +29,8 @@ const studentFieldConfig = [
   { field: "program", label: "Program", optionKey: "program" },
   { field: "programcode", label: "Program Code", optionKey: "programcode" },
   { field: "department", label: "Department", optionKey: "department" },
+  { field: "semester", label: "Semester", optionKey: "semester" },
+  { field: "gender", label: "Gender", optionKey: "gender" },
   { field: "major", label: "Major", optionKey: "major" },
   { field: "minor", label: "Minor", optionKey: "minor" },
   { field: "IDC", label: "IDC", optionKey: "IDC" },

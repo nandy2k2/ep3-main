@@ -52,6 +52,7 @@ export default function AdmissionCancellationPage() {
   const [refunddate, setRefunddate] = useState(new Date().toISOString().slice(0, 10));
   const [refundmode, setRefundmode] = useState("NEFT");
   const [refundrefno, setRefundrefno] = useState("");
+  const [administrativecharges, setAdministrativecharges] = useState(0);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -62,6 +63,7 @@ export default function AdmissionCancellationPage() {
   }, []);
 
   const selectedRefundTotal = useMemo(() => fees.reduce((sum, row) => sum + Number(row.refunded || 0), 0), [fees]);
+  const netRefundTotal = useMemo(() => Math.max(0, selectedRefundTotal - Number(administrativecharges || 0)), [selectedRefundTotal, administrativecharges]);
   const totalPaid = useMemo(() => fees.reduce((sum, row) => sum + Number(row.paid || 0), 0), [fees]);
 
   const fieldLabel = (field) => fields.find((item) => item.field === field)?.label || field;
@@ -141,6 +143,7 @@ export default function AdmissionCancellationPage() {
         refunddate,
         refundmode,
         refundrefno,
+        administrativecharges,
         createdby: global1.user,
         createdname: global1.name
       });
@@ -289,23 +292,40 @@ export default function AdmissionCancellationPage() {
             <Stack direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" sx={{ mb: 2 }}>
               <Box>
                 <Typography variant="h6" fontWeight={850}>Refund Details</Typography>
-                <Typography color="text.secondary">{selectedStudent.name} | {selectedStudent.regno} | Paid: {currency(totalPaid)} | Refund: {currency(selectedRefundTotal)}</Typography>
+                <Typography color="text.secondary">
+                  {selectedStudent.name} | {selectedStudent.regno} | Paid: {currency(totalPaid)} | Gross Refund: {currency(selectedRefundTotal)} | Charges: {currency(administrativecharges)} | Net Refund: {currency(netRefundTotal)}
+                </Typography>
               </Box>
               <Button variant="contained" color="error" startIcon={<Save />} onClick={saveCancellation} disabled={saving || !fees.length}>
                 {saving ? "Saving..." : "Save Cancellation"}
               </Button>
             </Stack>
             <Grid container spacing={2} sx={{ mb: 2 }}>
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12} md={3}>
                 <TextField fullWidth type="date" label="Refund Date" InputLabelProps={{ shrink: true }} value={refunddate} onChange={(event) => setRefunddate(event.target.value)} />
               </Grid>
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12} md={3}>
                 <TextField select fullWidth label="Refund Mode" value={refundmode} onChange={(event) => setRefundmode(event.target.value)}>
                   {refundModes.map((mode) => <MenuItem key={mode} value={mode}>{mode}</MenuItem>)}
                 </TextField>
               </Grid>
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12} md={3}>
                 <TextField fullWidth label="Refund Ref No" value={refundrefno} onChange={(event) => setRefundrefno(event.target.value)} />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="Administrative Charges"
+                  value={administrativecharges}
+                  inputProps={{ min: 0, max: selectedRefundTotal, step: "0.01" }}
+                  onChange={(event) => setAdministrativecharges(Math.min(Number(event.target.value || 0), selectedRefundTotal))}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <Alert severity="info">
+                  Net refund payable after administrative charges: {currency(netRefundTotal)}
+                </Alert>
               </Grid>
             </Grid>
             <Box sx={{ overflowX: "auto" }}>

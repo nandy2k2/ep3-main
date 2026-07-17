@@ -7,7 +7,6 @@ import {
   Card,
   CardContent,
   Chip,
-  Container,
   FormControl,
   Grid,
   InputLabel,
@@ -47,6 +46,7 @@ import {
 } from "recharts";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const colors = ["#1e88e5", "#43a047", "#fb8c00", "#8e24aa", "#00acc1", "#e53935", "#3949ab"];
 
@@ -132,7 +132,8 @@ export default function NepLmsFacultyDashboardPage() {
   }, [summary.attendancePercentage]);
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
+    <MenuPageShell title="Faculty Dashboard">
+      <Box sx={{ p: { xs: 2, md: 3 } }}>
       <Paper
         sx={{
           p: { xs: 2, md: 3 },
@@ -325,6 +326,7 @@ export default function NepLmsFacultyDashboardPage() {
           />
         </Grid>
       </Grid>
-    </Container>
+      </Box>
+    </MenuPageShell>
   );
 }

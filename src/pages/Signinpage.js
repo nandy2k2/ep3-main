@@ -12,6 +12,7 @@ const Signup = () => {
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const isOrthintelDomain = typeof window !== "undefined" && window.location.hostname.toLowerCase().includes("orthintel");
 
     const searchapi = async () => {
         //alert('checking ' + email + ' ' + password);
@@ -284,21 +285,40 @@ const Signup = () => {
             }}
           >
             <div style={{ alignItems: 'center', width: 300, marginLeft: 100}}>
-             <img
-              src="https://campus.technology/images/logo.png"
-              alt="ct_logo"
-              width="150"
-              height="60"
-
-              style={{
-                objectFit: "cover",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                alignSelf: "center",
-                marginBottom: 30
-              }}
-            />
+             {isOrthintelDomain ? (
+              <Box
+                sx={{
+                  width: 150,
+                  height: 60,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginBottom: "30px",
+                  borderRadius: "8px",
+                  border: "1px solid #c2410c",
+                  bgcolor: "#fff7ed"
+                }}
+              >
+                <Typography sx={{ fontWeight: 950, fontSize: 22, color: "#9a3412", letterSpacing: 0 }}>
+                  OrthIntel
+                </Typography>
+              </Box>
+             ) : (
+              <img
+                src="https://campus.technology/images/logo.png"
+                alt="ct_logo"
+                width="150"
+                height="60"
+                style={{
+                  objectFit: "cover",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  alignSelf: "center",
+                  marginBottom: 30
+                }}
+              />
+             )}
             </div>
             {/* <Typography variant="h4" align="center" gutterBottom color='black'>
               Login

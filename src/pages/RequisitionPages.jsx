@@ -6,6 +6,7 @@ import {
   Box,
   Breadcrumbs,
   Button,
+  Checkbox,
   FormControl,
   Grid,
   IconButton,
@@ -88,6 +89,7 @@ function AssignmentVoucher({ institution, voucher }) {
     ["Requested Qty", voucher.requestedquantity],
     ["Previously Assigned / Total Assigned", voucher.assignedquantity],
     ["Issued Now", voucher.assignednow],
+    ["Asset IDs", Array.isArray(voucher.assetids) ? voucher.assetids.join(", ") : ""],
     ["Unit", voucher.unit],
     ["Assignment Status", voucher.assignmentstatus],
     ["Details", voucher.assignmentdetails]
@@ -436,6 +438,7 @@ export function RequisitionStoreViewPage() {
   const [filters, setFilters] = useState({ fromdate: "", todate: "" });
   const [institution, setInstitution] = useState(null);
   const [voucher, setVoucher] = useState(null);
+  const [assetOptions, setAssetOptions] = useState({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const loadAssignedStores = async () => {
@@ -466,12 +469,33 @@ export function RequisitionStoreViewPage() {
   useEffect(() => { loadAssignedStores(); loadInstitutionDetails().then(setInstitution); }, []);
   useEffect(() => { load(); }, [tab, selectedStore]);
   const updateRow = (row, field, value) => setRows((prev) => prev.map((item) => item._id === row._id ? { ...item, [field]: value } : item));
+  const loadAssetsForRow = async (row) => {
+    if (!row?.itemmasterid || assetOptions[row._id]) return;
+    try {
+      const res = await ep1.get("/api/v2/assetsnew/available", { params: { colid: global1.colid, itemmasterid: row.itemmasterid } });
+      setAssetOptions((prev) => ({ ...prev, [row._id]: res.data.data || [] }));
+    } catch {
+      setAssetOptions((prev) => ({ ...prev, [row._id]: [] }));
+    }
+  };
   const assign = async (row) => {
     clear(); setSaving(true);
     try {
       const assignedNow = row.assignnow;
-      const res = await ep1.post("/api/v2/requisition/items-assign", { id: row._id, colid: global1.colid, assignedquantity: assignedNow, assignmentdetails: row.assignmentdetails, assignmentdate: row.assignmentdate, user: global1.user, useremail: global1.user, username: global1.name, role: global1.role });
-      setVoucher({ ...(res.data.data || row), assignednow: assignedNow, assignmentdetails: row.assignmentdetails, assignmentdate: row.assignmentdate || new Date() });
+      let availableAssets = assetOptions[row._id] || [];
+      if (!assetOptions[row._id] && row.itemmasterid) {
+        const res = await ep1.get("/api/v2/assetsnew/available", { params: { colid: global1.colid, itemmasterid: row.itemmasterid } });
+        availableAssets = res.data.data || [];
+        setAssetOptions((prev) => ({ ...prev, [row._id]: availableAssets }));
+      }
+      const assetCount = availableAssets.length;
+      const selectedAssetCount = (row.assetids || []).length;
+      if (assetCount > 0 && selectedAssetCount !== Number(assignedNow || 0)) {
+        setSaving(false);
+        return setError(`Select exactly ${assignedNow} asset id(s) before assigning this item.`);
+      }
+      const res = await ep1.post("/api/v2/requisition/items-assign", { id: row._id, colid: global1.colid, assignedquantity: assignedNow, assetids: row.assetids || [], assignmentdetails: row.assignmentdetails, assignmentdate: row.assignmentdate, user: global1.user, useremail: global1.user, username: global1.name, role: global1.role });
+      setVoucher({ ...(res.data.data || row), assignednow: assignedNow, assetids: (res.data.assets || []).map((asset) => asset.assetid), assignmentdetails: row.assignmentdetails, assignmentdate: row.assignmentdate || new Date() });
       setMessage("Items assigned. Assignment voucher is ready below.");
       await load();
     } catch (err) {
@@ -483,6 +507,26 @@ export function RequisitionStoreViewPage() {
   const columns = tab === "Approved" ? [
     { field: "assignaction", headerName: "Assign", width: 110, sortable: false, filterable: false, renderCell: ({ row }) => row.status === "Approved" ? <Button size="small" disabled={saving || !row.assignnow || Number(row.assignedquantity || 0) >= Number(row.requestedquantity || 0)} onClick={() => assign(row)}>Assign</Button> : null },
     ...reqColumns({ assignMode: true, onAssignChange: updateRow }).filter((c) => !["assignmentdetails", "assignmentdate"].includes(c.field)),
+    { field: "assetids", headerName: "Asset IDs", minWidth: 260, sortable: false, filterable: false, renderCell: ({ row }) => (
+      <Autocomplete
+        multiple
+        size="small"
+        options={assetOptions[row._id] || []}
+        getOptionLabel={(option) => option.assetid || ""}
+        value={(assetOptions[row._id] || []).filter((asset) => (row.assetids || []).includes(asset._id))}
+        onOpen={() => loadAssetsForRow(row)}
+        onChange={(_, values) => updateRow(row, "assetids", values.map((asset) => asset._id))}
+        disableCloseOnSelect
+        renderOption={(props, option, { selected }) => (
+          <li {...props}>
+            <Checkbox size="small" checked={selected} sx={{ mr: 1 }} />
+            {option.assetid}
+          </li>
+        )}
+        renderInput={(params) => <TextField {...params} label={`Select asset IDs${row.assignnow ? ` (${(row.assetids || []).length}/${row.assignnow})` : ""}`} />}
+        sx={{ width: 250 }}
+      />
+    ) },
     { field: "assignmentdetailsedit", headerName: "Assignment details", minWidth: 220, renderCell: ({ row }) => <TextField size="small" value={row.assignmentdetails || ""} onKeyDown={(e) => e.stopPropagation()} onChange={(e) => updateRow(row, "assignmentdetails", e.target.value)} /> },
     { field: "assignmentdateedit", headerName: "Assignment date", minWidth: 170, renderCell: ({ row }) => <TextField size="small" type="date" value={row.assignmentdate ? String(row.assignmentdate).slice(0, 10) : ""} onKeyDown={(e) => e.stopPropagation()} onChange={(e) => updateRow(row, "assignmentdate", e.target.value)} /> }
   ] : reqColumns({});

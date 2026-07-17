@@ -26,6 +26,7 @@ import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const fallbackYears = ["2026-27", "2027-28", "2028-29", "2029-30", "2030-31"];
 const fallbackTypes = ["Major", "Minor"];
@@ -81,6 +82,8 @@ export default function WorkloadAssignmentPage() {
   const [department, setDepartment] = useState("");
   const [faculty, setFaculty] = useState([]);
   const [filters, setFilters] = useState({ academicyear: "", regulation: "", programcode: "", subject: "", semester: "", facultyemail: "" });
+  const [selectedRowIds, setSelectedRowIds] = useState([]);
+  const [bulkProgramCode, setBulkProgramCode] = useState("");
   const [editingId, setEditingId] = useState("");
   const [uploadRows, setUploadRows] = useState([]);
   const [message, setMessage] = useState("");
@@ -201,6 +204,10 @@ export default function WorkloadAssignmentPage() {
     });
     return [...map.values()].sort((a, b) => String(a.programcode).localeCompare(String(b.programcode)));
   }, [options.programs, rows]);
+  const selectedRows = useMemo(() => {
+    const selectedSet = new Set(selectedRowIds);
+    return rows.filter((row) => selectedSet.has(row._id));
+  }, [rows, selectedRowIds]);
 
   const updateFormValue = (field, value) => {
     if (["academicyear", "regulation", "programcode", "type", "subject", "semester"].includes(field)) setSelectedCourseCodes([]);
@@ -411,6 +418,42 @@ export default function WorkloadAssignmentPage() {
     }
   };
 
+  const bulkAssignProgram = async () => {
+    if (!selectedRows.length) {
+      setError("Select at least one workload row");
+      return;
+    }
+    const selectedProgram = programOptions.find((item) => item.programcode === bulkProgramCode);
+    if (!selectedProgram?.programcode) {
+      setError("Select target program");
+      return;
+    }
+    if (!window.confirm(`Assign ${selectedRows.length} selected workload assignment${selectedRows.length === 1 ? "" : "s"} to ${selectedProgram.programcode}?`)) return;
+    try {
+      setLoading(true);
+      setError("");
+      setMessage("");
+      for (const row of selectedRows) {
+        await ep1.post("/api/v2/workloadassignment/update", {
+          ...row,
+          id: row._id,
+          program: selectedProgram.program || row.program,
+          programcode: selectedProgram.programcode,
+          colid,
+          user: global1.user
+        });
+      }
+      setMessage(`${selectedRows.length} workload assignment${selectedRows.length === 1 ? "" : "s"} assigned to ${selectedProgram.programcode}`);
+      setSelectedRowIds([]);
+      setBulkProgramCode("");
+      await refreshAll();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to bulk assign program");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const columns = [
     {
       field: "actions",
@@ -452,6 +495,7 @@ export default function WorkloadAssignmentPage() {
   );
 
   return (
+    <MenuPageShell title="Workload Assignment">
     <Container maxWidth="xl" sx={{ py: 3 }}>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
         <Box>
@@ -560,11 +604,35 @@ export default function WorkloadAssignmentPage() {
         </Stack>
       </Paper>
 
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ md: "center" }}>
+          <Chip color={selectedRows.length ? "primary" : "default"} label={`${selectedRows.length} selected`} />
+          <FormControl size="small" sx={{ minWidth: 280 }}>
+            <InputLabel>Assign to Program</InputLabel>
+            <Select label="Assign to Program" value={bulkProgramCode} onChange={(event) => setBulkProgramCode(event.target.value)}>
+              <MenuItem value="">Select program</MenuItem>
+              {programOptions.map((item) => (
+                <MenuItem key={item.programcode} value={item.programcode}>
+                  {item.programcode}{item.program ? ` - ${item.program}` : ""}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <Button variant="contained" onClick={bulkAssignProgram} disabled={!selectedRows.length || !bulkProgramCode || loading}>
+            Assign Selected
+          </Button>
+        </Stack>
+      </Paper>
+
       <Paper sx={{ p: 1, overflowX: "auto" }}>
         <DataGrid
           rows={rows.map((row) => ({ ...row, id: row._id }))}
           columns={columns}
           loading={loading}
+          checkboxSelection
+          rowSelectionModel={selectedRowIds}
+          onRowSelectionModelChange={(model) => setSelectedRowIds(Array.from(model))}
+          disableRowSelectionOnClick
           autoHeight
           slots={{ toolbar: GridToolbar }}
           slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "workload_assignment" } } }}
@@ -574,5 +642,6 @@ export default function WorkloadAssignmentPage() {
         />
       </Paper>
     </Container>
+    </MenuPageShell>
   );
 }

@@ -17,6 +17,7 @@ import { ArrowBack, Print, Refresh } from "@mui/icons-material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const uniqueSorted = (values = []) => [...new Set(values.map((item) => String(item || "").trim()).filter(Boolean))]
   .sort((a, b) => a.localeCompare(b));
@@ -98,7 +99,8 @@ export default function NepLmsAssignedCoursesPage() {
   ];
 
   return (
-    <Box p={3}>
+    <MenuPageShell title="My Assigned Courses">
+      <Box p={3}>
       <style>
         {`
           @media print {
@@ -200,6 +202,7 @@ export default function NepLmsAssignedCoursesPage() {
           <Grid item xs={6}><Box sx={{ borderTop: "1px solid #111827", pt: 1 }}><Typography variant="body2">Approved By</Typography></Box></Grid>
         </Grid>
       </Paper>
-    </Box>
+      </Box>
+    </MenuPageShell>
   );
 }
