@@ -124,6 +124,22 @@ export default function DynamicAdmissionApplicationsPage() {
       )
     },
     {
+      field: "profile2",
+      headerName: "Profile 2",
+      flex: 0.9,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => (
+        <Button
+          size="small"
+          startIcon={<VisibilityIcon />}
+          onClick={() => navigate(`/dynamic-admission-profile2/${params.row._id}`)}
+        >
+          View
+        </Button>
+      )
+    },
+    {
       field: "delete",
       headerName: "Delete",
       flex: 0.8,

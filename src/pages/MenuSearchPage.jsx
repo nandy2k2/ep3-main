@@ -84,9 +84,11 @@ const applyRoleAccess = (items, rules) => {
 
     const key = `${normalize(rule.menugroup)}|${normalize(rule.title)}`;
     const path = normalize(rule.path);
+    const displayGroup = rule.groupname || rule.menugroup;
     if (normalize(rule.access) === "allow") {
       allowedKeys.add(key);
       allowedPaths.add(path);
+      rule.displayGroup = displayGroup;
     } else {
       deniedKeys.add(key);
       deniedPaths.add(path);
@@ -99,6 +101,15 @@ const applyRoleAccess = (items, rules) => {
     const path = normalize(item.path);
     if (deniedKeys.has(key) || deniedPaths.has(path)) return false;
     return allowedKeys.has(key) || allowedPaths.has(path);
+  }).map((item) => {
+    const matchingRule = (rules || []).find((rule) => {
+      const ruleRole = normalize(rule.role);
+      if (ruleRole !== role && ruleRole !== "all") return false;
+      if (normalize(rule.access) !== "allow") return false;
+      return normalize(rule.path) === normalize(item.path)
+        || `${normalize(rule.menugroup)}|${normalize(rule.title)}` === `${normalize(item.group)}|${normalize(item.title)}`;
+    });
+    return matchingRule?.groupname ? { ...item, group: matchingRule.groupname } : item;
   });
 };
 

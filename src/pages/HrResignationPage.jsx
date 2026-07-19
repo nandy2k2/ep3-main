@@ -19,6 +19,7 @@ import { ArrowBack, CloudUpload, Delete, Edit, Refresh, Save, Search } from "@mu
 import { useNavigate } from "react-router-dom";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const statuses = ["Resigned", "Notice Period", "Absconded", "Completed"];
 const documentTypes = ["Resignation Letter", "Clearance Document", "Experience Letter", "Other"];
@@ -252,7 +253,8 @@ const HrResignationPage = () => {
   ];
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
+    <MenuPageShell title="Resignation">
+      <Container maxWidth="xl" sx={{ py: 3 }}>
       <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} spacing={2} sx={{ mb: 2 }}>
         <Box>
           <Typography variant="h5" fontWeight={700}>Resignation</Typography>
@@ -367,7 +369,8 @@ const HrResignationPage = () => {
           sx={{ minWidth: 1800 }}
         />
       </Paper>
-    </Container>
+      </Container>
+    </MenuPageShell>
   );
 };
 

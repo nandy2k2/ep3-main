@@ -6,6 +6,7 @@ import { Add, ArrowBack, Delete, Edit, FileDownload, Save, UploadFile } from "@m
 import { DataGrid, GridActionsCellItem, GridToolbar } from "@mui/x-data-grid";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const blank = { name: "Employee Attendance Approval", department: "", status: "Active", levels: [{ level: 1, approvername: "", approveremail: "", approverrole: "" }] };
 
@@ -125,7 +126,8 @@ export default function HrEmployeeAttendanceMatrixPage() {
   ];
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
+    <MenuPageShell title="Employee Attendance Approval Matrix">
+      <Container maxWidth="xl" sx={{ py: 3 }}>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
         <Box>
           <Typography variant="h5" fontWeight={800}>Employee Attendance Approval Matrix</Typography>
@@ -168,6 +170,7 @@ export default function HrEmployeeAttendanceMatrixPage() {
         </Grid>
       </Paper>
       <Paper sx={{ p: 2 }}><DataGrid rows={rows} columns={columns} getRowId={(row) => row._id} autoHeight slots={{ toolbar: GridToolbar }} disableRowSelectionOnClick /></Paper>
-    </Container>
+      </Container>
+    </MenuPageShell>
   );
 }

@@ -19,6 +19,7 @@ import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import { Refresh, Search } from "@mui/icons-material";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const monthOrder = [
   "January",
@@ -126,7 +127,8 @@ const HrSalaryComponentReport = () => {
   ];
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
+    <MenuPageShell title="Salary Component Report">
+      <Container maxWidth="xl" sx={{ py: 3 }}>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
         <Box>
           <Typography variant="h5" fontWeight={700}>
@@ -213,7 +215,8 @@ const HrSalaryComponentReport = () => {
           />
         </Box>
       </Paper>
-    </Container>
+      </Container>
+    </MenuPageShell>
   );
 };
 

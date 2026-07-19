@@ -156,7 +156,25 @@ const hasMenuAccess = (group, page, allowedKeys, allowedPaths, deniedKeys, denie
   return allowedKeys.has(groupTitleKey) || allowedPaths.has(pathKey);
 };
 
-const filterNode = (node, group, allowedKeys, allowedPaths, deniedKeys, deniedPaths) => {
+const getDisplayGroup = (group, page, displayGroupsByKey, displayGroupsByPath) => {
+  const groupKey = normalizeMenuText(group);
+  const titleKey = normalizeMenuText(page.title);
+  const pathKey = normalizeMenuText(page.path);
+  return displayGroupsByPath.get(pathKey) || displayGroupsByKey.get(`${groupKey}|${titleKey}`) || group;
+};
+
+const replaceSummaryTitle = (summary, groupName) => {
+  if (!React.isValidElement(summary)) return summary;
+  const children = flattenChildren(summary.props?.children).map((child) => {
+    if (React.isValidElement(child) && child.type === Typography) {
+      return React.cloneElement(child, child.props, groupName);
+    }
+    return child;
+  });
+  return React.cloneElement(summary, summary.props, children);
+};
+
+const filterNode = (node, group, allowedKeys, allowedPaths, deniedKeys, deniedPaths, displayGroup, displayGroupsByKey, displayGroupsByPath) => {
   if (!React.isValidElement(node)) {
     return node;
   }
@@ -166,40 +184,65 @@ const filterNode = (node, group, allowedKeys, allowedPaths, deniedKeys, deniedPa
       title: findFirstPrimary(node),
       path: node.props.to
     };
-    return hasMenuAccess(group, page, allowedKeys, allowedPaths, deniedKeys, deniedPaths) ? node : null;
+    if (!hasMenuAccess(group, page, allowedKeys, allowedPaths, deniedKeys, deniedPaths)) return null;
+    if (displayGroup && getDisplayGroup(group, page, displayGroupsByKey, displayGroupsByPath) !== displayGroup) return null;
+    return node;
   }
 
   const children = flattenChildren(node.props?.children)
-    .map((child) => filterNode(child, group, allowedKeys, allowedPaths, deniedKeys, deniedPaths))
+    .map((child) => filterNode(child, group, allowedKeys, allowedPaths, deniedKeys, deniedPaths, displayGroup, displayGroupsByKey, displayGroupsByPath))
     .filter(Boolean);
 
   return React.cloneElement(node, node.props, children);
 };
 
-const filterMenuTree = (menuTree, allowedKeys, allowedPaths, deniedKeys, deniedPaths) => {
+const mergeAccordionDetails = (detailsList) => {
+  const firstDetails = detailsList[0];
+  if (!React.isValidElement(firstDetails)) return firstDetails;
+  const mergedChildren = detailsList.flatMap((details) => flattenChildren(details.props?.children));
+  return React.cloneElement(firstDetails, firstDetails.props, mergedChildren);
+};
+
+const filterMenuTree = (menuTree, allowedKeys, allowedPaths, deniedKeys, deniedPaths, displayGroupsByKey, displayGroupsByPath) => {
   if (!React.isValidElement(menuTree)) {
     return menuTree;
   }
 
-  const accordions = flattenChildren(menuTree.props?.children)
-    .map((accordion) => {
+  const groupedAccordions = new Map();
+  flattenChildren(menuTree.props?.children)
+    .forEach((accordion) => {
       if (!React.isValidElement(accordion)) {
-        return null;
+        return;
       }
 
       const accordionChildren = flattenChildren(accordion.props?.children);
       const summary = accordionChildren[0];
       const details = accordionChildren[1];
       const group = getElementText(summary).trim();
-      const filteredDetails = filterNode(details, group, allowedKeys, allowedPaths, deniedKeys, deniedPaths);
+      const filteredDetails = filterNode(details, group, allowedKeys, allowedPaths, deniedKeys, deniedPaths, "", displayGroupsByKey, displayGroupsByPath);
+      const visiblePages = collectListItems(filteredDetails);
 
-      if (!collectListItems(filteredDetails).length) {
-        return null;
+      if (!visiblePages.length) {
+        return;
       }
 
-      return React.cloneElement(accordion, accordion.props, [summary, filteredDetails]);
-    })
-    .filter(Boolean);
+      const displayGroups = Array.from(new Set(visiblePages.map((page) => getDisplayGroup(group, page, displayGroupsByKey, displayGroupsByPath))));
+      displayGroups.forEach((displayGroup) => {
+        const groupDetails = filterNode(details, group, allowedKeys, allowedPaths, deniedKeys, deniedPaths, displayGroup, displayGroupsByKey, displayGroupsByPath);
+        if (!groupedAccordions.has(displayGroup)) {
+          groupedAccordions.set(displayGroup, { accordion, summary, detailsList: [] });
+        }
+        groupedAccordions.get(displayGroup).detailsList.push(groupDetails);
+      });
+    });
+
+  const accordions = Array.from(groupedAccordions.entries()).map(([displayGroup, item]) => (
+    React.cloneElement(
+      item.accordion,
+      { ...item.accordion.props, key: displayGroup },
+      [replaceSummaryTitle(item.summary, displayGroup), mergeAccordionDetails(item.detailsList)]
+    )
+  ));
 
   return React.cloneElement(menuTree, menuTree.props, accordions);
 };
@@ -232,7 +275,7 @@ const MenuCas1FilteredTree = () => {
     return menuitemsall();
   }
 
-  const { allowedKeys, allowedPaths, deniedKeys, deniedPaths } = rules.reduce((acc, rule) => {
+  const { allowedKeys, allowedPaths, deniedKeys, deniedPaths, displayGroupsByKey, displayGroupsByPath } = rules.reduce((acc, rule) => {
     const ruleRole = normalizeMenuText(rule.role);
     if (ruleRole !== normalizedRole && ruleRole !== 'all') {
       return acc;
@@ -240,10 +283,13 @@ const MenuCas1FilteredTree = () => {
 
     const key = `${normalizeMenuText(rule.menugroup)}|${normalizeMenuText(rule.title)}`;
     const path = normalizeMenuText(rule.path);
+    const displayGroup = rule.groupname || rule.menugroup;
 
     if (normalizeMenuText(rule.access) === 'allow') {
       acc.allowedKeys.add(key);
       acc.allowedPaths.add(path);
+      acc.displayGroupsByKey.set(key, displayGroup);
+      acc.displayGroupsByPath.set(path, displayGroup);
     } else {
       acc.deniedKeys.add(key);
       acc.deniedPaths.add(path);
@@ -253,7 +299,9 @@ const MenuCas1FilteredTree = () => {
     allowedKeys: new Set(),
     allowedPaths: new Set(),
     deniedKeys: new Set(),
-    deniedPaths: new Set()
+    deniedPaths: new Set(),
+    displayGroupsByKey: new Map(),
+    displayGroupsByPath: new Map()
   });
 
   return filterMenuTree(
@@ -261,7 +309,9 @@ const MenuCas1FilteredTree = () => {
     allowedKeys,
     allowedPaths,
     deniedKeys,
-    deniedPaths
+    deniedPaths,
+    displayGroupsByKey,
+    displayGroupsByPath
   );
 };
 

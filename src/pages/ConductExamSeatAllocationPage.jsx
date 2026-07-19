@@ -40,7 +40,7 @@ export default function ConductExamSeatAllocationPage() {
   };
 
   const loadRooms = async () => {
-    const res = await ep1.get("/api/v2/conductexam/rooms", { params: { colid: global1.colid } });
+    const res = await ep1.get("/api/v2/conductexam/rooms", { params: { colid: global1.colid, status: "Approved" } });
     setRooms(res.data?.data || []);
   };
 
@@ -141,7 +141,7 @@ export default function ConductExamSeatAllocationPage() {
           <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2}>
             <Box>
               <Typography variant="h5" fontWeight={900}>Seat Allocation</Typography>
-              <Typography color="text.secondary">Randomly assign exam roll students to selected rooms while avoiding adjacent seats for the same course where possible.</Typography>
+              <Typography color="text.secondary">Randomly assign exam roll students to approved rooms while avoiding adjacent seats for the same course where possible.</Typography>
             </Box>
             <Button variant="outlined" onClick={() => window.location.assign("/dashdashfacnew")}>Back</Button>
           </Stack>
@@ -203,10 +203,10 @@ export default function ConductExamSeatAllocationPage() {
                 options={roomOptions}
                 value={form.rooms}
                 isOptionEqualToValue={(option, value) => option._id === value._id}
-                getOptionLabel={(option) => `${option.campus} / ${option.building} / ${option.room} (${option.noofseats} seats)`}
+                getOptionLabel={(option) => `${option.campus} / ${option.building} / ${option.room} (${option.noofseats} seats, ${option.status || "Pending"})`}
                 onChange={(event, value) => setForm({ ...form, rooms: value })}
-                renderOption={(props, option, { selected }) => <li {...props}><Checkbox checked={selected} />{option.campus} / {option.building} / {option.room} ({option.noofseats} seats)</li>}
-                renderInput={(params) => <TextField {...params} label="Rooms" />}
+                renderOption={(props, option, { selected }) => <li {...props}><Checkbox checked={selected} />{option.campus} / {option.building} / {option.room} ({option.noofseats} seats, {option.status || "Pending"})</li>}
+                renderInput={(params) => <TextField {...params} label="Approved Rooms" helperText="Only approved room usage requests are available for allocation." />}
               />
             </Grid>
           </Grid>

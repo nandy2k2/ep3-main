@@ -5,6 +5,7 @@ import {
 import axios from 'axios';
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 export default function App() {
 
@@ -32,6 +33,7 @@ export default function App() {
   };
 
   return (
+    <MenuPageShell title="Salary Deduction TDS and PF">
     <Container style={{ marginTop: 50 }}>
 
       <Typography variant="h5">TDS Calculation</Typography>
@@ -69,5 +71,6 @@ export default function App() {
       </Button>
 
     </Container>
+    </MenuPageShell>
   );
 }

@@ -18,6 +18,7 @@ import { ArrowBack, Refresh } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const statuses = ["All", "Resigned", "Notice Period", "Absconded", "Completed"];
 
@@ -104,7 +105,8 @@ const HrResignationReportPage = () => {
   ];
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
+    <MenuPageShell title="Resignation Report">
+      <Container maxWidth="xl" sx={{ py: 3 }}>
       <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} spacing={2} sx={{ mb: 2 }}>
         <Box>
           <Typography variant="h5" fontWeight={700}>Resignation report</Typography>
@@ -148,7 +150,8 @@ const HrResignationReportPage = () => {
           sx={{ minWidth: 1650 }}
         />
       </Paper>
-    </Container>
+      </Container>
+    </MenuPageShell>
   );
 };
 

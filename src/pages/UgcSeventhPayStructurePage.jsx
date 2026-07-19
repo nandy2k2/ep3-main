@@ -18,6 +18,7 @@ import { AddCircleOutline, ArrowBack, Refresh } from "@mui/icons-material";
 import { Link as RouterLink } from "react-router-dom";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const UgcSeventhPayStructurePage = () => {
   const colid = useMemo(() => global1.colid, []);
@@ -105,7 +106,8 @@ const UgcSeventhPayStructurePage = () => {
   ];
 
   return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
+    <MenuPageShell title="UGC Seventh Pay Structure">
+      <Container maxWidth="lg" sx={{ py: 3 }}>
       <Paper elevation={2} sx={{ p: 3, borderRadius: 2 }}>
         <Stack spacing={3}>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2} justifyContent="space-between" alignItems={{ sm: "center" }}>
@@ -203,7 +205,8 @@ const UgcSeventhPayStructurePage = () => {
           </Typography>
         </Stack>
       </Paper>
-    </Container>
+      </Container>
+    </MenuPageShell>
   );
 };
 

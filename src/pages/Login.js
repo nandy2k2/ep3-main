@@ -96,10 +96,11 @@ const username=email;
         global1.token = response.data.token;
         global1.department = response.data.department;
         global1.programcode = response.data.programcode;
-        const lastlogin=new Date(response.data.lastlogin);
-        const todaydate=new Date();
-        var diffDays = lastlogin.getDate() - todaydate.getDate(); 
-        alert(diffDays);
+        const lastlogin = new Date(response.data.lastlogin);
+        if (!response.data.lastlogin || Number.isNaN(lastlogin.getTime()) || lastlogin.getTime() < Date.now()) {
+          alert('Login access is expired.');
+          return;
+        }
         // //global1.programid = response.data[0].programid;
         // //global1.batch = response.data[0].batch;
         global1.regno = response.data.regno;

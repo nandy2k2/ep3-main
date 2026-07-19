@@ -22,6 +22,7 @@ import { useState } from 'react';
 import ViewPage from './Viewmhrsalstructure';
 import Login from './Login';
 import global1 from './global1';
+import MenuPageShell from './MenuPageShell';
 
 const SidebarWidth = 250;
 
@@ -176,5 +177,13 @@ function DashboardContent() {
 }
 
 export default function Dashboard() {
-    return <DashboardContent />;
+    return (
+        <MenuPageShell title="Employee Salary Structure">
+            <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+                <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+                    <ViewPage />
+                </Paper>
+            </Container>
+        </MenuPageShell>
+    );
 }

@@ -1,25 +1,36 @@
 import React, { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
-import { Alert, Box, Button, Grid, Paper, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Autocomplete, Box, Button, Grid, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
 
-const blankForm = { campus: "", building: "", room: "", noofseats: "" };
+const blankForm = { roomresourceid: "", campus: "", building: "", floor: "", room: "", noofseats: "", status: "Pending", approvalcomments: "" };
 
 export default function ConductExamRoomPage() {
   const [rows, setRows] = useState([]);
+  const [roomResources, setRoomResources] = useState([]);
   const [form, setForm] = useState(blankForm);
   const [editId, setEditId] = useState("");
-  const [filters, setFilters] = useState({ campus: "", building: "", room: "" });
+  const [filters, setFilters] = useState({ campus: "", building: "", room: "", status: "" });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
     loadRows();
+    loadRoomResources();
   }, []);
+
+  const loadRoomResources = async () => {
+    try {
+      const res = await ep1.get("/api/v2/neplms/room-resources", { params: { colid: global1.colid } });
+      setRoomResources(res.data?.data || []);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load room configuration.");
+    }
+  };
 
   const loadRows = async (nextFilters = filters) => {
     try {
@@ -44,11 +55,12 @@ export default function ConductExamRoomPage() {
       await ep1.post("/api/v2/conductexam/rooms", {
         ...form,
         noofseats: Number(form.noofseats),
+        status: "Pending",
         id: editId,
         colid: global1.colid,
         user: global1.user
       });
-      setMessage(editId ? "Room updated." : "Room added.");
+      setMessage(editId ? "Room usage request updated and sent for approval." : "Room usage request created and sent for approval.");
       setForm(blankForm);
       setEditId("");
       loadRows();
@@ -62,10 +74,38 @@ export default function ConductExamRoomPage() {
     setForm({
       campus: row.campus || "",
       building: row.building || "",
+      floor: row.floor || "",
       room: row.room || "",
-      noofseats: row.noofseats ?? ""
+      noofseats: row.noofseats ?? "",
+      roomresourceid: row.roomresourceid || "",
+      status: row.status || "Pending",
+      approvalcomments: row.approvalcomments || ""
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const selectRoomResource = (resource) => {
+    setForm({
+      ...form,
+      roomresourceid: resource?._id || "",
+      campus: resource?.campus || "",
+      building: resource?.building || "",
+      floor: resource?.floor || "",
+      room: resource?.roomno || "",
+      noofseats: resource ? (Number(resource.examcapacity) || Number(resource.capacity) || 0) : "",
+      status: "Pending"
+    });
+  };
+
+  const approveRoom = async (row, status) => {
+    const approvalcomments = window.prompt(`${status} comments`, row.approvalcomments || "") || "";
+    try {
+      await ep1.post("/api/v2/conductexam/rooms-approve", { id: row._id, colid: global1.colid, status, approvalcomments, user: global1.user });
+      setMessage(`Room usage ${status.toLowerCase()}.`);
+      loadRows();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to update room approval.");
+    }
   };
 
   const deleteRow = async (id) => {
@@ -81,7 +121,7 @@ export default function ConductExamRoomPage() {
 
   const downloadTemplate = () => {
     const worksheet = XLSX.utils.json_to_sheet([
-      { campus: "Main Campus", building: "Academic Block", room: "101", noofseats: 60 }
+      { campus: "Main Campus", building: "Academic Block", floor: "1", room: "101", noofseats: 60, status: "Pending" }
     ]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Rooms");
@@ -100,8 +140,10 @@ export default function ConductExamRoomPage() {
         rowNumber: index + 2,
         campus: row.campus || row.Campus || "",
         building: row.building || row.Building || "",
+        floor: row.floor || row.Floor || "",
         room: row.room || row.Room || "",
-        noofseats: row.noofseats || row["No of seats"] || row.noOfSeats || ""
+        noofseats: row.noofseats || row["No of seats"] || row.noOfSeats || "",
+        status: row.status || row.Status || "Pending"
       }));
       const res = await ep1.post("/api/v2/conductexam/rooms-bulk", { colid: global1.colid, user: global1.user, items });
       setMessage(`${res.data?.saved || 0} rooms uploaded.`);
@@ -115,16 +157,21 @@ export default function ConductExamRoomPage() {
   const columns = useMemo(() => [
     { field: "campus", headerName: "Campus", minWidth: 180, flex: 1 },
     { field: "building", headerName: "Building", minWidth: 180, flex: 1 },
+    { field: "floor", headerName: "Floor", width: 100 },
     { field: "room", headerName: "Room", minWidth: 140, flex: 1 },
     { field: "noofseats", headerName: "No of Seats", width: 140, type: "number" },
+    { field: "status", headerName: "Approval Status", width: 150 },
+    { field: "approvalcomments", headerName: "Approval Comments", width: 220 },
     {
       field: "actions",
       headerName: "Actions",
-      width: 180,
+      width: 340,
       sortable: false,
       renderCell: (params) => (
         <Stack direction="row" spacing={1}>
           <Button size="small" onClick={() => editRow(params.row)}>Edit</Button>
+          <Button size="small" color="success" onClick={() => approveRoom(params.row, "Approved")}>Approve</Button>
+          <Button size="small" color="warning" onClick={() => approveRoom(params.row, "Rejected")}>Reject</Button>
           <Button size="small" color="error" onClick={() => deleteRow(params.row._id)}>Delete</Button>
         </Stack>
       )
@@ -137,8 +184,8 @@ export default function ConductExamRoomPage() {
         <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
           <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2}>
             <Box>
-              <Typography variant="h5" fontWeight={900}>Room Configuration</Typography>
-              <Typography color="text.secondary">Maintain campus, building, room and seat capacity for examinations.</Typography>
+              <Typography variant="h5" fontWeight={900}>Exam Room Usage Approval</Typography>
+              <Typography color="text.secondary">Select rooms from room configuration, auto-populate exam capacity, and approve before allocation.</Typography>
             </Box>
             <Stack direction="row" spacing={1}>
               <Button variant="outlined" onClick={downloadTemplate}>Template</Button>
@@ -155,10 +202,20 @@ export default function ConductExamRoomPage() {
 
         <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
           <Grid container spacing={2}>
-            <Grid item xs={12} md={3}><TextField fullWidth label="Campus" value={form.campus} onChange={(e) => setForm({ ...form, campus: e.target.value })} /></Grid>
-            <Grid item xs={12} md={3}><TextField fullWidth label="Building" value={form.building} onChange={(e) => setForm({ ...form, building: e.target.value })} /></Grid>
-            <Grid item xs={12} md={2.5}><TextField fullWidth label="Room" value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })} /></Grid>
-            <Grid item xs={12} md={2}><TextField fullWidth type="number" label="No of Seats" value={form.noofseats} onChange={(e) => setForm({ ...form, noofseats: e.target.value })} /></Grid>
+            <Grid item xs={12} md={4}>
+              <Autocomplete
+                options={roomResources}
+                value={roomResources.find((item) => item._id === form.roomresourceid) || null}
+                getOptionLabel={(option) => `${option.campus || ""} / ${option.building || ""} / ${option.floor || ""} / ${option.roomno || ""} (${option.examcapacity || option.capacity || 0} exam seats)`}
+                onChange={(_, value) => selectRoomResource(value)}
+                renderInput={(params) => <TextField {...params} label="Select Room from Room Configuration" />}
+              />
+            </Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth label="Campus" value={form.campus} InputProps={{ readOnly: true }} /></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth label="Building" value={form.building} InputProps={{ readOnly: true }} /></Grid>
+            <Grid item xs={12} md={1.5}><TextField fullWidth label="Floor" value={form.floor} InputProps={{ readOnly: true }} /></Grid>
+            <Grid item xs={12} md={1.5}><TextField fullWidth label="Room" value={form.room} InputProps={{ readOnly: true }} /></Grid>
+            <Grid item xs={12} md={1}><TextField fullWidth type="number" label="Exam Seats" value={form.noofseats} InputProps={{ readOnly: true }} /></Grid>
             <Grid item xs={12} md={1.5}><Button fullWidth variant="contained" onClick={saveRow} sx={{ height: 56 }}>{editId ? "Update" : "Save"}</Button></Grid>
             {editId && <Grid item xs={12} md={1.5}><Button fullWidth variant="outlined" onClick={() => { setEditId(""); setForm(blankForm); }} sx={{ height: 56 }}>Cancel</Button></Grid>}
           </Grid>
@@ -168,7 +225,9 @@ export default function ConductExamRoomPage() {
           <Grid container spacing={2}>
             {Object.keys(filters).map((key) => (
               <Grid item xs={12} md={3} key={key}>
-                <TextField fullWidth label={key} value={filters[key]} onChange={(e) => setFilters({ ...filters, [key]: e.target.value })} />
+                <TextField select={key === "status"} fullWidth label={key} value={filters[key]} onChange={(e) => setFilters({ ...filters, [key]: e.target.value })}>
+                  {key === "status" && [<MenuItem key="all" value="">All</MenuItem>, ...["Pending", "Approved", "Rejected"].map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)]}
+                </TextField>
               </Grid>
             ))}
             <Grid item xs={12} md={2}><Button fullWidth variant="outlined" onClick={() => loadRows()} sx={{ height: 56 }}>Filter</Button></Grid>

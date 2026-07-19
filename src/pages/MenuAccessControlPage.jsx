@@ -17,7 +17,7 @@ import {
   Typography
 } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
-import { ArrowBack, Clear, Delete, Save } from "@mui/icons-material";
+import { Add, ArrowBack, Clear, Delete, Save } from "@mui/icons-material";
 import { Link as RouterLink } from "react-router-dom";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
@@ -27,6 +27,7 @@ import MenuPageShell from "./MenuPageShell";
 const emptyForm = {
   _id: "",
   menugroup: "",
+  groupname: "",
   title: "",
   path: "",
   role: "",
@@ -35,6 +36,15 @@ const emptyForm = {
 
 const PAGE_SELECT_ALL = "__ALL_PAGES__";
 const ROLE_SELECT_ALL = "__ALL_ROLES__";
+const rowValue = (row, field) => field === "groupname" ? (row.groupname || row.menugroup || "") : row[field];
+const filterFields = [
+  { field: "menugroup", label: "Group" },
+  { field: "groupname", label: "Display Group Name" },
+  { field: "title", label: "Page title" },
+  { field: "path", label: "Path" },
+  { field: "role", label: "Role" },
+  { field: "access", label: "Access" }
+];
 
 const flattenChildren = (children) => React.Children.toArray(children).filter(Boolean);
 
@@ -114,6 +124,8 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
   const [selectedPagePaths, setSelectedPagePaths] = useState([]);
   const [selectedRoles, setSelectedRoles] = useState([]);
   const [rows, setRows] = useState([]);
+  const [selectedRowIds, setSelectedRowIds] = useState([]);
+  const [activeFilters, setActiveFilters] = useState([]);
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -126,6 +138,18 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
     () => menuGroups.find((item) => item.group === form.menugroup)?.pages || [],
     [menuGroups, form.menugroup]
   );
+  const filteredRows = useMemo(() => {
+    return rows.filter((row) => activeFilters.every((filter) => {
+      if (!filter.field || !filter.value) return true;
+      return String(rowValue(row, filter.field) || "") === String(filter.value);
+    }));
+  }, [rows, activeFilters]);
+  const filterOptions = useMemo(() => {
+    return filterFields.reduce((acc, item) => {
+      acc[item.field] = Array.from(new Set(rows.map((row) => rowValue(row, item.field)).filter(Boolean))).sort((a, b) => String(a).localeCompare(String(b)));
+      return acc;
+    }, {});
+  }, [rows]);
 
   const loadRules = async () => {
     if (!colid) {
@@ -141,6 +165,7 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
       });
       const nextRows = res.data?.data || [];
       setRows(nextRows);
+      setSelectedRowIds([]);
       if (onRowsChange) onRowsChange(nextRows);
     } catch (err) {
       setError(err.response?.data?.message || "Error loading menu access rules");
@@ -195,6 +220,7 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
           id: form._id,
           colid,
           menugroup: form.menugroup,
+          groupname: form.groupname || form.menugroup,
           title: form.title,
           path: form.path,
           role: form.role,
@@ -206,6 +232,7 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
         const payloads = selectedPages.flatMap((page) => rolesToSave.map((role) => ({
           colid,
           menugroup: form.menugroup,
+          groupname: form.groupname || form.menugroup,
           title: page.title,
           path: page.path,
           role,
@@ -246,6 +273,44 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
     }
   };
 
+  const addFilter = () => {
+    setActiveFilters((prev) => [...prev, { field: "", value: "" }]);
+  };
+
+  const updateFilter = (index, updates) => {
+    setActiveFilters((prev) => prev.map((filter, itemIndex) => (
+      itemIndex === index ? { ...filter, ...updates } : filter
+    )));
+  };
+
+  const removeFilter = (index) => {
+    setActiveFilters((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
+  };
+
+  const bulkDeleteRules = async () => {
+    if (!selectedRowIds.length) {
+      setError("Please select at least one rule to delete.");
+      return;
+    }
+    if (!window.confirm(`Delete ${selectedRowIds.length} selected menu access rule${selectedRowIds.length === 1 ? "" : "s"}?`)) {
+      return;
+    }
+
+    setError("");
+    setMessage("");
+    setSaving(true);
+    try {
+      const res = await ep1.post("/api/v2/menu-access-delete", { ids: selectedRowIds });
+      setMessage(`${res.data?.deletedCount || selectedRowIds.length} menu access rule${selectedRowIds.length === 1 ? "" : "s"} deleted.`);
+      setSelectedRowIds([]);
+      await loadRules();
+    } catch (err) {
+      setError(err.response?.data?.message || "Error deleting selected menu access rules");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const selectPage = (pageTitle) => {
     const page = pagesForGroup.find((item) => item.title === pageTitle);
     setForm((prev) => ({
@@ -269,6 +334,7 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
     setForm({
       _id: row._id,
       menugroup: row.menugroup || "",
+      groupname: row.groupname || row.menugroup || "",
       title: row.title || "",
       path: row.path || "",
       role: row.role || "",
@@ -282,6 +348,7 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
 
   const columns = [
     { field: "menugroup", headerName: "Group", minWidth: 180, flex: 1 },
+    { field: "groupname", headerName: "Display Group Name", minWidth: 200, flex: 1, valueGetter: (params) => params.row.groupname || params.row.menugroup || "" },
     { field: "title", headerName: "Page title", minWidth: 220, flex: 1 },
     { field: "path", headerName: "Path", minWidth: 220, flex: 1 },
     { field: "role", headerName: "Role", minWidth: 160, flex: 1 },
@@ -350,6 +417,7 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
                   setForm((prev) => ({
                     ...prev,
                     menugroup: event.target.value,
+                    groupname: "",
                     title: "",
                     path: ""
                   }));
@@ -426,6 +494,14 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
               </Select>
             </FormControl>
           </Stack>
+
+          <TextField
+            label="Display Group Name"
+            value={form.groupname}
+            fullWidth
+            helperText="Optional. If blank, the existing menu group name will be used."
+            onChange={(event) => setForm((prev) => ({ ...prev, groupname: event.target.value }))}
+          />
 
           <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
             <TextField
@@ -526,17 +602,91 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
             </Button>
           </Stack>
 
+          <Paper variant="outlined" sx={{ p: 2, bgcolor: "#f8fafc", borderRadius: 2 }}>
+            <Stack spacing={2}>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2} justifyContent="space-between" alignItems={{ sm: "center" }}>
+                <Box>
+                  <Typography fontWeight={800}>Dynamic Filters</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Add one or more filters to narrow the menu access rules below.
+                  </Typography>
+                </Box>
+                <Stack direction="row" spacing={1}>
+                  <Button variant="outlined" startIcon={<Add />} onClick={addFilter}>
+                    Add Filter
+                  </Button>
+                  <Button variant="text" startIcon={<Clear />} onClick={() => setActiveFilters([])} disabled={!activeFilters.length}>
+                    Clear Filters
+                  </Button>
+                </Stack>
+              </Stack>
+
+              {activeFilters.map((filter, index) => (
+                <Stack key={`${filter.field}-${index}`} direction={{ xs: "column", md: "row" }} spacing={2}>
+                  <FormControl fullWidth>
+                    <InputLabel id={`menu-access-filter-field-${index}`}>Field</InputLabel>
+                    <Select
+                      labelId={`menu-access-filter-field-${index}`}
+                      label="Field"
+                      value={filter.field}
+                      onChange={(event) => updateFilter(index, { field: event.target.value, value: "" })}
+                    >
+                      {filterFields.map((item) => (
+                        <MenuItem key={item.field} value={item.field}>{item.label}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <FormControl fullWidth disabled={!filter.field}>
+                    <InputLabel id={`menu-access-filter-value-${index}`}>Value</InputLabel>
+                    <Select
+                      labelId={`menu-access-filter-value-${index}`}
+                      label="Value"
+                      value={filter.value}
+                      onChange={(event) => updateFilter(index, { value: event.target.value })}
+                    >
+                      {(filterOptions[filter.field] || []).map((value) => (
+                        <MenuItem key={value} value={value}>{value}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <Button color="error" variant="outlined" startIcon={<Delete />} onClick={() => removeFilter(index)} sx={{ minWidth: 140 }}>
+                    Remove
+                  </Button>
+                </Stack>
+              ))}
+            </Stack>
+          </Paper>
+
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} justifyContent="space-between" alignItems={{ sm: "center" }}>
+            <Typography variant="body2" color="text.secondary">
+              Showing {filteredRows.length} of {rows.length} rule{rows.length === 1 ? "" : "s"}.
+            </Typography>
+            <Button
+              color="error"
+              variant="contained"
+              startIcon={<Delete />}
+              disabled={!selectedRowIds.length || saving}
+              onClick={bulkDeleteRules}
+            >
+              Delete Selected ({selectedRowIds.length})
+            </Button>
+          </Stack>
+
           <Box sx={{ height: 540, width: "100%" }}>
             <DataGrid
               getRowId={(row) => row._id}
-              rows={rows}
+              rows={filteredRows}
               columns={columns}
               loading={loading || saving}
+              checkboxSelection
+              rowSelectionModel={selectedRowIds}
+              onRowSelectionModelChange={(model) => setSelectedRowIds(Array.from(model))}
               pageSizeOptions={[10, 25, 50, 100]}
               initialState={{
                 pagination: { paginationModel: { pageSize: 10, page: 0 } }
               }}
               slots={{ toolbar: GridToolbar }}
+              slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "menu_access_control" } } }}
               disableRowSelectionOnClick
             />
           </Box>

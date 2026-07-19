@@ -22,10 +22,10 @@ const CreateUserdsnov17 = () => {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  // Calculate default lastlogin (90 days from now)
+  // Calculate default lastlogin (3 days from now)
   const getDefaultLastLogin = () => {
     const date = new Date();
-    date.setDate(date.getDate() + 90);
+    date.setDate(date.getDate() + 3);
     return date.toISOString().split('T')[0];
   };
 

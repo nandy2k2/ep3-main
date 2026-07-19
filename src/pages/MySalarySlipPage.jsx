@@ -17,6 +17,7 @@ import { DataGrid } from "@mui/x-data-grid";
 import { Link as RouterLink } from "react-router-dom";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const currency = (value) => Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const prettyDate = (value) => (value ? new Date(value).toLocaleDateString("en-IN") : "");
@@ -170,7 +171,8 @@ export default function MySalarySlipPage() {
   `, []);
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
+    <MenuPageShell title="My Salary Slip">
+      <Container maxWidth="xl" sx={{ py: 3 }}>
       <style>{printStyle}</style>
       <Stack spacing={3}>
         <Paper className="no-print" elevation={0} sx={{ p: 3, border: "1px solid #e5e7eb", borderRadius: 3, background: "linear-gradient(180deg,#f8fafc,#fff)" }}>
@@ -265,6 +267,7 @@ export default function MySalarySlipPage() {
           </>
         )}
       </Stack>
-    </Container>
+      </Container>
+    </MenuPageShell>
   );
 }

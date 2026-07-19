@@ -34,6 +34,7 @@ import {
 } from "recharts";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const colors = ["#2563eb", "#16a34a", "#f97316", "#9333ea", "#dc2626", "#0891b2", "#ca8a04"];
 const money = (value) => Number(value || 0).toFixed(2);
@@ -122,7 +123,8 @@ export default function HrLeaveHrDashboardPage() {
   const headerAddress = institution?.address || institution?.address1 || institution?.insaddress || "";
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
+    <MenuPageShell title="HR Leave Dashboard">
+      <Container maxWidth="xl" sx={{ py: 3 }}>
       <style>
         {`
           @media print {
@@ -315,6 +317,7 @@ export default function HrLeaveHrDashboardPage() {
           <Grid item xs={4}><Typography>Approved by: __________________</Typography></Grid>
         </Grid>
       </Box>
-    </Container>
+      </Container>
+    </MenuPageShell>
   );
 }

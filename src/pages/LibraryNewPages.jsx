@@ -35,15 +35,18 @@ const money = (value) => Number(value || 0).toLocaleString("en-IN", { maximumFra
 const shortDate = (value) => (value ? String(value).slice(0, 10) : "");
 
 const bookFields = [
-  "libraryid", "libraryname", "accessionno", "title", "author", "publisher", "isbn", "category", "subject", "edition",
-  "publicationyear", "language", "rackno", "shelfno", "location", "supplier", "purchasedate",
+  "libraryid", "libraryname", "accessionno", "title", "author", "classification", "publisher", "publisheraddress",
+  "isbn", "category", "subject", "edition", "publicationyear", "language", "rackno", "shelfno", "location",
+  "supplier", "invoiceno", "invoicedate", "keywords", "purchasedate",
   "price", "pages", "status", "remarks"
 ];
 const bookLabels = {
   libraryid: "Library", libraryname: "Library",
-  accessionno: "Accession No", title: "Title", author: "Author", publisher: "Publisher", isbn: "ISBN",
+  accessionno: "Accession No", title: "Title", author: "Author", classification: "Classification", publisher: "Publisher",
+  publisheraddress: "Publisher Address", isbn: "ISBN",
   category: "Category", subject: "Subject", edition: "Edition", publicationyear: "Publication Year",
   language: "Language", rackno: "Rack No", shelfno: "Shelf No", location: "Location", supplier: "Supplier",
+  invoiceno: "Invoice No", invoicedate: "Invoice Date", keywords: "Keywords",
   purchasedate: "Purchase Date", price: "Price", pages: "Pages", status: "Status", remarks: "Remarks"
 };
 const studentFields = ["academicyear", "programcode", "semester", "section", "name", "email", "phone", "regno"];
@@ -347,6 +350,12 @@ export function LibraryBookMasterPage() {
     { field: "accessionno", headerName: "Accession No", minWidth: 140 },
     { field: "title", headerName: "Title", minWidth: 240, flex: 1 },
     { field: "author", headerName: "Author", minWidth: 180 },
+    { field: "classification", headerName: "Classification", minWidth: 170 },
+    { field: "publisher", headerName: "Publisher", minWidth: 170 },
+    { field: "publisheraddress", headerName: "Publisher Address", minWidth: 230 },
+    { field: "invoiceno", headerName: "Invoice No", minWidth: 140 },
+    { field: "invoicedate", headerName: "Invoice Date", minWidth: 130, valueGetter: (p) => shortDate(p.row.invoicedate) },
+    { field: "keywords", headerName: "Keywords", minWidth: 220 },
     { field: "category", headerName: "Category", minWidth: 140 },
     { field: "subject", headerName: "Subject", minWidth: 140 },
     { field: "rackno", headerName: "Rack", minWidth: 90 },
@@ -372,13 +381,15 @@ export function LibraryBookMasterPage() {
             </Grid>
             {bookFields.map((field) => (
               ["libraryid", "libraryname"].includes(field) ? null :
-              <Grid item xs={12} sm={6} md={field === "remarks" ? 6 : 3} key={field}>
+              <Grid item xs={12} sm={6} md={["remarks", "publisheraddress", "keywords"].includes(field) ? 6 : 3} key={field}>
                 <TextField
                   fullWidth
                   size="small"
                   label={bookLabels[field] || field}
-                  type={["price", "pages"].includes(field) ? "number" : field === "purchasedate" ? "date" : "text"}
-                  InputLabelProps={field === "purchasedate" ? { shrink: true } : undefined}
+                  type={["price", "pages"].includes(field) ? "number" : ["purchasedate", "invoicedate"].includes(field) ? "date" : "text"}
+                  InputLabelProps={["purchasedate", "invoicedate"].includes(field) ? { shrink: true } : undefined}
+                  multiline={["remarks", "publisheraddress", "keywords"].includes(field)}
+                  minRows={["remarks", "publisheraddress", "keywords"].includes(field) ? 2 : undefined}
                   value={form[field] || ""}
                   onChange={(e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))}
                 />
@@ -578,6 +589,9 @@ export function LibraryReturnPage() {
     { field: "libraryname", headerName: "Library", minWidth: 170 },
     { field: "accessionno", headerName: "Accession No", minWidth: 130 },
     { field: "title", headerName: "Title", minWidth: 230, flex: 1 },
+    { field: "classification", headerName: "Classification", minWidth: 150 },
+    { field: "publisher", headerName: "Publisher", minWidth: 150 },
+    { field: "keywords", headerName: "Keywords", minWidth: 200 },
     { field: "student", headerName: "Student", minWidth: 180 },
     { field: "regno", headerName: "Reg No", minWidth: 130 },
     { field: "issuedate", headerName: "Issue Date", minWidth: 120, valueGetter: (p) => shortDate(p.row.issuedate) },
@@ -611,6 +625,9 @@ export function LibraryReportsPage() {
     { field: "issuedate", headerName: "Issue Date", width: 120, valueGetter: (p) => shortDate(p.row.issuedate) },
     { field: "accessionno", headerName: "Accession", width: 120 },
     { field: "title", headerName: "Title", minWidth: 220, flex: 1 },
+    { field: "classification", headerName: "Classification", width: 150 },
+    { field: "publisher", headerName: "Publisher", width: 150 },
+    { field: "keywords", headerName: "Keywords", width: 200 },
     { field: "student", headerName: "Student", minWidth: 180 },
     { field: "programcode", headerName: "Program", width: 120 },
     { field: "status", headerName: "Status", width: 120 },
@@ -648,6 +665,9 @@ export function StudentLibraryIssuedPage() {
     { field: "libraryname", headerName: "Library", width: 160 },
     { field: "accessionno", headerName: "Accession", width: 130 },
     { field: "title", headerName: "Title", minWidth: 240, flex: 1 },
+    { field: "classification", headerName: "Classification", width: 150 },
+    { field: "publisher", headerName: "Publisher", width: 150 },
+    { field: "keywords", headerName: "Keywords", width: 200 },
     { field: "issuedate", headerName: "Issue Date", width: 120, valueGetter: (p) => shortDate(p.row.issuedate) },
     { field: "duedate", headerName: "Due Date", width: 120, valueGetter: (p) => shortDate(p.row.duedate) },
     { field: "returndate", headerName: "Return Date", width: 120, valueGetter: (p) => shortDate(p.row.returndate) },
@@ -682,6 +702,12 @@ export function StudentLibraryOpacPage() {
     { field: "accessionno", headerName: "Accession", width: 130 },
     { field: "title", headerName: "Title", minWidth: 250, flex: 1 },
     { field: "author", headerName: "Author", minWidth: 180 },
+    { field: "classification", headerName: "Classification", minWidth: 160 },
+    { field: "publisher", headerName: "Publisher", minWidth: 160 },
+    { field: "publisheraddress", headerName: "Publisher Address", minWidth: 220 },
+    { field: "invoiceno", headerName: "Invoice No", width: 130 },
+    { field: "invoicedate", headerName: "Invoice Date", width: 125, valueGetter: (p) => shortDate(p.row.invoicedate) },
+    { field: "keywords", headerName: "Keywords", minWidth: 220 },
     { field: "category", headerName: "Category", width: 130 },
     { field: "status", headerName: "Status", width: 120 },
     { field: "actions", type: "actions", width: 110, getActions: (p) => [<GridActionsCellItem icon={<Save />} label="Request" disabled={!/^Available$/i.test(p.row.status || "")} onClick={() => request(p.row)} />] }
@@ -719,10 +745,16 @@ export function LibraryRequestsPage() {
     { field: "regno", headerName: "Reg No", width: 130 },
     { field: "title", headerName: "Book", minWidth: 240, flex: 1 },
     { field: "accessionno", headerName: "Accession", width: 130 },
+    { field: "classification", headerName: "Classification", minWidth: 160 },
+    { field: "publisher", headerName: "Publisher", minWidth: 160 },
+    { field: "publisheraddress", headerName: "Publisher Address", minWidth: 220 },
+    { field: "invoiceno", headerName: "Invoice No", width: 130 },
+    { field: "invoicedate", headerName: "Invoice Date", width: 125, valueGetter: (p) => shortDate(p.row.invoicedate) },
+    { field: "keywords", headerName: "Keywords", minWidth: 220 },
     { field: "status", headerName: "Status", width: 120 },
     { field: "actions", type: "actions", width: 120, getActions: (p) => [<GridActionsCellItem icon={<Save />} label="Issue" disabled={!/^Requested$/i.test(p.row.status || "")} onClick={() => issue(p.row)} />, <GridActionsCellItem icon={<Delete />} label="Reject" disabled={!/^Requested$/i.test(p.row.status || "")} onClick={() => reject(p.row)} />] }
   ];
-  return <MenuPageShell title="Library Requests"><Stack spacing={2}><Paper sx={{ p: 2 }}><Box sx={{ mb: 2, maxWidth: 420 }}><LibrarySelect libraries={libraries} value={libraryid} onChange={setLibraryid} allowAll /></Box><FieldFilters fields={["student", "regno", "email", "programcode", "semester", "title", "accessionno", "status"]} options={options} filters={filters} setFilters={setFilters} /><Button sx={{ mt: 1 }} variant="contained" onClick={load}>Apply</Button></Paper><Box sx={{ height: 620 }}><DataGrid rows={rows} columns={columns} getRowId={(r) => r._id} slots={{ toolbar: GridToolbar }} /></Box></Stack></MenuPageShell>;
+  return <MenuPageShell title="Library Requests"><Stack spacing={2}><Paper sx={{ p: 2 }}><Box sx={{ mb: 2, maxWidth: 420 }}><LibrarySelect libraries={libraries} value={libraryid} onChange={setLibraryid} allowAll /></Box><FieldFilters fields={["student", "regno", "email", "programcode", "semester", "title", "accessionno", "classification", "publisher", "publisheraddress", "keywords", "invoiceno", "status"]} options={options} filters={filters} setFilters={setFilters} /><Button sx={{ mt: 1 }} variant="contained" onClick={load}>Apply</Button></Paper><Box sx={{ height: 620 }}><DataGrid rows={rows} columns={columns} getRowId={(r) => r._id} slots={{ toolbar: GridToolbar }} /></Box></Stack></MenuPageShell>;
 }
 
 function LibraryMovementPage({ mode }) {
@@ -766,10 +798,16 @@ function LibraryMovementPage({ mode }) {
     win.document.write(`<html><body>${html}</body></html>`);
     win.document.close(); win.print();
   };
-  const movementFields = ["accessionno", "title", "fromlibraryname", "tolibraryname", "status"];
+  const movementFields = ["accessionno", "title", "classification", "publisher", "publisheraddress", "keywords", "invoiceno", "fromlibraryname", "tolibraryname", "status"];
   const columns = [
     { field: "accessionno", headerName: "Accession", minWidth: 130 },
     { field: "title", headerName: "Title", minWidth: 230, flex: 1 },
+    { field: "classification", headerName: "Classification", minWidth: 160 },
+    { field: "publisher", headerName: "Publisher", minWidth: 160 },
+    { field: "publisheraddress", headerName: "Publisher Address", minWidth: 220 },
+    { field: "invoiceno", headerName: "Invoice No", minWidth: 130 },
+    { field: "invoicedate", headerName: "Invoice Date", minWidth: 125, valueGetter: (p) => shortDate(p.row.invoicedate) },
+    { field: "keywords", headerName: "Keywords", minWidth: 220 },
     { field: "fromlibraryname", headerName: "From Library", minWidth: 180 },
     { field: "tolibraryname", headerName: "To Library", minWidth: 180 },
     { field: isLoan ? "loandate" : "transferdate", headerName: "Date", minWidth: 120, valueGetter: (p) => shortDate(p.row[isLoan ? "loandate" : "transferdate"]) },

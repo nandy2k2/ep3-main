@@ -28,6 +28,7 @@ import { DataGrid, GridActionsCellItem, GridToolbar } from "@mui/x-data-grid";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const tabs = ["Hierarchy", "Leave Types", "Leave Cycle", "Leave Balance", "Leave Reset"];
 const tabMap = { hierarchy: 0, types: 1, cycle: 2, balance: 3, reset: 4, apply: 5, approve: 6, dashboard: 7 };
@@ -42,7 +43,7 @@ const calculateLeaveBalance = (item = {}) => toNumber(item.openingbalance) + toN
 const today = new Date().toISOString().slice(0, 10);
 
 const blankHierarchy = { employeename: "", employeeemail: "", department: "", status: "Active", levels: [{ level: 1, approvername: "", approveremail: "", approverrole: "" }] };
-const blankType = { leavetype: "", leavetypecategory: "Non EL", code: "", description: "", annualquota: 0, documentrequired: "No", carryforwardcriteria: "None", carryforwardmaxdays: 0, carryforwardpercentage: 0, status: "Active" };
+const blankType = { leavetype: "", leavetypecategory: "Non EL", code: "", description: "", roles: "All", annualquota: 0, documentrequired: "No", carryforwardcriteria: "None", carryforwardmaxdays: 0, carryforwardpercentage: 0, status: "Active" };
 const blankCycle = { cyclename: "", resetmonth: 1, resetday: 1, status: "Active" };
 const blankBalance = { cyclename: "", employeename: "", employeeemail: "", department: "", leavetype: "", openingbalance: 0, carryforward: 0, earned: 0, used: 0, balance: 0, status: "Active" };
 const createBlankApply = (employee = {}) => ({ cyclename: "", employeename: employee.name || global1.name || "", employeeemail: employee.email || employee.user || global1.user || "", department: employee.department || global1.department || "", leavetype: "", fromdate: today, todate: today, reason: "", employeecomment: "", documentlink: "" });
@@ -362,6 +363,14 @@ export default function HrLeaveManagementPage({ defaultTab = "hierarchy", single
       <Select label="Leave Type" value={forms[kind].leavetype} onChange={(e) => setForms((prev) => ({ ...prev, [kind]: { ...prev[kind], leavetype: e.target.value } }))}>
         {options.types
           .filter((item) => kind !== "balance" || String(item.leavetypecategory || "Non EL") === "Non EL")
+          .filter((item) => {
+            if (!["apply", "balance"].includes(kind)) return true;
+            const role = kind === "apply"
+              ? (currentUserOption?.role || global1.role || "")
+              : (employeeOptions.find((user) => (user.email || user.user || "") === forms.balance.employeeemail)?.role || "");
+            const roles = String(item.roles || "All").split(",").map((value) => value.trim().toLowerCase()).filter(Boolean);
+            return !roles.length || roles.includes("all") || roles.includes(String(role).trim().toLowerCase());
+          })
           .map((item) => <MenuItem key={item._id} value={item.leavetype}>{item.leavetype}</MenuItem>)}
       </Select>
     </FormControl>
@@ -390,7 +399,8 @@ export default function HrLeaveManagementPage({ defaultTab = "hierarchy", single
   const selectedApprovalPlans = selectedApproval?.classplans || [];
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
+    <MenuPageShell title={pageTitle}>
+      <Container maxWidth="xl" sx={{ py: 3 }}>
       <style>
         {`
           @media print {
@@ -484,6 +494,7 @@ export default function HrLeaveManagementPage({ defaultTab = "hierarchy", single
                 </FormControl>
               </Grid>
               <Grid item xs={12} md={2}>{field("type", "code", "Code")}</Grid>
+              <Grid item xs={12} md={3}>{field("type", "roles", "Roles (comma separated or All)")}</Grid>
               <Grid item xs={12} md={2}>{field("type", "annualquota", "Annual Quota", { type: "number" })}</Grid>
               <Grid item xs={12} md={2}><FormControl fullWidth size="small"><InputLabel>Document Required</InputLabel><Select label="Document Required" value={forms.type.documentrequired} onChange={(e) => setForms((p) => ({ ...p, type: { ...p.type, documentrequired: e.target.value } }))}><MenuItem value="No">No</MenuItem><MenuItem value="Yes">Yes</MenuItem></Select></FormControl></Grid>
               <Grid item xs={12} md={3}><FormControl fullWidth size="small"><InputLabel>Carry Forward</InputLabel><Select label="Carry Forward" value={forms.type.carryforwardcriteria} onChange={(e) => setForms((p) => ({ ...p, type: { ...p.type, carryforwardcriteria: e.target.value } }))}>{["None", "Full", "Max Days", "Percentage"].map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}</Select></FormControl></Grid>
@@ -495,7 +506,7 @@ export default function HrLeaveManagementPage({ defaultTab = "hierarchy", single
             {renderGrid("type", [
               { field: "leavetype", headerName: "Leave Type", width: 160 },
               { field: "leavetypecategory", headerName: "EL / Non EL", width: 150 },
-              ...["code", "annualquota", "documentrequired", "carryforwardcriteria", "carryforwardmaxdays", "carryforwardpercentage", "status"].map((f) => ({ field: f, headerName: f, width: 160 }))
+              ...["code", "roles", "annualquota", "documentrequired", "carryforwardcriteria", "carryforwardmaxdays", "carryforwardpercentage", "status"].map((f) => ({ field: f, headerName: f, width: 160 }))
             ])}
           </>
         )}
@@ -713,6 +724,7 @@ export default function HrLeaveManagementPage({ defaultTab = "hierarchy", single
           </Box>
         )}
       </Paper>
-    </Container>
+      </Container>
+    </MenuPageShell>
   );
 }

@@ -19,6 +19,7 @@ import { ArrowBack } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 export default function GenerateSalary() {
   const [colid] = useState(global1.colid);
@@ -213,7 +214,8 @@ export default function GenerateSalary() {
   ];
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <MenuPageShell title="Salary Transfer">
+      <Container maxWidth="xl" sx={{ py: 4 }}>
       <Paper
         elevation={0}
         sx={{
@@ -384,6 +386,7 @@ export default function GenerateSalary() {
           </Box>
         </Stack>
       </Paper>
-    </Container>
+      </Container>
+    </MenuPageShell>
   );
 }

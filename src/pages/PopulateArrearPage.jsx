@@ -19,6 +19,7 @@ import { ArrowBack, Calculate } from "@mui/icons-material";
 import { Link as RouterLink } from "react-router-dom";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const months = [
   "January",
@@ -150,7 +151,8 @@ const PopulateArrearPage = () => {
   ];
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+    <MenuPageShell title="Populate Arrear">
+      <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
       <Paper elevation={2} sx={{ p: 3 }}>
         <Stack spacing={3}>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2} justifyContent="space-between" alignItems={{ sm: "center" }}>
@@ -247,7 +249,8 @@ const PopulateArrearPage = () => {
           </Box>
         </Stack>
       </Paper>
-    </Container>
+      </Container>
+    </MenuPageShell>
   );
 };
 

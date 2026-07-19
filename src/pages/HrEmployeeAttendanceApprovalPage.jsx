@@ -5,6 +5,7 @@ import { ArrowBack, CheckCircle, Refresh } from "@mui/icons-material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const years = ["2023-24", "2024-25", "2025-26", "2026-27", "2027-28", "2028-29"];
@@ -65,7 +66,8 @@ export default function HrEmployeeAttendanceApprovalPage() {
   ];
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
+    <MenuPageShell title="Employee Attendance Approval">
+      <Container maxWidth="xl" sx={{ py: 3 }}>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
         <Box>
           <Typography variant="h5" fontWeight={800}>Employee Attendance Approval</Typography>
@@ -104,6 +106,7 @@ export default function HrEmployeeAttendanceApprovalPage() {
           slots={{ toolbar: GridToolbar }}
         />
       </Paper>
-    </Container>
+      </Container>
+    </MenuPageShell>
   );
 }

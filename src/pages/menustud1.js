@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { styled } from '@mui/material/styles';
 import MuiAccordion from '@mui/material/Accordion';
 import MuiAccordionSummary from '@mui/material/AccordionSummary';
@@ -34,6 +34,8 @@ import AvTimerIcon from '@mui/icons-material/AvTimer';
 import Battery4BarIcon from '@mui/icons-material/Battery4Bar';
 import BookIcon from '@mui/icons-material/Book';
 import BrightnessHighIcon from '@mui/icons-material/BrightnessHigh';
+import ep1 from '../api/ep1';
+import global1 from './global1';
 
 
 const Accordion = styled((props) => (
@@ -74,7 +76,83 @@ const AccordionDetails = styled(MuiAccordionDetails)(({ theme }) => ({
   borderTop: '1px solid rgba(0, 0, 0, .125)',
 }));
 
+const getGroupIcon = (group = '') => {
+  const value = String(group).toLowerCase();
+  if (value.includes('dashboard')) return <DashboardIcon sx={{ marginRight: 1 }} />;
+  if (value.includes('profile') || value.includes('data')) return <AccountCircleIcon sx={{ marginRight: 1 }} />;
+  if (value.includes('fees')) return <AccountBalanceWalletIcon sx={{ marginRight: 1 }} />;
+  if (value.includes('library')) return <BookIcon sx={{ marginRight: 1 }} />;
+  if (value.includes('hostel')) return <HostelIcon sx={{ marginRight: 1 }} />;
+  if (value.includes('exam')) return <AssignmentIcon sx={{ marginRight: 1 }} />;
+  if (value.includes('setting')) return <SettingsIcon sx={{ marginRight: 1 }} />;
+  return <BusinessIcon sx={{ marginRight: 1 }} />;
+};
+
+function RenderStudentGroups({ open, groups }) {
+  return (
+    <div style={{ overflowY: 'scroll', height: 600, width: 300, fontSize: 10 }}>
+      {(groups || []).map((group, groupIndex) => (
+        <Accordion key={`${group.group}-${groupIndex}`}>
+          <AccordionSummary aria-controls={`student-custom-${groupIndex}`} id={`student-custom-${groupIndex}-header`}>
+            {getGroupIcon(group.group)}
+            {open && <Typography sx={{ fontSize: 14 }}>{group.group}</Typography>}
+          </AccordionSummary>
+          <AccordionDetails>
+            {(group.items || []).map((item) => (
+              <ListItem button component={RouterLink} to={item.path} key={item.path}>
+                <ListItemIcon>
+                  <PersonIcon />
+                </ListItemIcon>
+                {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary={item.title} />}
+              </ListItem>
+            ))}
+          </AccordionDetails>
+        </Accordion>
+      ))}
+    </div>
+  );
+}
+
+function StudentCustomMenuItems({ open }) {
+  const [customGroups, setCustomGroups] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const res = await ep1.get('/api/v2/student-custom-menu/effective', {
+          params: {
+            colid: global1.colid,
+            user: global1.user,
+            email: global1.email || global1.user,
+            regno: global1.regno,
+            academicyear: global1.academicyear,
+            program: global1.program,
+            programcode: global1.programcode
+          }
+        });
+        const data = res.data?.custom ? (res.data?.data || []) : null;
+        if (mounted) setCustomGroups(data && data.length ? data : null);
+      } catch {
+        if (mounted) setCustomGroups(null);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
+
+  if (customGroups?.length) {
+    return <RenderStudentGroups open={open} groups={customGroups} />;
+  }
+
+  return <DefaultStudentListItems open={open} />;
+}
+
 export function mainListItems({ open }) {
+  return <StudentCustomMenuItems open={open} />;
+}
+
+function DefaultStudentListItems({ open }) {
   return (
     <div style={{overflowY: 'scroll', height: 600, width: 300, fontSize:10}}>
       <Accordion>
@@ -579,6 +657,13 @@ export function mainListItems({ open }) {
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Exam registration" />}
+</ListItem>
+
+          <ListItem button component={RouterLink} to="/student-exam-dynamic-form">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Dynamic exam form" />}
 </ListItem>
 
           <ListItem button component={RouterLink} to="/examapply">

@@ -9,6 +9,7 @@ import { Link as RouterLink } from 'react-router-dom';
 
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const employeeEmail = (item) => {
     const safeItem = item || {};
@@ -128,6 +129,7 @@ export default function SalAssign1() {
     ];
 
     return (
+        <MenuPageShell title="Salary Assignment">
         <Container maxWidth="xl" sx={{ py: 3 }}>
             <Stack spacing={3}>
                 <Paper
@@ -329,5 +331,6 @@ export default function SalAssign1() {
                 </Paper>
             </Stack>
         </Container>
+        </MenuPageShell>
     );
 }

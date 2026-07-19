@@ -31,7 +31,8 @@ const filterFields = [
   { key: "campus", label: "Campus" },
   { key: "building", label: "Building" },
   { key: "examroom", label: "Exam Room" },
-  { key: "seatno", label: "Seat No" }
+  { key: "seatno", label: "Seat No" },
+  { key: "examseatno", label: "Exam Seat No" }
 ];
 const blankForm = {
   academicyear: "",
@@ -60,7 +61,8 @@ const blankForm = {
   campus: "",
   building: "",
   examroom: "",
-  seatno: ""
+  seatno: "",
+  examseatno: ""
 };
 const uniq = (items) => [...new Set(items.filter(Boolean).map((item) => String(item).trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
@@ -262,7 +264,7 @@ export default function ConductExamRollPage() {
   };
 
   const downloadTemplate = () => {
-    const worksheet = XLSX.utils.json_to_sheet([{ academicyear: "2026-27", regulation: "NEP 2026", exam: "Semester End Examination", examcode: "SEE-2026-ODD", program: "B.Com", programcode: "BCOM", type: "Major", subject: "Accountancy", semester: "1", course: "Financial Accounting", coursecode: "BCOM-MAJ-101", student: "Student Name", regno: "REG001", email: "student@example.com", phone: "9999999999", section: "A", applied: "Yes", admitcardeligible: "Yes", attended: "No", noofbacklogs: 0, atkt: "", remarks: "", examdate: "2026-12-10", examslot: "10:00 AM - 1:00 PM", campus: "Main Campus", building: "Academic Block", examroom: "", seatno: "" }]);
+    const worksheet = XLSX.utils.json_to_sheet([{ academicyear: "2026-27", regulation: "NEP 2026", exam: "Semester End Examination", examcode: "SEE-2026-ODD", program: "B.Com", programcode: "BCOM", type: "Major", subject: "Accountancy", semester: "1", course: "Financial Accounting", coursecode: "BCOM-MAJ-101", student: "Student Name", regno: "REG001", email: "student@example.com", phone: "9999999999", section: "A", applied: "Yes", admitcardeligible: "Yes", attended: "No", noofbacklogs: 0, atkt: "", remarks: "", examdate: "2026-12-10", examslot: "10:00 AM - 1:00 PM", campus: "Main Campus", building: "Academic Block", examroom: "", seatno: "", examseatno: "" }]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Exam Roll");
     XLSX.writeFile(workbook, "conduct_exam_roll_template.xlsx");
@@ -332,6 +334,7 @@ export default function ConductExamRollPage() {
     { field: "building", headerName: "Building", width: 150 },
     { field: "examroom", headerName: "Exam Room", width: 130 },
     { field: "seatno", headerName: "Seat No", width: 110 },
+    { field: "examseatno", headerName: "Exam Seat No", width: 220 },
     { field: "actions", headerName: "Actions", width: 170, sortable: false, renderCell: (params) => <Stack direction="row" spacing={1}><Button size="small" onClick={() => editRow(params.row)}>Edit</Button><Button size="small" color="error" onClick={() => deleteRow(params.row._id)}>Delete</Button></Stack> }
   ], []);
 

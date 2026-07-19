@@ -63,19 +63,10 @@ const Signup = () => {
             global1.department = response.data.department;
             global1.programcode = response.data.programcode;
 
-            const lastlogin=new Date(response.data.lastlogin);
-            global1.lastlogin=lastlogin.toString();
-            console.log('lastlogin ' + lastlogin);
-            const todaydate=new Date();
-            var diffDays = lastlogin.getDate() - todaydate.getDate(); 
-            var diff = (lastlogin.getTime() - todaydate.getTime()) / 1000;
-  // Convert the difference from milliseconds to days
-  diff /= (60 * 60 * 24);
-            //alert(diff);
-            //console.log(diffDays);
-            if(diff<1) {
-              alert('Your access expired. Please renew.');
-              navigate('/signinpay')
+            const lastlogin = new Date(response.data.lastlogin);
+            global1.lastlogin = lastlogin.toString();
+            if (!response.data.lastlogin || Number.isNaN(lastlogin.getTime()) || lastlogin.getTime() < Date.now()) {
+              alert('Login access is expired.');
               return;
             }
 

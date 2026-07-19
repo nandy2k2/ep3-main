@@ -72,6 +72,7 @@ export default function StudentOnlinePaymentReportPage({ studentOnly = false }) 
   const [options, setOptions] = useState({});
   const [payments, setPayments] = useState([]);
   const [selectedReceipt, setSelectedReceipt] = useState(null);
+  const [institution, setInstitution] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -117,6 +118,9 @@ export default function StudentOnlinePaymentReportPage({ studentOnly = false }) 
   };
 
   useEffect(() => {
+    ep1.get("/api/v2/salary-payment/institution", { params: { colid: global1.colid } })
+      .then((res) => setInstitution(res.data?.data || null))
+      .catch(() => setInstitution(null));
     loadOptions();
     loadPayments();
   }, []);
@@ -134,7 +138,9 @@ export default function StudentOnlinePaymentReportPage({ studentOnly = false }) 
   };
 
   const receiptHtml = (payment) => {
-    const institution = global1.insname || "Institution";
+    const institutionName = institution?.institutionname || institution?.insname || global1.insname || "Institution";
+    const institutionAddress = institution?.address || institution?.insaddress || "";
+    const logo = institution?.logo || institution?.logolink || "";
     const items = payment?.ledgeritems?.length ? payment.ledgeritems : [];
     const rowsHtml = items.map((item, index) => `
       <tr>
@@ -149,7 +155,9 @@ export default function StudentOnlinePaymentReportPage({ studentOnly = false }) 
     return `
       <div style="font-family:Arial,sans-serif;max-width:760px;margin:0 auto;color:#111827;">
         <div style="text-align:center;border-bottom:2px solid #111827;padding-bottom:10px;margin-bottom:14px;">
-          <h2 style="margin:0;">${institution}</h2>
+          ${logo ? `<img src="${logo}" alt="logo" style="width:64px;height:64px;object-fit:contain;margin-bottom:6px;" />` : ""}
+          <h2 style="margin:0;">${institutionName}</h2>
+          <div style="font-size:12px;">${institutionAddress}</div>
           <div style="font-size:13px;">Online Fee Payment Receipt</div>
         </div>
         <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:14px;">
@@ -176,6 +184,17 @@ export default function StudentOnlinePaymentReportPage({ studentOnly = false }) 
       </div>
     `;
   };
+
+  const PrintHeader = ({ title }) => (
+    <Box sx={{ textAlign: "center", mb: 2 }}>
+      {(institution?.logo || institution?.logolink) && (
+        <Box component="img" src={institution.logo || institution.logolink} alt="logo" sx={{ width: 64, height: 64, objectFit: "contain", mb: 1 }} />
+      )}
+      <Typography variant="h6" fontWeight={900}>{institution?.institutionname || institution?.insname || global1.insname || "Institution"}</Typography>
+      <Typography variant="body2">{institution?.address || institution?.insaddress || ""}</Typography>
+      <Typography variant="subtitle1" fontWeight={800}>{title}</Typography>
+    </Box>
+  );
 
   const printReceipt = (payment) => {
     if (!payment) return;
@@ -315,8 +334,8 @@ export default function StudentOnlinePaymentReportPage({ studentOnly = false }) 
         )}
 
         <Box id="student-online-payment-print" sx={{ display: "none" }}>
-          <h2>Online Payment Report</h2>
-          <p>Total paid online: Rs. {currency(totals.paid)}</p>
+          <PrintHeader title={studentOnly ? "My Online Payment Report" : "Online Payment Report"} />
+          <p style={{ fontSize: 13 }}>Total paid online: Rs. {currency(totals.paid)}</p>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
               <tr>{columns.slice(1, 13).map((column) => <th key={column.field} style={{ border: "1px solid #999", padding: 4 }}>{column.headerName}</th>)}</tr>

@@ -20,6 +20,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { Link as RouterLink } from "react-router-dom";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const monthOrder = [
   "January",
@@ -61,6 +62,8 @@ export default function HrSalaryReport() {
   const [loading, setLoading] = useState(false);
   const [optionsLoading, setOptionsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const moneyFormatter = (params) => Number(params.value || 0).toLocaleString("en-IN");
 
@@ -144,6 +147,31 @@ export default function HrSalaryReport() {
     }
   };
 
+  const submitForApproval = async () => {
+    if (!month || !year) {
+      setError("Please select month and year before submitting.");
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await ep1.post("/api/v2/salary-payment/submit-sheet", {
+        colid,
+        month,
+        year,
+        user: global1.user,
+        name: global1.name,
+        comments: `Submitted salary sheet for ${month} ${year}`
+      });
+      setMessage(`Salary sheet submitted. Status: ${res.data?.data?.status || "Submitted"}`);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to submit salary sheet for approval");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   useEffect(() => {
     loadOptions();
   }, [colid]);
@@ -186,7 +214,8 @@ export default function HrSalaryReport() {
   ];
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+    <MenuPageShell title="Monthwise Salary Sheet Drill Down">
+      <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
       <Paper elevation={2} sx={{ p: 3 }}>
         <Stack spacing={3}>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2} justifyContent="space-between" alignItems={{ sm: "center" }}>
@@ -209,6 +238,7 @@ export default function HrSalaryReport() {
             </Button>
           </Stack>
 
+          {message && <Alert severity="success">{message}</Alert>}
           {error && <Alert severity="error">{error}</Alert>}
 
           <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
@@ -250,6 +280,15 @@ export default function HrSalaryReport() {
             >
               Load
             </Button>
+            <Button
+              variant="contained"
+              color="success"
+              onClick={submitForApproval}
+              disabled={submitting || loading || optionsLoading || !rows.length}
+              sx={{ minWidth: 240 }}
+            >
+              {submitting ? "Submitting..." : "Submit monthly salary sheet"}
+            </Button>
           </Stack>
 
           <Box sx={{ height: 560, width: "100%" }}>
@@ -286,6 +325,7 @@ export default function HrSalaryReport() {
           </Box>
         </DialogContent>
       </Dialog>
-    </Container>
+      </Container>
+    </MenuPageShell>
   );
 }
