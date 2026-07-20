@@ -102,7 +102,7 @@ export function menuitemsall() {
             ["/helpusermanagement", "User management help"],
             ["/helpacademicconfiguration", "Academic configuration help"],
             ["/helpadmission", "Admission help"],
-            ["/helpneplms", "NEP LMS help"],
+            ["/helpneplms", "Integrated LMS help"],
             ["/helprecruitment", "Recruitment help"],
             ["/helptranscript", "Transcription meetings help"],
             ["/helpplacement", "Placement coordinator help"],
@@ -1461,7 +1461,7 @@ export function menuitemsall() {
       <Accordion>
         <AccordionSummary aria-controls="panel-neplms-content" id="panel-neplms-header">
           <SettingsIcon sx={{ marginRight: 1 }} />
-          {open && <Typography sx={{ fontSize: 14 }}>NEP LMS</Typography>}
+          {open && <Typography sx={{ fontSize: 14 }}>Integrated LMS</Typography>}
         </AccordionSummary>
         <AccordionDetails>
           <ListItem button component={RouterLink} to="/neplmsassignedcourses">
@@ -1476,6 +1476,13 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Course workspace" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/neplmsfacultylogbook">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Faculty logbook" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/neplmsadminresources">
@@ -5275,7 +5282,7 @@ export function menuitemsall() {
       <Accordion>
         <AccordionSummary aria-controls="panel3-content" id="panel3-header">
           <BusinessIcon sx={{ marginRight: 1 }} />
-          {open && <Typography sx={{ fontSize: 14 }}>LMS</Typography>}
+          {open && <Typography sx={{ fontSize: 14 }}>Online LMS</Typography>}
         </AccordionSummary>
         <AccordionDetails>
           <ListItem button component={RouterLink} to="/dashmmfaccourses">
@@ -6278,7 +6285,7 @@ export function menuitemsall() {
             <ListItemIcon>
               <PersonIcon />
             </ListItemIcon>
-            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="5.6 LMS" />}
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="5.6 Online LMS" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/dashmbmou">
@@ -7754,6 +7761,13 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Ollama Configuration" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/countryconfiguration">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Country" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/dashmpassword">

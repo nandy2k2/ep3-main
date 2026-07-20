@@ -200,13 +200,16 @@ export default function NepLmsStudentSequentialContentPage() {
       setSubmitting(true);
       setError("");
       setMessage("");
-      await ep1.post("/api/v2/neplms/student-workspace/lesson-content-complete", {
+      const res = await ep1.post("/api/v2/neplms/student-workspace/lesson-content-complete", {
         colid: global1.colid,
         regno: global1.regno,
         user: global1.user,
         contentid: content._id
       });
-      setMessage("Content marked completed.");
+      const progress = res.data?.progress;
+      setMessage(progress
+        ? `Step ${content.sequence || ""} completed. Progress: ${progress.completedsteps}/${progress.totalsteps} (${progress.progresspercentage}%).`
+        : "Content marked completed.");
       await loadSequentialContent();
     } catch (err) {
       setError(err.response?.data?.message || "Unable to mark content completed");
@@ -353,7 +356,7 @@ export default function NepLmsStudentSequentialContentPage() {
                       <Chip size="small" label={`Level ${index + 1}`} color={item.completed ? "success" : item.locked ? "default" : "primary"} />
                       <Chip size="small" label={`Seq ${item.sequence || index + 1}`} />
                       <Chip size="small" label={item.contenttype || "Content"} />
-                      {item.completed && <Chip size="small" color="success" label="Completed" />}
+                    {item.completed && <Chip size="small" color="success" label={`Completed${item.completedat ? ` ${new Date(item.completedat).toLocaleString()}` : ""}`} />}
                       {item.locked && <Chip size="small" icon={<Lock fontSize="small" />} label="Locked" />}
                     </Stack>
                     <Typography variant="h6" fontWeight={800}>{item.title || "Untitled content"}</Typography>
@@ -384,7 +387,7 @@ export default function NepLmsStudentSequentialContentPage() {
       <Box sx={{ p: 3 }}>
         <Breadcrumbs sx={{ mb: 2 }}>
           <Button size="small" component={RouterLink} to="/dashmclassenr1stud" startIcon={<ArrowBack />}>Dashboard</Button>
-          <Typography color="text.primary">NEP LMS</Typography>
+          <Typography color="text.primary">My LMS</Typography>
           <Typography color="text.primary">Sequential Content</Typography>
         </Breadcrumbs>
 

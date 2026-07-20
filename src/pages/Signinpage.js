@@ -1,10 +1,15 @@
 import React, { useState, useRef, useContext, useEffect }  from 'react';
-import { TextField, Button, Grid, Typography, Box } from '@mui/material';
+import { TextField, Button, Grid, Typography, Box, IconButton, InputAdornment } from '@mui/material';
 import GoogleIcon from '@mui/icons-material/Google';
 import FacebookIcon from '@mui/icons-material/Facebook';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useNavigate } from 'react-router-dom';
 import global1 from './global1';
 import ep1 from '../api/ep1';
+import { configureCountryTerminology } from '../utils/countryTerminology';
+
+const orthintelLogoUrl = "https://epaathsalagenai.s3.ap-southeast-2.amazonaws.com/orthintellogo.jpeg";
 
 const Signup = () => {
 
@@ -12,6 +17,7 @@ const Signup = () => {
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const isOrthintelDomain = typeof window !== "undefined" && window.location.hostname.toLowerCase().includes("orthintel");
 
     const searchapi = async () => {
@@ -152,6 +158,17 @@ const Signup = () => {
             } catch(err) {
     
             }
+            configureCountryTerminology("");
+            try {
+                const countryRes = await ep1.get('/api/v2/country-configuration-default', {
+                    params: { colid }
+                });
+                if (countryRes.data?.country) {
+                    configureCountryTerminology(countryRes.data.country);
+                }
+            } catch (err) {
+
+            }
             var name1=name;
             try {
                 
@@ -278,22 +295,17 @@ const Signup = () => {
             <div style={{ alignItems: 'center', width: 300, marginLeft: 100}}>
              {isOrthintelDomain ? (
               <Box
+                component="img"
+                src={orthintelLogoUrl}
+                alt="OrthIntel"
                 sx={{
-                  width: 150,
-                  height: 60,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginBottom: "30px",
-                  borderRadius: "8px",
-                  border: "1px solid #c2410c",
-                  bgcolor: "#fff7ed"
+                  width: 170,
+                  height: 70,
+                  objectFit: "contain",
+                  display: "block",
+                  marginBottom: "30px"
                 }}
-              >
-                <Typography sx={{ fontWeight: 950, fontSize: 22, color: "#9a3412", letterSpacing: 0 }}>
-                  OrthIntel
-                </Typography>
-              </Box>
+              />
              ) : (
               <img
                 src="https://campus.technology/images/logo.png"
@@ -342,11 +354,25 @@ const Signup = () => {
                     fullWidth
                     label="Password"
                     variant="outlined"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     size="small"
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            aria-label={showPassword ? "Hide password" : "Show password"}
+                            onClick={() => setShowPassword((prev) => !prev)}
+                            onMouseDown={(event) => event.preventDefault()}
+                            edge="end"
+                          >
+                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      )
+                    }}
                   />
                 </Grid>
                 {/* <Grid item xs={12}>

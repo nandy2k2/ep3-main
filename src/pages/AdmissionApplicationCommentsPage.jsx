@@ -150,7 +150,17 @@ export default function AdmissionApplicationCommentsPage() {
         items
       });
       setMessage(res.data?.msg || "Application comments updated");
-      await Promise.all([searchApplications(), loadOptions()]);
+      const updatedById = new Map(items.map((item) => [item.id, item]));
+      setRows((prevRows) => prevRows.map((row) => {
+        const updated = updatedById.get(row._id);
+        if (!updated) return row;
+        return {
+          ...row,
+          enrollmentstatus: updated.enrollmentstatus,
+          applicationcomments: updated.applicationcomments
+        };
+      }));
+      await loadOptions();
     } catch (err) {
       setError(err.response?.data?.msg || "Unable to update application comments");
     } finally {

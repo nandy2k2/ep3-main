@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import Dashboard from './Dashboard';
 import Profile from './Profile';
@@ -943,6 +943,7 @@ import FacultyAvailabilityPage from "./pages/FacultyAvailabilityPage";
 import FacultyAvailabilityAdminPage from "./pages/FacultyAvailabilityAdminPage";
 import NepLmsAssignedCoursesPage from "./pages/NepLmsAssignedCoursesPage";
 import NepLmsCourseWorkspacePage from "./pages/NepLmsCourseWorkspacePage";
+import NepLmsFacultyLogbookPage from "./pages/NepLmsFacultyLogbookPage";
 import NepLmsAdminResourceAssignmentPage from "./pages/NepLmsAdminResourceAssignmentPage";
 import NepLmsMyCourseContentPage from "./pages/NepLmsMyCourseContentPage";
 import NepLmsQuizAnalyticsPage from "./pages/NepLmsQuizAnalyticsPage";
@@ -1126,6 +1127,8 @@ import EmailConfigurationPage from "./pages/EmailConfigurationPage";
 import ConfigurationSetupPage from "./pages/ConfigurationSetupPage";
 import AiConfigurationPage from "./pages/AiConfigurationPage";
 import OllamaConfigurationPage from "./pages/OllamaConfigurationPage";
+import CountryConfigurationPage from "./pages/CountryConfigurationPage";
+import { observeStudentLabelChanges } from "./utils/countryTerminology";
 import UserCustomFieldsPage from "./pages/UserCustomFieldsPage";
 import UserDataUploadPage from "./pages/UserDataUploadPage";
 import UserDocumentRequirementPage from "./pages/UserDocumentRequirementPage";
@@ -2207,6 +2210,8 @@ import RfpFromIndentPage4 from "./pages/RfpFromIndentPage4";
 
 
 function App() {
+  useEffect(() => observeStudentLabelChanges(), []);
+
   const HomePage = () => {
     const host = window.location.hostname.toLowerCase();
     return host.includes("orthintel") ? <OrthintelHomepage /> : <CampusWebsite />;
@@ -3214,6 +3219,7 @@ function App() {
         <Route path="/facultyavailabilityadmin" element={<FacultyAvailabilityAdminPage />} />
         <Route path="/neplmsassignedcourses" element={<NepLmsAssignedCoursesPage />} />
         <Route path="/neplmscourseworkspace" element={<NepLmsCourseWorkspacePage />} />
+        <Route path="/neplmsfacultylogbook" element={<NepLmsFacultyLogbookPage />} />
         <Route path="/neplmsadminresources" element={<NepLmsAdminResourceAssignmentPage />} />
         <Route path="/neplmsmycoursecontent" element={<NepLmsMyCourseContentPage />} />
         <Route path="/neplmsquizanalytics" element={<NepLmsQuizAnalyticsPage />} />
@@ -3449,6 +3455,7 @@ function App() {
         <Route path="/configuration" element={<ConfigurationSetupPage />} />
         <Route path="/aiconfiguration" element={<AiConfigurationPage />} />
         <Route path="/ollamaconfiguration" element={<OllamaConfigurationPage />} />
+        <Route path="/countryconfiguration" element={<CountryConfigurationPage />} />
         <Route path="/emailconfiguration" element={<EmailConfigurationPage />} />
         <Route path="/transcript-recorder" element={<TranscriptRecorderPage />} />
         <Route path="/transcript-meetings" element={<TranscriptMeetingsCalendarPage />} />

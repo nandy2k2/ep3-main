@@ -23,6 +23,7 @@ import ep1 from '../api/ep1';
 import global1 from './global1';
 
 const theme = createTheme();
+const orthintelLogoUrl = "https://epaathsalagenai.s3.ap-southeast-2.amazonaws.com/orthintellogo.jpeg";
 
 function Login() {
 
@@ -288,11 +289,17 @@ const username=email;
       <Container component="main" maxWidth="xl" sx={{ backgroundColor:'#e1f5fe', height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
         <Paper elevation={3} sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh', padding: 3, flexDirection: 'column', width: '100%', maxWidth: '400px', bgcolor: 'white' }}>
         {isOrthintelDomain ? (
-          <Box sx={{ m: 1, px: 2, py: 1, borderRadius: 1.5, border: "1px solid #c2410c", bgcolor: "#fff7ed", width: 220, textAlign: "center" }}>
-            <Typography sx={{ fontWeight: 950, fontSize: 28, color: "#9a3412", letterSpacing: 0 }}>
-              OrthIntel
-            </Typography>
-          </Box>
+          <Box
+            component="img"
+            src={orthintelLogoUrl}
+            alt="OrthIntel"
+            sx={{
+              m: 1,
+              width: 220,
+              height: 82,
+              objectFit: "contain"
+            }}
+          />
         ) : (
           <Avatar sx={{ m: 1, bgcolor: 'secondary',borderRadius:'0', width: 200, height: 40 }} src="/images/LogoLogin.png" alt="Logo" />
         )}

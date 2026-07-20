@@ -281,6 +281,10 @@ export default function NepLmsStudentAssessmentPage() {
                         <Box component="img" src={question.imageurl} alt="Question" sx={{ maxWidth: 320, maxHeight: 220, objectFit: "contain", border: "1px solid #cbd5e1", borderRadius: 1 }} />
                       </Box>
                     )}
+                    <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 1, rowGap: 1 }}>
+                      {question.fileurl && <Button size="small" href={question.fileurl} target="_blank" rel="noreferrer">Open question file</Button>}
+                      {question.videourl && <Button size="small" href={question.videourl} target="_blank" rel="noreferrer">Open question video</Button>}
+                    </Stack>
                     <TextField
                       fullWidth
                       multiline
@@ -355,6 +359,10 @@ export default function NepLmsStudentAssessmentPage() {
                     <Box component="img" src={answer.questionimageurl} alt="Question" sx={{ maxWidth: 320, maxHeight: 220, objectFit: "contain", border: "1px solid #cbd5e1", borderRadius: 1 }} />
                   </Box>
                 )}
+                <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 1, rowGap: 1 }}>
+                  {answer.questionfileurl && <Button size="small" href={answer.questionfileurl} target="_blank" rel="noreferrer">Open question file</Button>}
+                  {answer.questionvideourl && <Button size="small" href={answer.questionvideourl} target="_blank" rel="noreferrer">Open question video</Button>}
+                </Stack>
                 <Typography variant="subtitle2" sx={{ mt: 1 }}>Your Answer</Typography>
                 <Typography sx={{ whiteSpace: "pre-wrap", color: "text.secondary" }}>{answer.answer || "-"}</Typography>
                 {answer.answerimageurl && (

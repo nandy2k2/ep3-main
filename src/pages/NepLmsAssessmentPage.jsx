@@ -24,7 +24,7 @@ import {
   TextField,
   Typography
 } from "@mui/material";
-import { Add, ArrowBack, AutoAwesome, Cancel, Delete, Edit, Refresh, Save } from "@mui/icons-material";
+import { Add, ArrowBack, AutoAwesome, Cancel, Delete, Edit, Refresh, Save, UploadFile } from "@mui/icons-material";
 import { DataGrid, GridActionsCellItem, GridToolbar } from "@mui/x-data-grid";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
@@ -62,7 +62,7 @@ const filterFields = [
 ];
 const courseFields = ["academicyear", "regulation", "program", "programcode", "type", "subject", "semester", "course", "coursecode", "section"];
 const blankAssessment = { title: "", instructions: "", module: [], topic: [], startdatetime: "", enddatetime: "", status: "Active" };
-const blankQuestion = { sectionid: "", question: "", marks: "1", imageurl: "", imagefilename: "", conumber: "", co: "", bloomlevel: "" };
+const blankQuestion = { sectionid: "", question: "", marks: "1", imageurl: "", imagefilename: "", fileurl: "", filename: "", videourl: "", conumber: "", co: "", bloomlevel: "" };
 const aiProviders = ["Gemini", "ChatGPT", "Claude"];
 const difficultyLevels = ["Easy", "Medium", "Hard"];
 const languages = ["English", "Hindi", "Bengali", "Telugu", "Marathi", "Tamil", "Urdu", "Gujarati", "Kannada", "Malayalam", "Odia", "Punjabi", "Assamese", "Maithili", "Santali", "Kashmiri", "Nepali", "Konkani", "Sindhi", "Dogri", "Manipuri", "Bodo", "Sanskrit"];
@@ -133,6 +133,7 @@ export default function NepLmsAssessmentPage() {
   const [questionForm, setQuestionForm] = useState(blankQuestion);
   const [editingQuestion, setEditingQuestion] = useState({ sectionid: "", questionid: "" });
   const [uploadingQuestionImage, setUploadingQuestionImage] = useState(false);
+  const [uploadingQuestionFile, setUploadingQuestionFile] = useState(false);
   const [aiForm, setAiForm] = useState({ provider: "Gemini", questioncount: "5", difficulty: "Medium", language: "English" });
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
   const [checkingQuestions, setCheckingQuestions] = useState(false);
@@ -460,6 +461,9 @@ export default function NepLmsAssessmentPage() {
       marks: String(question.marks || 1),
       imageurl: question.imageurl || "",
       imagefilename: question.imagefilename || "",
+      fileurl: question.fileurl || "",
+      filename: question.filename || "",
+      videourl: question.videourl || "",
       conumber: question.conumber || "",
       co: question.co || "",
       bloomlevel: question.bloomlevel || ""
@@ -492,6 +496,30 @@ export default function NepLmsAssessmentPage() {
       setError(err.response?.data?.message || err.message || "Unable to upload question image");
     } finally {
       setUploadingQuestionImage(false);
+    }
+  };
+
+  const uploadQuestionFile = async (file) => {
+    if (!file) return;
+    try {
+      setUploadingQuestionFile(true);
+      setError("");
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("colid", global1.colid);
+      formData.append("context", "question");
+      formData.append("filetype", "file");
+      const res = await ep1.post("/api/v2/neplms/assessments/image-upload", formData, { headers: { "Content-Type": "multipart/form-data" } });
+      setQuestionForm((prev) => ({
+        ...prev,
+        fileurl: res.data?.data?.url || "",
+        filename: res.data?.data?.originalname || res.data?.data?.filename || file.name
+      }));
+      setMessage("Question file uploaded");
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || "Unable to upload question file");
+    } finally {
+      setUploadingQuestionFile(false);
     }
   };
 
@@ -933,6 +961,36 @@ export default function NepLmsAssessmentPage() {
                   <Typography variant="body2" color="text.secondary">No question image uploaded.</Typography>
                 )}
               </Grid>
+              <Grid item xs={12} md={3}>
+                <Button fullWidth variant="outlined" component="label" startIcon={<UploadFile />} disabled={uploadingQuestionFile}>
+                  {uploadingQuestionFile ? "Uploading..." : "Upload Question File"}
+                  <input hidden type="file" onChange={(e) => { uploadQuestionFile(e.target.files?.[0]); e.target.value = ""; }} />
+                </Button>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField fullWidth size="small" label="Question File Link" value={questionForm.fileurl} onChange={(e) => setQuestionForm((prev) => ({ ...prev, fileurl: e.target.value }))} />
+              </Grid>
+              <Grid item xs={12} md={5}>
+                <TextField fullWidth size="small" label="Question Video Link" value={questionForm.videourl} onChange={(e) => setQuestionForm((prev) => ({ ...prev, videourl: e.target.value }))} />
+              </Grid>
+              {(questionForm.fileurl || questionForm.videourl) && (
+                <Grid item xs={12}>
+                  <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ rowGap: 1 }}>
+                    {questionForm.fileurl && (
+                      <>
+                        <Button size="small" href={questionForm.fileurl} target="_blank" rel="noreferrer">Open question file</Button>
+                        <Button size="small" color="error" onClick={() => setQuestionForm((prev) => ({ ...prev, fileurl: "", filename: "" }))}>Remove file</Button>
+                      </>
+                    )}
+                    {questionForm.videourl && (
+                      <>
+                        <Button size="small" href={questionForm.videourl} target="_blank" rel="noreferrer">Open question video</Button>
+                        <Button size="small" color="error" onClick={() => setQuestionForm((prev) => ({ ...prev, videourl: "" }))}>Remove video</Button>
+                      </>
+                    )}
+                  </Stack>
+                </Grid>
+              )}
               <Grid item xs={12} md={2}>
                 <FormControl fullWidth size="small">
                   <InputLabel>AI</InputLabel>
@@ -1001,6 +1059,10 @@ export default function NepLmsAssessmentPage() {
                             <Box component="img" src={question.imageurl} alt="Question" sx={{ maxWidth: 260, maxHeight: 180, objectFit: "contain", border: "1px solid #cbd5e1", borderRadius: 1 }} />
                           </Box>
                         )}
+                        <Stack direction="row" spacing={1} sx={{ mt: 0.75, flexWrap: "wrap", rowGap: 0.75 }}>
+                          {question.fileurl && <Button size="small" href={question.fileurl} target="_blank" rel="noreferrer">Open file</Button>}
+                          {question.videourl && <Button size="small" href={question.videourl} target="_blank" rel="noreferrer">Open video</Button>}
+                        </Stack>
                         <Stack direction="row" spacing={1} sx={{ mt: 0.75, flexWrap: "wrap", rowGap: 0.75 }}>
                           <Chip size="small" label={`${question.marks} marks`} />
                           {question.conumber && <Chip size="small" color="primary" variant="outlined" label={`${question.conumber}${question.co ? ` - ${question.co}` : ""}`} />}
@@ -1557,6 +1619,10 @@ function QuestionMarkRow({ answer, index, onSave }) {
     <Paper variant="outlined" sx={{ p: 2, mb: 1 }}>
       <Typography fontWeight={700}>{index + 1}. {answer.question} <Chip size="small" label={`${answer.maxmarks} marks`} /></Typography>
       {answer.questionimageurl && <Box component="img" src={answer.questionimageurl} alt="Question" sx={{ mt: 1, maxWidth: 260, maxHeight: 180, objectFit: "contain", border: "1px solid #cbd5e1", borderRadius: 1 }} />}
+      <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: "wrap", rowGap: 1 }}>
+        {answer.questionfileurl && <Button size="small" href={answer.questionfileurl} target="_blank" rel="noreferrer">Question file</Button>}
+        {answer.questionvideourl && <Button size="small" href={answer.questionvideourl} target="_blank" rel="noreferrer">Question video</Button>}
+      </Stack>
       <Stack direction="row" spacing={1} sx={{ mt: 0.75, flexWrap: "wrap", rowGap: 0.75 }}>
         {answer.conumber && <Chip size="small" color="primary" variant="outlined" label={`${answer.conumber}${answer.co ? ` - ${answer.co}` : ""}`} />}
         {answer.bloomlevel && <Chip size="small" color="secondary" variant="outlined" label={`Bloom: ${answer.bloomlevel}`} />}

@@ -45,11 +45,16 @@ const blankLessonContent = {
   quizid: "",
   flashcards: [{ question: "", questionimage: "", answer: "" }]
 };
-const blankLessonAiForm = { provider: "Gemini", geminiModel: "gemini-2.5-flash", ollamaConfigId: "", language: "English", flashcardcount: "6" };
+const blankLessonAiForm = { provider: "Gemini", geminiModel: "gemini-2.5-flash", ollamaConfigId: "", language: "English", flashcardcount: "6", additionalprompt: "" };
 const blankQuestion = {
   sectionid: "",
   question: "",
   score: "1",
+  imageLink: "",
+  imageName: "",
+  fileLink: "",
+  fileName: "",
+  videoLink: "",
   options: [
     { text: "", iscorrect: false },
     { text: "", iscorrect: false },
@@ -57,8 +62,8 @@ const blankQuestion = {
     { text: "", iscorrect: false }
   ]
 };
-const blankAiQuestionForm = { provider: "Gemini", questioncount: "5", difficulty: "Medium", language: "English" };
-const blankAiResourceForm = { provider: "Gemini", geminiModel: "gemini-2.5-flash", difficulty: "Medium", language: "English", noofclasses: "4" };
+const blankAiQuestionForm = { provider: "Gemini", questioncount: "5", difficulty: "Medium", language: "English", additionalprompt: "" };
+const blankAiResourceForm = { provider: "Gemini", geminiModel: "gemini-2.5-flash", difficulty: "Medium", language: "English", noofclasses: "4", additionalprompt: "" };
 const aiProviders = ["Gemini", "ChatGPT", "Claude"];
 const lessonContentTypes = ["Text", "File Link", "Infographics", "Video Link", "Quiz", "Flash Card"];
 const geminiModels = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
@@ -187,6 +192,7 @@ export default function NepLmsCourseWorkspacePage() {
   const [quizForm, setQuizForm] = useState(blankQuiz);
   const [sectionTitle, setSectionTitle] = useState("");
   const [questionForm, setQuestionForm] = useState(blankQuestion);
+  const [editingQuestionId, setEditingQuestionId] = useState("");
   const [aiQuestionForm, setAiQuestionForm] = useState(blankAiQuestionForm);
   const [aiResourceForm, setAiResourceForm] = useState(blankAiResourceForm);
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
@@ -199,6 +205,8 @@ export default function NepLmsCourseWorkspacePage() {
   const [classForm, setClassForm] = useState(blankClass);
   const [editingClassId, setEditingClassId] = useState("");
   const [timetableFilters, setTimetableFilters] = useState([makeTimetableFilter()]);
+  const [timetableView, setTimetableView] = useState("month");
+  const [timetableCalendarDate, setTimetableCalendarDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [bulkResourceRows, setBulkResourceRows] = useState({ "Course Material": [], "Lesson Plan": [] });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -331,6 +339,7 @@ export default function NepLmsCourseWorkspacePage() {
     setEditingResourceId("");
     setEditingResourceType("");
     setEditingQuizId("");
+    setEditingQuestionId("");
     setEditingClassId("");
     setEditingLessonContentId("");
     setSelectedAssignmentId("");
@@ -529,7 +538,8 @@ export default function NepLmsCourseWorkspacePage() {
         provider: lessonAiForm.provider,
         model: lessonAiForm.geminiModel,
         ollamaConfigId: lessonAiForm.ollamaConfigId,
-        language: lessonAiForm.language
+        language: lessonAiForm.language,
+        additionalprompt: lessonAiForm.additionalprompt
       });
       setLessonContentForm((prev) => ({ ...prev, contenttype: "Text", filelink: res.data?.url || "" }));
       setMessage("AI text file created and uploaded to AWS");
@@ -560,7 +570,8 @@ export default function NepLmsCourseWorkspacePage() {
         model: lessonAiForm.geminiModel,
         ollamaConfigId: lessonAiForm.ollamaConfigId,
         language: lessonAiForm.language,
-        flashcardcount: lessonAiForm.flashcardcount
+        flashcardcount: lessonAiForm.flashcardcount,
+        additionalprompt: lessonAiForm.additionalprompt
       });
       setLessonContentForm((prev) => ({
         ...prev,
@@ -685,7 +696,8 @@ export default function NepLmsCourseWorkspacePage() {
         model: aiResourceForm.geminiModel,
         language: aiResourceForm.language,
         difficulty: aiResourceForm.difficulty,
-        noofclasses: aiResourceForm.noofclasses
+        noofclasses: aiResourceForm.noofclasses,
+        additionalprompt: aiResourceForm.additionalprompt
       });
       setMessage(`AI ${resourcetype} created and uploaded`);
       setBlankResourceForm(resourcetype);
@@ -918,12 +930,52 @@ export default function NepLmsCourseWorkspacePage() {
       return;
     }
     try {
-      await ep1.post("/api/v2/neplms/quizzes/questions", { colid: global1.colid, quizid: selectedQuizId, ...questionForm });
+      const endpoint = editingQuestionId ? "/api/v2/neplms/quizzes/questions/update" : "/api/v2/neplms/quizzes/questions";
+      await ep1.post(endpoint, { colid: global1.colid, quizid: selectedQuizId, questionid: editingQuestionId, ...questionForm });
       setQuestionForm(blankQuestion);
-      setMessage("Question added");
+      setEditingQuestionId("");
+      setMessage(editingQuestionId ? "Question updated" : "Question added");
       loadCourseData();
     } catch (err) {
       setError(err.response?.data?.message || "Unable to add question");
+    }
+  };
+
+  const editQuestion = (sectionid, question) => {
+    setEditingQuestionId(question._id);
+    setQuestionForm({
+      sectionid,
+      question: question.question || "",
+      score: String(question.score || 1),
+      imageLink: question.imageLink || "",
+      imageName: question.imageName || "",
+      fileLink: question.fileLink || "",
+      fileName: question.fileName || "",
+      videoLink: question.videoLink || "",
+      options: (question.options?.length ? question.options : blankQuestion.options).map((option) => ({
+        text: option.text || "",
+        iscorrect: Boolean(option.iscorrect)
+      }))
+    });
+  };
+
+  const uploadQuizQuestionFile = async (file, kind) => {
+    if (!file) return;
+    try {
+      setError("");
+      const data = new FormData();
+      data.append("file", file);
+      data.append("colid", global1.colid || "");
+      data.append("context", kind || "question");
+      const res = await ep1.post("/api/v2/neplms/quizzes/file-upload", data, { headers: { "Content-Type": "multipart/form-data" } });
+      const url = res.data?.data?.url || "";
+      const name = res.data?.data?.originalname || res.data?.data?.filename || file.name;
+      setQuestionForm((prev) => kind === "image"
+        ? { ...prev, imageLink: url, imageName: name }
+        : { ...prev, fileLink: url, fileName: name });
+      setMessage("Quiz question file uploaded");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to upload quiz file");
     }
   };
 
@@ -1088,6 +1140,22 @@ export default function NepLmsCourseWorkspacePage() {
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const upcomingFilteredTimetable = useMemo(() => filteredTimetable.filter((row) => row.classdate && row.classdate >= today), [filteredTimetable, today]);
   const pastFilteredTimetable = useMemo(() => filteredTimetable.filter((row) => row.classdate && row.classdate < today), [filteredTimetable, today]);
+  const sortedFilteredTimetable = useMemo(() => [...filteredTimetable].sort((a, b) => {
+    const left = `${a.classdate || ""} ${a.classtime || ""}`;
+    const right = `${b.classdate || ""} ${b.classtime || ""}`;
+    return left.localeCompare(right);
+  }), [filteredTimetable]);
+  const timetableRowsForDate = (date) => sortedFilteredTimetable.filter((row) => row.classdate === date);
+  const timetableRangeLabel = useMemo(() => {
+    const anchor = dayjs(timetableCalendarDate || today);
+    if (timetableView === "day") return anchor.format("DD MMM YYYY");
+    if (timetableView === "week") {
+      const start = anchor.startOf("week");
+      const end = anchor.endOf("week");
+      return `${start.format("DD MMM")} - ${end.format("DD MMM YYYY")}`;
+    }
+    return anchor.format("MMMM YYYY");
+  }, [timetableCalendarDate, timetableView, today]);
 
   const updateTimetableFilter = (id, key, value) => {
     setTimetableFilters((prev) => prev.map((filter) => (
@@ -1158,9 +1226,13 @@ export default function NepLmsCourseWorkspacePage() {
   ];
 
   const lessonProgressColumns = [
-    { field: "contenttitle", headerName: "Content", width: 240 },
-    { field: "sequence", headerName: "Seq", width: 80 },
+    { field: "lessonplantitle", headerName: "Lesson Plan", width: 240 },
+    { field: "contenttitle", headerName: "Step / Content", width: 240 },
+    { field: "sequence", headerName: "Step", width: 80 },
     { field: "contenttype", headerName: "Type", width: 140 },
+    { field: "completedsteps", headerName: "Steps Done", width: 120, valueGetter: (params) => `${params.row.completedsteps || 1}/${params.row.totalsteps || ""}` },
+    { field: "progresspercentage", headerName: "Progress %", width: 120, valueGetter: (params) => params.row.progresspercentage === undefined ? "" : `${params.row.progresspercentage}%` },
+    { field: "stepstatus", headerName: "Step Status", width: 130 },
     { field: "student", headerName: "Student", width: 180 },
     { field: "regno", headerName: "Reg No", width: 130 },
     { field: "email", headerName: "Email", width: 220 },
@@ -1455,6 +1527,17 @@ export default function NepLmsCourseWorkspacePage() {
               </Button>
             </Grid>
             <Grid item xs={12}>
+              <TextField
+                fullWidth
+                multiline
+                minRows={3}
+                label="Additional AI prompt / instructions"
+                value={aiResourceForm.additionalprompt}
+                onChange={(e) => setAiResourceForm((prev) => ({ ...prev, additionalprompt: e.target.value }))}
+                placeholder="Add any special context, style, examples, assessment rules, employability focus, or local requirements."
+              />
+            </Grid>
+            <Grid item xs={12}>
               <Typography variant="body2" color="text.secondary">
                 AI will use the selected module and topics above. The generated HTML will be uploaded to AWS and saved in this {type} list.
               </Typography>
@@ -1680,6 +1763,17 @@ export default function NepLmsCourseWorkspacePage() {
                   </Button>
                 </Grid>
               )}
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={3}
+                  label="Additional AI prompt / instructions"
+                  value={lessonAiForm.additionalprompt}
+                  onChange={(e) => setLessonAiForm((prev) => ({ ...prev, additionalprompt: e.target.value }))}
+                  placeholder="Add sequencing rules, examples, learner level, content style, image/flashcard requirements, or local context."
+                />
+              </Grid>
               {lessonContentForm.contenttype === "Infographics" && lessonContentForm.filelink && (
                 <Grid item xs={12}>
                   <Alert severity="success">Infographic file is ready. Review the link and save this content item.</Alert>
@@ -1737,6 +1831,174 @@ export default function NepLmsCourseWorkspacePage() {
         sx={{ minWidth: 2500 }}
       />
     </Paper>
+  );
+
+  const changeTimetableCalendarDate = (direction) => {
+    const anchor = dayjs(timetableCalendarDate || today);
+    const unit = timetableView === "month" ? "month" : timetableView === "week" ? "week" : "day";
+    setTimetableCalendarDate(anchor.add(direction, unit).format("YYYY-MM-DD"));
+  };
+
+  const renderCalendarClassCard = (row) => (
+    <Box
+      key={row._id || `${row.classdate}-${row.classtime}-${row.coursecode}-${row.period}`}
+      onClick={() => editClass(row)}
+      sx={{
+        p: 1,
+        mb: 0.75,
+        borderRadius: 1,
+        bgcolor: row.classdate < today ? "grey.100" : "primary.50",
+        border: "1px solid",
+        borderColor: row.classdate < today ? "grey.300" : "primary.200",
+        cursor: "pointer",
+        transition: "0.18s ease",
+        "&:hover": { boxShadow: 2, transform: "translateY(-1px)" }
+      }}
+    >
+      <Stack direction="row" justifyContent="space-between" spacing={1}>
+        <Typography variant="caption" sx={{ fontWeight: 700, color: row.classdate < today ? "text.secondary" : "primary.main" }}>
+          {row.classtime || "Time not set"}
+        </Typography>
+        {row.period && <Chip size="small" label={row.period} sx={{ height: 20, fontSize: 11 }} />}
+      </Stack>
+      <Typography variant="body2" sx={{ fontWeight: 700, color: "text.primary", lineHeight: 1.25 }}>
+        {row.course || row.coursecode || "Class"}
+      </Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+        {row.module || row.topic || row.workcompleted || "No module/topic added"}
+      </Typography>
+    </Box>
+  );
+
+  const renderDayCalendar = () => {
+    const date = dayjs(timetableCalendarDate || today).format("YYYY-MM-DD");
+    const rows = timetableRowsForDate(date);
+    return (
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack spacing={1}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>{dayjs(date).format("dddd, DD MMM YYYY")}</Typography>
+          {rows.length ? rows.map(renderCalendarClassCard) : (
+            <Box sx={{ p: 3, textAlign: "center", border: "1px dashed", borderColor: "divider", borderRadius: 1 }}>
+              <Typography color="text.secondary">No classes scheduled for this date.</Typography>
+            </Box>
+          )}
+        </Stack>
+      </Paper>
+    );
+  };
+
+  const renderWeekCalendar = () => {
+    const start = dayjs(timetableCalendarDate || today).startOf("week");
+    const days = Array.from({ length: 7 }, (_, index) => start.add(index, "day"));
+    return (
+      <Paper sx={{ p: 2, mb: 2, overflowX: "auto" }}>
+        <Box sx={{ minWidth: 980, display: "grid", gridTemplateColumns: "repeat(7, minmax(130px, 1fr))", gap: 1 }}>
+          {days.map((day) => {
+            const date = day.format("YYYY-MM-DD");
+            const rows = timetableRowsForDate(date);
+            return (
+              <Box
+                key={date}
+                sx={{
+                  minHeight: 260,
+                  p: 1,
+                  border: "1px solid",
+                  borderColor: date === today ? "primary.main" : "divider",
+                  borderRadius: 1,
+                  bgcolor: date === today ? "primary.50" : "background.paper"
+                }}
+              >
+                <Typography variant="caption" color="text.secondary">{day.format("ddd")}</Typography>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>{day.format("DD MMM")}</Typography>
+                {rows.length ? rows.map(renderCalendarClassCard) : <Typography variant="caption" color="text.disabled">No class</Typography>}
+              </Box>
+            );
+          })}
+        </Box>
+      </Paper>
+    );
+  };
+
+  const renderMonthCalendar = () => {
+    const anchor = dayjs(timetableCalendarDate || today);
+    const start = anchor.startOf("month").startOf("week");
+    const days = Array.from({ length: 42 }, (_, index) => start.add(index, "day"));
+    return (
+      <Paper sx={{ p: 2, mb: 2, overflowX: "auto" }}>
+        <Box sx={{ minWidth: 1050 }}>
+          <Box sx={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1, mb: 1 }}>
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+              <Typography key={day} variant="caption" sx={{ fontWeight: 800, color: "text.secondary", px: 1 }}>{day}</Typography>
+            ))}
+          </Box>
+          <Box sx={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(135px, 1fr))", gap: 1 }}>
+            {days.map((day) => {
+              const date = day.format("YYYY-MM-DD");
+              const rows = timetableRowsForDate(date);
+              const isCurrentMonth = day.month() === anchor.month();
+              return (
+                <Box
+                  key={date}
+                  sx={{
+                    minHeight: 150,
+                    p: 1,
+                    border: "1px solid",
+                    borderColor: date === today ? "primary.main" : "divider",
+                    borderRadius: 1,
+                    bgcolor: date === today ? "primary.50" : isCurrentMonth ? "background.paper" : "grey.50",
+                    opacity: isCurrentMonth ? 1 : 0.62
+                  }}
+                >
+                  <Typography variant="caption" sx={{ fontWeight: 800 }}>{day.format("D")}</Typography>
+                  <Box sx={{ mt: 0.75 }}>
+                    {rows.slice(0, 3).map(renderCalendarClassCard)}
+                    {rows.length > 3 && <Chip size="small" label={`+${rows.length - 3} more`} />}
+                  </Box>
+                </Box>
+              );
+            })}
+          </Box>
+        </Box>
+      </Paper>
+    );
+  };
+
+  const renderTimetableCalendar = () => (
+    <Box>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack direction={{ xs: "column", lg: "row" }} spacing={2} justifyContent="space-between" alignItems={{ xs: "stretch", lg: "center" }}>
+          <Box>
+            <Typography variant="h6">Calendar View</Typography>
+            <Typography variant="body2" color="text.secondary">Daily, weekly and monthly timetable view for the selected course.</Typography>
+          </Box>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }}>
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel>View</InputLabel>
+              <Select label="View" value={timetableView} onChange={(e) => setTimetableView(e.target.value)}>
+                <MenuItem value="day">Daily</MenuItem>
+                <MenuItem value="week">Weekly</MenuItem>
+                <MenuItem value="month">Monthly</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
+              size="small"
+              type="date"
+              label="Calendar Date"
+              value={timetableCalendarDate}
+              onChange={(e) => setTimetableCalendarDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+            <Button variant="outlined" onClick={() => changeTimetableCalendarDate(-1)}>Previous</Button>
+            <Button variant="outlined" onClick={() => setTimetableCalendarDate(today)}>Today</Button>
+            <Button variant="outlined" onClick={() => changeTimetableCalendarDate(1)}>Next</Button>
+          </Stack>
+        </Stack>
+        <Typography variant="subtitle1" sx={{ mt: 2, fontWeight: 800 }}>{timetableRangeLabel}</Typography>
+      </Paper>
+      {timetableView === "day" && renderDayCalendar()}
+      {timetableView === "week" && renderWeekCalendar()}
+      {timetableView === "month" && renderMonthCalendar()}
+    </Box>
   );
 
   const renderQuizTab = () => (
@@ -1868,7 +2130,7 @@ export default function NepLmsCourseWorkspacePage() {
 
       {selectedQuiz && (
         <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>Add MCQ Question</Typography>
+          <Typography variant="h6" sx={{ mb: 2 }}>{editingQuestionId ? "Edit MCQ Question" : "Add MCQ Question"}</Typography>
           <Grid container spacing={2}>
             <Grid item xs={12} md={3}>
               <FormControl fullWidth>
@@ -1880,6 +2142,34 @@ export default function NepLmsCourseWorkspacePage() {
             </Grid>
             <Grid item xs={12} md={7}><TextField fullWidth label="Question" value={questionForm.question} onChange={(e) => setQuestionForm((prev) => ({ ...prev, question: e.target.value }))} /></Grid>
             <Grid item xs={12} md={2}><TextField fullWidth type="number" label="Score" value={questionForm.score} onChange={(e) => setQuestionForm((prev) => ({ ...prev, score: e.target.value }))} /></Grid>
+            <Grid item xs={12} md={4}>
+              <TextField fullWidth label="Image Link" value={questionForm.imageLink} onChange={(e) => setQuestionForm((prev) => ({ ...prev, imageLink: e.target.value }))} />
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <Button component="label" fullWidth variant="outlined" startIcon={<UploadFile />} sx={{ height: 56 }}>
+                Image
+                <input hidden type="file" accept="image/*" onChange={(e) => { uploadQuizQuestionFile(e.target.files?.[0], "image"); e.target.value = ""; }} />
+              </Button>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField fullWidth label="File Link" value={questionForm.fileLink} onChange={(e) => setQuestionForm((prev) => ({ ...prev, fileLink: e.target.value }))} />
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <Button component="label" fullWidth variant="outlined" startIcon={<UploadFile />} sx={{ height: 56 }}>
+                File
+                <input hidden type="file" onChange={(e) => { uploadQuizQuestionFile(e.target.files?.[0], "file"); e.target.value = ""; }} />
+              </Button>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField fullWidth label="Video Link" value={questionForm.videoLink} onChange={(e) => setQuestionForm((prev) => ({ ...prev, videoLink: e.target.value }))} />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ pt: 1 }}>
+                {questionForm.imageLink && <Button size="small" href={questionForm.imageLink} target="_blank" rel="noreferrer">Open image</Button>}
+                {questionForm.fileLink && <Button size="small" href={questionForm.fileLink} target="_blank" rel="noreferrer">Open file</Button>}
+                {questionForm.videoLink && <Button size="small" href={questionForm.videoLink} target="_blank" rel="noreferrer">Open video</Button>}
+              </Stack>
+            </Grid>
             {questionForm.options.map((option, index) => (
               <Grid item xs={12} md={3} key={`option-${index}`}>
                 <Stack direction="row" spacing={1} alignItems="center">
@@ -1889,7 +2179,10 @@ export default function NepLmsCourseWorkspacePage() {
               </Grid>
             ))}
             <Grid item xs={12}>
-              <Button variant="contained" startIcon={<Save />} onClick={addQuestion}>Add Question</Button>
+              <Stack direction="row" spacing={1}>
+                <Button variant="contained" startIcon={<Save />} onClick={addQuestion}>{editingQuestionId ? "Update Question" : "Add Question"}</Button>
+                {editingQuestionId && <Button variant="outlined" onClick={() => { setEditingQuestionId(""); setQuestionForm(blankQuestion); }}>Cancel</Button>}
+              </Stack>
             </Grid>
           </Grid>
         </Paper>
@@ -1946,6 +2239,17 @@ export default function NepLmsCourseWorkspacePage() {
                 Generate
               </Button>
             </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                multiline
+                minRows={3}
+                label="Additional AI prompt / instructions"
+                value={aiQuestionForm.additionalprompt}
+                onChange={(e) => setAiQuestionForm((prev) => ({ ...prev, additionalprompt: e.target.value }))}
+                placeholder="Add question style, scenario requirements, competency focus, practical cases, exclusions, or marking expectations."
+              />
+            </Grid>
           </Grid>
         </Paper>
       )}
@@ -1963,7 +2267,15 @@ export default function NepLmsCourseWorkspacePage() {
                 <Box key={question._id} sx={{ p: 1, mb: 1, bgcolor: "#fafafa", borderRadius: 1 }}>
                   <Stack direction="row" justifyContent="space-between" spacing={1}>
                     <Typography variant="body2"><b>Q{index + 1}.</b> {question.question} ({question.score} marks)</Typography>
-                    <Button color="error" size="small" onClick={() => deleteQuestion(section._id, question._id)}>Delete</Button>
+                    <Stack direction="row" spacing={1}>
+                      <Button size="small" onClick={() => editQuestion(section._id, question)}>Edit</Button>
+                      <Button color="error" size="small" onClick={() => deleteQuestion(section._id, question._id)}>Delete</Button>
+                    </Stack>
+                  </Stack>
+                  {question.imageLink && <Box component="img" src={question.imageLink} alt="Question" sx={{ mt: 1, maxWidth: 260, maxHeight: 180, objectFit: "contain", border: "1px solid #cbd5e1", borderRadius: 1 }} />}
+                  <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 1 }}>
+                    {question.fileLink && <Button size="small" href={question.fileLink} target="_blank" rel="noreferrer">Open file</Button>}
+                    {question.videoLink && <Button size="small" href={question.videoLink} target="_blank" rel="noreferrer">Open video</Button>}
                   </Stack>
                   <Typography variant="caption" color="text.secondary">
                     {(question.options || []).map((option) => `${option.iscorrect ? "[Correct] " : ""}${option.text}`).join(" | ")}
@@ -2166,12 +2478,14 @@ export default function NepLmsCourseWorkspacePage() {
           </Paper>
           <Paper sx={{ mb: 2 }}>
             <Tabs value={timetableTab} onChange={(event, value) => setTimetableTab(value)} variant="scrollable" scrollButtons="auto">
+              <Tab label={`Calendar (${filteredTimetable.length})`} />
               <Tab label={`Upcoming Classes (${upcomingFilteredTimetable.length})`} />
               <Tab label={`Past Classes (${pastFilteredTimetable.length})`} />
             </Tabs>
           </Paper>
-          {timetableTab === 0 && renderTimetableGrid(upcomingFilteredTimetable, "faculty_upcoming_classes")}
-          {timetableTab === 1 && renderTimetableGrid(pastFilteredTimetable, "faculty_past_classes")}
+          {timetableTab === 0 && renderTimetableCalendar()}
+          {timetableTab === 1 && renderTimetableGrid(upcomingFilteredTimetable, "faculty_upcoming_classes")}
+          {timetableTab === 2 && renderTimetableGrid(pastFilteredTimetable, "faculty_past_classes")}
         </Box>
       )}
       {tab === 4 && (

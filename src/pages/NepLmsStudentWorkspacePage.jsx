@@ -5,7 +5,6 @@ import {
   Button,
   Checkbox,
   Chip,
-  Container,
   FormControl,
   Grid,
   InputLabel,
@@ -19,10 +18,10 @@ import {
   Typography
 } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
-import { ArrowBack, Refresh, UploadFile } from "@mui/icons-material";
-import { Link as RouterLink } from "react-router-dom";
+import { Refresh, UploadFile } from "@mui/icons-material";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 
 const blankFilters = { academicyear: "", program: "", programcode: "", major: "", semester: "" };
 const resourceTypes = ["Assignment", "Course Material", "Lesson Plan"];
@@ -172,13 +171,16 @@ export default function NepLmsStudentWorkspacePage() {
       setSubmitting(true);
       setError("");
       setMessage("");
-      await ep1.post("/api/v2/neplms/student-workspace/lesson-content-complete", {
+      const res = await ep1.post("/api/v2/neplms/student-workspace/lesson-content-complete", {
         colid: global1.colid,
         regno: global1.regno,
         user: global1.user,
         contentid: content._id
       });
-      setMessage("Content completed.");
+      const progress = res.data?.progress;
+      setMessage(progress
+        ? `Step ${content.sequence || ""} completed. Progress: ${progress.completedsteps}/${progress.totalsteps} (${progress.progresspercentage}%).`
+        : "Content completed.");
       await loadLessonContent();
     } catch (err) {
       setError(err.response?.data?.message || "Unable to complete content");
@@ -387,6 +389,7 @@ export default function NepLmsStudentWorkspacePage() {
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
               <Chip size="small" label={`Seq ${item.sequence}`} color={completed ? "success" : locked ? "default" : "primary"} />
               <Chip size="small" label={item.contenttype} />
+              {item.totalsteps ? <Chip size="small" label={`Progress ${item.completedsteps || 0}/${item.totalsteps}`} /> : null}
               {completed && <Chip size="small" label={`Completed ${item.completedat ? new Date(item.completedat).toLocaleString() : ""}`} color="success" />}
               {locked && <Chip size="small" label="Locked" />}
             </Stack>
@@ -560,17 +563,17 @@ export default function NepLmsStudentWorkspacePage() {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
+    <MenuPageShell title="MY LMS" menuType="student">
+    <Box sx={{ p: { xs: 1.5, md: 3 } }}>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
         <Box>
-          <Typography variant="h5" fontWeight={800}>My NEP LMS</Typography>
+          <Typography variant="h5" fontWeight={800}>MY LMS</Typography>
           <Typography variant="body2" color="text.secondary">
             View assigned courses, materials, timetable and submit assignments.
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
           <Button variant="outlined" startIcon={<Refresh />} onClick={loadCourses}>Refresh</Button>
-          <Button component={RouterLink} to="/dashmclassenr1stud" variant="outlined" startIcon={<ArrowBack />}>Back</Button>
         </Stack>
       </Stack>
 
@@ -735,6 +738,13 @@ export default function NepLmsStudentWorkspacePage() {
                       <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
                         Q{index + 1}. {question.question} ({question.score} marks)
                       </Typography>
+                      {question.imageLink && (
+                        <Box component="img" src={question.imageLink} alt="Question" sx={{ mb: 1, maxWidth: 320, maxHeight: 220, objectFit: "contain", border: "1px solid #cbd5e1", borderRadius: 1 }} />
+                      )}
+                      <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 1 }}>
+                        {question.fileLink && <Button size="small" variant="outlined" href={question.fileLink} target="_blank" rel="noreferrer">Open question file</Button>}
+                        {question.videoLink && <Button size="small" variant="outlined" href={question.videoLink} target="_blank" rel="noreferrer">Open video</Button>}
+                      </Stack>
                       <Grid container spacing={1}>
                         {(question.options || []).map((option) => (
                           <Grid item xs={12} md={6} key={`${question._id}-${option.text}`}>
@@ -770,6 +780,7 @@ export default function NepLmsStudentWorkspacePage() {
         </Box>
       )}
       {tab === 7 && renderLessonContentTab()}
-    </Container>
+    </Box>
+    </MenuPageShell>
   );
 }
