@@ -491,6 +491,30 @@ export default function PublicAdmissionAiPhDocumentsPage() {
     }));
   };
 
+  const checkDuplicateEmailBeforeRegistration = async () => {
+    const email = String(form.email || "").trim().toLowerCase();
+    if (!email || activeTab !== 0) return true;
+    try {
+      const res = await ep1.post("/admission-dynamic/application-email-check", {
+        colid,
+        email,
+        id: applicationId || ""
+      });
+      if (res.data?.duplicate) {
+        const duplicateMessage = "An application already exists with this email. Please login to continue your existing application.";
+        window.alert(duplicateMessage);
+        setMessage(duplicateMessage);
+        setRetrieveUsername(email);
+        setShowLoginPanel(true);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      setMessage(err.response?.data?.msg || "Unable to verify email. Please try again.");
+      return false;
+    }
+  };
+
   const selectGroupedProgram = (programcode) => {
     setValidationIssues([]);
     const selected = groupedProgramOptions.flatMap((group) => group.programs).find((program) => program.programcode === programcode);
@@ -888,6 +912,10 @@ export default function PublicAdmissionAiPhDocumentsPage() {
     if (!form.name || !form.email || !form.phone || !form.username || !form.password) {
       setMessage("Name, email, phone, username and password are required before saving a draft.");
       return null;
+    }
+    if (activeTab === 0) {
+      const canProceed = await checkDuplicateEmailBeforeRegistration();
+      if (!canProceed) return null;
     }
 
     try {

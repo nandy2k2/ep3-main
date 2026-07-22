@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -28,8 +29,18 @@ const resourceTypes = ["Assignment", "Course Material", "Lesson Plan"];
 
 const uniqueSorted = (values = []) => [...new Set(values.map((item) => String(item || "").trim()).filter(Boolean))]
   .sort((a, b) => a.localeCompare(b));
+const orderValue = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : Number.MAX_SAFE_INTEGER;
+};
+const sortResourcesForStudent = (rows = []) => [...rows].sort((a, b) => {
+  const orderDiff = orderValue(a.order) - orderValue(b.order);
+  if (orderDiff) return orderDiff;
+  return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+});
 
 export default function NepLmsStudentWorkspacePage() {
+  const [searchParams] = useSearchParams();
   const [student, setStudent] = useState(null);
   const [courses, setCourses] = useState([]);
   const [filters, setFilters] = useState(blankFilters);
@@ -105,9 +116,16 @@ export default function NepLmsStudentWorkspacePage() {
       setError("");
       const res = await ep1.get("/api/v2/neplms/student-workspace/courses", { params: baseParams(filters) });
       const nextCourses = res.data?.courses || [];
+      const requestedCourseId = searchParams.get("courseid") || "";
+      const requestedCourseCode = searchParams.get("coursecode") || "";
+      const requestedCourse = nextCourses.find((row) => (
+        (requestedCourseId && String(row._id) === requestedCourseId)
+        || (requestedCourseCode && String(row.coursecode || "").toLowerCase() === requestedCourseCode.toLowerCase())
+      ));
       setStudent(res.data?.student || null);
       setCourses(nextCourses);
-      if (!courseId && nextCourses.length) setCourseId(nextCourses[0]._id);
+      if (requestedCourse) setCourseId(requestedCourse._id);
+      else if (!courseId && nextCourses.length) setCourseId(nextCourses[0]._id);
       if (courseId && !nextCourses.some((row) => row._id === courseId)) setCourseId("");
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load student courses");
@@ -120,6 +138,7 @@ export default function NepLmsStudentWorkspacePage() {
     try {
       setLoading(true);
       setError("");
+      await recordLoginAttendance(course);
       const res = await ep1.get("/api/v2/neplms/student-workspace/course", {
         params: baseParams({
           academicyear: course.academicyear,
@@ -143,6 +162,26 @@ export default function NepLmsStudentWorkspacePage() {
       setError(err.response?.data?.message || "Unable to load course workspace");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const recordLoginAttendance = async (course) => {
+    if (!course) return;
+    try {
+      await ep1.post("/api/v2/neplms/login-attendance/record", {
+        colid: global1.colid,
+        user: global1.user,
+        regno: global1.regno,
+        student: global1.name || student?.name || "",
+        studentemail: global1.user || student?.email || "",
+        academicyear: course.academicyear,
+        program: course.program,
+        programcode: course.programcode,
+        course: course.course,
+        coursecode: course.coursecode
+      });
+    } catch (err) {
+      // Login-based attendance should not block the workspace if logging fails.
     }
   };
 
@@ -342,7 +381,7 @@ export default function NepLmsStudentWorkspacePage() {
   const renderResourceGrid = (type) => (
     <Paper sx={{ p: 1, overflowX: "auto" }}>
       <DataGrid
-        rows={resources.filter((row) => row.resourcetype === type).map((row) => ({ ...row, id: row._id }))}
+        rows={sortResourcesForStudent(resources.filter((row) => row.resourcetype === type)).map((row) => ({ ...row, id: row._id }))}
         columns={resourceColumns}
         autoHeight
         loading={loading}
@@ -425,6 +464,15 @@ export default function NepLmsStudentWorkspacePage() {
               <Alert severity={linkedQuizAttempted ? "success" : "warning"}>
                 {linkedQuizAttempted ? "Linked quiz has been submitted. You may mark this item complete." : `Complete the linked quiz: ${item.quiztitle || "Quiz"}.`}
               </Alert>
+            )}
+            {item.contenttype === "Mindmap" && (
+              <Button
+                variant="outlined"
+                component={RouterLink}
+                to={`/studentneplmsmindmaps?coursecode=${encodeURIComponent(item.coursecode || selectedCourse?.coursecode || "")}&mindmapid=${encodeURIComponent(item.mindmapid || "")}`}
+              >
+                Open mindmap: {item.mindmaptitle || item.title || "Mindmap"}
+              </Button>
             )}
             {item.contenttype === "Flash Card" && (
               <Grid container spacing={2}>

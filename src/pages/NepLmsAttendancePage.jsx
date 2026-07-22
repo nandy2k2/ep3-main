@@ -4,10 +4,8 @@ import {
   Alert,
   Box,
   Button,
-  Checkbox,
   Chip,
   FormControl,
-  FormControlLabel,
   Grid,
   InputLabel,
   MenuItem,
@@ -19,6 +17,7 @@ import {
   Typography
 } from "@mui/material";
 import { Add, ArrowBack, Delete, Refresh, Save } from "@mui/icons-material";
+import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 
@@ -361,6 +360,51 @@ export default function NepLmsAttendancePage({ sectionMode = false, pageTitle = 
   const selectedCount = filteredStudents.filter((student) => selectedStudents[student._id]).length;
   const presentCount = filteredStudents.filter((student) => selectedStudents[student._id] && attendanceMap[student._id] !== 0).length;
   const absentCount = selectedCount - presentCount;
+  const studentSelectionModel = filteredStudents.filter((student) => selectedStudents[student._id]).map((student) => student._id);
+  const studentGridRows = filteredStudents.map((student) => ({
+    ...student,
+    id: student._id,
+    attendancestatus: attendanceMap[student._id] === 0 ? "Absent" : "Present"
+  }));
+  const studentColumns = [
+    { field: "name", headerName: "Name", minWidth: 190, flex: 1 },
+    { field: "regno", headerName: "Reg No", minWidth: 130 },
+    { field: "rollno", headerName: "Roll No", minWidth: 120 },
+    { field: "email", headerName: "Email", minWidth: 220, flex: 1 },
+    { field: "phone", headerName: "Phone", minWidth: 140 },
+    { field: "program", headerName: "Program", minWidth: 180 },
+    { field: "programcode", headerName: "Program Code", minWidth: 140 },
+    { field: "academicyear", headerName: "Academic Year", minWidth: 140 },
+    { field: "semester", headerName: "Semester", minWidth: 110 },
+    { field: "section", headerName: "Section", minWidth: 110 },
+    { field: "Major", headerName: "Major", minWidth: 180 },
+    { field: "category", headerName: "Category", minWidth: 130 },
+    { field: "gender", headerName: "Gender", minWidth: 130 },
+    { field: "attendancestatus", headerName: "Attendance", minWidth: 130 },
+    {
+      field: "markattendance",
+      headerName: "Present / Absent",
+      minWidth: 170,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => {
+        const present = attendanceMap[params.row._id] !== 0;
+        return (
+          <Stack direction="row" alignItems="center" spacing={1} onClick={(event) => event.stopPropagation()}>
+            <Typography variant="caption" fontWeight={700} color={present ? "success.main" : "error.main"}>
+              {present ? "Present" : "Absent"}
+            </Typography>
+            <Switch
+              size="small"
+              checked={present}
+              color="success"
+              onChange={(event) => setAttendanceMap((prev) => ({ ...prev, [params.row._id]: event.target.checked ? 1 : 0 }))}
+            />
+          </Stack>
+        );
+      }
+    }
+  ];
 
   const renderFilterPanel = ({ title, filters, fields, rows, onAdd, onUpdate, onRemove }) => (
     <Paper sx={{ p: 2, mb: 2 }}>
@@ -652,51 +696,43 @@ export default function NepLmsAttendancePage({ sectionMode = false, pageTitle = 
               </Stack>
             </Stack>
 
-            <Grid container spacing={2}>
-              {filteredStudents.map((student) => {
-                const checked = Boolean(selectedStudents[student._id]);
-                const present = attendanceMap[student._id] !== 0;
-                return (
-                  <Grid item xs={12} md={6} lg={4} key={student._id}>
-                    <Paper
-                      variant="outlined"
-                      sx={{
-                        p: 1.5,
-                        bgcolor: !checked ? "#f8fafc" : present ? "#f0fdf4" : "#fef2f2",
-                        borderColor: !checked ? "#cbd5e1" : present ? "#86efac" : "#fecaca"
-                      }}
-                    >
-                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
-                        <Box>
-                          <Typography fontWeight={800}>{student.name}</Typography>
-                          <Typography variant="body2" color="text.secondary">{student.regno || "-"} | {student.email}</Typography>
-                          <Typography variant="caption" display="block">
-                            {student.programcode} | Sem {student.semester} | {student.Major} | {student.section}
-                          </Typography>
-                        </Box>
-                        <Checkbox
-                          checked={checked}
-                          onChange={(event) => setSelectedStudents((prev) => ({ ...prev, [student._id]: event.target.checked }))}
-                        />
-                      </Stack>
-                      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
-                        <Typography variant="body2" fontWeight={700}>{present ? "Present" : "Absent"}</Typography>
-                        <FormControlLabel
-                          control={(
-                            <Switch
-                              checked={present}
-                              onChange={(event) => setAttendanceMap((prev) => ({ ...prev, [student._id]: event.target.checked ? 1 : 0 }))}
-                              color="success"
-                            />
-                          )}
-                          label=""
-                        />
-                      </Stack>
-                    </Paper>
-                  </Grid>
-                );
-              })}
-            </Grid>
+            <Box sx={{ width: "100%", overflowX: "auto" }}>
+              <DataGrid
+                rows={studentGridRows}
+                columns={studentColumns}
+                loading={studentLoading}
+                checkboxSelection
+                disableRowSelectionOnClick
+                rowSelectionModel={studentSelectionModel}
+                onRowSelectionModelChange={(model) => {
+                  const selectedIds = new Set(model.map((id) => String(id)));
+                  setSelectedStudents((prev) => {
+                    const next = { ...prev };
+                    filteredStudents.forEach((student) => {
+                      next[student._id] = selectedIds.has(String(student._id));
+                    });
+                    return next;
+                  });
+                }}
+                autoHeight
+                slots={{ toolbar: GridToolbar }}
+                slotProps={{
+                  toolbar: {
+                    showQuickFilter: true,
+                    csvOptions: { fileName: "nep_lms_attendance_students" },
+                    printOptions: { disableToolbarButton: false }
+                  }
+                }}
+                pageSizeOptions={[10, 25, 50, 100]}
+                initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
+                sx={{
+                  minWidth: 1500,
+                  "& .MuiDataGrid-row": { bgcolor: "#fff" },
+                  "& .MuiDataGrid-row.Mui-selected": { bgcolor: "#eff6ff" },
+                  "& .MuiDataGrid-columnHeaders": { bgcolor: "#f8fafc", fontWeight: 800 }
+                }}
+              />
+            </Box>
           </Paper>
         </>
       )}

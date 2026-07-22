@@ -870,6 +870,13 @@ import BulkUploadPage from "./pages/BulkUploadPage";
 import Mjournal2ReportPage from "./pages/Mjournal2ReportPage";
 import TrialBalancePage from "./pages/TrialBalancePage";
 import BalanceSheetPage from "./pages/BalanceSheetPage"; 
+import {
+  FeesChequeReconciliationPage,
+  FinanceAccountGroupNewPage,
+  FinanceAccountNewPage,
+  JournalEntryNewPage,
+  PaymentVoucherPage
+} from "./pages/FinanceNewPages";
 
 import Dashmmtradingaccount from './pages/Dashmmtradingaccount';
 import Dashmmtradingaccountadmin from './pages/Dashmmtradingaccountadmin';
@@ -945,9 +952,11 @@ import NepLmsAssignedCoursesPage from "./pages/NepLmsAssignedCoursesPage";
 import NepLmsCourseWorkspacePage from "./pages/NepLmsCourseWorkspacePage";
 import NepLmsFacultyLogbookPage from "./pages/NepLmsFacultyLogbookPage";
 import NepLmsAdminResourceAssignmentPage from "./pages/NepLmsAdminResourceAssignmentPage";
+import { NepLmsAdminMindMapPage, NepLmsFacultyMindMapPage, NepLmsStudentMindMapPage } from "./pages/NepLmsMindMapPages";
 import NepLmsMyCourseContentPage from "./pages/NepLmsMyCourseContentPage";
 import NepLmsQuizAnalyticsPage from "./pages/NepLmsQuizAnalyticsPage";
 import NepLmsLiveQuizPage from "./pages/NepLmsLiveQuizPage";
+import NepLmsPreReadingPage, { NepLmsPreReadingAdminPage, StudentPreReadingPage } from "./pages/NepLmsPreReadingPage";
 import NepLmsClassGroupsPage from "./pages/NepLmsClassGroupsPage";
 import NepLmsClassGroupsAdminPage from "./pages/NepLmsClassGroupsAdminPage";
 import NepLmsAiCourseGenerationPage from "./pages/NepLmsAiCourseGenerationPage";
@@ -955,6 +964,7 @@ import NepLmsStudentWorkspacePage from "./pages/NepLmsStudentWorkspacePage";
 import NepLmsStudentSequentialContentPage from "./pages/NepLmsStudentSequentialContentPage";
 import NepLmsStudentLiveQuizPage from "./pages/NepLmsStudentLiveQuizPage";
 import NepLmsMyAttendanceSummaryPage from "./pages/NepLmsMyAttendanceSummaryPage";
+import NepLmsLoginBasedAttendancePage from "./pages/NepLmsLoginBasedAttendancePage";
 import NepLmsAssessmentPage from "./pages/NepLmsAssessmentPage";
 import NepLmsStudentAssessmentPage from "./pages/NepLmsStudentAssessmentPage";
 import NepLmsRemedialPage from "./pages/NepLmsRemedialPage";
@@ -1253,6 +1263,7 @@ import Purchasedsearchds from "./pages/Purchasedsearchds";
 import CreateScholarshipDS from './pages/CreateScholarshipDS';
 import ApplyScholarshipDS from './pages/ApplyScholarshipDS';
 import ScholarshipAdminDS from './pages/ScholarshipAdminDS';
+import StudentScholarshipSuggestionPage from './pages/StudentScholarshipSuggestionPage';
 
 import Dashmstudalloc1 from './pages/Dashmstudalloc1';
 import Dashmstudalloc1admin from './pages/Dashmstudalloc1admin';
@@ -1401,9 +1412,12 @@ import {
   LibraryFinePage,
   LibraryLoanPage,
   LibraryMasterPage,
+  LibraryCounterPage,
   LibraryIssuePage,
   LibraryRequestsPage,
   LibraryReportsPage,
+  LibraryRoleMaxBooksPage,
+  LibraryRoleMaxDaysPage,
   LibraryReturnPage,
   LibraryTransferPage,
   LibraryUserAccessPage,
@@ -1883,6 +1897,7 @@ import FeeApprovalRolesPage from './pages/FeeApprovalRolesPage';
 import FeeApplicationPage from './pages/FeeApplicationPage';
 import FeesApplicationAutoPage from './pages/FeesApplicationAutoPage';
 import StudentLedgerCrudPage from './pages/StudentLedgerCrudPage';
+import StudentLedgerMasterPage from './pages/StudentLedgerMasterPage';
 import FeesModelReportPage from './pages/FeesModelReportPage';
 import StudentFeeApplyPage from './pages/StudentFeeApplyPage';
 import StudentLedgerApprovalPage from './pages/StudentLedgerApprovalPage';
@@ -1905,6 +1920,7 @@ import StudentLedgerCounterPaymentPage from './pages/StudentLedgerCounterPayment
 import CounterFee2PaymentPage from './pages/CounterFee2PaymentPage';
 import CounterFee3PaymentPage from './pages/CounterFee3PaymentPage';
 import CounterFee4PaymentPage from './pages/CounterFee4PaymentPage';
+import CounterFee5PaymentPage from './pages/CounterFee5PaymentPage';
 import CounterFee2ReceiptPage from './pages/CounterFee2ReceiptPage';
 import CounterFee4ReceiptPage from './pages/CounterFee4ReceiptPage';
 import FeesReceiptNotePage from './pages/FeesReceiptNotePage';
@@ -2981,6 +2997,9 @@ function App() {
         <Route path="/library-books" element={<LibraryBookMasterPage />} />
         <Route path="/library-book-scan" element={<LibraryBookScanPage />} />
         <Route path="/library-fines" element={<LibraryFinePage />} />
+        <Route path="/library-role-max-books" element={<LibraryRoleMaxBooksPage />} />
+        <Route path="/library-role-max-days" element={<LibraryRoleMaxDaysPage />} />
+        <Route path="/library-counter" element={<LibraryCounterPage />} />
         <Route path="/library-issue" element={<LibraryIssuePage />} />
         <Route path="/library-return" element={<LibraryReturnPage />} />
         <Route path="/library-reports" element={<LibraryReportsPage />} />
@@ -3131,6 +3150,7 @@ function App() {
          <Route path='/CreateScholarshipDS' element={<CreateScholarshipDS />} />
         <Route path='/ApplyScholarshipDS' element={<ApplyScholarshipDS />} />
         <Route path='/ScholarshipAdminDS' element={<ScholarshipAdminDS />} />
+        <Route path='/studentscholarshipsuggestion' element={<StudentScholarshipSuggestionPage />} />
 
         <Route path="/purchasedsearchds" element={<Purchasedsearchds />} />
 
@@ -3220,10 +3240,14 @@ function App() {
         <Route path="/neplmsassignedcourses" element={<NepLmsAssignedCoursesPage />} />
         <Route path="/neplmscourseworkspace" element={<NepLmsCourseWorkspacePage />} />
         <Route path="/neplmsfacultylogbook" element={<NepLmsFacultyLogbookPage />} />
+        <Route path="/neplmsmindmaps" element={<NepLmsFacultyMindMapPage />} />
+        <Route path="/neplmsmindmapsadmin" element={<NepLmsAdminMindMapPage />} />
         <Route path="/neplmsadminresources" element={<NepLmsAdminResourceAssignmentPage />} />
         <Route path="/neplmsmycoursecontent" element={<NepLmsMyCourseContentPage />} />
         <Route path="/neplmsquizanalytics" element={<NepLmsQuizAnalyticsPage />} />
         <Route path="/neplmslivequiz" element={<NepLmsLiveQuizPage />} />
+        <Route path="/neplmsprereading" element={<NepLmsPreReadingPage />} />
+        <Route path="/neplmsprereadingadmin" element={<NepLmsPreReadingAdminPage />} />
         <Route path="/neplmsclassgroups" element={<NepLmsClassGroupsPage />} />
         <Route path="/neplmsclassgroupsadmin" element={<NepLmsClassGroupsAdminPage />} />
         <Route path="/neplmsassessment" element={<NepLmsAssessmentPage />} />
@@ -3281,14 +3305,17 @@ function App() {
         <Route path="/neplmsstudentlearningprofile" element={<NepLmsStudentLearningProfilePage />} />
         <Route path="/neplmslowattendance" element={<NepLmsLowAttendanceReportPage />} />
         <Route path="/neplmsfacultycourselowattendance" element={<NepLmsFacultyCourseLowAttendanceReportPage />} />
+        <Route path="/neplmsloginbasedattendance" element={<NepLmsLoginBasedAttendancePage />} />
         <Route path="/neplmsconsecutiveabsence" element={<NepLmsConsecutiveAbsencePage />} />
         <Route path="/neplmsmissingtimetable" element={<NepLmsMissingTimetablePage />} />
         <Route path="/neplmscourseprogression" element={<NepLmsCourseProgressionPage />} />
         <Route path="/facultydashboard" element={<NepLmsFacultyDashboardPage />} />
         <Route path="/studentdashboard" element={<NepLmsStudentDashboardPage />} />
         <Route path="/studentneplmsworkspace" element={<NepLmsStudentWorkspacePage />} />
+        <Route path="/studentneplmsmindmaps" element={<NepLmsStudentMindMapPage />} />
         <Route path="/studentsequentialcontent" element={<NepLmsStudentSequentialContentPage />} />
         <Route path="/studentneplmslivequiz" element={<NepLmsStudentLiveQuizPage />} />
+        <Route path="/studentprereading" element={<StudentPreReadingPage />} />
         <Route path="/studentmyattendancesummary" element={<NepLmsMyAttendanceSummaryPage />} />
         <Route path="/mentoringworkspace" element={<MentoringWorkspacePage />} />
         <Route path="/studentmentoringworkspace" element={<StudentMentoringWorkspacePage />} />
@@ -3365,6 +3392,7 @@ function App() {
         <Route path="/feesapplicationauto" element={<FeesApplicationAutoPage />} />
         <Route path="/feetransferlog" element={withMenu("Fee transfer log", <FeeTransferLogPage />)} />
         <Route path="/studentledgercrud" element={<StudentLedgerCrudPage />} />
+        <Route path="/studentledgermaster" element={<StudentLedgerMasterPage />} />
         <Route path="/feesmodelreport" element={withMenu("Fees Model Report", <FeesModelReportPage />)} />
         <Route path="/feeitemreport" element={withMenu("Fees Item report", <FeeItemReportPage />)} />
         <Route path="/studentfeeapply" element={withMenu("Apply Fee to Student", <StudentFeeApplyPage />)} />
@@ -3384,6 +3412,7 @@ function App() {
         <Route path="/counterfee2" element={<CounterFee2PaymentPage />} />
         <Route path="/counterfee3" element={<CounterFee3PaymentPage />} />
         <Route path="/counterfee4" element={<CounterFee4PaymentPage />} />
+        <Route path="/counterfee5" element={<CounterFee5PaymentPage />} />
         <Route path="/feesreceiptnote" element={<FeesReceiptNotePage />} />
         <Route path="/counterfee2receipt" element={<CounterFee2ReceiptPage />} />
         <Route path="/counterfeereceipt" element={<CounterFee4ReceiptPage />} />
@@ -3558,6 +3587,11 @@ function App() {
         <Route path="/accountgroup" element={<AccountGroupPage />} />
         <Route path="/accountds" element={<AccountdsPage />} />
         <Route path="/mjournal2" element={<Mjournal2Page />} />
+        <Route path="/finance-journal-new" element={<JournalEntryNewPage />} />
+        <Route path="/finance-account-groups" element={<FinanceAccountGroupNewPage />} />
+        <Route path="/finance-accounts" element={<FinanceAccountNewPage />} />
+        <Route path="/fees-cheque-reconciliation" element={<FeesChequeReconciliationPage />} />
+        <Route path="/payment-voucher-new" element={<PaymentVoucherPage />} />
         <Route path="/bulkuploadpageds" element={<BulkUploadPage />} />
         <Route path="/mjournal2reportpage" element={<Mjournal2ReportPage />} />
         <Route path="/trialbalancepage" element={<TrialBalancePage />} />

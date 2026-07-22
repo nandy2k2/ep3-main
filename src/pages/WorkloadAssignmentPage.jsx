@@ -454,6 +454,27 @@ export default function WorkloadAssignmentPage() {
     }
   };
 
+  const bulkDeleteRows = async () => {
+    if (!selectedRows.length) {
+      setError("Select at least one workload row");
+      return;
+    }
+    if (!window.confirm(`Delete ${selectedRows.length} selected workload assignment${selectedRows.length === 1 ? "" : "s"}?`)) return;
+    try {
+      setLoading(true);
+      setError("");
+      setMessage("");
+      const res = await ep1.post("/api/v2/workloadassignment/delete", { ids: selectedRows.map((row) => row._id), colid });
+      setMessage(`Bulk delete completed. Deleted: ${res.data.deleted ?? selectedRows.length}`);
+      setSelectedRowIds([]);
+      await refreshAll();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to bulk delete workload assignments");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const columns = [
     {
       field: "actions",
@@ -620,6 +641,9 @@ export default function WorkloadAssignmentPage() {
           </FormControl>
           <Button variant="contained" onClick={bulkAssignProgram} disabled={!selectedRows.length || !bulkProgramCode || loading}>
             Assign Selected
+          </Button>
+          <Button variant="outlined" color="error" startIcon={<Delete />} onClick={bulkDeleteRows} disabled={!selectedRows.length || loading}>
+            Bulk Delete
           </Button>
         </Stack>
       </Paper>

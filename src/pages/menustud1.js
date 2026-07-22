@@ -307,6 +307,13 @@ function DefaultStudentListItems({ open }) {
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Sequential Content" />}
 </ListItem>
 
+           <ListItem button component={RouterLink} to="/studentneplmsmindmaps">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Mind Maps" />}
+</ListItem>
+
            <ListItem button component={RouterLink} to="/studentmyattendancesummary">
 <ListItemIcon>
 <PersonIcon />
@@ -326,6 +333,13 @@ function DefaultStudentListItems({ open }) {
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Live quiz" />}
+</ListItem>
+
+           <ListItem button component={RouterLink} to="/studentprereading">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Pre reading material" />}
 </ListItem>
 
            <ListItem button component={RouterLink} to="/studentelectiveapplication">
@@ -547,6 +561,13 @@ function DefaultStudentListItems({ open }) {
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Apply for scholarship" />}
+</ListItem>
+
+            <ListItem button component={RouterLink} to="/studentscholarshipsuggestion">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Scholarship suggestion" />}
 </ListItem>
 
 

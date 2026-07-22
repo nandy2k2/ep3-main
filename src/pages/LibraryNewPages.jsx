@@ -8,6 +8,8 @@ import {
   CardContent,
   Checkbox,
   Chip,
+  Avatar,
+  CircularProgress,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -483,6 +485,267 @@ export function LibraryFinePage() {
           </Grid>
         </Paper>
         <Box sx={{ height: 520 }}><DataGrid rows={rows} columns={columns} getRowId={(row) => row._id} loading={loading} slots={{ toolbar: GridToolbar }} /></Box>
+      </Stack>
+    </MenuPageShell>
+  );
+}
+
+function LibraryPolicyCrudPage({ title, endpoint, fields, initialForm, numericField }) {
+  const [rows, setRows] = useState([]);
+  const [options, setOptions] = useState({});
+  const [filters, setFilters] = useState([{ field: "role", value: "" }]);
+  const [form, setForm] = useState(initialForm);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const load = async () => {
+    setLoading(true);
+    const params = { colid: global1.colid };
+    filters.forEach((filter) => { if (filter.field && filter.value) params[filter.field] = filter.value; });
+    const res = await ep1.get(`/api/v2/librarynew/${endpoint}`, { params });
+    setRows(res.data?.data || []);
+    setOptions(res.data?.options || {});
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+  const save = async () => {
+    setLoading(true);
+    await ep1.post(`/api/v2/librarynew/${endpoint}`, { ...form, colid: global1.colid, user: global1.user });
+    setForm(initialForm);
+    setMessage("Configuration saved.");
+    await load();
+    setLoading(false);
+  };
+  const upload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setLoading(true);
+    const rowsToSave = await readExcel(file);
+    await ep1.post(`/api/v2/librarynew/${endpoint}/bulk`, { colid: global1.colid, user: global1.user, rows: rowsToSave });
+    await load();
+    setLoading(false);
+    event.target.value = "";
+  };
+  const columns = [
+    { field: "role", headerName: "Role", minWidth: 160 },
+    { field: "bookcategory", headerName: "Book Category", minWidth: 200, flex: 1 },
+    { field: numericField, headerName: numericField === "noofbooks" ? "No. of Books" : "No. of Days", minWidth: 150 },
+    ...(fields.includes("default") ? [{ field: "default", headerName: "Default", minWidth: 120 }] : []),
+    { field: "actions", type: "actions", width: 110, getActions: (p) => [
+      <GridActionsCellItem icon={<Edit />} label="Edit" onClick={() => setForm({ ...p.row, id: p.row._id })} />,
+      <GridActionsCellItem icon={<Delete />} label="Delete" onClick={async () => { await ep1.post(`/api/v2/librarynew/${endpoint}/delete`, { id: p.row._id, colid: global1.colid }); load(); }} />
+    ] }
+  ];
+  return (
+    <MenuPageShell title={title}>
+      <Stack spacing={2}>
+        {message && <Alert severity="success" onClose={() => setMessage("")}>{message}</Alert>}
+        <Paper sx={{ p: 2 }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={3}>
+              <Autocomplete freeSolo size="small" options={options.role || []} value={form.role || ""} onInputChange={(_, value) => setForm({ ...form, role: value })} onChange={(_, value) => setForm({ ...form, role: value || "" })} renderInput={(params) => <TextField {...params} label="Role" />} />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <Autocomplete freeSolo size="small" options={options.bookcategory || []} value={form.bookcategory || ""} onInputChange={(_, value) => setForm({ ...form, bookcategory: value })} onChange={(_, value) => setForm({ ...form, bookcategory: value || "" })} renderInput={(params) => <TextField {...params} label="Book Category" />} />
+            </Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth size="small" type="number" label={numericField === "noofbooks" ? "No. of Books" : "No. of Days"} value={form[numericField] || ""} onChange={(e) => setForm({ ...form, [numericField]: e.target.value })} /></Grid>
+            {fields.includes("default") && (
+              <Grid item xs={12} md={2}><TextField select fullWidth size="small" label="Default" value={form.default || "No"} onChange={(e) => setForm({ ...form, default: e.target.value })}>{["Yes", "No"].map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}</TextField></Grid>
+            )}
+            <Grid item xs={12} md={2}><Button fullWidth variant="contained" disabled={loading} onClick={save}>{loading ? "Saving..." : "Save"}</Button></Grid>
+            <Grid item xs={12}>
+              <Stack direction="row" spacing={1} flexWrap="wrap">
+                <Button variant="outlined" onClick={() => downloadTemplate(`${endpoint}_template.xlsx`, fields)}>Download Template</Button>
+                <Button component="label" variant="outlined" startIcon={<UploadFile />} disabled={loading}>Bulk Upload<input hidden type="file" accept=".xlsx,.xls,.csv" onChange={upload} /></Button>
+              </Stack>
+            </Grid>
+          </Grid>
+        </Paper>
+        <Paper sx={{ p: 2 }}>
+          <FieldFilters fields={fields} options={options} filters={filters} setFilters={setFilters} />
+          <Button sx={{ mt: 1 }} variant="contained" onClick={load} disabled={loading}>{loading ? "Loading..." : "Apply"}</Button>
+        </Paper>
+        <Box sx={{ height: 560, width: "100%" }}>
+          <DataGrid rows={rows} columns={columns} getRowId={(row) => row._id} loading={loading} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} />
+        </Box>
+      </Stack>
+    </MenuPageShell>
+  );
+}
+
+export function LibraryRoleMaxBooksPage() {
+  return <LibraryPolicyCrudPage title="Library Rolewise Max Books" endpoint="role-max-books" fields={["role", "bookcategory", "noofbooks", "default"]} initialForm={{ default: "No" }} numericField="noofbooks" />;
+}
+
+export function LibraryRoleMaxDaysPage() {
+  return <LibraryPolicyCrudPage title="Library Rolewise Max Days" endpoint="role-max-days" fields={["role", "bookcategory", "noofdays"]} initialForm={{}} numericField="noofdays" />;
+}
+
+function overdueInfo(row) {
+  if (!row?.duedate || /^Returned$/i.test(row.status || "")) return { days: 0, label: "On time" };
+  const due = new Date(row.duedate);
+  const today = new Date();
+  due.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  const days = Math.max(0, Math.ceil((today - due) / 86400000));
+  return { days, label: days ? `${days} day(s) overdue` : "On time" };
+}
+
+export function LibraryCounterPage() {
+  const [identifier, setIdentifier] = useState("");
+  const [profile, setProfile] = useState(null);
+  const [active, setActive] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [bookCode, setBookCode] = useState("");
+  const [bookData, setBookData] = useState(null);
+  const [tab, setTab] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const loadUser = async () => {
+    if (!identifier.trim()) return;
+    setLoading(true); setError(""); setMessage(""); setBookData(null);
+    try {
+      const res = await ep1.get("/api/v2/librarynew/counter/user", { params: { colid: global1.colid, identifier } });
+      setProfile(res.data?.profile || null);
+      setActive(res.data?.active || []);
+      setHistory(res.data?.history || []);
+    } catch (err) {
+      setProfile(null); setActive([]); setHistory([]);
+      setError(err.response?.data?.message || "Unable to load user profile");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadBook = async () => {
+    if (!bookCode.trim()) return;
+    setLoading(true); setError(""); setMessage("");
+    try {
+      const res = await ep1.get("/api/v2/librarynew/counter/book", { params: { colid: global1.colid, accessionno: bookCode, identifier } });
+      setBookData(res.data || null);
+    } catch (err) {
+      setBookData(null);
+      setError(err.response?.data?.message || "Unable to load book");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const issueBook = async () => {
+    setLoading(true); setError(""); setMessage("");
+    try {
+      const res = await ep1.post("/api/v2/librarynew/counter/issue", { colid: global1.colid, identifier, accessionno: bookData?.book?.accessionno, user: global1.user });
+      setMessage(`Book issued. Due date: ${shortDate(res.data?.data?.duedate)}`);
+      setBookCode(""); setBookData(null);
+      await loadUser();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to issue book");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const returnBook = async (row) => {
+    setLoading(true); setError(""); setMessage("");
+    try {
+      const res = await ep1.post("/api/v2/librarynew/counter/return", { colid: global1.colid, id: row._id, returndate: shortDate(new Date()), user: global1.user });
+      setMessage(`Book returned. Fine: Rs. ${money(res.data?.fineamount)}`);
+      await loadUser();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to return book");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const issueColumns = [
+    { field: "accessionno", headerName: "Accession", minWidth: 130 },
+    { field: "title", headerName: "Title", minWidth: 260, flex: 1 },
+    { field: "category", headerName: "Category", minWidth: 140 },
+    { field: "issuedate", headerName: "Issue Date", minWidth: 120, valueGetter: (p) => shortDate(p.row.issuedate) },
+    { field: "duedate", headerName: "Due Date", minWidth: 120, valueGetter: (p) => shortDate(p.row.duedate) },
+    { field: "overdue", headerName: "Overdue", minWidth: 140, valueGetter: (p) => overdueInfo(p.row).label },
+    { field: "actions", type: "actions", width: 100, getActions: (p) => [<GridActionsCellItem icon={<Save />} label="Return" disabled={loading} onClick={() => returnBook(p.row)} />] }
+  ];
+  const historyColumns = [
+    { field: "issuedate", headerName: "Issue Date", minWidth: 120, valueGetter: (p) => shortDate(p.row.issuedate) },
+    { field: "returndate", headerName: "Return Date", minWidth: 120, valueGetter: (p) => shortDate(p.row.returndate) },
+    { field: "accessionno", headerName: "Accession", minWidth: 130 },
+    { field: "title", headerName: "Title", minWidth: 260, flex: 1 },
+    { field: "category", headerName: "Category", minWidth: 140 },
+    { field: "status", headerName: "Status", minWidth: 120 },
+    { field: "fineamount", headerName: "Fine", minWidth: 100, valueGetter: (p) => money(p.row.fineamount) }
+  ];
+
+  return (
+    <MenuPageShell title="Library Circulation Desk">
+      <Stack spacing={2}>
+        {error && <Alert severity="error" onClose={() => setError("")}>{error}</Alert>}
+        {message && <Alert severity="success" onClose={() => setMessage("")}>{message}</Alert>}
+        <Paper sx={{ p: 2 }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={8}>
+              <TextField fullWidth label="Reg no or email" value={identifier} onChange={(e) => setIdentifier(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") loadUser(); }} helperText="Type manually or scan a user barcode, then press Enter or Next." />
+            </Grid>
+            <Grid item xs={12} md={4}><Button fullWidth variant="contained" sx={{ height: 56 }} disabled={loading || !identifier.trim()} onClick={loadUser}>{loading ? <CircularProgress size={24} color="inherit" /> : "Next"}</Button></Grid>
+          </Grid>
+        </Paper>
+        {profile && (
+          <>
+            <Paper sx={{ p: 2, borderLeft: "6px solid #2563eb" }}>
+              <Grid container spacing={2} alignItems="center">
+                <Grid item><Avatar src={profile.photo || ""} alt={profile.name || ""} sx={{ width: 84, height: 84, bgcolor: "#dbeafe", color: "#1d4ed8", fontWeight: 900 }}>{(profile.name || "?").slice(0, 1)}</Avatar></Grid>
+                <Grid item xs>
+                  <Typography variant="h5" fontWeight={900}>{profile.name || "Unnamed user"}</Typography>
+                  <Typography color="text.secondary">{profile.role || "-"} | {profile.regno || profile.email || profile.user || "-"}</Typography>
+                  <Typography color="text.secondary">{profile.program || profile.department || "-"} {profile.semester ? `| Semester ${profile.semester}` : ""} {profile.phone ? `| ${profile.phone}` : ""}</Typography>
+                </Grid>
+                <Grid item><Chip color="primary" label={`${active.length} active issue(s)`} /></Grid>
+              </Grid>
+            </Paper>
+            <Paper sx={{ p: 2 }}>
+              <Tabs value={tab} onChange={(_, value) => setTab(value)} variant="scrollable" scrollButtons="auto">
+                <Tab label="Issue" />
+                <Tab label="Return" />
+                <Tab label="History" />
+              </Tabs>
+              {tab === 0 && (
+                <Stack spacing={2} sx={{ mt: 2 }}>
+                  <Grid container spacing={2} alignItems="center">
+                    <Grid item xs={12} md={8}><TextField fullWidth label="Accession no" value={bookCode} onChange={(e) => setBookCode(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") loadBook(); }} helperText="Type manually or scan the book barcode." /></Grid>
+                    <Grid item xs={12} md={4}><Button fullWidth variant="contained" sx={{ height: 56 }} disabled={loading || !bookCode.trim()} onClick={loadBook}>{loading ? "Loading..." : "Load Book"}</Button></Grid>
+                  </Grid>
+                  {bookData?.book && (
+                    <Card variant="outlined">
+                      <CardContent>
+                        <Grid container spacing={2}>
+                          <Grid item xs={12} md={8}>
+                            <Typography variant="h6" fontWeight={900}>{bookData.book.title}</Typography>
+                            <Typography color="text.secondary">{bookData.book.accessionno} | {bookData.book.author || "-"} | {bookData.book.category || "General"}</Typography>
+                            <Typography color={bookData.issue ? "error" : "success.main"} fontWeight={800}>Status: {bookData.issue ? `Issued to ${bookData.issue.student}` : bookData.book.status}</Typography>
+                          </Grid>
+                          <Grid item xs={12} md={4}>
+                            {bookData.eligibility && (
+                              <Alert severity={bookData.eligibility.allowed && !bookData.issue ? "success" : "warning"}>
+                                {bookData.issue ? "This book is already issued." : bookData.eligibility.message}<br />
+                                Active/category: {bookData.eligibility.activeCount || 0} / {bookData.eligibility.maxBooks || "No cap"}<br />
+                                Due after: {bookData.eligibility.noofdays || 14} day(s)
+                              </Alert>
+                            )}
+                          </Grid>
+                          <Grid item xs={12}><Button variant="contained" disabled={loading || !!bookData.issue || !bookData.eligibility?.allowed} onClick={issueBook}>{loading ? "Issuing..." : "Issue Book"}</Button></Grid>
+                        </Grid>
+                      </CardContent>
+                    </Card>
+                  )}
+                </Stack>
+              )}
+              {tab === 1 && <Box sx={{ height: 520, mt: 2 }}><DataGrid rows={active} columns={issueColumns} getRowId={(row) => row._id} loading={loading} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} /></Box>}
+              {tab === 2 && <Box sx={{ height: 520, mt: 2 }}><DataGrid rows={history} columns={historyColumns} getRowId={(row) => row._id} loading={loading} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} /></Box>}
+            </Paper>
+          </>
+        )}
       </Stack>
     </MenuPageShell>
   );

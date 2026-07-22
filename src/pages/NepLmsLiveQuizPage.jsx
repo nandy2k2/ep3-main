@@ -67,7 +67,9 @@ export default function NepLmsLiveQuizPage() {
   const [questioncount, setQuestioncount] = useState("5");
   const [difficulty, setDifficulty] = useState("Medium");
   const [language, setLanguage] = useState("English");
+  const [additionalPrompt, setAdditionalPrompt] = useState("");
   const [leaderboard, setLeaderboard] = useState([]);
+  const [scoreEdits, setScoreEdits] = useState({});
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [uploadingField, setUploadingField] = useState("");
@@ -430,6 +432,7 @@ export default function NepLmsLiveQuizPage() {
         questioncount,
         difficulty,
         language,
+        additionalprompt: additionalPrompt,
         syllabusReferences: selectedSyllabusReferences
       });
       setMessage(`${res.data?.generated || 0} questions generated`);
@@ -438,6 +441,42 @@ export default function NepLmsLiveQuizPage() {
       setError(err.response?.data?.message || "Unable to generate questions");
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const scoreValue = (row, field) => {
+    const edit = scoreEdits[row._id] || {};
+    return edit[field] !== undefined ? edit[field] : row[field] || 0;
+  };
+
+  const setScoreValue = (row, field, value) => {
+    setScoreEdits((prev) => ({ ...prev, [row._id]: { ...(prev[row._id] || {}), [field]: value } }));
+  };
+
+  const saveAttemptScore = async (row) => {
+    try {
+      setLoading(true);
+      setError("");
+      const edit = scoreEdits[row._id] || {};
+      await ep1.post("/api/v2/neplms/live-quizzes/attempt-score", {
+        colid: global1.colid,
+        id: row._id,
+        obtainedmarks: edit.obtainedmarks !== undefined ? edit.obtainedmarks : row.obtainedmarks,
+        totalmarks: edit.totalmarks !== undefined ? edit.totalmarks : row.totalmarks,
+        scorecomments: edit.scorecomments !== undefined ? edit.scorecomments : row.scorecomments,
+        user: global1.user
+      });
+      setScoreEdits((prev) => {
+        const next = { ...prev };
+        delete next[row._id];
+        return next;
+      });
+      setMessage("Quiz score updated");
+      await loadLeaderboard(selectedQuizId);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to update score");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -596,7 +635,18 @@ export default function NepLmsLiveQuizPage() {
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid item xs={12} md={1}><Button fullWidth variant="contained" disabled={generating || !questionForm.sectionid || !selectedModules.length || !selectedTopics.length || (provider === "Ollama" && !ollamaConfigId)} sx={{ height: 56 }} onClick={generateQuestions}>{generating ? "..." : "Generate"}</Button></Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    multiline
+                    minRows={2}
+                    label="Additional AI generation prompt"
+                    value={additionalPrompt}
+                    onChange={(e) => setAdditionalPrompt(e.target.value)}
+                    placeholder="Add extra rules, clinical/practical context, wording preference, examples to include, or concepts to avoid."
+                  />
+                </Grid>
+                <Grid item xs={12} md={2}><Button fullWidth variant="contained" disabled={generating || !questionForm.sectionid || !selectedModules.length || !selectedTopics.length || (provider === "Ollama" && !ollamaConfigId)} sx={{ height: 56 }} onClick={generateQuestions}>{generating ? "Generating..." : "Generate"}</Button></Grid>
                 {!syllabusRows.length && (
                   <Grid item xs={12}>
                     <Alert severity="info">No syllabus rows are available for this course. Add syllabus first to generate module/topic based questions.</Alert>
@@ -661,10 +711,56 @@ export default function NepLmsLiveQuizPage() {
                 { field: "student", headerName: "Student", minWidth: 180, flex: 1 },
                 { field: "regno", headerName: "Reg No", minWidth: 120 },
                 { field: "email", headerName: "Email", minWidth: 220 },
-                { field: "obtainedmarks", headerName: "Score", minWidth: 100 },
-                { field: "totalmarks", headerName: "Total", minWidth: 100 },
+                {
+                  field: "obtainedmarks",
+                  headerName: "Score",
+                  minWidth: 130,
+                  renderCell: (params) => (
+                    <TextField
+                      size="small"
+                      type="number"
+                      value={scoreValue(params.row, "obtainedmarks")}
+                      onChange={(e) => setScoreValue(params.row, "obtainedmarks", e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    />
+                  )
+                },
+                {
+                  field: "totalmarks",
+                  headerName: "Total",
+                  minWidth: 130,
+                  renderCell: (params) => (
+                    <TextField
+                      size="small"
+                      type="number"
+                      value={scoreValue(params.row, "totalmarks")}
+                      onChange={(e) => setScoreValue(params.row, "totalmarks", e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    />
+                  )
+                },
+                {
+                  field: "scorecomments",
+                  headerName: "Score Comments",
+                  minWidth: 220,
+                  renderCell: (params) => (
+                    <TextField
+                      size="small"
+                      value={scoreValue(params.row, "scorecomments")}
+                      onChange={(e) => setScoreValue(params.row, "scorecomments", e.target.value)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    />
+                  )
+                },
                 { field: "status", headerName: "Status", minWidth: 120 },
-                { field: "lastactivitydate", headerName: "Last Update", minWidth: 180, valueGetter: (params) => params.row.lastactivitydate ? new Date(params.row.lastactivitydate).toLocaleString() : "" }
+                { field: "lastactivitydate", headerName: "Last Update", minWidth: 180, valueGetter: (params) => params.row.lastactivitydate ? new Date(params.row.lastactivitydate).toLocaleString() : "" },
+                {
+                  field: "saveScore",
+                  headerName: "Save",
+                  minWidth: 110,
+                  sortable: false,
+                  renderCell: (params) => <Button size="small" variant="contained" disabled={loading} onClick={() => saveAttemptScore(params.row)}>Save</Button>
+                }
               ]}
               autoHeight
               slots={{ toolbar: GridToolbar }}

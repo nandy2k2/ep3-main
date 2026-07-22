@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -42,6 +42,7 @@ const tabMeta = [
 ];
 
 export default function NepLmsStudentSequentialContentPage() {
+  const [searchParams] = useSearchParams();
   const [student, setStudent] = useState(null);
   const [courses, setCourses] = useState([]);
   const [filters, setFilters] = useState({ academicyear: "", semester: "" });
@@ -148,7 +149,13 @@ export default function NepLmsStudentSequentialContentPage() {
       setCourses(nextCourses);
       const defaultYear = nextStudent?.academicyear || uniqueSorted(nextCourses.map((row) => row.academicyear))[0] || "";
       const defaultSemester = nextStudent?.semester || uniqueSorted(nextCourses.filter((row) => !defaultYear || row.academicyear === defaultYear).map((row) => row.semester))[0] || "";
-      const defaultCourse = nextCourses.find((row) => (!defaultYear || row.academicyear === defaultYear) && (!defaultSemester || row.semester === defaultSemester)) || nextCourses[0];
+      const requestedCourseId = searchParams.get("courseid") || "";
+      const requestedCourseCode = searchParams.get("coursecode") || "";
+      const requestedCourse = nextCourses.find((row) => (
+        (requestedCourseId && String(row._id) === requestedCourseId)
+        || (requestedCourseCode && String(row.coursecode || "").toLowerCase() === requestedCourseCode.toLowerCase())
+      ));
+      const defaultCourse = requestedCourse || nextCourses.find((row) => (!defaultYear || row.academicyear === defaultYear) && (!defaultSemester || row.semester === defaultSemester)) || nextCourses[0];
       setFilters({ academicyear: defaultYear, semester: defaultSemester });
       setCourseId(defaultCourse?._id || "");
     } catch (err) {
@@ -279,6 +286,15 @@ export default function NepLmsStudentSequentialContentPage() {
         )}
         {item.contenttype === "Quiz" && (
           <Alert severity="warning">This item is linked to quiz: {item.quiztitle || "Quiz"}. Submit the quiz from My NEP LMS before marking this item complete.</Alert>
+        )}
+        {item.contenttype === "Mindmap" && (
+          <Button
+            variant="outlined"
+            component={RouterLink}
+            to={`/studentneplmsmindmaps?coursecode=${encodeURIComponent(item.coursecode || selectedCourse?.coursecode || "")}&mindmapid=${encodeURIComponent(item.mindmapid || "")}`}
+          >
+            Open mindmap: {item.mindmaptitle || item.title || "Mindmap"}
+          </Button>
         )}
         {item.contenttype === "Flash Card" && (
           <Grid container spacing={2}>

@@ -9,6 +9,7 @@ import {
   CircularProgress,
   Divider,
   FormControl,
+  FormControlLabel,
   Grid,
   InputLabel,
   ListItemText,
@@ -16,6 +17,7 @@ import {
   Paper,
   Select,
   Stack,
+  Switch,
   TextField,
   Typography
 } from "@mui/material";
@@ -26,7 +28,7 @@ import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
 
-const blankForm = { title: "", module: [], topic: [], description: "", duedate: "", fullmarks: "", url: "", filename: "", originalname: "", status: "Active", file: null };
+const blankForm = { title: "", module: [], topic: [], description: "", order: "", employabilityrelated: "No", duedate: "", fullmarks: "", url: "", filename: "", originalname: "", status: "Active", file: null };
 const blankTimetableForm = { classdate: "", classtime: "", period: "", durationminutes: "", module: "", topic: "", workcompleted: "" };
 const blankQuizForm = { title: "", module: [], topic: [], startdatetime: "", enddatetime: "", status: "Active" };
 const blankSectionForm = { quizid: "", title: "" };
@@ -57,6 +59,8 @@ const blankLessonContent = {
   filelink: "",
   videolink: "",
   quizid: "",
+  mindmapid: "",
+  mindmaptitle: "",
   flashcards: [{ question: "", questionimage: "", answer: "" }]
 };
 const blankAiResourceForm = {
@@ -68,9 +72,10 @@ const blankAiResourceForm = {
   noofclasses: "4",
   additionalprompt: ""
 };
+const blankAiQuestionForm = { provider: "Gemini", questioncount: "5", difficulty: "Medium", language: "English", courseMaterialId: "", additionalprompt: "" };
 const blankLessonAiForm = { provider: "Gemini", geminiModel: "gemini-2.5-flash", ollamaConfigId: "", language: "English", flashcardcount: "6", additionalprompt: "" };
 const resourceTypes = ["Assignment", "Course Material", "Lesson Plan", "Timetable", "Quiz"];
-const lessonContentTypes = ["Text", "File Link", "Infographics", "Video Link", "Quiz", "Flash Card"];
+const lessonContentTypes = ["Text", "File Link", "Infographics", "Video Link", "Quiz", "Mindmap", "Flash Card"];
 const geminiModels = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
 const difficultyLevels = ["Easy", "Medium", "Hard"];
 const languages = [
@@ -97,6 +102,11 @@ const headerMap = {
   module: "module",
   topic: "topic",
   description: "description",
+  order: "order",
+  displayorder: "order",
+  employability: "employabilityrelated",
+  employabilityrelated: "employabilityrelated",
+  employabilityrelatedcontent: "employabilityrelated",
   duedate: "duedate",
   duedate1: "duedate",
   fullmarks: "fullmarks",
@@ -117,6 +127,9 @@ export default function NepLmsAdminResourceAssignmentPage() {
   const [syllabusRows, setSyllabusRows] = useState([]);
   const [resources, setResources] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
+  const [mindMaps, setMindMaps] = useState([]);
+  const [quizAttempts, setQuizAttempts] = useState([]);
+  const [selectedQuizAttempt, setSelectedQuizAttempt] = useState(null);
   const [timetableRows, setTimetableRows] = useState([]);
   const [lessonContents, setLessonContents] = useState([]);
   const [lessonProgress, setLessonProgress] = useState([]);
@@ -128,6 +141,7 @@ export default function NepLmsAdminResourceAssignmentPage() {
   const [questionForm, setQuestionForm] = useState(blankQuestionForm);
   const [lessonContentForm, setLessonContentForm] = useState(blankLessonContent);
   const [aiResourceForm, setAiResourceForm] = useState(blankAiResourceForm);
+  const [aiQuestionForm, setAiQuestionForm] = useState(blankAiQuestionForm);
   const [lessonAiForm, setLessonAiForm] = useState(blankLessonAiForm);
   const [editingId, setEditingId] = useState("");
   const [editingTimetableId, setEditingTimetableId] = useState("");
@@ -137,6 +151,7 @@ export default function NepLmsAdminResourceAssignmentPage() {
   const [bulkRows, setBulkRows] = useState([]);
   const [ollamaConfigs, setOllamaConfigs] = useState([]);
   const [generatingResourceType, setGeneratingResourceType] = useState("");
+  const [generatingQuestions, setGeneratingQuestions] = useState(false);
   const [generatingLessonFile, setGeneratingLessonFile] = useState(false);
   const [generatingFlashcards, setGeneratingFlashcards] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -155,6 +170,7 @@ export default function NepLmsAdminResourceAssignmentPage() {
       setSelectedCourseId("");
       setResources([]);
       setSyllabusRows([]);
+      setMindMaps([]);
     }
   }, [selectedFaculty]);
 
@@ -164,15 +180,19 @@ export default function NepLmsAdminResourceAssignmentPage() {
       loadResources(selectedCourse);
       loadTimetable(selectedCourse);
       loadQuizzes(selectedCourse);
+      loadMindMaps(selectedCourse);
       setForm(blankForm);
       setTimetableForm(blankTimetableForm);
       setQuizForm(blankQuizForm);
       setSectionForm(blankSectionForm);
       setQuestionForm(blankQuestionForm);
+      setAiQuestionForm(blankAiQuestionForm);
       setEditingId("");
       setEditingTimetableId("");
       setEditingQuizId("");
       setEditingQuestionId("");
+      setQuizAttempts([]);
+      setSelectedQuizAttempt(null);
       setBulkRows([]);
       setSelectedLessonResourceId("");
       setLessonContents([]);
@@ -194,6 +214,29 @@ export default function NepLmsAdminResourceAssignmentPage() {
   }, [resources, selectedLessonResourceId]);
 
   const selectedCourse = useMemo(() => courses.find((row) => row._id === selectedCourseId) || null, [courses, selectedCourseId]);
+  const selectedQuiz = useMemo(() => quizzes.find((row) => row._id === sectionForm.quizid || row._id === questionForm.quizid) || null, [quizzes, sectionForm.quizid, questionForm.quizid]);
+  const selectedQuizAttemptRows = useMemo(() => {
+    if (!selectedQuiz || !selectedQuizAttempt) return [];
+    const answerMap = new Map((selectedQuizAttempt.answers || []).map((answer) => [String(answer.questionid || ""), answer]));
+    const rows = [];
+    (selectedQuiz.sections || []).forEach((section) => {
+      (section.questions || []).forEach((question, index) => {
+        const answer = answerMap.get(String(question._id)) || {};
+        const selected = Array.isArray(answer.selectedoptions) ? answer.selectedoptions : [];
+        const correct = (question.options || []).filter((option) => option.iscorrect).map((option) => option.text).filter(Boolean);
+        rows.push({
+          id: `${section._id || "section"}-${question._id || index}`,
+          section: section.title || "",
+          question: question.question || "",
+          selected: selected.join(", ") || "-",
+          correct: correct.join(", ") || "-",
+          score: answer.score ?? 0,
+          maxscore: answer.maxscore ?? question.score ?? 0
+        });
+      });
+    });
+    return rows;
+  }, [selectedQuiz, selectedQuizAttempt]);
   const moduleOptions = useMemo(() => uniqueSorted(syllabusRows.map((row) => row.module)), [syllabusRows]);
   const topicOptions = useMemo(() => {
     const modules = listFromValue(form.module);
@@ -205,6 +248,9 @@ export default function NepLmsAdminResourceAssignmentPage() {
     const rows = modules.length ? syllabusRows.filter((row) => modules.includes(String(row.module || "").trim())) : syllabusRows;
     return uniqueSorted(rows.map((row) => row.syllabus));
   }, [quizForm.module, syllabusRows]);
+  const courseMaterialOptions = useMemo(() => (
+    resources.filter((row) => row.resourcetype === "Course Material")
+  ), [resources]);
 
   const loadFaculty = async () => {
     try {
@@ -335,6 +381,49 @@ export default function NepLmsAdminResourceAssignmentPage() {
     }
   };
 
+  const loadMindMaps = async (course = selectedCourse) => {
+    if (!course) return;
+    try {
+      const res = await ep1.get("/api/v2/neplms/mindmaps", {
+        params: {
+          colid: global1.colid,
+          academicyear: course.academicyear,
+          semester: course.semester,
+          coursecode: course.coursecode,
+          published: "Yes"
+        }
+      });
+      setMindMaps(res.data?.data || []);
+    } catch (err) {
+      setMindMaps([]);
+    }
+  };
+
+  const loadQuizAttempts = async (quizId) => {
+    if (!selectedCourse || !quizId) {
+      setQuizAttempts([]);
+      setSelectedQuizAttempt(null);
+      return;
+    }
+    try {
+      const res = await ep1.get("/api/v2/neplms/quizzes/attempts", {
+        params: {
+          colid: global1.colid,
+          quizid: quizId,
+          coursecode: selectedCourse.coursecode,
+          facultyemail: selectedCourse.facultyemail
+        }
+      });
+      const data = res.data?.data || [];
+      setQuizAttempts(data);
+      setSelectedQuizAttempt((prev) => data.find((row) => row._id === prev?._id) || null);
+    } catch (err) {
+      setQuizAttempts([]);
+      setSelectedQuizAttempt(null);
+      setError(err.response?.data?.message || "Unable to load quiz attempts");
+    }
+  };
+
   const loadLessonContent = async (lessonId = selectedLessonResourceId) => {
     if (!selectedCourse || !lessonId) {
       setLessonContents([]);
@@ -381,6 +470,8 @@ export default function NepLmsAdminResourceAssignmentPage() {
         module: optionType === "Quiz" ? valueFromList(quizForm.module) : valueFromList(form.module),
         topic: optionType === "Quiz" ? valueFromList(quizForm.topic) : valueFromList(form.topic),
         description: patchForm ? form.description : `${optionType} file uploaded from admin resources`,
+        order: patchForm ? form.order : "",
+        employabilityrelated: optionType === "Course Material" ? form.employabilityrelated : "No",
         originalname: file.name,
         filename: file.name,
         status: "Active"
@@ -419,6 +510,8 @@ export default function NepLmsAdminResourceAssignmentPage() {
         module: valueFromList(form.module),
         topic: valueFromList(form.topic),
         description: form.description,
+        order: form.order,
+        employabilityrelated: resourceType === "Course Material" ? form.employabilityrelated : "No",
         duedate: form.duedate,
         fullmarks: form.fullmarks,
         url: form.url,
@@ -469,6 +562,8 @@ export default function NepLmsAdminResourceAssignmentPage() {
         modules: listFromValue(form.module),
         topics: listFromValue(form.topic),
         description: form.description,
+        order: form.order,
+        employabilityrelated: resourceType === "Course Material" ? form.employabilityrelated : "No",
         duedate: form.duedate,
         fullmarks: form.fullmarks,
         provider: aiResourceForm.provider,
@@ -525,6 +620,7 @@ export default function NepLmsAdminResourceAssignmentPage() {
         lessonresourceid: selectedLessonResourceId,
         lessonplantitle: lesson?.title || "",
         quiztitle: quizzes.find((quiz) => quiz._id === lessonContentForm.quizid)?.title || "",
+        mindmaptitle: mindMaps.find((mindmap) => mindmap._id === lessonContentForm.mindmapid)?.title || "",
         flashcards: lessonContentForm.flashcards
       });
       setLessonContentForm({ ...blankLessonContent, lessonresourceid: selectedLessonResourceId, sequence: String((lessonContents.length || 0) + 2) });
@@ -548,6 +644,8 @@ export default function NepLmsAdminResourceAssignmentPage() {
       filelink: row.filelink || "",
       videolink: row.videolink || "",
       quizid: row.quizid || "",
+      mindmapid: row.mindmapid || "",
+      mindmaptitle: row.mindmaptitle || "",
       flashcards: row.flashcards?.length ? row.flashcards : [{ question: "", questionimage: "", answer: "" }]
     });
   };
@@ -644,6 +742,8 @@ export default function NepLmsAdminResourceAssignmentPage() {
       module: listFromValue(row.module),
       topic: listFromValue(row.topic),
       description: row.description || "",
+      order: row.order || "",
+      employabilityrelated: row.employabilityrelated || "No",
       duedate: row.duedate || "",
       fullmarks: row.fullmarks || "",
       url: row.url || "",
@@ -861,6 +961,30 @@ export default function NepLmsAdminResourceAssignmentPage() {
     }
   };
 
+  const generateAiQuestions = async () => {
+    if (!questionForm.quizid || !questionForm.sectionid) {
+      setError("Select quiz and section before generating questions");
+      return;
+    }
+    try {
+      setGeneratingQuestions(true);
+      setError("");
+      setMessage("");
+      const res = await ep1.post("/api/v2/neplms/quizzes/questions/generate", {
+        colid: global1.colid,
+        quizid: questionForm.quizid,
+        sectionid: questionForm.sectionid,
+        ...aiQuestionForm
+      });
+      setMessage(`${res.data?.generated || 0} AI questions added`);
+      loadQuizzes();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to generate questions");
+    } finally {
+      setGeneratingQuestions(false);
+    }
+  };
+
   const uploadQuizQuestionFile = async (file, kind) => {
     if (!file) return;
     try {
@@ -900,6 +1024,8 @@ export default function NepLmsAdminResourceAssignmentPage() {
       Module: firstSyllabus.module || "",
       Topic: firstSyllabus.syllabus || "",
       Description: "",
+      Order: resourceType === "Course Material" ? 1 : "",
+      "Employability Related Content": resourceType === "Course Material" ? "No" : "",
       "Due Date": resourceType === "Assignment" ? new Date().toISOString().slice(0, 10) : "",
       "Full Marks": resourceType === "Assignment" ? "100" : "",
       "File Link": "",
@@ -960,6 +1086,8 @@ export default function NepLmsAdminResourceAssignmentPage() {
           module: row.module || "",
           topic: row.topic || "",
           description: row.description || "",
+          order: row.order || "",
+          employabilityrelated: resourceType === "Course Material" ? (row.employabilityrelated || "No") : "No",
           duedate: row.duedate || "",
           fullmarks: row.fullmarks || "",
           url: row.url || "",
@@ -995,6 +1123,8 @@ export default function NepLmsAdminResourceAssignmentPage() {
     { field: "module", headerName: "Module", width: 160 },
     { field: "topic", headerName: "Topic", width: 240 },
     { field: "description", headerName: "Description", width: 260 },
+    { field: "order", headerName: "Order", width: 100 },
+    { field: "employabilityrelated", headerName: "Employability", width: 140 },
     { field: "duedate", headerName: "Due Date", width: 130 },
     { field: "fullmarks", headerName: "Full Marks", width: 120 },
     {
@@ -1052,6 +1182,26 @@ export default function NepLmsAdminResourceAssignmentPage() {
     { field: "questionscount", headerName: "Questions", width: 120, valueGetter: (params) => (params.row.sections || []).reduce((sum, section) => sum + (section.questions?.length || 0), 0) }
   ];
 
+  const quizAttemptColumns = [
+    { field: "student", headerName: "Student", width: 180 },
+    { field: "regno", headerName: "Reg No", width: 130 },
+    { field: "email", headerName: "Email", width: 220 },
+    { field: "quiztitle", headerName: "Quiz", width: 220 },
+    { field: "obtainedmarks", headerName: "Marks", width: 110 },
+    { field: "totalmarks", headerName: "Total", width: 110 },
+    { field: "submitteddate", headerName: "Submitted Date", width: 190, valueGetter: (params) => params.row.submitteddate ? new Date(params.row.submitteddate).toLocaleString() : "" },
+    { field: "status", headerName: "Status", width: 130 }
+  ];
+
+  const quizAttemptDetailColumns = [
+    { field: "section", headerName: "Section", width: 180 },
+    { field: "question", headerName: "Question", flex: 1, minWidth: 320 },
+    { field: "selected", headerName: "Selected Answer", width: 260 },
+    { field: "correct", headerName: "Correct Answer", width: 260 },
+    { field: "score", headerName: "Marks", width: 100 },
+    { field: "maxscore", headerName: "Max", width: 100 }
+  ];
+
   const attachmentColumns = [
     { field: "title", headerName: "Title", width: 240 },
     { field: "resourcetype", headerName: "Type", width: 150 },
@@ -1081,6 +1231,7 @@ export default function NepLmsAdminResourceAssignmentPage() {
     { field: "topics", headerName: "Topics", width: 220 },
     { field: "description", headerName: "Description", width: 260 },
     { field: "quiztitle", headerName: "Quiz", width: 180 },
+    { field: "mindmaptitle", headerName: "Mindmap", width: 180 },
     {
       field: "filelink",
       headerName: "File",
@@ -1224,6 +1375,25 @@ export default function NepLmsAdminResourceAssignmentPage() {
               </FormControl>
             </Grid>
             <Grid item xs={12} md={4}><TextField fullWidth label="Description" value={form.description} onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))} /></Grid>
+            {resourceType === "Course Material" && (
+              <>
+                <Grid item xs={12} md={2}>
+                  <TextField fullWidth type="number" label="Order" value={form.order} onChange={(event) => setForm((prev) => ({ ...prev, order: event.target.value }))} />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <FormControlLabel
+                    sx={{ height: 56, alignItems: "center", ml: 0 }}
+                    control={
+                      <Switch
+                        checked={form.employabilityrelated === "Yes"}
+                        onChange={(event) => setForm((prev) => ({ ...prev, employabilityrelated: event.target.checked ? "Yes" : "No" }))}
+                      />
+                    }
+                    label="Employability related content"
+                  />
+                </Grid>
+              </>
+            )}
             {resourceType === "Assignment" && (
               <>
                 <Grid item xs={12} md={2}>
@@ -1392,7 +1562,7 @@ export default function NepLmsAdminResourceAssignmentPage() {
             <Button variant="contained" startIcon={<Add />} onClick={uploadBulk} disabled={loading || !bulkRows.length}>Upload Rows</Button>
           </Stack>
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-            Excel columns: Title, Module, Topic, Description, File Link, Filename, Original Name, Status.
+            Excel columns: Title, Module, Topic, Description, Order, Employability Related Content, File Link, Filename, Original Name, Status.
           </Typography>
         </Paper>
 
@@ -1550,7 +1720,12 @@ export default function NepLmsAdminResourceAssignmentPage() {
                 <Grid item xs={12} md={5}>
                   <FormControl fullWidth>
                     <InputLabel>Quiz</InputLabel>
-                    <Select label="Quiz" value={sectionForm.quizid} onChange={(event) => setSectionForm((prev) => ({ ...prev, quizid: event.target.value }))}>
+                    <Select label="Quiz" value={sectionForm.quizid} onChange={(event) => {
+                      setSectionForm((prev) => ({ ...prev, quizid: event.target.value }));
+                      setQuestionForm((prev) => ({ ...prev, quizid: event.target.value, sectionid: quizzes.find((item) => item._id === event.target.value)?.sections?.[0]?._id || "" }));
+                      setSelectedQuizAttempt(null);
+                      loadQuizAttempts(event.target.value);
+                    }}>
                       {quizzes.map((quiz) => <MenuItem key={quiz._id} value={quiz._id}>{quiz.title}</MenuItem>)}
                     </Select>
                   </FormControl>
@@ -1571,6 +1746,9 @@ export default function NepLmsAdminResourceAssignmentPage() {
                       onChange={(event) => {
                         const quiz = quizzes.find((item) => item._id === event.target.value);
                         setQuestionForm((prev) => ({ ...prev, quizid: event.target.value, sectionid: quiz?.sections?.[0]?._id || "" }));
+                        setSectionForm((prev) => ({ ...prev, quizid: event.target.value }));
+                        setSelectedQuizAttempt(null);
+                        loadQuizAttempts(event.target.value);
                       }}
                     >
                       {quizzes.map((quiz) => <MenuItem key={quiz._id} value={quiz._id}>{quiz.title}</MenuItem>)}
@@ -1623,6 +1801,104 @@ export default function NepLmsAdminResourceAssignmentPage() {
                 ))}
               </Grid>
             </Paper>
+            <Paper sx={{ p: 2, mb: 2 }}>
+              <Typography variant="h6" fontWeight={800} sx={{ mb: 2 }}>Generate Questions with AI</Typography>
+              <Grid container spacing={2} alignItems="center">
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth>
+                    <InputLabel>Quiz</InputLabel>
+                    <Select
+                      label="Quiz"
+                      value={questionForm.quizid}
+                      onChange={(event) => {
+                        const quiz = quizzes.find((item) => item._id === event.target.value);
+                        setQuestionForm((prev) => ({ ...prev, quizid: event.target.value, sectionid: quiz?.sections?.[0]?._id || "" }));
+                        setSectionForm((prev) => ({ ...prev, quizid: event.target.value }));
+                        setSelectedQuizAttempt(null);
+                        loadQuizAttempts(event.target.value);
+                      }}
+                    >
+                      {quizzes.map((quiz) => <MenuItem key={quiz._id} value={quiz._id}>{quiz.title}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth>
+                    <InputLabel>Section</InputLabel>
+                    <Select label="Section" value={questionForm.sectionid} onChange={(event) => setQuestionForm((prev) => ({ ...prev, sectionid: event.target.value }))}>
+                      {(quizzes.find((quiz) => quiz._id === questionForm.quizid)?.sections || []).map((section) => <MenuItem key={section._id} value={section._id}>{section.title}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={2}>
+                  <FormControl fullWidth>
+                    <InputLabel>AI Provider</InputLabel>
+                    <Select label="AI Provider" value={aiQuestionForm.provider} onChange={(event) => setAiQuestionForm((prev) => ({ ...prev, provider: event.target.value }))}>
+                      {["Gemini", "ChatGPT", "Claude"].map((provider) => <MenuItem key={provider} value={provider}>{provider}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={2}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="No. of Questions"
+                    value={aiQuestionForm.questioncount}
+                    inputProps={{ min: 1, max: 50 }}
+                    onChange={(event) => setAiQuestionForm((prev) => ({ ...prev, questioncount: event.target.value }))}
+                  />
+                </Grid>
+                <Grid item xs={12} md={2}>
+                  <FormControl fullWidth>
+                    <InputLabel>Difficulty</InputLabel>
+                    <Select label="Difficulty" value={aiQuestionForm.difficulty} onChange={(event) => setAiQuestionForm((prev) => ({ ...prev, difficulty: event.target.value }))}>
+                      {difficultyLevels.map((level) => <MenuItem key={level} value={level}>{level}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth>
+                    <InputLabel>Language</InputLabel>
+                    <Select label="Language" value={aiQuestionForm.language} onChange={(event) => setAiQuestionForm((prev) => ({ ...prev, language: event.target.value }))}>
+                      {languages.map((language) => <MenuItem key={language} value={language}>{language}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Course Material (Optional)</InputLabel>
+                    <Select
+                      label="Course Material (Optional)"
+                      value={aiQuestionForm.courseMaterialId}
+                      onChange={(event) => setAiQuestionForm((prev) => ({ ...prev, courseMaterialId: event.target.value }))}
+                    >
+                      <MenuItem value="">Use selected module/topic</MenuItem>
+                      {courseMaterialOptions.map((material) => (
+                        <MenuItem key={material._id} value={material._id}>
+                          {material.title || material.topic || material.originalname || "Course material"}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Button fullWidth variant="contained" disabled={generatingQuestions || !questionForm.quizid || !questionForm.sectionid} sx={{ height: 56 }} onClick={generateAiQuestions}>
+                    {generatingQuestions ? "Generating..." : "Generate"}
+                  </Button>
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    multiline
+                    minRows={3}
+                    label="Additional AI prompt / instructions"
+                    value={aiQuestionForm.additionalprompt}
+                    onChange={(event) => setAiQuestionForm((prev) => ({ ...prev, additionalprompt: event.target.value }))}
+                    placeholder="Add question style, scenario requirements, competency focus, practical cases, exclusions, or marking expectations."
+                  />
+                </Grid>
+              </Grid>
+            </Paper>
             <Paper sx={{ p: 1, mb: 2, overflowX: "auto" }}>
               <DataGrid
                 rows={quizzes.map((row) => ({ ...row, id: row._id }))}
@@ -1633,9 +1909,55 @@ export default function NepLmsAdminResourceAssignmentPage() {
                 slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "admin_quizzes" } } }}
                 pageSizeOptions={[10, 25, 50, 100]}
                 initialState={{ pagination: { paginationModel: { pageSize: 10, page: 0 } } }}
+                onRowClick={(params) => {
+                  setSectionForm((prev) => ({ ...prev, quizid: params.row._id }));
+                  setQuestionForm((prev) => ({ ...prev, quizid: params.row._id, sectionid: params.row.sections?.[0]?._id || "" }));
+                  setSelectedQuizAttempt(null);
+                  loadQuizAttempts(params.row._id);
+                }}
                 sx={{ minWidth: 1500 }}
               />
             </Paper>
+            <Paper sx={{ p: 1, mb: 2, overflowX: "auto" }}>
+              <Typography variant="h6" fontWeight={800} sx={{ p: 1 }}>Quiz Respondents</Typography>
+              <DataGrid
+                rows={quizAttempts.map((row) => ({ ...row, id: row._id }))}
+                columns={quizAttemptColumns}
+                loading={loading}
+                autoHeight
+                slots={{ toolbar: GridToolbar }}
+                slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "admin_quiz_attempts" } } }}
+                pageSizeOptions={[10, 25, 50, 100]}
+                initialState={{ pagination: { paginationModel: { pageSize: 10, page: 0 } } }}
+                onRowClick={(params) => setSelectedQuizAttempt(params.row)}
+                sx={{ minWidth: 1200 }}
+              />
+            </Paper>
+            {selectedQuizAttempt && (
+              <Paper sx={{ p: 2, mb: 2, overflowX: "auto" }}>
+                <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} sx={{ mb: 2 }}>
+                  <Box>
+                    <Typography variant="h6" fontWeight={800}>Question-wise Marks</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {selectedQuizAttempt.student} ({selectedQuizAttempt.regno}) - {selectedQuizAttempt.quiztitle}
+                    </Typography>
+                  </Box>
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    <Chip color="primary" label={`Marks: ${selectedQuizAttempt.obtainedmarks || 0}`} />
+                    <Chip label={`Total: ${selectedQuizAttempt.totalmarks || 0}`} />
+                    <Chip label={`Submitted: ${selectedQuizAttempt.submitteddate ? new Date(selectedQuizAttempt.submitteddate).toLocaleString() : "-"}`} />
+                  </Stack>
+                </Stack>
+                <DataGrid
+                  rows={selectedQuizAttemptRows}
+                  columns={quizAttemptDetailColumns}
+                  autoHeight
+                  hideFooter
+                  disableRowSelectionOnClick
+                  sx={{ minWidth: 1200 }}
+                />
+              </Paper>
+            )}
             <Paper sx={{ p: 2, mb: 2 }}>
               <Typography variant="h6" fontWeight={800} sx={{ mb: 2 }}>Quiz Structure</Typography>
               {quizzes.map((quiz) => (
@@ -1781,6 +2103,21 @@ export default function NepLmsAdminResourceAssignmentPage() {
                 </Grid>
               )}
 
+              {lessonContentForm.contenttype === "Mindmap" && (
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Linked Mindmap</InputLabel>
+                    <Select label="Linked Mindmap" value={String(lessonContentForm.mindmapid || "")} onChange={(event) => {
+                      const mindmap = mindMaps.find((item) => item._id === event.target.value);
+                      setLessonContentForm((prev) => ({ ...prev, mindmapid: event.target.value, mindmaptitle: mindmap?.title || "" }));
+                    }}>
+                      <MenuItem value="">Select mindmap</MenuItem>
+                      {mindMaps.map((mindmap) => <MenuItem key={mindmap._id} value={mindmap._id}>{mindmap.title} | {mindmap.course} ({mindmap.coursecode})</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              )}
+
               {lessonContentForm.contenttype === "Flash Card" && (
                 <Grid item xs={12}>
                   <Stack spacing={2}>
@@ -1861,7 +2198,7 @@ export default function NepLmsAdminResourceAssignmentPage() {
                   <TextField fullWidth type="number" label="No. of cards" value={lessonAiForm.flashcardcount} inputProps={{ min: 1, max: 50 }} onChange={(event) => setLessonAiForm((prev) => ({ ...prev, flashcardcount: event.target.value }))} />
                 </Grid>
               )}
-              {lessonContentForm.contenttype !== "Flash Card" && (
+              {!["Flash Card", "Mindmap"].includes(lessonContentForm.contenttype) && (
                 <Grid item xs={12} md={4}>
                   <Button
                     fullWidth

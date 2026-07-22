@@ -41,12 +41,14 @@ const blankContent = {
   filelink: "",
   videolink: "",
   quizid: "",
+  mindmapid: "",
+  mindmaptitle: "",
   flashcards: [{ question: "", questionimage: "", answer: "" }]
 };
 
 const blankAi = { provider: "Gemini", geminiModel: "gemini-2.5-flash", ollamaConfigId: "", language: "English", flashcardcount: "6" };
 const blankLessonPlan = { title: "", description: "" };
-const contentTypes = ["Text", "File Link", "Infographics", "Video Link", "Quiz", "Flash Card"];
+const contentTypes = ["Text", "File Link", "Infographics", "Video Link", "Quiz", "Mindmap", "Flash Card"];
 const geminiModels = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
 const languages = [
   "English",
@@ -83,6 +85,7 @@ export default function NepLmsMyCourseContentPage() {
   const [resources, setResources] = useState([]);
   const [syllabusRows, setSyllabusRows] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
+  const [mindMaps, setMindMaps] = useState([]);
   const [lessonContents, setLessonContents] = useState([]);
   const [ollamaConfigs, setOllamaConfigs] = useState([]);
   const [selectedModule, setSelectedModule] = useState("");
@@ -207,14 +210,16 @@ export default function NepLmsMyCourseContentPage() {
       setError("");
       setMessage("");
       const payload = coursePayload();
-      const [resourceRes, syllabusRes, quizRes] = await Promise.all([
+      const [resourceRes, syllabusRes, quizRes, mindMapRes] = await Promise.all([
         ep1.get("/api/v2/neplms/resources", { params: { colid: global1.colid, academicyear: payload.academicyear, semester: payload.semester, coursecode: payload.coursecode } }),
         ep1.get("/api/v2/syllabus", { params: payload }),
-        ep1.get("/api/v2/neplms/quizzes", { params: { colid: global1.colid, academicyear: payload.academicyear, semester: payload.semester, coursecode: payload.coursecode, facultyemail: global1.user } })
+        ep1.get("/api/v2/neplms/quizzes", { params: { colid: global1.colid, academicyear: payload.academicyear, semester: payload.semester, coursecode: payload.coursecode, facultyemail: global1.user } }),
+        ep1.get("/api/v2/neplms/mindmaps", { params: { colid: global1.colid, academicyear: payload.academicyear, semester: payload.semester, coursecode: payload.coursecode, published: "Yes" } })
       ]);
       setResources(resourceRes.data?.data || []);
       setSyllabusRows(syllabusRes.data?.data || []);
       setQuizzes(quizRes.data?.data || []);
+      setMindMaps(mindMapRes.data?.data || []);
       setSelectedModule("");
       setSelectedTopic("");
       setSelectedLessonResourceId("");
@@ -351,7 +356,8 @@ export default function NepLmsMyCourseContentPage() {
         lessonresourceid: lesson._id,
         lessonplantitle: lesson.title || "",
         topics: contentForm.topics || selectedTopic,
-        quiztitle: quizzes.find((quiz) => String(quiz._id) === String(contentForm.quizid))?.title || ""
+        quiztitle: quizzes.find((quiz) => String(quiz._id) === String(contentForm.quizid))?.title || "",
+        mindmaptitle: mindMaps.find((mindmap) => String(mindmap._id) === String(contentForm.mindmapid))?.title || ""
       });
       setMessage("Sequential content saved");
       setEditingId("");
@@ -375,6 +381,8 @@ export default function NepLmsMyCourseContentPage() {
       filelink: row.filelink || "",
       videolink: row.videolink || "",
       quizid: row.quizid || "",
+      mindmapid: row.mindmapid || "",
+      mindmaptitle: row.mindmaptitle || "",
       flashcards: row.flashcards?.length ? row.flashcards : [{ question: "", questionimage: "", answer: "" }]
     });
   };
@@ -412,6 +420,7 @@ export default function NepLmsMyCourseContentPage() {
       setGenerating(true);
       setError("");
       setMessage("");
+      if (contentForm.contenttype === "Mindmap") throw new Error("Select an existing mindmap instead of generating a file");
       const lesson = await ensureLessonResource();
       if (!contentForm.title) throw new Error("Enter a title before AI generation");
       const endpoint = contentForm.contenttype === "Flash Card"
@@ -459,6 +468,7 @@ export default function NepLmsMyCourseContentPage() {
     { field: "topics", headerName: "Topic", width: 220 },
     { field: "description", headerName: "Description", width: 260 },
     { field: "quiztitle", headerName: "Quiz", width: 180 },
+    { field: "mindmaptitle", headerName: "Mindmap", width: 180 },
     {
       field: "filelink",
       headerName: "File",
@@ -738,6 +748,20 @@ export default function NepLmsMyCourseContentPage() {
                 </FormControl>
               </Grid>
             )}
+            {contentForm.contenttype === "Mindmap" && (
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Linked Mindmap</InputLabel>
+                  <Select label="Linked Mindmap" value={String(contentForm.mindmapid || "")} onChange={(e) => {
+                    const mindmap = mindMaps.find((item) => item._id === e.target.value);
+                    setContentForm((prev) => ({ ...prev, mindmapid: e.target.value, mindmaptitle: mindmap?.title || "" }));
+                  }}>
+                    <MenuItem value="">None</MenuItem>
+                    {mindMaps.map((mindmap) => <MenuItem key={mindmap._id} value={mindmap._id}>{mindmap.title} | {mindmap.course} ({mindmap.coursecode})</MenuItem>)}
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
             {contentForm.contenttype === "Flash Card" && (
               <Grid item xs={12}>
                 <Stack spacing={2}>
@@ -765,6 +789,8 @@ export default function NepLmsMyCourseContentPage() {
             )}
           </Grid>
 
+          {contentForm.contenttype !== "Mindmap" && (
+          <>
           <Divider sx={{ my: 3 }} />
           <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 2 }}>AI generation</Typography>
           <Grid container spacing={2}>
@@ -813,6 +839,8 @@ export default function NepLmsMyCourseContentPage() {
               </Button>
             </Grid>
           </Grid>
+          </>
+          )}
 
           <Stack direction="row" spacing={1.5} sx={{ mt: 3 }}>
             <Button variant="contained" startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <Save />} disabled={saving || !selectedLessonResourceId} onClick={saveContent}>

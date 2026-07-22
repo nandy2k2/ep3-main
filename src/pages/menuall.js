@@ -1485,6 +1485,20 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Faculty logbook" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/neplmsmindmaps">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Mind maps" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/neplmsmindmapsadmin">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Admin mind maps" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/neplmsadminresources">
             <ListItemIcon>
               <PersonIcon />
@@ -1511,6 +1525,20 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Live quiz" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/neplmsprereading">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Pre reading material" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/neplmsprereadingadmin">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Admin pre reading" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/neplmsclassgroups">
@@ -1693,6 +1721,13 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Attendance review" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/neplmsloginbasedattendance">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Login based attendance" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/neplmsconsecutiveabsence">
@@ -2265,6 +2300,13 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Student ledger CRUD" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/studentledgermaster">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Student ledger master" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/feesmodelreport">
             <ListItemIcon>
               <PersonIcon />
@@ -2396,6 +2438,13 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Counter Fee 4" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/counterfee5">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Counter Fee 5" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/chequepaymentdetails">
@@ -2622,6 +2671,9 @@ export function menuitemsall() {
             ["/library-user-access", "Library user access"],
             ["/library-books", "Book master"],
             ["/library-fines", "Fine details"],
+            ["/library-role-max-books", "Rolewise max books"],
+            ["/library-role-max-days", "Rolewise max days"],
+            ["/library-counter", "Library circulation"],
             ["/library-issue", "Issue book"],
             ["/library-return", "Return book"],
             ["/library-requests", "Book requests"],
@@ -4360,6 +4412,20 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Account group" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/finance-account-groups">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Account group new" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/finance-accounts">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Account master new" />}
+          </ListItem>
+
           {/* <ListItem button component={RouterLink} to="/accountds">
 <ListItemIcon>
 <PersonIcon />
@@ -4373,6 +4439,27 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Journal entry" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/finance-journal-new">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Journal entry new" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/fees-cheque-reconciliation">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Fees cheque reconcilliation" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/payment-voucher-new">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Payment voucher" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/dashmmjournal2">

@@ -16,6 +16,7 @@ import {
   TableBody,
   Alert,
   IconButton,
+  MenuItem,
   Stack,
   Box,
 } from "@mui/material";
@@ -34,6 +35,8 @@ const CreateScholarshipDS = () => {
     category: "",
     program: "",
     programcode: "",
+    applicationtype: "Internal",
+    applicationwebsite: "",
     startdate: "",
     enddate: "",
   });
@@ -68,6 +71,8 @@ const CreateScholarshipDS = () => {
       category: "",
       program: "",
       programcode: "",
+      applicationtype: "Internal",
+      applicationwebsite: "",
       startdate: "",
       enddate: "",
     });
@@ -105,6 +110,8 @@ const CreateScholarshipDS = () => {
       category: scholarship.category || "",
       program: scholarship.program || "",
       programcode: scholarship.programcode || "",
+      applicationtype: scholarship.applicationtype || "Internal",
+      applicationwebsite: scholarship.applicationwebsite || "",
       startdate: scholarship.startdate || "",
       enddate: scholarship.enddate || "",
     });
@@ -150,6 +157,7 @@ const CreateScholarshipDS = () => {
               <TableCell>Category</TableCell>
               <TableCell>Program</TableCell>
               <TableCell>Program Code</TableCell>
+              <TableCell>Application</TableCell>
               <TableCell>Start</TableCell>
               <TableCell>End</TableCell>
               <TableCell>Action</TableCell>
@@ -163,6 +171,7 @@ const CreateScholarshipDS = () => {
                 <TableCell>{s.category}</TableCell>
                 <TableCell>{s.program}</TableCell>
                 <TableCell>{s.programcode}</TableCell>
+                <TableCell>{s.applicationtype === "External" && s.applicationwebsite ? s.applicationwebsite : "Internal"}</TableCell>
                 <TableCell>{s.startdate}</TableCell>
                 <TableCell>{s.enddate}</TableCell>
                 <TableCell>
@@ -183,6 +192,13 @@ const CreateScholarshipDS = () => {
             <TextField label="Category" name="category" value={form.category} onChange={handleChange} fullWidth />
             <TextField label="Program" name="program" value={form.program} onChange={handleChange} fullWidth />
             <TextField label="Program Code" name="programcode" value={form.programcode} onChange={handleChange} fullWidth />
+            <TextField select label="Application Type" name="applicationtype" value={form.applicationtype} onChange={handleChange} fullWidth>
+              <MenuItem value="Internal">Internal</MenuItem>
+              <MenuItem value="External">External</MenuItem>
+            </TextField>
+            {form.applicationtype === "External" && (
+              <TextField label="Application Website" name="applicationwebsite" value={form.applicationwebsite} onChange={handleChange} fullWidth />
+            )}
             <TextField label="Start Date" name="startdate" type="date" value={form.startdate} onChange={handleChange} fullWidth InputLabelProps={{ shrink: true }} />
             <TextField label="End Date" name="enddate" type="date" value={form.enddate} onChange={handleChange} fullWidth InputLabelProps={{ shrink: true }} />
           </Stack>

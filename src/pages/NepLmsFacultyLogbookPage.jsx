@@ -59,9 +59,9 @@ const headerMap = {
 };
 
 const userMatches = (row) => {
-  const currentUser = String(global1.user || "").trim().toLowerCase();
+  const currentUser = String(global1.user || global1.email || "").trim().toLowerCase();
   if (!currentUser) return false;
-  return String(row.facultyemail || "").trim().toLowerCase() === currentUser;
+  return String(row.facultyemail || row.email || "").trim().toLowerCase() === currentUser;
 };
 
 const formatDate = (value) => {
@@ -92,9 +92,11 @@ export default function NepLmsFacultyLogbookPage() {
     try {
       setError("");
       const res = await ep1.get("/api/v2/workloadassignment", {
-        params: { colid: global1.colid, status: "Active", facultyemail: global1.user }
+        params: { colid: global1.colid }
       });
-      const assigned = (res.data?.data || []).filter(userMatches);
+      const assigned = (res.data?.data || [])
+        .filter(userMatches)
+        .filter((row) => !row.status || String(row.status).toLowerCase() === "active");
       setAssignments(assigned);
       if (assigned.length) {
         const first = assigned[0];
@@ -186,7 +188,7 @@ export default function NepLmsFacultyLogbookPage() {
     regulation: selectedCourse?.regulation || form.regulation,
     program: selectedCourse?.program || "",
     programcode: selectedCourse?.programcode || form.programcode,
-    faculty: selectedCourse?.facultyname || global1.name || global1.user,
+    faculty: selectedCourse?.facultyname || selectedCourse?.faculty || global1.name || global1.user,
     facultyemail: selectedCourse?.facultyemail || global1.user,
     course: selectedCourse?.course || "",
     coursecode: selectedCourse?.coursecode || form.coursecode,

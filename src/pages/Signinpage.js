@@ -20,6 +20,10 @@ const Signup = () => {
     const [showPassword, setShowPassword] = useState(false);
     const isOrthintelDomain = typeof window !== "undefined" && window.location.hostname.toLowerCase().includes("orthintel");
 
+    useEffect(() => {
+        if (isOrthintelDomain) configureCountryTerminology("USA");
+    }, [isOrthintelDomain]);
+
     const searchapi = async () => {
         //alert('checking ' + email + ' ' + password);
 
@@ -158,7 +162,7 @@ const Signup = () => {
             } catch(err) {
     
             }
-            configureCountryTerminology("");
+            configureCountryTerminology(isOrthintelDomain ? "USA" : "");
             try {
                 const countryRes = await ep1.get('/api/v2/country-configuration-default', {
                     params: { colid }

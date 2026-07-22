@@ -15,7 +15,11 @@ export const displayText = (value) => {
     .replace(/\bStudents\b/g, "Residents")
     .replace(/\bStudent\b/g, "Resident")
     .replace(/\bstudents\b/g, "residents")
-    .replace(/\bstudent\b/g, "resident");
+    .replace(/\bstudent\b/g, "resident")
+    .replace(/\bNEP\s+/g, "")
+    .replace(/\bNEP\b/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 };
 
 const SKIP_TAGS = new Set(["SCRIPT", "STYLE", "TEXTAREA", "INPUT", "SELECT", "OPTION"]);

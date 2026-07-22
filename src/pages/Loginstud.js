@@ -17,6 +17,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import Link from '@mui/material/Link';
 import ep1 from '../api/ep1';
 import global1 from './global1';
+import { configureCountryTerminology, displayText } from '../utils/countryTerminology';
 
 const theme = createTheme();
 
@@ -27,9 +28,30 @@ function Login() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [studentLoginLabel, setStudentLoginLabel] = useState(displayText('Student Login'));
+  const isOrthintelDomain = typeof window !== 'undefined' && window.location.hostname.toLowerCase().includes('orthintel');
 
   const usernameref=useRef();
   const passwordref=useRef();
+
+  useEffect(() => {
+    const applyLabel = async () => {
+      if (isOrthintelDomain) {
+        configureCountryTerminology('USA');
+        setStudentLoginLabel(displayText('Student Login'));
+        return;
+      }
+      if (global1.defaultCountry) {
+        configureCountryTerminology(global1.defaultCountry);
+        setStudentLoginLabel(displayText('Student Login'));
+        return;
+      }
+      if (global1.studentLabel) {
+        setStudentLoginLabel(displayText('Student Login'));
+      }
+    };
+    applyLabel();
+  }, [isOrthintelDomain]);
 
   //const history=useHistory();
 
@@ -269,7 +291,7 @@ const username=email;
         <Paper elevation={3} sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh', padding: 3, flexDirection: 'column', width: '100%', maxWidth: '400px', bgcolor: 'white' }}>
         {/* <Avatar sx={{ m: 1, bgcolor: 'secondary',borderRadius:'0', width: 200, height: 40 }} src="/images/LogoLogin.png" alt="Logo" />  */}
           <Typography component="h1" variant="h5">
-            Student Login
+            {studentLoginLabel}
           </Typography>
           <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1, width: '100%' }}>
             <TextField
