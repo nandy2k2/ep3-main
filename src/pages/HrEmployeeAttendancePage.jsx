@@ -23,7 +23,7 @@ import MenuPageShell from "./MenuPageShell";
 const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const years = ["2023-24", "2024-25", "2025-26", "2026-27", "2027-28", "2028-29"];
 const statusFromAttendance = (value) => (Number(value) === 1 ? "Present" : "Absent");
-const blank = { academicyear: "2026-27", month: months[new Date().getMonth()], date: new Date().toISOString().slice(0, 10), employeename: "", employeeemail: "", attendance: 1, status: "Present" };
+const blank = { academicyear: "2026-27", month: months[new Date().getMonth()], date: new Date().toISOString().slice(0, 10), employeename: "", employeeemail: "", role: "", attendance: 1, status: "Present", intime: "", outtime: "", islate: "No", isearly: "No", isovertime: "No", overtimerate: 0, latesalarydeduction: 0, netsalary: 0 };
 
 export default function HrEmployeeAttendancePage() {
   const [options, setOptions] = useState({ users: [] });
@@ -95,7 +95,10 @@ export default function HrEmployeeAttendancePage() {
       date: "2026-01-01",
       employeename: "Employee Name",
       employeeemail: "employee@example.com",
+      role: "Faculty",
       attendance: 1,
+      intime: "09:05",
+      outtime: "17:00",
       status: "Auto populated"
     }];
     const workbook = XLSX.utils.book_new();
@@ -127,8 +130,17 @@ export default function HrEmployeeAttendancePage() {
     { field: "date", headerName: "Date", minWidth: 120 },
     { field: "employeename", headerName: "Employee Name", minWidth: 190, flex: 1 },
     { field: "employeeemail", headerName: "Employee Email", minWidth: 210, flex: 1 },
+    { field: "role", headerName: "Role", minWidth: 130 },
     { field: "attendance", headerName: "Attendance", minWidth: 110, type: "number" },
     { field: "status", headerName: "Status", minWidth: 120 },
+    { field: "intime", headerName: "In Time", minWidth: 110 },
+    { field: "outtime", headerName: "Out Time", minWidth: 110 },
+    { field: "islate", headerName: "Late", minWidth: 100 },
+    { field: "isearly", headerName: "Early Exit", minWidth: 110 },
+    { field: "isovertime", headerName: "Overtime", minWidth: 110 },
+    { field: "overtimerate", headerName: "Overtime Rate", minWidth: 140, type: "number" },
+    { field: "latesalarydeduction", headerName: "Late Deduction", minWidth: 150, type: "number" },
+    { field: "netsalary", headerName: "Net Salary Adj.", minWidth: 150, type: "number" },
     { field: "approvalstatus", headerName: "Approval", minWidth: 140 },
     { field: "actiontype", headerName: "Action", minWidth: 110 },
     {
@@ -165,13 +177,18 @@ export default function HrEmployeeAttendancePage() {
             <Autocomplete
               options={employeeOptions}
               value={selectedEmployee}
-              onChange={(event, value) => setForm((p) => ({ ...p, employeename: value?.name || "", employeeemail: value?.email || value?.user || "" }))}
+              onChange={(event, value) => setForm((p) => ({ ...p, employeename: value?.name || "", employeeemail: value?.email || value?.user || "", role: value?.role || "" }))}
               getOptionLabel={(option) => `${option.name || "Unnamed"} - ${option.email || option.user || ""}`}
               renderInput={(params) => <TextField {...params} label="Employee" />}
             />
           </Grid>
+          <Grid item xs={12} md={2}><TextField fullWidth label="Role" value={form.role || ""} InputProps={{ readOnly: true }} helperText="Auto" /></Grid>
           <Grid item xs={12} md={1}><TextField select fullWidth label="Attendance" value={form.attendance} onChange={(e) => setForm((p) => ({ ...p, attendance: Number(e.target.value), status: statusFromAttendance(e.target.value) }))}><MenuItem value={1}>1</MenuItem><MenuItem value={0}>0</MenuItem></TextField></Grid>
           <Grid item xs={12} md={1}><TextField fullWidth label="Status" value={form.status} InputProps={{ readOnly: true }} helperText="Auto" /></Grid>
+          <Grid item xs={12} md={2}><TextField fullWidth type="time" label="In Time" InputLabelProps={{ shrink: true }} value={form.intime || ""} onChange={(e) => setForm((p) => ({ ...p, intime: e.target.value }))} /></Grid>
+          <Grid item xs={12} md={2}><TextField fullWidth type="time" label="Out Time" InputLabelProps={{ shrink: true }} value={form.outtime || ""} onChange={(e) => setForm((p) => ({ ...p, outtime: e.target.value }))} /></Grid>
+          <Grid item xs={12} md={1}><TextField fullWidth label="Late" value={form.islate || "No"} InputProps={{ readOnly: true }} helperText="Auto" /></Grid>
+          <Grid item xs={12} md={1}><TextField fullWidth label="Early" value={form.isearly || "No"} InputProps={{ readOnly: true }} helperText="Auto" /></Grid>
           <Grid item xs={12}><Button startIcon={<Save />} variant="contained" onClick={save}>{editingId ? "Update" : "Save"}</Button></Grid>
         </Grid>
       </Paper>

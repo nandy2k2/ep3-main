@@ -53,6 +53,7 @@ const feeFieldConfig = [
   { field: "feeeitem", label: "Fee Item", optionKey: "feeeitem" },
   { field: "feecategory", label: "Fee Category", optionKey: "feecategory" },
   { field: "feetype", label: "Fee Type", optionKey: "feetype" },
+  { field: "refundable", label: "Refundable", optionKey: "refundable" },
   { field: "status", label: "Status", optionKey: "status" }
 ];
 
@@ -159,7 +160,9 @@ export default function FeeApplicationPage() {
         id: fee._id,
         feeitem: fee.feeeitem || fee.feeitem || "",
         concession: 0,
-        balance: toNumber(fee.amount)
+        balance: toNumber(fee.amount),
+        refundable: fee.refundable || "No",
+        refundamount: fee.refundamount || 0
       })));
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load fee items");
@@ -305,6 +308,8 @@ export default function FeeApplicationPage() {
     { field: "feebook", headerName: "Fee Book", width: 150 },
     { field: "cashbook", headerName: "Cash Book", width: 150 },
     { field: "amount", headerName: "Amount", width: 120, type: "number" },
+    { field: "refundable", headerName: "Refundable", width: 120 },
+    { field: "refundamount", headerName: "Refund Amount", width: 140, type: "number" },
     {
       field: "concession",
       headerName: "Concession",

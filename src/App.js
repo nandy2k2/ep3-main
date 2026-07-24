@@ -1,5 +1,17 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import {
+  EventNewAllocationPage,
+  EventNewCrudPage,
+  EventNewPublicCertificatePage,
+  EventNewPublicFeedbackPage,
+  EventNewPublicRegisterPage,
+  EventNewReportsPage,
+  EventNewTransportReportsPage,
+  GuestHouseAllocationPage,
+  GuestHouseAvailabilityPage,
+  GuestHouseReportsPage
+} from './pages/EventManagementNewPage';
 import Dashboard from './Dashboard';
 import Profile from './Profile';
 import LearningManagementSystem from './LearningManagementSystem';
@@ -253,6 +265,7 @@ import Dashawsconfig from './pages/Dashawsconfig';
 import AwsConfigCrudPage from './pages/AwsConfigCrudPage';
 import AwsFileLibraryPage from './pages/AwsFileLibraryPage';
 import AwsDocumentsPage from './pages/AwsDocumentsPage';
+import InstitutionPolicyPage from './pages/InstitutionPolicyPage';
 
 import Dashmtestscoreall from './pages/Dashmtestscoreall';
 import StefansLaw from './pages/StefansLaw';
@@ -955,6 +968,12 @@ import NepLmsAdminResourceAssignmentPage from "./pages/NepLmsAdminResourceAssign
 import { NepLmsAdminMindMapPage, NepLmsFacultyMindMapPage, NepLmsStudentMindMapPage } from "./pages/NepLmsMindMapPages";
 import NepLmsMyCourseContentPage from "./pages/NepLmsMyCourseContentPage";
 import NepLmsQuizAnalyticsPage from "./pages/NepLmsQuizAnalyticsPage";
+import {
+  SupplementaryAttendanceApprovalPage,
+  SupplementaryAttendanceReportPage,
+  SupplementaryAttendanceRequestPage,
+  SupplementaryAttendanceWorkflowPage
+} from "./pages/NepLmsSupplementaryAttendancePages";
 import NepLmsLiveQuizPage from "./pages/NepLmsLiveQuizPage";
 import NepLmsPreReadingPage, { NepLmsPreReadingAdminPage, StudentPreReadingPage } from "./pages/NepLmsPreReadingPage";
 import NepLmsClassGroupsPage from "./pages/NepLmsClassGroupsPage";
@@ -1049,6 +1068,8 @@ import HrLeaveHrDashboardPage from "./pages/HrLeaveHrDashboardPage";
 import HrEmployeeAttendancePage from "./pages/HrEmployeeAttendancePage";
 import HrEmployeeAttendanceMatrixPage from "./pages/HrEmployeeAttendanceMatrixPage";
 import HrEmployeeAttendanceApprovalPage from "./pages/HrEmployeeAttendanceApprovalPage";
+import { HrShiftTimingPage, HrShiftAllocationPage } from "./pages/HrShiftPages";
+import { HrLatePolicyPage, HrOvertimePolicyPage } from "./pages/HrAttendancePolicyPages";
 import { HrLeaveCompensatoryBalancePage, HrLeaveCompensatoryRulePage, HrLeaveWeeklyOffPage } from "./pages/HrLeaveCompensatoryPages";
 import HostelBuildingRoomPage from "./pages/HostelBuildingRoomPage";
 import HostelAssignmentPage from "./pages/HostelAssignmentPage";
@@ -1138,11 +1159,13 @@ import ConfigurationSetupPage from "./pages/ConfigurationSetupPage";
 import AiConfigurationPage from "./pages/AiConfigurationPage";
 import OllamaConfigurationPage from "./pages/OllamaConfigurationPage";
 import CountryConfigurationPage from "./pages/CountryConfigurationPage";
+import DummyDataGeneratorPage from "./pages/DummyDataGeneratorPage";
 import { observeStudentLabelChanges } from "./utils/countryTerminology";
 import UserCustomFieldsPage from "./pages/UserCustomFieldsPage";
 import UserDataUploadPage from "./pages/UserDataUploadPage";
 import UserDocumentRequirementPage from "./pages/UserDocumentRequirementPage";
 import UserDocumentUploadPage from "./pages/UserDocumentUploadPage";
+import UserBankAccountPage from "./pages/UserBankAccountPage";
 import {
   UserAcademicDetailsPage,
   UserEmploymentDetailsPage,
@@ -1898,6 +1921,9 @@ import FeeApplicationPage from './pages/FeeApplicationPage';
 import FeesApplicationAutoPage from './pages/FeesApplicationAutoPage';
 import StudentLedgerCrudPage from './pages/StudentLedgerCrudPage';
 import StudentLedgerMasterPage from './pages/StudentLedgerMasterPage';
+import FeeRefundManagementPage from './pages/FeeRefundManagementPage';
+import FeeRefundSummaryPage from './pages/FeeRefundSummaryPage';
+import UpdateFeeRefundPage from './pages/UpdateFeeRefundPage';
 import FeesModelReportPage from './pages/FeesModelReportPage';
 import StudentFeeApplyPage from './pages/StudentFeeApplyPage';
 import StudentLedgerApprovalPage from './pages/StudentLedgerApprovalPage';
@@ -2240,6 +2266,24 @@ function App() {
       <Routes>
         {/* <Route path="/" element={<Login />} /> */}
         <Route path="/" element={<HomePage />} />
+        <Route path="/event-new-public-register" element={<EventNewPublicRegisterPage />} />
+        <Route path="/event-new-public-feedback" element={<EventNewPublicFeedbackPage />} />
+        <Route path="/event-new-certificate" element={<EventNewPublicCertificatePage />} />
+        <Route path="/event-new-events" element={<EventNewCrudPage mode="events" />} />
+        <Route path="/event-new-attendees" element={<EventNewCrudPage mode="attendees" />} />
+        <Route path="/event-new-distinguished-attendees" element={<EventNewCrudPage mode="distinguished" />} />
+        <Route path="/event-new-vehicles" element={<EventNewCrudPage mode="vehicles" />} />
+        <Route path="/event-new-transport-requirements" element={<EventNewCrudPage mode="transportrequirements" />} />
+        <Route path="/event-new-vehicle-allocations" element={<EventNewCrudPage mode="vehicleallocations" />} />
+        <Route path="/event-new-vehicle-auto-allocation" element={<EventNewAllocationPage />} />
+        <Route path="/event-new-reports" element={<EventNewReportsPage />} />
+        <Route path="/event-new-transport-reports" element={<EventNewTransportReportsPage />} />
+        <Route path="/guest-house-buildings" element={<EventNewCrudPage mode="guestbuildings" />} />
+        <Route path="/guest-house-rooms" element={<EventNewCrudPage mode="guestrooms" />} />
+        <Route path="/guest-house-reservations" element={<EventNewCrudPage mode="guestreservations" />} />
+        <Route path="/guest-house-availability" element={<GuestHouseAvailabilityPage />} />
+        <Route path="/guest-house-allocation" element={<GuestHouseAllocationPage />} />
+        <Route path="/guest-house-reports" element={<GuestHouseReportsPage />} />
         <Route path="/orthintel-home" element={<OrthintelHomepage />} />
         <Route path="/viewcourse1" element={<Viewcourse1 />} />
         <Route path="/profile" element={<Profile />} />
@@ -2447,6 +2491,8 @@ function App() {
         <Route path="/userdataupload" element={<UserDataUploadPage />} />
         <Route path="/userdocumentrequirements" element={<UserDocumentRequirementPage />} />
         <Route path="/userdocumentupload" element={<UserDocumentUploadPage />} />
+        <Route path="/userbankaccounts" element={<UserBankAccountPage />} />
+        <Route path="/studentbankaccounts" element={<UserBankAccountPage student />} />
         <Route path="/useracademicdetails" element={<UserAcademicDetailsPage />} />
         <Route path="/useremploymentdetails" element={<UserEmploymentDetailsPage />} />
         <Route path="/userprofiledetailrequirements" element={<UserProfileDetailRequirementsPage />} />
@@ -3272,6 +3318,10 @@ function App() {
         <Route path="/neplmsotpattendance" element={<NepLmsOtpAttendancePage />} />
         <Route path="/studentneplmsotpattendance" element={<NepLmsStudentOtpAttendancePage />} />
         <Route path="/neplmsattendancereview" element={<NepLmsAttendanceReviewPage />} />
+        <Route path="/neplmssupplementaryattendanceworkflow" element={<SupplementaryAttendanceWorkflowPage />} />
+        <Route path="/neplmssupplementaryattendance" element={<SupplementaryAttendanceRequestPage />} />
+        <Route path="/neplmssupplementaryattendanceapproval" element={<SupplementaryAttendanceApprovalPage />} />
+        <Route path="/neplmssupplementaryattendancereport" element={<SupplementaryAttendanceReportPage />} />
         <Route path="/neplmsassessmentmarks" element={<NepLmsAssessmentMarksPage />} />
         <Route path="/neplmsassessmentmarksview" element={<NepLmsAssessmentMarksViewPage />} />
         <Route path="/neplmscomponentmarks" element={<NepLmsComponentMarksViewPage />} />
@@ -3338,6 +3388,10 @@ function App() {
         <Route path="/hrleaveweeklyoff" element={<HrLeaveWeeklyOffPage />} />
         <Route path="/hrleavecompbalance" element={<HrLeaveCompensatoryBalancePage />} />
         <Route path="/hremployeeattendance" element={<HrEmployeeAttendancePage />} />
+        <Route path="/hrshifttiming" element={<HrShiftTimingPage />} />
+        <Route path="/hrshiftallocation" element={<HrShiftAllocationPage />} />
+        <Route path="/hrlatepolicy" element={<HrLatePolicyPage />} />
+        <Route path="/hrovertimepolicy" element={<HrOvertimePolicyPage />} />
         <Route path="/hremployeeattendancematrix" element={<HrEmployeeAttendanceMatrixPage />} />
         <Route path="/hremployeeattendanceapproval" element={<HrEmployeeAttendanceApprovalPage />} />
         <Route path="/organizationhierarchy" element={<OrganizationHierarchyPage />} />
@@ -3390,9 +3444,12 @@ function App() {
         <Route path="/feeapprovalroles" element={withMenu("Fee Approval Roles", <FeeApprovalRolesPage />)} />
         <Route path="/feeapplication" element={<FeeApplicationPage />} />
         <Route path="/feesapplicationauto" element={<FeesApplicationAutoPage />} />
-        <Route path="/feetransferlog" element={withMenu("Fee transfer log", <FeeTransferLogPage />)} />
+        <Route path="/feetransferlog" element={<FeeTransferLogPage />} />
         <Route path="/studentledgercrud" element={<StudentLedgerCrudPage />} />
         <Route path="/studentledgermaster" element={<StudentLedgerMasterPage />} />
+        <Route path="/feerefundmanagement" element={<FeeRefundManagementPage />} />
+        <Route path="/feerefundsummary" element={<FeeRefundSummaryPage />} />
+        <Route path="/updatefeerefund" element={<UpdateFeeRefundPage />} />
         <Route path="/feesmodelreport" element={withMenu("Fees Model Report", <FeesModelReportPage />)} />
         <Route path="/feeitemreport" element={withMenu("Fees Item report", <FeeItemReportPage />)} />
         <Route path="/studentfeeapply" element={withMenu("Apply Fee to Student", <StudentFeeApplyPage />)} />
@@ -3485,6 +3542,7 @@ function App() {
         <Route path="/aiconfiguration" element={<AiConfigurationPage />} />
         <Route path="/ollamaconfiguration" element={<OllamaConfigurationPage />} />
         <Route path="/countryconfiguration" element={<CountryConfigurationPage />} />
+        <Route path="/dummy-data-generator" element={<DummyDataGeneratorPage />} />
         <Route path="/emailconfiguration" element={<EmailConfigurationPage />} />
         <Route path="/transcript-recorder" element={<TranscriptRecorderPage />} />
         <Route path="/transcript-meetings" element={<TranscriptMeetingsCalendarPage />} />
@@ -4202,6 +4260,8 @@ function App() {
         <Route path="/awsconfigcrudpage" element={<AwsConfigCrudPage />} />
         <Route path="/awsfilelibrary" element={<AwsFileLibraryPage />} />
         <Route path="/awsdocuments" element={<AwsDocumentsPage />} />
+        <Route path="/institutionpolicies" element={<InstitutionPolicyPage />} />
+        <Route path="/studentpolicies" element={<InstitutionPolicyPage studentView />} />
 
         <Route path="/dashmmvac" element={<Dashmmvac />} />
         <Route path="/dashmmvacadmin" element={<Dashmmvacadmin />} />

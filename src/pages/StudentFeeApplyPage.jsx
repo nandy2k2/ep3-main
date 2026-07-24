@@ -271,6 +271,8 @@ export default function StudentFeeApplyPage() {
     { field: "feebook", headerName: "Fee Book", width: 150 },
     { field: "cashbook", headerName: "Cash Book", width: 150 },
     { field: "amount", headerName: "Amount", width: 120, type: "number" },
+    { field: "refundable", headerName: "Refundable", width: 120 },
+    { field: "refundamount", headerName: "Refund Amount", width: 140, type: "number" },
     {
       field: "concession",
       headerName: "Concession",

@@ -52,7 +52,8 @@ const filterFields = [
   { field: "major", label: "Major" },
   { field: "minor", label: "Minor" },
   { field: "semester", label: "Semester" },
-  { field: "feecategory", label: "Fee Category" }
+  { field: "feecategory", label: "Fee Category" },
+  { field: "refundable", label: "Refundable" }
 ];
 
 const emptyFilter = { field: "", value: "" };

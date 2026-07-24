@@ -85,6 +85,23 @@ const blankQuestion = {
 };
 const blankAiQuestionForm = { provider: "Gemini", questioncount: "5", difficulty: "Medium", language: "English", courseMaterialId: "", additionalprompt: "" };
 const blankAiResourceForm = { provider: "Gemini", geminiModel: "gemini-2.5-flash", difficulty: "Medium", language: "English", noofclasses: "4", additionalprompt: "" };
+const quizBulkTemplateHeaders = [
+  "section",
+  "question",
+  "score",
+  "option1",
+  "option2",
+  "option3",
+  "option4",
+  "option5",
+  "option6",
+  "correctoptions",
+  "imagelink",
+  "imagename",
+  "filelink",
+  "filename",
+  "videolink"
+];
 const aiProviders = ["Gemini", "ChatGPT", "Claude"];
 const lessonContentTypes = ["Text", "File Link", "Infographics", "Video Link", "Quiz", "Mindmap", "Flash Card"];
 const geminiModels = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
@@ -250,6 +267,8 @@ export default function NepLmsCourseWorkspacePage() {
   const [aiQuestionForm, setAiQuestionForm] = useState(blankAiQuestionForm);
   const [aiResourceForm, setAiResourceForm] = useState(blankAiResourceForm);
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
+  const [quizBulkRows, setQuizBulkRows] = useState([]);
+  const [uploadingQuizBulk, setUploadingQuizBulk] = useState(false);
   const [generatingResourceType, setGeneratingResourceType] = useState("");
   const [generatingLessonFile, setGeneratingLessonFile] = useState(false);
   const [generatingFlashcards, setGeneratingFlashcards] = useState(false);
@@ -1134,6 +1153,129 @@ export default function NepLmsCourseWorkspacePage() {
       setError(err.response?.data?.message || "Unable to generate questions");
     } finally {
       setGeneratingQuestions(false);
+    }
+  };
+
+  const downloadQuizBulkTemplate = () => {
+    const example = {
+      section: selectedQuiz?.sections?.[0]?.title || "Section A",
+      question: "Sample MCQ question text",
+      score: 1,
+      option1: "First option",
+      option2: "Second option",
+      option3: "Third option",
+      option4: "Fourth option",
+      option5: "",
+      option6: "",
+      correctoptions: "1",
+      imagelink: "",
+      imagename: "",
+      filelink: "",
+      filename: "",
+      videolink: ""
+    };
+    const ws = XLSX.utils.json_to_sheet([example], { header: quizBulkTemplateHeaders });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Quiz Questions");
+    XLSX.writeFile(wb, "NEP_LMS_Quiz_Questions_Template.xlsx");
+  };
+
+  const rowValue = (row, keys) => {
+    const found = keys.find((key) => row[key] !== undefined && row[key] !== null && String(row[key]).trim() !== "");
+    return found ? String(row[found]).trim() : "";
+  };
+
+  const parseCorrectOptionSet = (value) => new Set(String(value || "")
+    .split(/[,;|]/)
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean));
+
+  const normalizeQuizBulkRow = (row, index) => {
+    const options = [1, 2, 3, 4, 5, 6]
+      .map((optionNumber) => rowValue(row, [`option${optionNumber}`, `Option${optionNumber}`, `option ${optionNumber}`, `Option ${optionNumber}`]))
+      .filter(Boolean);
+    const correctSet = parseCorrectOptionSet(rowValue(row, ["correctoptions", "CorrectOptions", "correct options", "Correct Options", "answer", "Answer"]));
+    const normalizedOptions = options.map((optionText, optionIndex) => ({
+      text: optionText,
+      iscorrect: correctSet.has(String(optionIndex + 1)) || correctSet.has(optionText.toLowerCase())
+    }));
+    return {
+      id: index + 1,
+      section: rowValue(row, ["section", "Section"]) || selectedQuiz?.sections?.[0]?.title || "",
+      question: rowValue(row, ["question", "Question"]),
+      score: rowValue(row, ["score", "Score", "marks", "Marks"]) || "1",
+      imageLink: rowValue(row, ["imagelink", "imageLink", "Image Link", "ImageLink"]),
+      imageName: rowValue(row, ["imagename", "imageName", "Image Name", "ImageName"]),
+      fileLink: rowValue(row, ["filelink", "fileLink", "File Link", "FileLink"]),
+      fileName: rowValue(row, ["filename", "fileName", "File Name", "FileName"]),
+      videoLink: rowValue(row, ["videolink", "videoLink", "Video Link", "VideoLink"]),
+      options: normalizedOptions,
+      valid: Boolean(rowValue(row, ["question", "Question"])) && normalizedOptions.length >= 2 && normalizedOptions.some((option) => option.iscorrect)
+    };
+  };
+
+  const readQuizBulkExcel = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      setError("");
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer);
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+      const parsed = rawRows.map(normalizeQuizBulkRow).filter((row) => row.question || row.options.length);
+      setQuizBulkRows(parsed);
+      const invalidCount = parsed.filter((row) => !row.valid).length;
+      setMessage(`${parsed.length} quiz question row${parsed.length === 1 ? "" : "s"} loaded${invalidCount ? `, ${invalidCount} need correction` : ""}.`);
+    } catch (err) {
+      setQuizBulkRows([]);
+      setError(err.message || "Unable to read quiz question Excel file");
+    }
+  };
+
+  const uploadQuizBulkRows = async () => {
+    if (!selectedQuizId) return setError("Select a quiz first");
+    if (!quizBulkRows.length) return setError("Upload an Excel file first");
+    const validRows = quizBulkRows.filter((row) => row.valid);
+    if (!validRows.length) return setError("No valid quiz question rows found");
+    setUploadingQuizBulk(true);
+    setError("");
+    setMessage("");
+    try {
+      let inserted = 0;
+      const sectionMap = new Map((selectedQuiz.sections || []).map((section) => [String(section.title || "").trim().toLowerCase(), section._id]));
+      for (const row of validRows) {
+        let sectionid = sectionMap.get(String(row.section || "").trim().toLowerCase()) || questionForm.sectionid || selectedQuiz.sections?.[0]?._id;
+        if (!sectionid && row.section) {
+          const sectionRes = await ep1.post("/api/v2/neplms/quizzes/sections", { colid: global1.colid, quizid: selectedQuizId, title: row.section });
+          const created = sectionRes.data?.data?.sections?.find((section) => String(section.title || "").trim().toLowerCase() === String(row.section || "").trim().toLowerCase());
+          sectionid = created?._id;
+          if (sectionid) sectionMap.set(String(row.section || "").trim().toLowerCase(), sectionid);
+        }
+        if (!sectionid) continue;
+        await ep1.post("/api/v2/neplms/quizzes/questions", {
+          colid: global1.colid,
+          quizid: selectedQuizId,
+          sectionid,
+          question: row.question,
+          score: row.score,
+          imageLink: row.imageLink,
+          imageName: row.imageName,
+          fileLink: row.fileLink,
+          fileName: row.fileName,
+          videoLink: row.videoLink,
+          options: row.options
+        });
+        inserted += 1;
+      }
+      setQuizBulkRows([]);
+      setMessage(`${inserted} quiz question${inserted === 1 ? "" : "s"} uploaded`);
+      loadCourseData();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to upload quiz questions");
+    } finally {
+      setUploadingQuizBulk(false);
     }
   };
 
@@ -2956,6 +3098,69 @@ export default function NepLmsCourseWorkspacePage() {
               />
             </Grid>
           </Grid>
+        </Paper>
+      )}
+
+      {selectedQuiz && (
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ xs: "stretch", md: "center" }} justifyContent="space-between" sx={{ mb: 2 }}>
+            <Box>
+              <Typography variant="h6">Bulk Upload Quiz Questions</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Upload Excel rows with section, question, score, options and correct answers.
+              </Typography>
+            </Box>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+              <Button variant="outlined" startIcon={<FileDownload />} onClick={downloadQuizBulkTemplate}>
+                Template
+              </Button>
+              <Button component="label" variant="outlined" startIcon={<UploadFile />}>
+                Select Excel
+                <input hidden type="file" accept=".xlsx,.xls" onChange={readQuizBulkExcel} />
+              </Button>
+              <Button
+                variant="contained"
+                disabled={uploadingQuizBulk || !quizBulkRows.some((row) => row.valid)}
+                onClick={uploadQuizBulkRows}
+              >
+                {uploadingQuizBulk ? "Uploading..." : "Upload Questions"}
+              </Button>
+            </Stack>
+          </Stack>
+          {uploadingQuizBulk && <LinearProgress sx={{ mb: 2 }} />}
+          <Paper variant="outlined" sx={{ overflowX: "auto" }}>
+            <DataGrid
+              rows={quizBulkRows}
+              columns={[
+                { field: "section", headerName: "Section", minWidth: 160 },
+                { field: "question", headerName: "Question", minWidth: 300, flex: 1 },
+                { field: "score", headerName: "Score", width: 100 },
+                {
+                  field: "options",
+                  headerName: "Options",
+                  minWidth: 360,
+                  flex: 1,
+                  valueGetter: (params) => (params.row.options || []).map((option, index) => `${option.iscorrect ? "[Correct] " : ""}${index + 1}. ${option.text}`).join(" | ")
+                },
+                { field: "imageLink", headerName: "Image Link", minWidth: 180 },
+                { field: "fileLink", headerName: "File Link", minWidth: 180 },
+                { field: "videoLink", headerName: "Video Link", minWidth: 180 },
+                {
+                  field: "valid",
+                  headerName: "Status",
+                  width: 120,
+                  valueGetter: (params) => params.row.valid ? "Ready" : "Invalid"
+                }
+              ]}
+              autoHeight
+              density="compact"
+              pageSizeOptions={[10, 25, 50, 100]}
+              initialState={{ pagination: { paginationModel: { pageSize: 10, page: 0 } } }}
+              slots={{ toolbar: GridToolbar }}
+              slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "quiz_bulk_preview" } } }}
+              sx={{ minWidth: 1300 }}
+            />
+          </Paper>
         </Paper>
       )}
 

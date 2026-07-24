@@ -88,6 +88,29 @@ export default function NepLmsStudentWorkspacePage() {
   const pastTimetable = useMemo(() => timetable.filter((row) => row.classdate && row.classdate < today), [timetable, today]);
 
   useEffect(() => {
+    const requestedTab = String(searchParams.get("tab") || "").toLowerCase();
+    const tabMap = {
+      "upcoming-assignments": 0,
+      "assignment-submit": 0,
+      assignments: 1,
+      assignment: 1,
+      material: 2,
+      "course-material": 2,
+      coursematerial: 2,
+      lessonplan: 3,
+      "lesson-plan": 3,
+      timetable: 4,
+      submissions: 5,
+      quiz: 6,
+      sequential: 7,
+      sequence: 7
+    };
+    if (Object.prototype.hasOwnProperty.call(tabMap, requestedTab)) {
+      setTab(tabMap[requestedTab]);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     loadCourses();
   }, []);
 
@@ -156,7 +179,20 @@ export default function NepLmsStudentWorkspacePage() {
       setActiveQuizzes(res.data?.activeQuizzes || []);
       setQuizAttempts(res.data?.quizAttempts || []);
       await loadLessonContent(course);
-      setSelectedQuizId((res.data?.activeQuizzes || [])[0]?._id || "");
+      const requestedAssignmentId = searchParams.get("assignmentid") || "";
+      const requestedQuizId = searchParams.get("quizid") || "";
+      const nextAssignments = res.data?.upcomingAssignments || [];
+      const nextQuizzes = res.data?.activeQuizzes || [];
+      setSelectedAssignmentId(
+        requestedAssignmentId && nextAssignments.some((assignment) => String(assignment._id) === String(requestedAssignmentId))
+          ? requestedAssignmentId
+          : nextAssignments[0]?._id || ""
+      );
+      setSelectedQuizId(
+        requestedQuizId && nextQuizzes.some((quiz) => String(quiz._id) === String(requestedQuizId))
+          ? requestedQuizId
+          : nextQuizzes[0]?._id || ""
+      );
       setQuizAnswers({});
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load course workspace");

@@ -193,6 +193,13 @@ function DefaultStudentListItems({ open }) {
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Upload documents" />}
 </ListItem>
 
+        <ListItem button component={RouterLink} to="/studentbankaccounts">
+<ListItemIcon>
+<AccountBalanceWalletIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Bank account" />}
+</ListItem>
+
         <ListItem button component={RouterLink} to="/userprofileprint">
 <ListItemIcon>
 <PersonIcon />
@@ -847,6 +854,13 @@ function DefaultStudentListItems({ open }) {
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Change password" />}
+</ListItem>
+
+<ListItem button component={RouterLink} to="/studentpolicies">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Policy" />}
 </ListItem>
 
 

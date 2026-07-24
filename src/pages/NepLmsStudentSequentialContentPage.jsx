@@ -100,6 +100,20 @@ export default function NepLmsStudentSequentialContentPage() {
 
   const selectedSequence = useMemo(() => sequences.find((sequence) => sequence.id === selectedSequenceId) || null, [sequences, selectedSequenceId]);
 
+  useEffect(() => {
+    const requestedSequenceId = searchParams.get("sequenceid") || "";
+    const requestedContentId = searchParams.get("contentid") || "";
+    if (!sequences.length || selectedSequenceId) return;
+    const requestedSequence = sequences.find((sequence) => (
+      (requestedSequenceId && String(sequence.id) === String(requestedSequenceId))
+      || (requestedContentId && sequence.rows.some((row) => String(row._id) === String(requestedContentId)))
+    ));
+    if (requestedSequence) {
+      setSelectedSequenceId(requestedSequence.id);
+      setTab(tabMeta.findIndex((item) => item.key === requestedSequence.status));
+    }
+  }, [searchParams, selectedSequenceId, sequences]);
+
   const grouped = useMemo(() => ({
     completed: sequences.filter((sequence) => sequence.status === "completed"),
     pending: sequences.filter((sequence) => sequence.status === "pending"),

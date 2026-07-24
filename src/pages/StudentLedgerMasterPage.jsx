@@ -27,6 +27,7 @@ const preferredOrder = [
   "academicyear", "admissionyear", "regulation", "programcode", "semester", "major", "minor",
   "student", "regno", "user", "name", "feegroup", "feeitem", "feecategory", "feetype",
   "amount", "paid", "concession", "balance", "Latefinedue", "Latefinepaid",
+  "refundable", "refundamount", "refunddate", "refundedamount", "refundmode", "refundrefno", "refundcomments",
   "feebook", "cashbook", "paymode", "paydetails", "duedate", "paiddate", "classdate",
   "status", "comments", "doclink"
 ];
@@ -55,6 +56,13 @@ const labels = {
   balance: "Balance",
   Latefinedue: "Late Fine Due",
   Latefinepaid: "Late Fine Paid",
+  refundable: "Refundable",
+  refundamount: "Refund Amount",
+  refunddate: "Refund Date",
+  refundedamount: "Refunded Amount",
+  refundmode: "Refund Mode",
+  refundrefno: "Refund Ref No",
+  refundcomments: "Refund Comments",
   cash: "Cash",
   upi: "UPI",
   cheque: "Cheque",

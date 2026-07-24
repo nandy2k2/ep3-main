@@ -62,6 +62,7 @@ const filterFieldLabels = {
   feeitem: "Fee Item",
   feebook: "Fee Book",
   cashbook: "Cash Book",
+  refundable: "Refundable",
   status: "Status",
   paymode: "Pay Mode",
   type: "Type",

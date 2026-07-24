@@ -5,7 +5,6 @@ import {
   Box,
   Button,
   Card,
-  CardActionArea,
   CardContent,
   Chip,
   Container,
@@ -57,8 +56,17 @@ const fmtDate = (value) => value ? new Date(value).toLocaleDateString() : "-";
 const fmtDateTime = (value) => value ? new Date(value).toLocaleString() : "-";
 const contentCount = (course = {}) => Number(course.assignmentCount || 0)
   + Number(course.materialCount || 0)
+  + Number(course.lessonPlanCount || 0)
   + Number(course.quizCount || 0)
   + Number(course.sequenceCount || 0);
+
+const activitySections = [
+  { key: "lessonPlans", label: "Lesson plans", icon: <School fontSize="small" />, color: "#1565c0" },
+  { key: "courseMaterials", label: "Course materials", icon: <MenuBook fontSize="small" />, color: "#2e7d32" },
+  { key: "quizzes", label: "Quiz", icon: <Quiz fontSize="small" />, color: "#7b1fa2" },
+  { key: "sequences", label: "Sequences", icon: <AutoStories fontSize="small" />, color: "#00838f" },
+  { key: "assignments", label: "Assignments", icon: <Assignment fontSize="small" />, color: "#ef6c00" }
+];
 
 const StatCard = ({ icon, label, value, color }) => (
   <Card sx={{ height: "100%", borderRadius: 2, border: "1px solid #e5e7eb" }}>
@@ -76,7 +84,7 @@ const StatCard = ({ icon, label, value, color }) => (
   </Card>
 );
 
-const SimpleList = ({ title, rows, empty, renderRow, action }) => (
+const SimpleList = ({ title, rows, empty, renderRow, action, getRowLink }) => (
   <Paper sx={{ p: 2, height: "100%", border: "1px solid #e5e7eb", borderRadius: 2 }}>
     <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
       <Typography variant="h6" fontWeight={800}>{title}</Typography>
@@ -84,11 +92,20 @@ const SimpleList = ({ title, rows, empty, renderRow, action }) => (
     </Stack>
     {rows.length ? (
       <List dense disablePadding>
-        {rows.map((row, index) => (
-          <ListItem key={row._id || row.id || `${title}-${index}`} divider={index !== rows.length - 1} sx={{ px: 0 }}>
-            {renderRow(row)}
-          </ListItem>
-        ))}
+        {rows.map((row, index) => {
+          const rowLink = getRowLink?.(row);
+          const linkProps = rowLink ? { component: RouterLink, to: rowLink, button: true } : {};
+          return (
+            <ListItem
+              key={row._id || row.id || `${title}-${index}`}
+              divider={index !== rows.length - 1}
+              sx={{ px: 0, color: "inherit", textDecoration: "none", "&:hover .MuiListItemText-primary": { color: "primary.main" } }}
+              {...linkProps}
+            >
+              {renderRow(row)}
+            </ListItem>
+          );
+        })}
       </List>
     ) : (
       <Alert severity="info">{empty}</Alert>
@@ -96,14 +113,100 @@ const SimpleList = ({ title, rows, empty, renderRow, action }) => (
   </Paper>
 );
 
+const activityWhen = (item = {}) => item.date || item.dueDate || item.startDateTime || item.endDateTime;
+
+const query = (params = {}) => Object.entries(params)
+  .filter(([, value]) => value !== undefined && value !== null && value !== "")
+  .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+  .join("&");
+
+const workspaceLink = (course = {}, extra = {}) => `/studentneplmsworkspace?${query({
+  courseid: course.id || course._id || "",
+  coursecode: course.coursecode || "",
+  ...extra
+})}`;
+
+const sequenceLink = (course = {}, item = {}) => `/studentsequentialcontent?${query({
+  courseid: course.id || course._id || "",
+  coursecode: course.coursecode || "",
+  sequenceid: item.lessonresourceid || "",
+  contentid: item.id || item._id || ""
+})}`;
+
+const activityLink = (sectionKey, course, item) => {
+  if (sectionKey === "assignments") return workspaceLink(course, { tab: "assignment-submit", assignmentid: item.id || item._id || "" });
+  if (sectionKey === "quizzes") return workspaceLink(course, { tab: "quiz", quizid: item.id || item._id || "" });
+  if (sectionKey === "courseMaterials") return workspaceLink(course, { tab: "course-material", resourceid: item.id || item._id || "" });
+  if (sectionKey === "lessonPlans") return workspaceLink(course, { tab: "lesson-plan", resourceid: item.id || item._id || "" });
+  if (sectionKey === "sequences") return sequenceLink(course, item);
+  return workspaceLink(course);
+};
+
+const CourseActivitySection = ({ section, items, course }) => (
+  <Box sx={{ mb: 1.25 }}>
+    <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 0.75 }}>
+      <Stack direction="row" alignItems="center" spacing={0.75}>
+        <Box sx={{ color: section.color, display: "flex" }}>{section.icon}</Box>
+        <Typography variant="subtitle2" sx={{ fontWeight: 900, color: "#111827" }}>{section.label}</Typography>
+      </Stack>
+      <Chip size="small" label={items.length} sx={{ height: 20, fontSize: 11, bgcolor: "#f3f4f6" }} />
+    </Stack>
+    {items.length ? (
+      <Stack spacing={0.75}>
+        {items.map((item) => (
+          <Box
+            key={`${section.key}-${item.id}`}
+            component={RouterLink}
+            to={activityLink(section.key, course, item)}
+            sx={{
+              p: 1,
+              borderRadius: 1.5,
+              bgcolor: "rgba(255,255,255,0.78)",
+              border: "1px solid #e5e7eb",
+              color: "inherit",
+              display: "block",
+              textDecoration: "none",
+              transition: "transform 120ms ease, border-color 120ms ease, background-color 120ms ease",
+              "&:hover": {
+                bgcolor: "#ffffff",
+                borderColor: section.color,
+                transform: "translateY(-1px)"
+              }
+            }}
+          >
+            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="body2" sx={{ fontWeight: 800, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {item.title || section.label}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {item.subtitle || item.topic || item.module || item.contenttype || "-"}
+                </Typography>
+              </Box>
+              <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, pt: 0.2 }}>
+                {activityWhen(item) ? fmtDate(activityWhen(item)) : "-"}
+              </Typography>
+            </Stack>
+          </Box>
+        ))}
+      </Stack>
+    ) : (
+      <Typography variant="caption" color="text.secondary" sx={{ display: "block", px: 0.5 }}>
+        No entries yet
+      </Typography>
+    )}
+  </Box>
+);
+
 const CourseCard = ({ course }) => {
   const hasContent = contentCount(course) > 0;
   const workspaceLink = `/studentneplmsworkspace?courseid=${encodeURIComponent(course.id || "")}&coursecode=${encodeURIComponent(course.coursecode || "")}`;
   const sequenceLink = `/studentsequentialcontent?courseid=${encodeURIComponent(course.id || "")}&coursecode=${encodeURIComponent(course.coursecode || "")}`;
+  const activities = course.activities || {};
   return (
     <Card
       sx={{
-        height: "100%",
+        height: 560,
         borderRadius: 3,
         border: hasContent ? "1px solid #bbf7d0" : "1px solid #fed7aa",
         bgcolor: hasContent ? "#f0fdf4" : "#fff7ed",
@@ -111,43 +214,62 @@ const CourseCard = ({ course }) => {
         overflow: "hidden"
       }}
     >
-      <CardActionArea component={RouterLink} to={hasContent && course.sequenceCount > 0 ? sequenceLink : workspaceLink} sx={{ height: "100%", alignItems: "stretch" }}>
-        <CardContent sx={{ height: "100%" }}>
-          <Stack spacing={1.25} sx={{ height: "100%" }}>
-            <Stack direction="row" justifyContent="space-between" spacing={1} alignItems="flex-start">
-              <Box>
-                <Typography variant="caption" color="text.secondary" fontWeight={800}>
-                  {course.academicyear || "-"} | Sem {course.semester || "-"} | {course.regulation || "-"}
-                </Typography>
-                <Typography variant="h6" fontWeight={900} sx={{ color: hasContent ? "#14532d" : "#7c2d12", lineHeight: 1.18 }}>
-                  {course.course || "Course"}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">{course.coursecode || "-"} | {course.programcode || course.program || "-"}</Typography>
-              </Box>
-              <Chip
-                size="small"
-                color={hasContent ? "success" : "warning"}
-                label={hasContent ? "Content ready" : "No upload yet"}
-              />
-            </Stack>
-            <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-              <Chip size="small" icon={<Assignment fontSize="small" />} label={`Assignments ${course.assignmentCount || 0}`} variant="outlined" />
-              <Chip size="small" icon={<MenuBook fontSize="small" />} label={`Material ${course.materialCount || 0}`} variant="outlined" />
-              <Chip size="small" icon={<Quiz fontSize="small" />} label={`Quiz ${course.quizCount || 0}`} variant="outlined" />
-              <Chip size="small" icon={<AutoStories fontSize="small" />} label={`Sequence ${course.sequenceCount || 0}`} variant="outlined" />
-            </Stack>
-            <Box sx={{ flexGrow: 1 }} />
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Typography variant="caption" color="text.secondary">
-                Latest: {course.latestActivityAt ? fmtDateTime(course.latestActivityAt) : "No content uploaded"}
+      <CardContent sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+        <Stack spacing={1.25} sx={{ height: "100%" }}>
+          <Stack direction="row" justifyContent="space-between" spacing={1} alignItems="flex-start">
+            <Box sx={{ minWidth: 0 }}>
+              <Typography variant="caption" color="text.secondary" fontWeight={800}>
+                {course.academicyear || "-"} | Sem {course.semester || "-"} | {course.regulation || "-"}
               </Typography>
-              <Typography variant="caption" fontWeight={800} color={hasContent ? "success.dark" : "warning.dark"}>
-                {hasContent && course.sequenceCount > 0 ? "Open sequence" : "Open workspace"}
+              <Typography variant="h6" fontWeight={900} sx={{ color: hasContent ? "#14532d" : "#7c2d12", lineHeight: 1.18 }}>
+                {course.course || "Course"}
               </Typography>
-            </Stack>
+              <Typography variant="body2" color="text.secondary">{course.coursecode || "-"} | {course.programcode || course.program || "-"}</Typography>
+            </Box>
+            <Chip
+              size="small"
+              color={hasContent ? "success" : "warning"}
+              label={hasContent ? "Content ready" : "No upload yet"}
+            />
           </Stack>
-        </CardContent>
-      </CardActionArea>
+          <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+            <Chip size="small" icon={<School fontSize="small" />} label={`Lesson ${course.lessonPlanCount || 0}`} variant="outlined" />
+            <Chip size="small" icon={<MenuBook fontSize="small" />} label={`Material ${course.materialCount || 0}`} variant="outlined" />
+            <Chip size="small" icon={<Quiz fontSize="small" />} label={`Quiz ${course.quizCount || 0}`} variant="outlined" />
+            <Chip size="small" icon={<AutoStories fontSize="small" />} label={`Sequence ${course.sequenceCount || 0}`} variant="outlined" />
+            <Chip size="small" icon={<Assignment fontSize="small" />} label={`Assignments ${course.assignmentCount || 0}`} variant="outlined" />
+          </Stack>
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              overflowY: "auto",
+              pr: 0.75,
+              mr: -0.75,
+              scrollbarWidth: "thin"
+            }}
+          >
+            {activitySections.map((section) => (
+              <CourseActivitySection key={section.key} section={section} items={activities[section.key] || []} course={course} />
+            ))}
+          </Box>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+            <Typography variant="caption" color="text.secondary">
+              Latest: {course.latestActivityAt ? fmtDateTime(course.latestActivityAt) : "No content uploaded"}
+            </Typography>
+            <Button
+              component={RouterLink}
+              to={hasContent && course.sequenceCount > 0 ? sequenceLink : workspaceLink}
+              size="small"
+              variant="contained"
+              color={hasContent ? "success" : "warning"}
+              sx={{ flexShrink: 0 }}
+            >
+              {hasContent && course.sequenceCount > 0 ? "Open sequence" : "Open workspace"}
+            </Button>
+          </Stack>
+        </Stack>
+      </CardContent>
     </Card>
   );
 };
@@ -158,15 +280,19 @@ export default function NepLmsStudentDashboardPage() {
   const [error, setError] = useState("");
   const [classCalendarView, setClassCalendarView] = useState("month");
   const [classCalendarDate, setClassCalendarDate] = useState(dayjs().format("YYYY-MM-DD"));
+  const [selectedSemester, setSelectedSemester] = useState(global1.semester || "");
 
   const loadDashboard = async () => {
     try {
       setLoading(true);
       setError("");
       const res = await ep1.get("/api/v2/neplms/student-dashboard", {
-        params: { colid: global1.colid, regno: global1.regno }
+        params: { colid: global1.colid, regno: global1.regno, semester: selectedSemester }
       });
       setData(res.data || null);
+      if (!selectedSemester && (res.data?.student?.semester || global1.semester)) {
+        setSelectedSemester(res.data?.student?.semester || global1.semester || "");
+      }
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load student dashboard");
     } finally {
@@ -176,10 +302,20 @@ export default function NepLmsStudentDashboardPage() {
 
   useEffect(() => {
     loadDashboard();
-  }, []);
+  }, [selectedSemester]);
 
   const summary = data?.summary || {};
   const student = data?.student || {};
+  const semesterOptions = useMemo(() => {
+    const options = [
+      student.semester,
+      global1.semester,
+      selectedSemester,
+      ...(data?.semesterOptions || []),
+      ...Array.from({ length: 10 }, (_, index) => String(index + 1))
+    ].filter(Boolean).map(String);
+    return [...new Set(options)].sort((a, b) => Number(a) - Number(b) || a.localeCompare(b));
+  }, [data?.semesterOptions, selectedSemester, student.semester]);
   const courses = useMemo(() => [...(data?.courses || [])].sort((a, b) => {
     const aContent = contentCount(a) > 0;
     const bContent = contentCount(b) > 0;
@@ -189,6 +325,20 @@ export default function NepLmsStudentDashboardPage() {
     if (bDate !== aDate) return bDate - aDate;
     return `${a.semester || ""}${a.course || ""}`.localeCompare(`${b.semester || ""}${b.course || ""}`);
   }), [data?.courses]);
+  const courseForItem = (item = {}) => courses.find((course) => (
+    (!item.coursecode || String(course.coursecode || "").toLowerCase() === String(item.coursecode || "").toLowerCase())
+    && (!item.semester || String(course.semester || "") === String(item.semester || ""))
+    && (!item.academicyear || String(course.academicyear || "") === String(item.academicyear || ""))
+  )) || {
+    id: item.courseid || "",
+    coursecode: item.coursecode || "",
+    course: item.course || "",
+    semester: item.semester || "",
+    academicyear: item.academicyear || ""
+  };
+  const assignmentRowLink = (row) => workspaceLink(courseForItem(row), { tab: "assignment-submit", assignmentid: row._id || row.id || "" });
+  const quizRowLink = (row) => workspaceLink(courseForItem(row), { tab: "quiz", quizid: row._id || row.id || "" });
+  const materialRowLink = (row) => workspaceLink(courseForItem(row), { tab: "course-material", resourceid: row._id || row.id || "" });
   const attendance = data?.attendance || [];
   const upcomingClasses = data?.upcomingClasses || [];
   const attendancePie = useMemo(() => {
@@ -370,6 +520,21 @@ export default function NepLmsStudentDashboardPage() {
             </Stack>
           </Box>
           <Stack direction="row" spacing={1} alignItems="flex-start">
+            <FormControl size="small" sx={{ minWidth: 150, bgcolor: "rgba(255,255,255,0.12)", borderRadius: 1 }}>
+              <InputLabel sx={{ color: "white" }}>Semester</InputLabel>
+              <Select
+                label="Semester"
+                value={selectedSemester || student.semester || ""}
+                onChange={(event) => setSelectedSemester(event.target.value)}
+                sx={{
+                  color: "white",
+                  ".MuiOutlinedInput-notchedOutline": { borderColor: "rgba(255,255,255,0.55)" },
+                  ".MuiSvgIcon-root": { color: "white" }
+                }}
+              >
+                {semesterOptions.map((semester) => <MenuItem key={semester} value={semester}>Semester {semester}</MenuItem>)}
+              </Select>
+            </FormControl>
             <Button color="inherit" variant="outlined" startIcon={<Refresh />} onClick={loadDashboard} sx={{ borderColor: "rgba(255,255,255,0.55)" }}>Refresh</Button>
             <Button component={RouterLink} to="/studentneplmsworkspace" color="inherit" variant="contained" sx={{ bgcolor: "rgba(255,255,255,0.18)" }}>Open LMS</Button>
           </Stack>
@@ -391,7 +556,7 @@ export default function NepLmsStudentDashboardPage() {
           <Box>
             <Typography variant="h6" fontWeight={900}>My Course Workspace</Typography>
             <Typography variant="body2" color="text.secondary">
-              Courses are sorted by latest LMS activity. Courses without uploaded material, quiz or sequence are highlighted separately.
+              Courses and LMS items are sorted by latest activity. Each course shows lesson plans, materials, quizzes, sequences and assignments in a fixed-height scrollable card.
             </Typography>
           </Box>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -455,6 +620,7 @@ export default function NepLmsStudentDashboardPage() {
             rows={data?.upcomingAssignments || []}
             empty="No upcoming assignments."
             action={<Button component={RouterLink} to="/studentneplmsworkspace" size="small" startIcon={<Assignment />}>Submit</Button>}
+            getRowLink={assignmentRowLink}
             renderRow={(row) => (
               <ListItemText
                 primary={row.title || row.topic || "Assignment"}
@@ -469,6 +635,7 @@ export default function NepLmsStudentDashboardPage() {
             rows={data?.upcomingQuizzes || []}
             empty="No active or upcoming quizzes."
             action={<Button component={RouterLink} to="/studentneplmsworkspace" size="small" startIcon={<Quiz />}>Take Quiz</Button>}
+            getRowLink={quizRowLink}
             renderRow={(row) => (
               <ListItemText
                 primary={row.title || "Quiz"}
@@ -486,10 +653,11 @@ export default function NepLmsStudentDashboardPage() {
             rows={data?.courseMaterial || []}
             empty="No course material uploaded yet."
             action={<AutoStories color="primary" />}
+            getRowLink={materialRowLink}
             renderRow={(row) => (
               <ListItemText
                 primary={row.title || row.originalname || "Course Material"}
-                secondary={<Button size="small" href={row.url} target="_blank" rel="noreferrer" startIcon={<MenuBook />}>{row.coursecode || "Open"}</Button>}
+                secondary={`${row.coursecode || ""} | ${row.module || row.topic || row.description || "Open material"}`}
               />
             )}
           />

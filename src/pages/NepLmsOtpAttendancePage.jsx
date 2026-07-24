@@ -26,6 +26,7 @@ export default function NepLmsOtpAttendancePage() {
   const [generating, setGenerating] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [validTill, setValidTill] = useState("");
 
   const displayOtp = useMemo(() => (activeIndex >= 0 && activeIndex < otps.length ? otps[activeIndex] : ""), [activeIndex, otps]);
 
@@ -58,11 +59,13 @@ export default function NepLmsOtpAttendancePage() {
         classInfo: selectedClass
       });
       setOtps(res.data?.otps || []);
+      setValidTill(res.data?.validtill || "");
       setActiveIndex(0);
-      setMessage("Six OTPs generated. Display will rotate every 6 seconds.");
+      setMessage(`Six OTPs generated. Display will rotate every 6 seconds.${res.data?.validtill ? ` Valid till ${new Date(res.data.validtill).toLocaleString()}.` : ""}`);
     } catch (err) {
       setOtps([]);
       setActiveIndex(-1);
+      setValidTill("");
       setError(err.response?.data?.message || "Unable to generate OTPs.");
     } finally {
       setGenerating(false);
@@ -105,7 +108,7 @@ export default function NepLmsOtpAttendancePage() {
                 </Button>
               </Stack>
               {generating && <LinearProgress />}
-              {selectedClass && <Alert severity="info">Class: {classLabel(selectedClass)}</Alert>}
+              {selectedClass && <Alert severity="info">Class: {classLabel(selectedClass)}{validTill ? ` | OTP valid till ${new Date(validTill).toLocaleString()}` : ""}</Alert>}
             </Stack>
           </Paper>
 

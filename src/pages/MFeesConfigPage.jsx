@@ -50,6 +50,8 @@ const blankForm = {
   feetype: "",
   classdate: "",
   amount: "",
+  refundable: "No",
+  refundamount: "",
   status: "Added"
 };
 
@@ -81,7 +83,7 @@ export default function MFeesConfigPage() {
     statuses: []
   });
   const [form, setForm] = useState(blankForm);
-  const [filters, setFilters] = useState({ academicyear: "", programcode: "", regulation: "", major: "", minor: "", IDC: "", gender: "", Medium: "", semester: "", status: "" });
+  const [filters, setFilters] = useState({ academicyear: "", programcode: "", regulation: "", major: "", minor: "", IDC: "", gender: "", Medium: "", semester: "", refundable: "", status: "" });
   const [editingId, setEditingId] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -214,6 +216,8 @@ export default function MFeesConfigPage() {
       feetype: row.feetype || "",
       classdate: row.classdate ? String(row.classdate).slice(0, 10) : "",
       amount: row.amount || "",
+      refundable: row.refundable || "No",
+      refundamount: row.refundamount || "",
       status: row.status || "Added"
     });
   };
@@ -282,6 +286,8 @@ export default function MFeesConfigPage() {
         feetype: row.feetype || row["Fee Type"],
         classdate: row.classdate || row["Due Date"],
         amount: row.amount || row.Amount,
+        refundable: row.refundable || row.Refundable || "No",
+        refundamount: row.refundamount || row["Refund Amount"],
         status: row.status || "Added"
       }));
 
@@ -323,6 +329,8 @@ export default function MFeesConfigPage() {
       "Fee Type",
       "Due Date",
       "Amount",
+      "Refundable",
+      "Refund Amount",
       "Status"
     ];
     const sample = {
@@ -346,6 +354,8 @@ export default function MFeesConfigPage() {
       "Fee Type": "",
       "Due Date": "",
       Amount: 0,
+      Refundable: "No",
+      "Refund Amount": 0,
       Status: "Added"
     };
     const worksheet = XLSX.utils.json_to_sheet([sample], { header: headers });
@@ -375,6 +385,8 @@ export default function MFeesConfigPage() {
     { field: "feetype", headerName: "Fee Type", width: 140 },
     { field: "classdate", headerName: "Due Date", width: 130, valueGetter: (params) => (params.value ? String(params.value).slice(0, 10) : "") },
     { field: "amount", headerName: "Amount", width: 120, type: "number" },
+    { field: "refundable", headerName: "Refundable", width: 120 },
+    { field: "refundamount", headerName: "Refund Amount", width: 140, type: "number" },
     { field: "status", headerName: "Status", width: 120 },
     {
       field: "actions",
@@ -472,6 +484,11 @@ export default function MFeesConfigPage() {
                 <TextField size="small" label="Fee Type" value={form.feetype} onChange={(e) => setField("feetype", e.target.value)} />
                 <TextField size="small" type="date" label="Due Date" InputLabelProps={{ shrink: true }} value={form.classdate} onChange={(e) => setField("classdate", e.target.value)} />
                 <TextField size="small" type="number" label="Amount" value={form.amount} onChange={(e) => setField("amount", e.target.value)} required />
+                <TextField select size="small" label="Refundable" value={form.refundable} onChange={(e) => setField("refundable", e.target.value)}>
+                  <MenuItem value="No">No</MenuItem>
+                  <MenuItem value="Yes">Yes</MenuItem>
+                </TextField>
+                <TextField size="small" type="number" label="Refund Amount" value={form.refundamount} onChange={(e) => setField("refundamount", e.target.value)} />
                 <TextField size="small" label="Status" value={form.status} onChange={(e) => setField("status", e.target.value)} />
                 <Stack direction="row" spacing={1}>
                   <Button type="submit" variant="contained" startIcon={editingId ? <Save /> : <Add />}>{editingId ? "Update" : "Create"}</Button>
@@ -548,6 +565,14 @@ export default function MFeesConfigPage() {
                 <Select label="Semester" value={filters.semester} onChange={(e) => setFilters((prev) => ({ ...prev, semester: e.target.value }))}>
                   <MenuItem value="">All</MenuItem>
                   {feeFilterOptions.semesters.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel>Refundable</InputLabel>
+                <Select label="Refundable" value={filters.refundable} onChange={(e) => setFilters((prev) => ({ ...prev, refundable: e.target.value }))}>
+                  <MenuItem value="">All</MenuItem>
+                  <MenuItem value="Yes">Yes</MenuItem>
+                  <MenuItem value="No">No</MenuItem>
                 </Select>
               </FormControl>
               <FormControl size="small" sx={{ minWidth: 140 }}>

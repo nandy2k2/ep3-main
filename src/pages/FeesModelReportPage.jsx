@@ -42,7 +42,8 @@ const filterConfig = [
   { key: "cashbook", label: "Cash Book" },
   { key: "regulation", label: "Regulation" },
   { key: "major", label: "Major" },
-  { key: "minor", label: "Minor" }
+  { key: "minor", label: "Minor" },
+  { key: "refundable", label: "Refundable" }
 ];
 
 const colors = ["#2563eb", "#16a34a", "#f97316", "#7c3aed", "#dc2626", "#0891b2", "#ca8a04", "#be185d"];

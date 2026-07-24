@@ -31,6 +31,7 @@ const fields = [
   "student", "regno", "user", "name", "feegroup", "feeitem", "feecategory", "feetype",
   "feebook", "cashbook", "semester", "amount", "paid", "concession", "balance",
   "Latefinedue", "Latefinepaid",
+  "refundable", "refundamount", "refunddate", "refundedamount", "refundmode", "refundrefno", "refundcomments",
   "cash", "upi", "cheque", "card", "pg", "neft", "paymode", "paydetails",
   "feecounter", "institution", "type", "installment", "status", "classdate",
   "duedate", "paiddate", "comments", "doclink", "feeid"
@@ -60,6 +61,13 @@ const labels = {
   balance: "Balance",
   Latefinedue: "Late Fine Due",
   Latefinepaid: "Late Fine Paid",
+  refundable: "Refundable",
+  refundamount: "Refund Amount",
+  refunddate: "Refund Date",
+  refundedamount: "Refunded Amount",
+  refundmode: "Refund Mode",
+  refundrefno: "Refund Ref No",
+  refundcomments: "Refund Comments",
   cash: "Cash",
   upi: "UPI",
   cheque: "Cheque",
@@ -81,8 +89,8 @@ const labels = {
   feeid: "Fee ID"
 };
 
-const numberFields = ["amount", "paid", "concession", "balance", "Latefinedue", "Latefinepaid", "cash", "upi", "cheque", "card", "pg", "neft"];
-const dateFields = ["classdate", "duedate", "paiddate"];
+const numberFields = ["amount", "paid", "concession", "balance", "Latefinedue", "Latefinepaid", "refundamount", "refundedamount", "cash", "upi", "cheque", "card", "pg", "neft"];
+const dateFields = ["classdate", "duedate", "paiddate", "refunddate"];
 const defaultForm = {
   id: "",
   academicyear: "2026-27",
@@ -108,6 +116,13 @@ const defaultForm = {
   balance: 0,
   Latefinedue: 0,
   Latefinepaid: 0,
+  refundable: "No",
+  refundamount: 0,
+  refunddate: "",
+  refundedamount: 0,
+  refundmode: "",
+  refundrefno: "",
+  refundcomments: "",
   cash: 0,
   upi: 0,
   cheque: 0,
@@ -293,6 +308,13 @@ export default function StudentLedgerCrudPage() {
       balance: 10000,
       Latefinedue: 0,
       Latefinepaid: 0,
+      refundable: "No",
+      refundamount: 0,
+      refunddate: "",
+      refundedamount: 0,
+      refundmode: "",
+      refundrefno: "",
+      refundcomments: "",
       status: "Active",
       classdate: new Date().toISOString().slice(0, 10),
       duedate: "",
@@ -332,7 +354,7 @@ export default function StudentLedgerCrudPage() {
     reader.readAsArrayBuffer(file);
   };
 
-  const formFields = ["academicyear", "admissionyear", "student", "regno", "user", "programcode", "regulation", "major", "minor", "semester", "feegroup", "feeitem", "feecategory", "feetype", "amount", "paid", "concession", "balance", "Latefinedue", "Latefinepaid", "feebook", "cashbook", "paymode", "paydetails", "type", "installment", "status", "classdate", "duedate", "paiddate", "comments", "doclink"];
+  const formFields = ["academicyear", "admissionyear", "student", "regno", "user", "programcode", "regulation", "major", "minor", "semester", "feegroup", "feeitem", "feecategory", "feetype", "amount", "paid", "concession", "balance", "Latefinedue", "Latefinepaid", "refundable", "refundamount", "refunddate", "refundedamount", "refundmode", "refundrefno", "refundcomments", "feebook", "cashbook", "paymode", "paydetails", "type", "installment", "status", "classdate", "duedate", "paiddate", "comments", "doclink"];
 
   const columns = [
     {
@@ -380,18 +402,32 @@ export default function StudentLedgerCrudPage() {
           <Grid container spacing={1.5}>
             {formFields.map((field) => (
               <Grid item xs={12} sm={6} md={numberFields.includes(field) ? 2 : 3} key={field}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label={labels[field] || field}
-                  type={dateFields.includes(field) ? "date" : numberFields.includes(field) ? "number" : "text"}
-                  value={form[field] || ""}
-                  InputLabelProps={dateFields.includes(field) ? { shrink: true } : undefined}
-                  InputProps={field === "balance" ? { readOnly: true } : undefined}
-                  onChange={(event) => setField(field, event.target.value)}
-                  multiline={field === "comments"}
-                  minRows={field === "comments" ? 2 : undefined}
-                />
+                {field === "refundable" ? (
+                  <TextField
+                    select
+                    fullWidth
+                    size="small"
+                    label={labels[field] || field}
+                    value={form[field] || "No"}
+                    onChange={(event) => setField(field, event.target.value)}
+                  >
+                    <MenuItem value="Yes">Yes</MenuItem>
+                    <MenuItem value="No">No</MenuItem>
+                  </TextField>
+                ) : (
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label={labels[field] || field}
+                    type={dateFields.includes(field) ? "date" : numberFields.includes(field) ? "number" : "text"}
+                    value={form[field] || ""}
+                    InputLabelProps={dateFields.includes(field) ? { shrink: true } : undefined}
+                    InputProps={field === "balance" ? { readOnly: true } : undefined}
+                    onChange={(event) => setField(field, event.target.value)}
+                    multiline={field === "comments" || field === "refundcomments"}
+                    minRows={field === "comments" || field === "refundcomments" ? 2 : undefined}
+                  />
+                )}
               </Grid>
             ))}
             <Grid item xs={12}>

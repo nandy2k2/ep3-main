@@ -174,6 +174,8 @@ export default function FeesApplicationAutoPage() {
     { field: "feebook", headerName: "Fee Book", width: 150 },
     { field: "cashbook", headerName: "Cash Book", width: 150 },
     { field: "amount", headerName: "Amount", width: 130, type: "number" },
+    { field: "refundable", headerName: "Refundable", width: 120 },
+    { field: "refundamount", headerName: "Refund Amount", width: 140, type: "number" },
     { field: "balance", headerName: "Balance", width: 130, type: "number" },
     { field: "status", headerName: "Status", width: 120 },
     { field: "alreadyApplied", headerName: "Already Applied", width: 150, valueGetter: (params) => params.row.alreadyApplied ? "Yes" : "No" }

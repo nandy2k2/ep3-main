@@ -704,6 +704,13 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Profile edit" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/userbankaccounts">
+            <ListItemIcon>
+              <AccountBalanceWalletIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Bank account" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/userprofileapproval">
             <ListItemIcon>
               <PersonIcon />
@@ -983,6 +990,57 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="User pivot count" />}
           </ListItem>
 
+        </AccordionDetails>
+      </Accordion>
+
+      <Accordion>
+        <AccordionSummary aria-controls="panel-event-management-new-content" id="panel-event-management-new-header">
+          <AssignmentIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{ fontSize: 14 }}>Event management new</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          {[
+            ["/event-new-events", "Events"],
+            ["/event-new-attendees", "Attendee management"],
+            ["/event-new-distinguished-attendees", "Distinguished attendees"],
+            ["/event-new-vehicles", "Vehicle master"],
+            ["/event-new-transport-requirements", "Pickup and drop requirements"],
+            ["/event-new-vehicle-allocations", "Vehicle allocations"],
+            ["/event-new-vehicle-auto-allocation", "AI vehicle allocation"],
+            ["/event-new-reports", "Event reports"],
+            ["/event-new-transport-reports", "Transport reports"]
+          ].map(([to, label]) => (
+            <ListItem button component={RouterLink} to={to} key={to}>
+              <ListItemIcon>
+                <AssignmentIcon />
+              </ListItemIcon>
+              {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary={label} />}
+            </ListItem>
+          ))}
+        </AccordionDetails>
+      </Accordion>
+
+      <Accordion>
+        <AccordionSummary aria-controls="panel-guest-house-content" id="panel-guest-house-header">
+          <HostelIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{ fontSize: 14 }}>Guest house</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          {[
+            ["/guest-house-buildings", "Buildings"],
+            ["/guest-house-rooms", "Rooms"],
+            ["/guest-house-reservations", "Reservations"],
+            ["/guest-house-availability", "Room availability"],
+            ["/guest-house-allocation", "AI guest allocation"],
+            ["/guest-house-reports", "Guest house reports"]
+          ].map(([to, label]) => (
+            <ListItem button component={RouterLink} to={to} key={to}>
+              <ListItemIcon>
+                <HostelIcon />
+              </ListItemIcon>
+              {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary={label} />}
+            </ListItem>
+          ))}
         </AccordionDetails>
       </Accordion>
 
@@ -1723,6 +1781,34 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Attendance review" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/neplmssupplementaryattendanceworkflow">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Supplementary attendance workflow" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/neplmssupplementaryattendance">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Supplementary attendance" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/neplmssupplementaryattendanceapproval">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Supplementary attendance approval" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/neplmssupplementaryattendancereport">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Supplementary attendance report" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/neplmsloginbasedattendance">
             <ListItemIcon>
               <PersonIcon />
@@ -2307,6 +2393,27 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Student ledger master" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/updatefeerefund">
+            <ListItemIcon>
+              <AccountBalanceWalletIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Update refund" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/feerefundmanagement">
+            <ListItemIcon>
+              <AccountBalanceWalletIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Fee refund management" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/feerefundsummary">
+            <ListItemIcon>
+              <AccountBalanceWalletIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Fee refund summary" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/feesmodelreport">
             <ListItemIcon>
               <PersonIcon />
@@ -2825,6 +2932,10 @@ export function menuitemsall() {
         <AccordionDetails>
           {[
             ["/hremployeeattendance", "Employee attendance"],
+            ["/hrshifttiming", "Shift timing"],
+            ["/hrshiftallocation", "Shift allocation"],
+            ["/hrlatepolicy", "Late policy"],
+            ["/hrovertimepolicy", "Overtime policy"],
             ["/hremployeeattendancematrix", "Attendance approval matrix"],
             ["/hremployeeattendanceapproval", "Attendance approval"]
           ].map(([to, label]) => (
@@ -4540,10 +4651,11 @@ export function menuitemsall() {
         </AccordionDetails>
       </Accordion>
 
-      <Accordion>
-        <AccordionSummary aria-controls="panel2-content" id="panel2-header">
-          <SettingsIcon sx={{ marginRight: 1 }} />
-          {open && <Typography sx={{ fontSize: 14 }}>New registration</Typography>}
+	      {false && (
+	      <Accordion>
+	        <AccordionSummary aria-controls="panel2-content" id="panel2-header">
+	          <SettingsIcon sx={{ marginRight: 1 }} />
+	          {open && <Typography sx={{ fontSize: 14 }}>New registration</Typography>}
         </AccordionSummary>
         <AccordionDetails>
 
@@ -4554,8 +4666,9 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Generate code" />}
           </ListItem>
 
-        </AccordionDetails>
-      </Accordion>
+	        </AccordionDetails>
+	      </Accordion>
+	      )}
 
      
 
@@ -5482,10 +5595,11 @@ export function menuitemsall() {
       </Accordion>
       )}
 
-      <Accordion>
-        <AccordionSummary aria-controls="panel3-content" id="panel3-header">
-          <BusinessIcon sx={{ marginRight: 1 }} />
-          {open && <Typography sx={{ fontSize: 14 }}>Patient Management</Typography>}
+	      {false && (
+	      <Accordion>
+	        <AccordionSummary aria-controls="panel3-content" id="panel3-header">
+	          <BusinessIcon sx={{ marginRight: 1 }} />
+	          {open && <Typography sx={{ fontSize: 14 }}>Patient Management</Typography>}
         </AccordionSummary>
         <AccordionDetails>
 
@@ -5496,13 +5610,15 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Patient details record" />}
           </ListItem>
 
-        </AccordionDetails>
-      </Accordion>
+	        </AccordionDetails>
+	      </Accordion>
+	      )}
 
-      <Accordion>
-        <AccordionSummary aria-controls="panel3-content" id="panel3-header">
-          <BusinessIcon sx={{ marginRight: 1 }} />
-          {open && <Typography sx={{ fontSize: 14 }}>Patient Admission</Typography>}
+	      {false && (
+	      <Accordion>
+	        <AccordionSummary aria-controls="panel3-content" id="panel3-header">
+	          <BusinessIcon sx={{ marginRight: 1 }} />
+	          {open && <Typography sx={{ fontSize: 14 }}>Patient Admission</Typography>}
         </AccordionSummary>
         <AccordionDetails>
 
@@ -5515,13 +5631,15 @@ export function menuitemsall() {
 
 
 
-        </AccordionDetails>
-      </Accordion>
+	        </AccordionDetails>
+	      </Accordion>
+	      )}
 
-      <Accordion>
-        <AccordionSummary aria-controls="panel3-content" id="panel3-header">
-          <BusinessIcon sx={{ marginRight: 1 }} />
-          {open && <Typography sx={{ fontSize: 14 }}>Bed Management</Typography>}
+	      {false && (
+	      <Accordion>
+	        <AccordionSummary aria-controls="panel3-content" id="panel3-header">
+	          <BusinessIcon sx={{ marginRight: 1 }} />
+	          {open && <Typography sx={{ fontSize: 14 }}>Bed Management</Typography>}
         </AccordionSummary>
         <AccordionDetails>
 
@@ -5612,14 +5730,16 @@ export function menuitemsall() {
           </ListItem>
 
 
-        </AccordionDetails>
-      </Accordion>
+	        </AccordionDetails>
+	      </Accordion>
+	      )}
 
 
-      <Accordion>
-        <AccordionSummary aria-controls="panel3-content" id="panel3-header">
-          <BusinessIcon sx={{ marginRight: 1 }} />
-          {open && <Typography sx={{ fontSize: 14 }}>MRD Hospital</Typography>}
+	      {false && (
+	      <Accordion>
+	        <AccordionSummary aria-controls="panel3-content" id="panel3-header">
+	          <BusinessIcon sx={{ marginRight: 1 }} />
+	          {open && <Typography sx={{ fontSize: 14 }}>MRD Hospital</Typography>}
         </AccordionSummary>
         <AccordionDetails>
 
@@ -5688,14 +5808,16 @@ export function menuitemsall() {
 
 
 
-        </AccordionDetails>
-      </Accordion>
+	        </AccordionDetails>
+	      </Accordion>
+	      )}
 
 
-      <Accordion>
-        <AccordionSummary aria-controls="panel3-content" id="panel3-header">
-          <BusinessIcon sx={{ marginRight: 1 }} />
-          {open && <Typography sx={{ fontSize: 14 }}>Hospital Billing</Typography>}
+	      {false && (
+	      <Accordion>
+	        <AccordionSummary aria-controls="panel3-content" id="panel3-header">
+	          <BusinessIcon sx={{ marginRight: 1 }} />
+	          {open && <Typography sx={{ fontSize: 14 }}>Hospital Billing</Typography>}
         </AccordionSummary>
         <AccordionDetails>
 
@@ -5707,8 +5829,9 @@ export function menuitemsall() {
           </ListItem>
 
 
-        </AccordionDetails>
-      </Accordion>
+	        </AccordionDetails>
+	      </Accordion>
+	      )}
 
       <Accordion>
         <AccordionSummary aria-controls="panel3-content" id="panel3-header">
@@ -5772,10 +5895,11 @@ export function menuitemsall() {
         </AccordionDetails>
       </Accordion>
 
-      <Accordion>
-        <AccordionSummary aria-controls="panel3-content" id="panel3-header">
-          <BusinessIcon sx={{ marginRight: 1 }} />
-          {open && <Typography sx={{ fontSize: 14 }}>Patient Counseling</Typography>}
+	      {false && (
+	      <Accordion>
+	        <AccordionSummary aria-controls="panel3-content" id="panel3-header">
+	          <BusinessIcon sx={{ marginRight: 1 }} />
+	          {open && <Typography sx={{ fontSize: 14 }}>Patient Counseling</Typography>}
         </AccordionSummary>
         <AccordionDetails>
 
@@ -5793,13 +5917,15 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Patient counselling" />}
           </ListItem>
 
-        </AccordionDetails>
-      </Accordion>
+	        </AccordionDetails>
+	      </Accordion>
+	      )}
 
-      <Accordion>
-        <AccordionSummary aria-controls="panel3-content" id="panel3-header">
-          <BusinessIcon sx={{ marginRight: 1 }} />
-          {open && <Typography sx={{ fontSize: 14 }}>Hospital food</Typography>}
+	      {false && (
+	      <Accordion>
+	        <AccordionSummary aria-controls="panel3-content" id="panel3-header">
+	          <BusinessIcon sx={{ marginRight: 1 }} />
+	          {open && <Typography sx={{ fontSize: 14 }}>Hospital food</Typography>}
         </AccordionSummary>
         <AccordionDetails>
 
@@ -5818,13 +5944,15 @@ export function menuitemsall() {
           </ListItem>
 
 
-        </AccordionDetails>
-      </Accordion>
+	        </AccordionDetails>
+	      </Accordion>
+	      )}
 
-      <Accordion>
-        <AccordionSummary aria-controls="panel3-content" id="panel3-header">
-          <BusinessIcon sx={{ marginRight: 1 }} />
-          {open && <Typography sx={{ fontSize: 14 }}>Academics and Regulations</Typography>}
+	      {false && (
+	      <Accordion>
+	        <AccordionSummary aria-controls="panel3-content" id="panel3-header">
+	          <BusinessIcon sx={{ marginRight: 1 }} />
+	          {open && <Typography sx={{ fontSize: 14 }}>Academics and Regulations</Typography>}
         </AccordionSummary>
         <AccordionDetails>
 
@@ -5900,13 +6028,15 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Lesson Plan" />}
           </ListItem>
 
-        </AccordionDetails>
-      </Accordion>
+	        </AccordionDetails>
+	      </Accordion>
+	      )}
 
-      <Accordion>
-        <AccordionSummary aria-controls="panel3-content" id="panel3-header">
-          <BusinessIcon sx={{ marginRight: 1 }} />
-          {open && <Typography sx={{ fontSize: 14 }}>Salary and Attendance</Typography>}
+	      {false && (
+	      <Accordion>
+	        <AccordionSummary aria-controls="panel3-content" id="panel3-header">
+	          <BusinessIcon sx={{ marginRight: 1 }} />
+	          {open && <Typography sx={{ fontSize: 14 }}>Salary and Attendance</Typography>}
         </AccordionSummary>
         <AccordionDetails>
 
@@ -5980,8 +6110,9 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Search Attendance" />}
           </ListItem>
 
-        </AccordionDetails>
-      </Accordion>
+	        </AccordionDetails>
+	      </Accordion>
+	      )}
 
       <Accordion>
         <AccordionSummary aria-controls="panel3-content" id="panel3-header">
@@ -6139,10 +6270,11 @@ export function menuitemsall() {
         </AccordionDetails>
       </Accordion>
 
-      <Accordion>
-        <AccordionSummary aria-controls="panel3-content" id="panel3-header">
-          <BusinessIcon sx={{ marginRight: 1 }} />
-          {open && <Typography sx={{ fontSize: 14 }}>Breakout rooms</Typography>}
+	      {false && (
+	      <Accordion>
+	        <AccordionSummary aria-controls="panel3-content" id="panel3-header">
+	          <BusinessIcon sx={{ marginRight: 1 }} />
+	          {open && <Typography sx={{ fontSize: 14 }}>Breakout rooms</Typography>}
         </AccordionSummary>
         <AccordionDetails>
 
@@ -6160,8 +6292,9 @@ export function menuitemsall() {
 
 
 
-        </AccordionDetails>
-      </Accordion>
+	        </AccordionDetails>
+	      </Accordion>
+	      )}
 
       <Accordion>
         <AccordionSummary aria-controls="panel3-content" id="panel3-header">
@@ -7231,10 +7364,11 @@ export function menuitemsall() {
         </AccordionDetails>
       </Accordion>
 
-      <Accordion>
-        <AccordionSummary aria-controls="panel3-content" id="panel3-header">
-          <BusinessIcon sx={{ marginRight: 1 }} />
-          {open && <Typography sx={{ fontSize: 14 }}>MRN PR and PO</Typography>}
+	      {false && (
+	      <Accordion>
+	        <AccordionSummary aria-controls="panel3-content" id="panel3-header">
+	          <BusinessIcon sx={{ marginRight: 1 }} />
+	          {open && <Typography sx={{ fontSize: 14 }}>MRN PR and PO</Typography>}
         </AccordionSummary>
         <AccordionDetails>
 
@@ -7301,8 +7435,9 @@ export function menuitemsall() {
 
 
 
-        </AccordionDetails>
-        </Accordion>
+	        </AccordionDetails>
+	        </Accordion>
+	        )}
 
          <Accordion>
         <AccordionSummary aria-controls="panel3-content" id="panel3-header">
@@ -7829,6 +7964,13 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="AWS Documents" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/institutionpolicies">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Institution Policies" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/emailconfiguration">
             <ListItemIcon>
               <PersonIcon />
@@ -7855,6 +7997,13 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Country" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/dummy-data-generator">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Dummy data generator" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/dashmpassword">

@@ -95,6 +95,7 @@ export default function SyllabusPage() {
   const [form, setForm] = useState(blankForm);
   const [editingId, setEditingId] = useState("");
   const [uploadRows, setUploadRows] = useState([]);
+  const [selectedRows, setSelectedRows] = useState([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -354,6 +355,24 @@ export default function SyllabusPage() {
     }
   };
 
+  const bulkDeleteRows = async () => {
+    const ids = Array.isArray(selectedRows) ? selectedRows : Array.from(selectedRows?.ids || []);
+    if (!ids.length) {
+      setError("Select at least one syllabus row");
+      return;
+    }
+    if (!window.confirm(`Delete ${ids.length} selected syllabus row(s)?`)) return;
+    try {
+      const res = await ep1.post("/api/v2/syllabus/bulk-delete", { colid, ids });
+      setSelectedRows([]);
+      setMessage(`Deleted ${res.data?.deleted || 0} syllabus row(s)`);
+      await loadRows();
+      await loadOptions(filterParams);
+    } catch (err) {
+      setError(err.response?.data?.message || "Bulk delete failed");
+    }
+  };
+
   const assessSyllabusChange = async () => {
     if (!newSyllabusChange.trim()) {
       setError("Please enter the new syllabus change first");
@@ -610,6 +629,9 @@ export default function SyllabusPage() {
             <input hidden type="file" accept=".xlsx,.xls" onChange={readExcel} />
           </Button>
           <Button variant="contained" startIcon={<Add />} onClick={uploadExcelRows} disabled={!uploadRows.length}>Upload {uploadRows.length ? `(${uploadRows.length})` : ""}</Button>
+          <Button variant="outlined" color="error" startIcon={<Delete />} onClick={bulkDeleteRows} disabled={!(Array.isArray(selectedRows) ? selectedRows.length : selectedRows?.ids?.size)}>
+            Bulk Delete
+          </Button>
         </Stack>
       </Paper>
 
@@ -617,6 +639,9 @@ export default function SyllabusPage() {
         <DataGrid
           rows={rows.map((row) => ({ ...row, id: row._id }))}
           columns={columns}
+          checkboxSelection
+          rowSelectionModel={selectedRows}
+          onRowSelectionModelChange={setSelectedRows}
           loading={loading}
           autoHeight
           slots={{ toolbar: GridToolbar }}

@@ -16,7 +16,10 @@ import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MentoringLayout from "./MentoringLayout";
 
-const label = (row = {}) => `${row.classdate || ""} ${row.classtime || ""} | ${row.coursecode || ""} - ${row.course || ""} | Sem ${row.semester || ""}`;
+const label = (row = {}) => {
+  const validTill = row.validtill ? ` | Valid till ${new Date(row.validtill).toLocaleTimeString()}` : "";
+  return `${row.classdate || ""} ${row.classtime || ""} | ${row.coursecode || ""} - ${row.course || ""} | Sem ${row.semester || ""}${validTill}`;
+};
 
 export default function NepLmsStudentOtpAttendancePage() {
   const [sessions, setSessions] = useState([]);

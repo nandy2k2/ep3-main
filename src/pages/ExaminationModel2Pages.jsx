@@ -59,6 +59,7 @@ const baseForm = {
   practicalgradepoint: "",
   practicalgrade: "",
   overalltotalmarks: "",
+  overallobtained: "",
   overallgradepoint: "",
   overallgrade: "",
   overallpercentage: "",
@@ -81,7 +82,7 @@ const vivaBaseForm = {
 
 const markFields = Object.keys(baseForm);
 const vivaMarkFields = Object.keys(vivaBaseForm);
-const numberFields = ["credit", "theorymarks", "theoryobtained", "theorypercentage", "theorygradepoint", "practicalmarks", "practicaltotal", "practicalpercentage", "practicalgradepoint", "vivatotal", "vivaobtained", "vivapercentage", "vivagpa", "overalltotalmarks", "overallgradepoint", "overallpercentage", "gpa", "attempt"];
+const numberFields = ["credit", "theorymarks", "theoryobtained", "theorypercentage", "theorygradepoint", "practicalmarks", "practicaltotal", "practicalpercentage", "practicalgradepoint", "vivatotal", "vivaobtained", "vivapercentage", "vivagpa", "overalltotalmarks", "overallobtained", "overallgradepoint", "overallpercentage", "gpa", "attempt"];
 const labels = {
   academicyear: "Academic Year",
   examcode: "Exam Code",
@@ -105,6 +106,7 @@ const labels = {
   vivagpa: "Viva GPA",
   vivagrade: "Viva Grade",
   overalltotalmarks: "Overall Total Marks",
+  overallobtained: "Overall Obtained",
   overallgradepoint: "Overall Grade Point",
   overallgrade: "Overall Grade",
   overallpercentage: "Overall %",
@@ -163,7 +165,8 @@ export function ExaminationModel2MarksPage() {
       const next = { ...prev, [field]: value };
       if (["theorymarks", "theoryobtained"].includes(field)) next.theorypercentage = pct(next.theoryobtained, next.theorymarks);
       if (["practicalmarks", "practicaltotal"].includes(field)) next.practicalpercentage = pct(next.practicalmarks, next.practicaltotal);
-      if (["theoryobtained", "practicalmarks"].includes(field) && !prev.overalltotalmarks) next.overalltotalmarks = Number((Number(next.theoryobtained || 0) + Number(next.practicalmarks || 0)).toFixed(2));
+      if (["theorymarks", "practicaltotal"].includes(field) && !prev.overalltotalmarks) next.overalltotalmarks = Number((Number(next.theorymarks || 0) + Number(next.practicaltotal || 0)).toFixed(2));
+      if (["theoryobtained", "practicalmarks"].includes(field) && !prev.overallobtained) next.overallobtained = Number((Number(next.theoryobtained || 0) + Number(next.practicalmarks || 0)).toFixed(2));
       if (["credit", "overallgradepoint"].includes(field)) next.gpa = Number((Number(next.credit || 0) * Number(next.overallgradepoint || 0)).toFixed(2));
       return next;
     });
@@ -250,7 +253,7 @@ export function ExaminationModel2MarksPage() {
   };
 
   const downloadTemplate = () => {
-    const sample = { ...baseForm, academicyear: "2026-27", exam: "Semester Exam", examcode: "SEM1", program: "B.Com", programcode: "BCOM", semester: "1", course: "Financial Accounting", coursecode: "FA101", credit: 4, student: "Student Name", regno: "REG001", abcid: "ABC123", theorymarks: 70, theoryobtained: 55, theorygradepoint: 8, theorygrade: "A", practicalmarks: 25, practicaltotal: 30, practicalgradepoint: 8, practicalgrade: "A", overalltotalmarks: 80, overallgradepoint: 8, overallgrade: "A", status: "Pass" };
+    const sample = { ...baseForm, academicyear: "2026-27", exam: "Semester Exam", examcode: "SEM1", program: "B.Com", programcode: "BCOM", semester: "1", course: "Financial Accounting", coursecode: "FA101", credit: 4, student: "Student Name", regno: "REG001", abcid: "ABC123", theorymarks: 70, theoryobtained: 55, theorygradepoint: 8, theorygrade: "A", practicalmarks: 25, practicaltotal: 30, practicalgradepoint: 8, practicalgrade: "A", overalltotalmarks: 100, overallobtained: 80, overallgradepoint: 8, overallgrade: "A", status: "Pass" };
     const ws = XLSX.utils.json_to_sheet([sample]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Exam Marks");
@@ -325,7 +328,7 @@ export function ExaminationModel2MarksPage() {
                   renderInput={(params) => <TextField {...params} size="small" label="Search student" />}
                 />
               </Grid>
-              {["student", "regno", "abcid", "theorymarks", "theoryobtained", "theorypercentage", "theorygradepoint", "theorygrade", "practicalmarks", "practicaltotal", "practicalpercentage", "practicalgradepoint", "practicalgrade", "overalltotalmarks", "overallgradepoint", "overallgrade", "overallpercentage", "gpa", "attempt", "examdate", "resultprocessdate"].map((field) => (
+              {["student", "regno", "abcid", "theorymarks", "theoryobtained", "theorypercentage", "theorygradepoint", "theorygrade", "practicalmarks", "practicaltotal", "practicalpercentage", "practicalgradepoint", "practicalgrade", "overalltotalmarks", "overallobtained", "overallgradepoint", "overallgrade", "overallpercentage", "gpa", "attempt", "examdate", "resultprocessdate"].map((field) => (
                 <Grid item xs={12} md={field === "student" ? 3 : 1.5} key={field}>
                   <TextField fullWidth size="small" type={["examdate", "resultprocessdate"].includes(field) ? "date" : numberFields.includes(field) ? "number" : "text"} InputLabelProps={["examdate", "resultprocessdate"].includes(field) ? { shrink: true } : undefined} label={labels[field] || field} value={form[field] || ""} onChange={(e) => updateForm(field, e.target.value)} />
                 </Grid>
@@ -1106,7 +1109,7 @@ export function ExaminationModel2GradeProcessingPage() {
   const programChoices = useMemo(() => uniquePairs(marksRows, "programcode", "program"), [marksRows]);
   const courseChoices = useMemo(() => uniquePairs(marksRows, "coursecode", "course"), [marksRows]);
   const displayRows = resultRows.length ? resultRows : marksRows;
-  const columns = ["academicyear", "exam", "examcode", "program", "programcode", "course", "coursecode", "student", "regno", "theoryobtained", "theorygradepoint", "theorygrade", "practicalmarks", "practicalgradepoint", "practicalgrade", "overalltotalmarks", "overallgradepoint", "overallgrade", "gpa"].map((field) => ({ field, headerName: labels[field] || field, width: ["student", "course", "program"].includes(field) ? 190 : 140, type: numberFields.includes(field) ? "number" : "string" }));
+  const columns = ["academicyear", "exam", "examcode", "program", "programcode", "course", "coursecode", "student", "regno", "theoryobtained", "theorygradepoint", "theorygrade", "practicalmarks", "practicalgradepoint", "practicalgrade", "overalltotalmarks", "overallobtained", "overallgradepoint", "overallgrade", "gpa"].map((field) => ({ field, headerName: labels[field] || field, width: ["student", "course", "program"].includes(field) ? 190 : 140, type: numberFields.includes(field) ? "number" : "string" }));
 
   return (
     <MenuPageShell title="Process Grade Template">
@@ -1186,7 +1189,7 @@ export function ExaminationModel2PercentageCalculationPage() {
   const programChoices = useMemo(() => uniquePairs(marksRows, "programcode", "program"), [marksRows]);
   const courseChoices = useMemo(() => uniquePairs(marksRows, "coursecode", "course"), [marksRows]);
   const displayRows = resultRows.length ? resultRows : marksRows;
-  const columns = ["academicyear", "exam", "examcode", "program", "programcode", "course", "coursecode", "student", "regno", "theorymarks", "theoryobtained", "theorypercentage", "practicaltotal", "practicalmarks", "practicalpercentage", "overalltotalmarks", "overallpercentage"].map((field) => ({ field, headerName: labels[field] || field, width: ["student", "course", "program"].includes(field) ? 190 : 140, type: numberFields.includes(field) ? "number" : "string" }));
+  const columns = ["academicyear", "exam", "examcode", "program", "programcode", "course", "coursecode", "student", "regno", "theorymarks", "theoryobtained", "theorypercentage", "practicaltotal", "practicalmarks", "practicalpercentage", "overalltotalmarks", "overallobtained", "overallpercentage"].map((field) => ({ field, headerName: labels[field] || field, width: ["student", "course", "program"].includes(field) ? 190 : 140, type: numberFields.includes(field) ? "number" : "string" }));
 
   return (
     <MenuPageShell title="Percentage Calculation">

@@ -52,6 +52,7 @@ const fieldLabels = {
   feegroup: "Fee Group",
   feeitem: "Fee Item",
   feecategory: "Fee Category",
+  refundable: "Refundable",
   status: "Status",
   paymode: "Pay Mode",
   type: "Type",
