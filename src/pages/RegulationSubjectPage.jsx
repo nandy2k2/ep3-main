@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Chip,
@@ -408,9 +409,15 @@ export default function RegulationSubjectPage() {
                 <TextField select fullWidth size="small" label="Academic Year" value={form.academicyear} onChange={(e) => updateFormValue("academicyear", e.target.value)} required>
                   {academicYears.map((year) => <MenuItem key={year} value={year}>{year}</MenuItem>)}
                 </TextField>
-                <TextField select fullWidth size="small" label="Program" value={form.programcode} onChange={(e) => selectProgram(e.target.value)} required>
-                  {programs.map((item) => <MenuItem key={item._id || item.programcode} value={item.programcode}>{item.program} ({item.programcode})</MenuItem>)}
-                </TextField>
+                <Autocomplete
+                  size="small"
+                  options={programs}
+                  value={programs.find((item) => item.programcode === form.programcode) || null}
+                  onChange={(_, value) => selectProgram(value?.programcode || "")}
+                  getOptionLabel={(option) => option ? `${option.program || ""}${option.programcode ? ` (${option.programcode})` : ""}` : ""}
+                  isOptionEqualToValue={(option, value) => option.programcode === value.programcode}
+                  renderInput={(params) => <TextField {...params} label="Program" required />}
+                />
                 <TextField fullWidth size="small" label="Subjects" value={form.subject} onChange={(e) => updateFormValue("subject", e.target.value)} required />
                 <TextField select fullWidth size="small" label="Type" value={form.type} onChange={(e) => updateFormValue("type", e.target.value)} required>
                   {subjectTypes.map((type) => <MenuItem key={type} value={type}>{type}</MenuItem>)}

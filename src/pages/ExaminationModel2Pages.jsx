@@ -53,11 +53,13 @@ const baseForm = {
   theorypercentage: "",
   theorygradepoint: "",
   theorygrade: "",
+  theorystatus: "Pass",
   practicalmarks: "",
   practicaltotal: "",
   practicalpercentage: "",
   practicalgradepoint: "",
   practicalgrade: "",
+  practicalstatus: "Pass",
   overalltotalmarks: "",
   overallobtained: "",
   overallgradepoint: "",
@@ -95,11 +97,13 @@ const labels = {
   theorypercentage: "Theory %",
   theorygradepoint: "Theory Grade Point",
   theorygrade: "Theory Grade",
+  theorystatus: "Theory Status",
   practicalmarks: "Practical Obtained",
   practicaltotal: "Practical Total",
   practicalpercentage: "Practical %",
   practicalgradepoint: "Practical Grade Point",
   practicalgrade: "Practical Grade",
+  practicalstatus: "Practical Status",
   vivatotal: "Viva Total",
   vivaobtained: "Viva Obtained",
   vivapercentage: "Viva %",
@@ -391,8 +395,11 @@ export function ExaminationModel2VivaMarksPage() {
       if (["theorymarks", "theoryobtained"].includes(field)) next.theorypercentage = pct(next.theoryobtained, next.theorymarks);
       if (["practicalmarks", "practicaltotal"].includes(field)) next.practicalpercentage = pct(next.practicalmarks, next.practicaltotal);
       if (["vivatotal", "vivaobtained"].includes(field)) next.vivapercentage = pct(next.vivaobtained, next.vivatotal);
-      if (["theoryobtained", "practicalmarks", "vivaobtained"].includes(field) && !prev.overalltotalmarks) {
-        next.overalltotalmarks = Number((Number(next.theoryobtained || 0) + Number(next.practicalmarks || 0) + Number(next.vivaobtained || 0)).toFixed(2));
+      if (["theorymarks", "practicaltotal", "vivatotal"].includes(field) && !prev.overalltotalmarks) {
+        next.overalltotalmarks = Number((Number(next.theorymarks || 0) + Number(next.practicaltotal || 0) + Number(next.vivatotal || 0)).toFixed(2));
+      }
+      if (["theoryobtained", "practicalmarks", "vivaobtained"].includes(field) && !prev.overallobtained) {
+        next.overallobtained = Number((Number(next.theoryobtained || 0) + Number(next.practicalmarks || 0) + Number(next.vivaobtained || 0)).toFixed(2));
       }
       if (["theorymarks", "theoryobtained", "practicalmarks", "practicaltotal", "vivatotal", "vivaobtained"].includes(field)) {
         next.overallpercentage = pct(
@@ -2073,12 +2080,12 @@ export function ExaminationModel2VivaClassConfigurationPage() {
   return <ExaminationModel2ClassConfigurationPage />;
 }
 
-function VivaProcessingLayout({ title, subtitle, endpoint, loadEndpoint, defaultComponent, componentOptions, columnsList, buttonText, workingText }) {
+function VivaProcessingLayout({ title, subtitle, endpoint, loadEndpoint, defaultComponent, componentOptions, columnsList, buttonText, workingText, allowUgcTemplate = false }) {
   const { options } = useExamOptions();
   const [templates, setTemplates] = useState([]);
   const [marksRows, setMarksRows] = useState([]);
   const [resultRows, setResultRows] = useState([]);
-  const [form, setForm] = useState({ academicyear: "2026-27", exam: "", examcode: "", programcodes: [], coursecodes: [], templateid: "", component: defaultComponent, components: ["Theory", "Practical", "Viva"] });
+  const [form, setForm] = useState({ academicyear: "2026-27", exam: "", examcode: "", programcodes: [], coursecodes: [], templateid: "", component: defaultComponent, components: ["Theory", "Practical", "Viva"], useUgcTemplate: false });
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [message, setMessage] = useState("");
@@ -2142,7 +2149,16 @@ function VivaProcessingLayout({ title, subtitle, endpoint, loadEndpoint, default
             <Grid container spacing={1.5}>
               {["academicyear", "exam", "examcode"].map((field) => <Grid item xs={12} md={2} key={field}><TextField select fullWidth size="small" label={labels[field] || field} value={form[field]} onChange={(e) => setForm({ ...form, [field]: e.target.value, programcodes: [], coursecodes: [] })}><MenuItem value="">Select</MenuItem>{(options[field] || []).map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>)}
               <Grid item xs={12} md={2}><Button fullWidth variant="outlined" disabled={loading} sx={{ height: "100%" }} onClick={loadMatchingMarks}>{loading ? "Loading..." : "Load viva marks"}</Button></Grid>
-              {!endpoint.includes("component-fail") && <Grid item xs={12} md={4}><TextField select fullWidth size="small" label="Grading Template" value={form.templateid} onChange={(e) => setForm({ ...form, templateid: e.target.value })}><MenuItem value="">Select</MenuItem>{templates.map((item) => <MenuItem key={item._id} value={item._id}>{item.academicyear} - {item.templatedescription}</MenuItem>)}</TextField></Grid>}
+              {allowUgcTemplate && (
+                <Grid item xs={12} md={2}>
+                  <FormControlLabel
+                    sx={{ height: "100%", alignItems: "center", ml: 0 }}
+                    control={<Switch checked={form.useUgcTemplate} onChange={(e) => setForm({ ...form, useUgcTemplate: e.target.checked, templateid: e.target.checked ? "" : form.templateid })} />}
+                    label="Use UGC template"
+                  />
+                </Grid>
+              )}
+              {!endpoint.includes("component-fail") && !form.useUgcTemplate && <Grid item xs={12} md={4}><TextField select fullWidth size="small" label="Grading Template" value={form.templateid} onChange={(e) => setForm({ ...form, templateid: e.target.value })}><MenuItem value="">Select</MenuItem>{templates.map((item) => <MenuItem key={item._id} value={item._id}>{item.academicyear} - {item.templatedescription}</MenuItem>)}</TextField></Grid>}
               <Grid item xs={12} md={4}><CheckboxSelect label="Program / Program Code" value={form.programcodes} options={programChoices} onChange={(value) => setForm({ ...form, programcodes: value })} /></Grid>
               <Grid item xs={12} md={4}><CheckboxSelect label="Course / Course Code" value={form.coursecodes} options={courseChoices} onChange={(value) => setForm({ ...form, coursecodes: value })} /></Grid>
               {endpoint.includes("component-fail")
@@ -2172,11 +2188,12 @@ export function ExaminationModel2VivaGradeProcessingPage() {
       subtitle="Apply grading template to theory, practical, viva or overall marks in the viva marks collection."
       endpoint="/api/v2/examination-model2/viva-process-grades"
       loadEndpoint="/api/v2/examination-model2/viva-marks"
-      defaultComponent="Overalltotal"
-      componentOptions={["Theory", "Practical", "Viva", "Overalltotal"]}
-      columnsList={["academicyear", "exam", "examcode", "program", "programcode", "course", "coursecode", "student", "regno", "theoryobtained", "theorygradepoint", "theorygrade", "practicalmarks", "practicalgradepoint", "practicalgrade", "vivaobtained", "vivagpa", "vivagrade", "overalltotalmarks", "overallgradepoint", "overallgrade", "gpa"]}
+      defaultComponent="Overall"
+      componentOptions={["Theory", "Practical", "Viva", "Overall"]}
+      columnsList={["academicyear", "exam", "examcode", "program", "programcode", "course", "coursecode", "student", "regno", "theoryobtained", "theorygradepoint", "theorygrade", "practicalmarks", "practicalgradepoint", "practicalgrade", "vivaobtained", "vivagpa", "vivagrade", "overalltotalmarks", "overallobtained", "overallgradepoint", "overallgrade", "gpa"]}
       buttonText="Process grades"
       workingText="Processing..."
+      allowUgcTemplate
     />
   );
 }
@@ -2190,7 +2207,7 @@ export function ExaminationModel2VivaPercentageCalculationPage() {
       loadEndpoint="/api/v2/examination-model2/viva-marks"
       defaultComponent="Theory"
       componentOptions={["Theory", "Practical", "Viva", "Overall"]}
-      columnsList={["academicyear", "exam", "examcode", "program", "programcode", "course", "coursecode", "student", "regno", "theorymarks", "theoryobtained", "theorypercentage", "practicaltotal", "practicalmarks", "practicalpercentage", "vivatotal", "vivaobtained", "vivapercentage", "overalltotalmarks", "overallpercentage"]}
+      columnsList={["academicyear", "exam", "examcode", "program", "programcode", "course", "coursecode", "student", "regno", "theorymarks", "theoryobtained", "theorypercentage", "practicaltotal", "practicalmarks", "practicalpercentage", "vivatotal", "vivaobtained", "vivapercentage", "overalltotalmarks", "overallobtained", "overallpercentage"]}
       buttonText="Calculate percentage"
       workingText="Calculating..."
     />
@@ -2213,14 +2230,59 @@ export function ExaminationModel2VivaComponentFailRulePage() {
   );
 }
 
-export function ExaminationModel2VivaMarksheetPage() {
+export function ExaminationModel2VivaMarksheetPage({ marksMode = false }) {
   const { options } = useExamOptions();
-  const [filters, setFilters] = useState({ academicyear: "2026-27", examcode: "", programcode: "", semester: "", regno: "" });
+  const [filters, setFilters] = useState({ academicyear: "2026-27", exam: "", examcode: "", regulation: "", program: "", programcode: "", semester: "", name: "", email: "", phone: "", regno: "" });
+  const [componentDisplay, setComponentDisplay] = useState({ Theory: true, Practical: true, Viva: true });
+  const [students, setStudents] = useState([]);
+  const [selectedStudent, setSelectedStudent] = useState(null);
   const [marksheet, setMarksheet] = useState(null);
   const [blockchainLink, setBlockchainLink] = useState("");
   const [qr, setQr] = useState("");
   const [loading, setLoading] = useState(false);
+  const [studentsLoading, setStudentsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const updateFilter = (field, value) => {
+    setFilters((prev) => ({ ...prev, [field]: value }));
+    setSelectedStudent(null);
+    setMarksheet(null);
+    setBlockchainLink("");
+    setQr("");
+  };
+
+  const loadStudents = async () => {
+    try {
+      setStudentsLoading(true);
+      setError("");
+      setSelectedStudent(null);
+      setMarksheet(null);
+      const res = await ep1.get("/api/v2/examination-model2/viva-students", { params: { colid: global1.colid, ...filters } });
+      setStudents(res.data?.data || []);
+    } catch (err) {
+      setError(msg(err, "Unable to load viva marksheet students"));
+    } finally {
+      setStudentsLoading(false);
+    }
+  };
+
+  const selectStudent = (student) => {
+    setSelectedStudent(student);
+    setFilters((prev) => ({
+      ...prev,
+      academicyear: student.academicyear || prev.academicyear,
+      exam: student.exam || prev.exam,
+      examcode: student.examcode || prev.examcode,
+      regulation: student.regulation || prev.regulation,
+      program: student.program || prev.program,
+      programcode: student.programcode || prev.programcode,
+      semester: student.semester || prev.semester,
+      regno: student.regno || prev.regno
+    }));
+    setMarksheet(null);
+    setBlockchainLink("");
+    setQr("");
+  };
 
   const load = async () => {
     try {
@@ -2250,73 +2312,151 @@ export function ExaminationModel2VivaMarksheetPage() {
 
   const m = marksheet || {};
   const issueDate = new Date().toLocaleDateString("en-IN");
+  const subjectCount = m.marks?.length || 0;
+  const totalOverallObtained = Number((m.marks || []).reduce((sum, row) => sum + Number(row.overallobtained || 0), 0).toFixed(2));
+  const denseMarksheet = subjectCount > 8;
+  const veryDenseMarksheet = subjectCount > 12;
+  const marksFontSize = veryDenseMarksheet ? 7.4 : denseMarksheet ? 8.2 : 9;
+  const marksPadding = veryDenseMarksheet ? 1.8 : denseMarksheet ? 2.3 : 3;
+  const marksCellStyle = { border: "1px solid #111827", padding: marksPadding, lineHeight: veryDenseMarksheet ? 1.05 : 1.15, fontSize: marksFontSize };
+  const marksBreakCellStyle = { ...marksCellStyle, wordBreak: "break-word" };
+  const marksHeaderStyle = { ...marksCellStyle, background: "#f3f4f6", fontWeight: 800 };
+  const summaryItems = [
+    ["Credits Offered", m.summary?.creditsoffered],
+    ["Credits Earned", m.summary?.creditsearned],
+    [marksMode ? "Total Overall Marks Obtained" : "SGPA", marksMode ? totalOverallObtained : m.summary?.sgpa],
+    ["CGPA", m.summary?.cgpa],
+    ["Class Assigned", m.summary?.classassigned || "NA"],
+    ["Result", m.summary?.result],
+    ["Result Process Date", m.summary?.resultprocessdate],
+    ["Date of Issue", issueDate]
+  ];
+  const studentColumns = [
+    { field: "name", headerName: "Student", width: 190 },
+    { field: "regno", headerName: "Reg No", width: 130 },
+    { field: "email", headerName: "Email", width: 190 },
+    { field: "academicyear", headerName: "Academic Year", width: 130 },
+    { field: "examcode", headerName: "Exam Code", width: 130 },
+    { field: "regulation", headerName: "Regulation", width: 130 },
+    { field: "program", headerName: "Program", width: 170 },
+    { field: "programcode", headerName: "Program Code", width: 130 },
+    { field: "semester", headerName: "Semester", width: 110 },
+    {
+      field: "select",
+      headerName: "Select",
+      width: 120,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => <Button size="small" variant={selectedStudent?.regno === params.row.regno ? "contained" : "outlined"} onClick={() => selectStudent(params.row)}>Select</Button>
+    }
+  ];
 
   return (
-    <MenuPageShell title="Generate Viva Marksheet">
+    <MenuPageShell title={marksMode ? "Exam Viva Marksheet Marks" : "Generate Viva Marksheet"}>
       <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
         <Stack spacing={2}>
           <Paper className="screen-only" elevation={0} sx={{ p: 2.5, borderRadius: 3, border: "1px solid #e5e7eb" }}>
-            <Typography variant="h4" fontWeight={950}>Generate Viva Marksheet</Typography>
-            <Typography color="text.secondary">Generate printable marksheet with theory, practical and viva grade details.</Typography>
+	            <Typography variant="h4" fontWeight={950}>{marksMode ? "Exam Viva Marksheet Marks" : "Generate Viva Marksheet"}</Typography>
+	            <Typography color="text.secondary">{marksMode ? "Generate printable marksheet with theory, practical and viva marks obtained." : "Generate printable marksheet with theory, practical and viva grade details."}</Typography>
           </Paper>
           {error && <Alert className="screen-only" severity="error" onClose={() => setError("")}>{error}</Alert>}
           <Paper className="screen-only" elevation={0} sx={{ p: 2, borderRadius: 3, border: "1px solid #e5e7eb" }}>
             <Grid container spacing={1.5}>
-              {["academicyear", "examcode", "programcode", "semester"].map((field) => <Grid item xs={12} md={2} key={field}><TextField select fullWidth size="small" label={labels[field] || field} value={filters[field] || ""} onChange={(e) => setFilters({ ...filters, [field]: e.target.value })}><MenuItem value="">Select</MenuItem>{(options[field] || []).map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>)}
-              <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Reg No" value={filters.regno} onChange={(e) => setFilters({ ...filters, regno: e.target.value })} /></Grid>
-              <Grid item xs={12} md={2}><Button fullWidth variant="contained" sx={{ height: "100%" }} disabled={loading} onClick={load}>{loading ? "Loading..." : "Load"}</Button></Grid>
-              <Grid item xs={12} md={2}><Button fullWidth variant="outlined" sx={{ height: "100%" }} disabled={!marksheet} onClick={storeBlockchain}>Store Blockchain</Button></Grid>
-              <Grid item xs={12} md={2}><Button fullWidth variant="outlined" sx={{ height: "100%" }} disabled={!marksheet} onClick={() => window.print()}>Print</Button></Grid>
-            </Grid>
+              {["academicyear", "exam", "examcode", "regulation", "program", "programcode", "semester"].map((field) => <Grid item xs={12} md={2} key={field}><TextField select fullWidth size="small" label={labels[field] || field} value={filters[field] || ""} onChange={(e) => updateFilter(field, e.target.value)}><MenuItem value="">Select</MenuItem>{(options[field] || []).map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>)}
+              {["name", "email", "phone", "regno"].map((field) => <Grid item xs={12} md={2} key={field}><TextField fullWidth size="small" label={labels[field] || field.charAt(0).toUpperCase() + field.slice(1)} value={filters[field] || ""} onChange={(e) => updateFilter(field, e.target.value)} /></Grid>)}
+              <Grid item xs={12} md={2}><Button fullWidth variant="outlined" sx={{ height: "100%" }} disabled={studentsLoading} onClick={loadStudents}>{studentsLoading ? <><CircularProgress size={18} sx={{ mr: 1 }} />Loading...</> : "Apply filters"}</Button></Grid>
+              <Grid item xs={12} md={2}><Button fullWidth variant="contained" sx={{ height: "100%" }} disabled={loading || !filters.regno} onClick={load}>{loading ? "Loading..." : "Generate"}</Button></Grid>
+	              <Grid item xs={12} md={2}><Button fullWidth variant="outlined" sx={{ height: "100%" }} disabled={!marksheet} onClick={storeBlockchain}>Store Blockchain</Button></Grid>
+	              <Grid item xs={12} md={2}><Button fullWidth variant="outlined" sx={{ height: "100%" }} disabled={!marksheet} onClick={() => window.print()}>Print</Button></Grid>
+	              {["Theory", "Practical", "Viva"].map((component) => (
+	                <Grid item xs={12} md={2} key={component}>
+	                  <FormControlLabel
+	                    control={<Switch checked={componentDisplay[component]} onChange={(e) => setComponentDisplay((prev) => ({ ...prev, [component]: e.target.checked }))} />}
+	                    label={`Show ${component}`}
+	                  />
+	                </Grid>
+	              ))}
+	            </Grid>
+            {selectedStudent && <Alert severity="success" sx={{ mt: 2 }}>Selected: {selectedStudent.name || "Student"} - {selectedStudent.regno}</Alert>}
+          </Paper>
+          <Paper className="screen-only" elevation={0} sx={{ p: 2, borderRadius: 3, border: "1px solid #e5e7eb" }}>
+            <Typography variant="h6" fontWeight={900} sx={{ mb: 1 }}>Filtered students</Typography>
+            <Box sx={{ height: 360, width: "100%" }}>
+              <DataGrid
+                rows={students}
+                columns={studentColumns}
+                getRowId={(row) => row._id || `${row.regno}-${row.academicyear}-${row.examcode}`}
+                loading={studentsLoading}
+                slots={{ toolbar: GridToolbar }}
+                slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "exam_model2_viva_marksheet_students" } } }}
+                pageSizeOptions={[10, 25, 50, 100]}
+                disableRowSelectionOnClick
+              />
+            </Box>
           </Paper>
           {marksheet && (
-            <Paper id="exam-model2-viva-marksheet-print" elevation={0} sx={{ p: 3, borderRadius: 3, border: "1px solid #e5e7eb", bgcolor: "#fff", maxWidth: 1100, mx: "auto" }}>
-              <Stack alignItems="center" sx={{ mb: 2 }}>
-                {m.institution?.logo && <Box component="img" src={m.institution.logo} sx={{ height: 70, objectFit: "contain", mb: 1 }} />}
-                <Typography variant="h5" fontWeight={950}>{m.institution?.insname || m.institution?.name || global1.insname || "Institution"}</Typography>
-                <Typography align="center" color="text.secondary">{m.institution?.address || m.institution?.address1 || ""}</Typography>
-                <Typography variant="h6" fontWeight={900} sx={{ mt: 1 }}>Viva Statement of Marks</Typography>
-                <Typography variant="caption" color="text.secondary">Date of Issue: {issueDate}</Typography>
+            <Paper id="exam-model2-viva-marksheet-print" elevation={0} sx={{ p: "8mm", borderRadius: 1, border: "1px solid #111827", bgcolor: "#fff", width: "194mm", minHeight: "277mm", maxWidth: "100%", mx: "auto", boxSizing: "border-box", color: "#000", "& *": { color: "#000 !important" } }}>
+              <Stack alignItems="center" sx={{ mb: 1 }}>
+                {m.institution?.logo && <Box component="img" src={m.institution.logo} sx={{ height: 36, maxWidth: 145, objectFit: "contain", mb: 0.35 }} />}
+                <Typography sx={{ fontSize: 14, lineHeight: 1.08 }} fontWeight={950} align="center">{m.institution?.insname || m.institution?.name || global1.insname || "Institution"}</Typography>
+                <Typography align="center" sx={{ fontSize: 8.5, lineHeight: 1.15 }}>{m.institution?.address || m.institution?.address1 || ""}</Typography>
+	                <Typography sx={{ fontSize: 12, mt: 0.35, lineHeight: 1.1 }} fontWeight={900}>{marksMode ? "Exam Viva Marksheet Marks" : "Viva Statement of Marks"}</Typography>
+                <Typography variant="caption" sx={{ fontSize: 7.8, lineHeight: 1 }}>Date of Issue: {issueDate}</Typography>
               </Stack>
-              <Grid container spacing={1.2} sx={{ mb: 2 }}>
-                <Grid item xs={3}><Avatar src={m.student.photo || ""} sx={{ width: 110, height: 110 }} /></Grid>
+              <Grid container spacing={0.6} sx={{ mb: 0.7 }}>
+                <Grid item xs={2}><Avatar src={m.student.photo || ""} sx={{ width: 58, height: 58 }} /></Grid>
                 <Grid item xs={9}>
-                  <Grid container spacing={1}>
-                    {[["Name", m.student.name], ["Reg No", m.student.regno], ["ABC ID", m.student.abcid], ["Program", m.student.program], ["Program Code", m.student.programcode], ["Semester", m.student.semester], ["Academic Year", m.student.academicyear], ["Regulation", m.student.regulation], ["SGPA", m.summary.sgpa], ["CGPA", m.summary.cgpa], ["Class Assigned", m.summary.classassigned || "NA"], ["Date of Issue", issueDate]].map(([k, v]) => <Grid item xs={6} md={3} key={k}><Typography variant="caption" color="text.secondary">{k}</Typography><Typography fontWeight={800}>{v || "NA"}</Typography></Grid>)}
+                  <Grid container spacing={0.3}>
+	                    {[["Name", m.student.name], ["Reg No", m.student.regno], ["ABC ID", m.student.abcid], ["Program", m.student.program], ["Program Code", m.student.programcode], ["Semester", m.student.semester], ["Academic Year", m.student.academicyear], ["Regulation", m.student.regulation], [marksMode ? "Total Overall Marks Obtained" : "SGPA", marksMode ? totalOverallObtained : m.summary.sgpa], ["CGPA", m.summary.cgpa], ["Class Assigned", m.summary.classassigned || "NA"], ["Date of Issue", issueDate]].map(([k, v]) => <Grid item xs={6} md={3} key={k}><Typography sx={{ fontSize: 7, lineHeight: 1.05, fontWeight: 700 }}>{k}</Typography><Typography sx={{ fontSize: 8.5, lineHeight: 1.12 }} fontWeight={800}>{v || "NA"}</Typography></Grid>)}
                   </Grid>
                 </Grid>
               </Grid>
-              <Box sx={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                  <thead><tr>{["Course Code", "Course", "Credit", "Theory Grade", "Practical Grade", "Viva Obtained", "Viva Total", "Viva %", "Viva Grade", "Overall Grade", "Status"].map((h) => <th key={h} style={{ border: "1px solid #111827", padding: 7, background: "#f3f4f6" }}>{h}</th>)}</tr></thead>
-                  <tbody>{m.marks.map((row) => <tr key={row._id}>
-                    <td style={{ border: "1px solid #111827", padding: 7 }}>{row.coursecode}</td>
-                    <td style={{ border: "1px solid #111827", padding: 7 }}>{row.course}</td>
-                    <td style={{ border: "1px solid #111827", padding: 7 }}>{row.credit}</td>
-                    <td style={{ border: "1px solid #111827", padding: 7 }}>{row.theorygrade}</td>
-                    <td style={{ border: "1px solid #111827", padding: 7 }}>{row.practicalgrade}</td>
-                    <td style={{ border: "1px solid #111827", padding: 7 }}>{row.vivaobtained}</td>
-                    <td style={{ border: "1px solid #111827", padding: 7 }}>{row.vivatotal}</td>
-                    <td style={{ border: "1px solid #111827", padding: 7 }}>{row.vivapercentage}</td>
-                    <td style={{ border: "1px solid #111827", padding: 7 }}>{row.vivagrade}</td>
-                    <td style={{ border: "1px solid #111827", padding: 7 }}>{row.overallgrade}</td>
-                    <td style={{ border: "1px solid #111827", padding: 7 }}>{row.status}</td>
-                  </tr>)}</tbody>
+              <Box sx={{ overflowX: "hidden" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: marksFontSize, tableLayout: "fixed" }}>
+	                  <thead><tr>{[
+	                    "Course Code",
+	                    "Course",
+	                    "Credit",
+	                    componentDisplay.Theory ? (marksMode ? "Theory Obtained" : "Theory Grade") : null,
+	                    componentDisplay.Practical ? (marksMode ? "Practical Obtained" : "Practical Grade") : null,
+	                    componentDisplay.Viva ? (marksMode ? "Viva Obtained" : "Viva Grade") : null,
+	                    marksMode ? "Overall Obtained" : "Overall Grade",
+	                    "Status"
+	                  ].filter(Boolean).map((h) => <th key={h} style={marksHeaderStyle}>{h}</th>)}</tr></thead>
+	                  <tbody>{m.marks.map((row) => <tr key={row._id}>
+	                    <td style={marksBreakCellStyle}>{row.coursecode}</td>
+	                    <td style={marksBreakCellStyle}>{row.course}</td>
+	                    <td style={marksCellStyle}>{row.credit}</td>
+	                    {componentDisplay.Theory && <td style={marksCellStyle}>{marksMode ? row.theoryobtained : row.theorygrade}</td>}
+	                    {componentDisplay.Practical && <td style={marksCellStyle}>{marksMode ? row.practicalmarks : row.practicalgrade}</td>}
+	                    {componentDisplay.Viva && <td style={marksCellStyle}>{marksMode ? row.vivaobtained : row.vivagrade}</td>}
+	                    <td style={marksCellStyle}>{marksMode ? row.overallobtained : row.overallgrade}</td>
+	                    <td style={marksCellStyle}>{row.status}</td>
+	                  </tr>)}</tbody>
                 </table>
               </Box>
-              <Box sx={{ mt: 2, overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                  <tbody>{[["Credits Offered", m.summary.creditsoffered], ["Credits Earned", m.summary.creditsearned], ["SGPA", m.summary.sgpa], ["CGPA", m.summary.cgpa], ["Class Assigned", m.summary.classassigned || "NA"], ["Result", m.summary.result], ["Result Process Date", m.summary.resultprocessdate], ["Date of Issue", issueDate]].map(([k, v]) => <tr key={k}><td style={{ border: "1px solid #111827", padding: 8, fontWeight: 800 }}>{k}</td><td style={{ border: "1px solid #111827", padding: 8 }}>{v}</td></tr>)}</tbody>
-                </table>
-              </Box>
-              {blockchainLink && <Typography sx={{ mt: 2 }} variant="caption">Blockchain verification: <Link href={blockchainLink} target="_blank">{blockchainLink}</Link></Typography>}
-              {qr && <Box sx={qrPlacementSx("bottomright")}><Box sx={{ width: 128, textAlign: "center", p: 1, border: "1px solid #d1d5db", bgcolor: "#fff" }}><Box component="img" src={qr} alt="Blockchain verification QR" sx={{ width: 110, height: 110, display: "block", mx: "auto" }} /><Typography variant="caption" fontWeight={800}>Verify QR</Typography></Box></Box>}
-              <Stack direction="row" justifyContent="space-between" sx={{ mt: 5 }}><Typography>Prepared by</Typography><Typography>Checked by</Typography><Typography>Controller of Examinations</Typography></Stack>
+              <Grid container spacing={0.4} sx={{ mt: denseMarksheet ? 0.6 : 1 }}>
+                {summaryItems.map(([k, v]) => (
+                  <Grid item xs={6} md={4} key={k}>
+                    <Box sx={{ display: "flex", alignItems: "baseline", gap: 0.4, minHeight: veryDenseMarksheet ? 12 : 15 }}>
+                      <Typography component="span" sx={{ fontSize: veryDenseMarksheet ? 7.6 : 8.6, lineHeight: 1.1, fontWeight: 900, whiteSpace: "nowrap" }}>{k}:</Typography>
+                      <Typography component="span" sx={{ fontSize: veryDenseMarksheet ? 8 : 9, lineHeight: 1.1, fontWeight: 700, wordBreak: "break-word" }}>{v || "NA"}</Typography>
+                    </Box>
+                  </Grid>
+                ))}
+              </Grid>
+              {blockchainLink && <Typography sx={{ mt: 0.8, fontSize: 8, wordBreak: "break-all" }}>Blockchain verification: <Link href={blockchainLink} target="_blank">{blockchainLink}</Link></Typography>}
+              {qr && <Box sx={qrPlacementSx("bottomright")}><Box sx={{ width: 82, textAlign: "center", p: 0.5, border: "1px solid #d1d5db", bgcolor: "#fff" }}><Box component="img" src={qr} alt="Blockchain verification QR" sx={{ width: 68, height: 68, display: "block", mx: "auto" }} /><Typography sx={{ fontSize: 7 }} fontWeight={800}>Verify QR</Typography></Box></Box>}
+              <Stack direction="row" justifyContent="space-between" sx={{ mt: denseMarksheet ? 1.4 : 2.5 }}><Typography sx={{ fontSize: 10 }}>Prepared by</Typography><Typography sx={{ fontSize: 10 }}>Checked by</Typography><Typography sx={{ fontSize: 10 }}>Controller of Examinations</Typography></Stack>
             </Paper>
           )}
         </Stack>
       </Box>
-      <style>{`@media print { body * { visibility: hidden; } #exam-model2-viva-marksheet-print, #exam-model2-viva-marksheet-print * { visibility: visible; } #exam-model2-viva-marksheet-print { position: absolute; left: 0; top: 0; width: 100%; max-width: 100% !important; box-shadow: none; border: none; } .screen-only { display: none !important; } }`}</style>
+      <style>{`#exam-model2-viva-marksheet-print, #exam-model2-viva-marksheet-print * { color: #000 !important; } @media print { @page { size: A4 portrait; margin: 8mm; } html, body { width: 210mm; margin: 0 !important; padding: 0 !important; overflow: hidden; } body * { visibility: hidden; } #exam-model2-viva-marksheet-print, #exam-model2-viva-marksheet-print * { visibility: visible; color: #000 !important; } #exam-model2-viva-marksheet-print { position: absolute; left: 0; top: 0; width: 194mm !important; max-width: 194mm !important; min-height: 277mm !important; box-shadow: none !important; border: none !important; padding: 0 !important; page-break-after: avoid; break-after: avoid; } #exam-model2-viva-marksheet-print table { page-break-inside: avoid; break-inside: avoid; } .screen-only { display: none !important; } }`}</style>
     </MenuPageShell>
   );
+}
+
+export function ExaminationModel2VivaMarksOnlyMarksheetPage() {
+  return <ExaminationModel2VivaMarksheetPage marksMode />;
 }

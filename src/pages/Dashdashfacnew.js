@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom'; // Import Link from React Router
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
@@ -16,12 +16,13 @@ import List from '@mui/material/List';
 import Divider from '@mui/material/Divider';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import { mainListItems, secondaryListItems } from './menucas1';
-import { useState } from 'react';
 // import Chart from './Charts';
 // import Deposits from './Deposits';
 import ViewPage from './Viewdashfacnew';
 import Login from './Login';
 import global1 from './global1';
+import ActivityPointBadge from './ActivityPointBadge';
+import TopMenuSearch from './TopMenuSearch';
 
 const SidebarWidth = 250;
 
@@ -111,6 +112,8 @@ function DashboardContent() {
                         >
                             Quick View
                         </Typography>
+                        <TopMenuSearch />
+                        <ActivityPointBadge sx={{ mr: 2 }} />
                         <IconButton color="inherit">
     <Badge color="inherit">
         <Link to="/Login" style={{ textDecoration: 'none', color: 'inherit' }}> 

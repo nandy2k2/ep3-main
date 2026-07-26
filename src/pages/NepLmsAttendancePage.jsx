@@ -71,7 +71,7 @@ const dateTitle = (date) => date.toLocaleDateString(undefined, { weekday: "long"
 const weekTitle = (start, end) => `${start.toLocaleDateString(undefined, { day: "numeric", month: "short" })} - ${end.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}`;
 const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-export default function NepLmsAttendancePage({ sectionMode = false, pageTitle = "Attendance" }) {
+export default function NepLmsAttendancePage({ sectionMode = false, pageTitle = "Attendance", raiseActivityEvent = false }) {
   const [assignments, setAssignments] = useState([]);
   const [classes, setClasses] = useState([]);
   const [classFilters, setClassFilters] = useState([makeFilter()]);
@@ -348,6 +348,7 @@ export default function NepLmsAttendancePage({ sectionMode = false, pageTitle = 
         classInfo: selectedClass,
         type: attendanceType,
         comments,
+        raiseActivityEvent,
         students: selected
       });
       setMessage(`${res.data?.saved || 0} attendance records saved`);

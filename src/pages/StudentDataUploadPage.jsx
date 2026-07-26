@@ -851,20 +851,47 @@ export default function StudentDataUploadPage() {
           </Grid>
           {fields.map((field) => (
             <Grid item xs={12} sm={6} md={3} key={field}>
-              <TextField
-                fullWidth
-                select={fieldOptions(field).length > 0 && field !== "programcode"}
-                disabled={field === "programcode" || (field === "scholarnumber" && autoScholarNumber)}
-                required={field === "email"}
-                label={labels[field]}
-                value={field === "scholarnumber" && autoScholarNumber ? "" : fieldValue(field)}
-                onChange={(event) => updateField(field, event.target.value)}
-                helperText={field === "scholarnumber" && autoScholarNumber ? "Will be generated on save" : ""}
-              >
-                {fieldOptions(field).map((option) => (
-                  <MenuItem key={option} value={option}>{option}</MenuItem>
-                ))}
-              </TextField>
+              {field === "program" ? (
+                <Autocomplete
+                  options={programOptions}
+                  value={programOptions.find((item) => item.programcode === form.programcode) || null}
+                  onChange={(_, value) => updateField("program", value ? `${value.program || value.name || ""} (${value.programcode || ""})` : "")}
+                  getOptionLabel={(option) => option ? `${option.program || option.name || ""}${option.programcode ? ` (${option.programcode})` : ""}` : ""}
+                  isOptionEqualToValue={(option, value) => option.programcode === value.programcode}
+                  renderInput={(params) => <TextField {...params} fullWidth label={labels[field]} />}
+                />
+              ) : subjectFields.includes(field) ? (
+                <Autocomplete
+                  freeSolo
+                  options={fieldOptions(field)}
+                  value={fieldValue(field)}
+                  onInputChange={(_, value) => updateField(field, value)}
+                  onChange={(_, value) => updateField(field, value || "")}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      fullWidth
+                      label={labels[field]}
+                      helperText={form.regulation && (form.program || form.programcode) ? "Loaded from regulation subjects; custom value allowed" : "Select regulation and program to load suggestions; custom value allowed"}
+                    />
+                  )}
+                />
+              ) : (
+                <TextField
+                  fullWidth
+                  select={fieldOptions(field).length > 0 && field !== "programcode"}
+                  disabled={field === "programcode" || (field === "scholarnumber" && autoScholarNumber)}
+                  required={field === "email"}
+                  label={labels[field]}
+                  value={field === "scholarnumber" && autoScholarNumber ? "" : fieldValue(field)}
+                  onChange={(event) => updateField(field, event.target.value)}
+                  helperText={field === "scholarnumber" && autoScholarNumber ? "Will be generated on save" : ""}
+                >
+                  {fieldOptions(field).map((option) => (
+                    <MenuItem key={option} value={option}>{option}</MenuItem>
+                  ))}
+                </TextField>
+              )}
             </Grid>
           ))}
           {customFields.map((field) => (

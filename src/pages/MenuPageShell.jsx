@@ -17,6 +17,8 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import MenuIcon from "@mui/icons-material/Menu";
 import { mainListItems } from "./menucas1";
 import { mainListItems as studentListItems } from "./menustud1";
+import ActivityPointBadge from "./ActivityPointBadge";
+import TopMenuSearch from "./TopMenuSearch";
 import global1 from "./global1";
 
 const drawerWidth = 250;
@@ -112,6 +114,8 @@ export default function MenuPageShell({ title, children, menuType }) {
             <Typography component="h1" variant="h6" color="inherit" noWrap sx={{ flexGrow: 1 }}>
               {title}
             </Typography>
+            <TopMenuSearch menuType={menuType} />
+            <ActivityPointBadge sx={{ mr: 2 }} />
             <Button color="inherit" startIcon={<LogoutIcon />} onClick={logout} sx={{ whiteSpace: "nowrap" }}>
               Logout
             </Button>

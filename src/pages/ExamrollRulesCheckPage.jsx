@@ -6,8 +6,8 @@ import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 
-const fields = ["academicyear", "regulation", "exam", "examcode", "program", "programcode", "type", "subject", "semester", "course", "coursecode", "section", "atkt"];
-const labels = { academicyear: "Academic Year", regulation: "Regulation", exam: "Exam", examcode: "Exam Code", program: "Program", programcode: "Program Code", type: "Type", subject: "Subject", semester: "Semester", course: "Course", coursecode: "Course Code", section: "Section", atkt: "ATKT" };
+const fields = ["academicyear", "regulation", "exam", "examcode", "program", "programcode", "type", "subject", "semester", "course", "coursecode", "section", "seatno", "atkt"];
+const labels = { academicyear: "Academic Year", regulation: "Regulation", exam: "Exam", examcode: "Exam Code", program: "Program", programcode: "Program Code", type: "Type", subject: "Subject", semester: "Semester", course: "Course", coursecode: "Course Code", section: "Section", seatno: "Seat No", atkt: "ATKT" };
 
 export default function ExamrollRulesCheckPage() {
   const [options, setOptions] = useState({});
@@ -67,6 +67,7 @@ export default function ExamrollRulesCheckPage() {
     }
   };
   const columns = [
+    { field: "_id", headerName: "Unique ID", width: 230 },
     { field: "student", headerName: "Student", width: 170 },
     { field: "regno", headerName: "Reg No", width: 130 },
     { field: "academicyear", headerName: "Academic Year", width: 130 },
@@ -75,6 +76,7 @@ export default function ExamrollRulesCheckPage() {
     { field: "semester", headerName: "Semester", width: 100 },
     { field: "coursecode", headerName: "Course Code", width: 130 },
     { field: "course", headerName: "Course", width: 200 },
+    { field: "seatno", headerName: "Seat No", width: 110 },
     { field: "attendance", headerName: "Attendance", width: 140 },
     { field: "fees", headerName: "Fees", width: 150 },
     { field: "disciplinary", headerName: "Disciplinary", width: 170 },

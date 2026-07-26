@@ -13,7 +13,6 @@ import {
   Paper,
   CircularProgress,
   Alert,
-  LinearProgress,
   Stack,
   Accordion,
   AccordionSummary,
@@ -23,24 +22,19 @@ import {
   TableCell,
   TableHead,
   TableRow,
-  TableContainer
+  TableContainer,
+  TextField,
+  MenuItem
 } from '@mui/material';
 import {
-  Task as TaskIcon,
-  Assignment as AssignmentIcon,
-  Approval as ApprovalIcon,
   School as SeminarIcon,
   Science as ProjectIcon,
   Class as ClassIcon,
   ArrowForward as ArrowForwardIcon,
-  Person as PersonIcon,
   Email as EmailIcon,
   Phone as PhoneIcon,
   Business as DepartmentIcon,
   AccountCircle as AccountCircleIcon,
-  TrendingUp as TrendingUpIcon,
-  CalendarToday as CalendarIcon,
-  AttachMoney as MoneyIcon,
   ExpandMore as ExpandMoreIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
@@ -49,20 +43,6 @@ import ep1 from "../api/ep1.js";
 import global1 from "./global1.js";
 
 // Enhanced Styled Components with Fixed Dimensions and Different Gradients
-const StyledCard = styled(Card)(({ theme }) => ({
-  height: '100%',
-  display: 'flex',
-  flexDirection: 'column',
-  transition: 'all 0.3s ease-in-out',
-  cursor: 'pointer',
-  borderRadius: 12,
-  overflow: 'hidden',
-  '&:hover': {
-    transform: 'translateY(-8px)',
-    boxShadow: theme.shadows[12],
-  },
-}));
-
 const StyledCardContent = styled(CardContent)(({ theme }) => ({
   flexGrow: 1,
   display: 'flex',
@@ -82,22 +62,6 @@ const ProfileCard = styled(Card)(({ theme }) => ({
 }));
 
 // Fixed Size Stat Cards with Different Gradients
-const StatCard1 = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(3),
-  textAlign: 'center',
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', // Purple-Blue gradient
-  color: 'white',
-  borderRadius: 12,
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '100%',
-  height: 180, // Fixed height
-  minHeight: 180,
-  boxShadow: theme.shadows[6],
-}));
-
 const StatCard2 = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(3),
   textAlign: 'center',
@@ -146,22 +110,6 @@ const StatCard4 = styled(Paper)(({ theme }) => ({
   boxShadow: theme.shadows[6],
 }));
 
-const MetricBox = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  padding: theme.spacing(1.5),
-  borderRadius: 8,
-  backgroundColor: 'rgba(0, 0, 0, 0.04)',
-  margin: theme.spacing(0.5, 0),
-  minHeight: 40,
-}));
-
-const TaskMetricContainer = styled(Box)(({ theme }) => ({
-  flexGrow: 1,
-  marginBottom: theme.spacing(2),
-}));
-
 const SectionTitle = styled(Typography)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
@@ -200,17 +148,19 @@ const AcademicCard = styled(Card)(({ theme }) => ({
 
 const FacultyDashboardds = () => {
   const navigate = useNavigate();
+  const canCreateDashboard = String(global1.role || '').toLowerCase() === 'all';
   const [faculty, setFaculty] = useState(null);
-  const [taskAnalytics, setTaskAnalytics] = useState(null);
   const [seminarData, setSeminarData] = useState(null);
   const [projectData, setProjectData] = useState(null);
   const [classData, setClassData] = useState(null);
+  const [dashboards, setDashboards] = useState([]);
+  const [selectedDashboardId, setSelectedDashboardId] = useState('');
   const [loading, setLoading] = useState({
     profile: true,
-    tasks: true,
     seminars: true,
     projects: true,
-    classes: true
+    classes: true,
+    dashboards: true
   });
   const [error, setError] = useState(null);
 
@@ -225,38 +175,36 @@ const FacultyDashboardds = () => {
       setError('Email or College ID not found in global state');
       setLoading({
         profile: false,
-        tasks: false,
         seminars: false,
         projects: false,
-        classes: false
+        classes: false,
+        dashboards: false
       });
     }
   }, [facultyEmail, colid]);
 
   const fetchAllData = async () => {
     const params = { email: facultyEmail, colid: colid };
+    const role = global1.role || 'Faculty';
 
     try {
       const [
         profileResponse,
-        taskResponse,
         seminarResponse,
         projectResponse,
-        classResponse
+        classResponse,
+        dashboardResponse
       ] = await Promise.allSettled([
         ep1.get('/api/v2/getfacultyprofilds', { params }),
-        ep1.get('/api/v2/getfacultytaskanalyticsds', { params }),
         ep1.get('/api/v2/getfacultyseminaranalyticsds', { params }),
         ep1.get('/api/v2/getfacultyprojectanalyticsds', { params }),
-        ep1.get('/api/v2/getfacultyclassanalyticsds', { params })
+        ep1.get('/api/v2/getfacultyclassanalyticsds', { params }),
+        ep1.get('/api/v2/dashboard-widget-dashboards', { params: { colid, status: 'Active' } })
       ]);
 
       // Handle responses
       if (profileResponse.status === 'fulfilled') {
         setFaculty(profileResponse.value.data);
-      }
-      if (taskResponse.status === 'fulfilled') {
-        setTaskAnalytics(taskResponse.value.data);
       }
       if (seminarResponse.status === 'fulfilled') {
         setSeminarData(seminarResponse.value.data);
@@ -267,29 +215,34 @@ const FacultyDashboardds = () => {
       if (classResponse.status === 'fulfilled') {
         setClassData(classResponse.value.data);
       }
+      if (dashboardResponse.status === 'fulfilled') {
+        const data = dashboardResponse.value.data?.data || [];
+        const roleDashboards = data.filter((item) => {
+          const dashboardRole = String(item.role || '').toLowerCase();
+          return dashboardRole === String(role).toLowerCase() || dashboardRole === 'all';
+        });
+        setDashboards(roleDashboards);
+        setSelectedDashboardId((current) => current || roleDashboards[0]?._id || '');
+      }
 
       setLoading({
         profile: false,
-        tasks: false,
         seminars: false,
         projects: false,
-        classes: false
+        classes: false,
+        dashboards: false
       });
 
     } catch (err) {
       setError('Failed to fetch dashboard data');
       setLoading({
         profile: false,
-        tasks: false,
         seminars: false,
         projects: false,
-        classes: false
+        classes: false,
+        dashboards: false
       });
     }
-  };
-
-  const calculateProgress = (completed, total) => {
-    return total > 0 ? (completed / total) * 100 : 0;
   };
 
   const formatDate = (date) => {
@@ -426,28 +379,63 @@ const FacultyDashboardds = () => {
         </ProfileCard>
       )}
 
+      <Paper sx={{ p: 2.5, mb: 4, borderRadius: 3 }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} md={6}>
+            <Typography variant="h6" fontWeight="bold">Role dashboards</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Select an active dashboard configured for {global1.role || 'this role'}.
+            </Typography>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField
+              select
+              fullWidth
+              label="Dashboard"
+              value={selectedDashboardId}
+              onChange={(event) => setSelectedDashboardId(event.target.value)}
+              disabled={loading.dashboards}
+            >
+              {dashboards.map((dashboard) => (
+                <MenuItem key={dashboard._id} value={dashboard._id}>
+                  {dashboard.dashboardname} ({dashboard.role})
+                </MenuItem>
+              ))}
+              {!dashboards.length && <MenuItem value="">No dashboard available</MenuItem>}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <Stack direction={{ xs: 'column', sm: 'row', md: 'row' }} spacing={1} sx={{ width: '100%' }}>
+              <Button
+                fullWidth
+                variant="contained"
+                size="large"
+                sx={{ whiteSpace: 'nowrap', minWidth: 88 }}
+                disabled={!selectedDashboardId}
+                endIcon={<ArrowForwardIcon />}
+                onClick={() => navigate(`/dashboard-widget-view?id=${selectedDashboardId}`)}
+              >
+                Go
+              </Button>
+              {canCreateDashboard && (
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  size="large"
+                  sx={{ whiteSpace: 'nowrap', minWidth: 178 }}
+                  onClick={() => navigate('/dashboard-widget-builder')}
+                >
+                  Create dashboard
+                </Button>
+              )}
+            </Stack>
+          </Grid>
+        </Grid>
+      </Paper>
+
       {/* Quick Stats with Fixed Dimensions and Different Gradients */}
       <Grid container spacing={3} sx={{ mb: 8 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard1 elevation={6}>
-            <IconContainer>
-              <TrendingUpIcon sx={{ fontSize: 32 }} />
-            </IconContainer>
-            {loading.tasks ? (
-              <CircularProgress size={40} color="inherit" />
-            ) : (
-              <>
-                <Typography variant="h3" fontWeight="bold" gutterBottom>
-                  {(taskAnalytics?.creator?.total || 0) + 
-                   (taskAnalytics?.assignee?.total || 0) + 
-                   (taskAnalytics?.approver?.total || 0)}
-                </Typography>
-                <Typography variant="h6">Total Tasks</Typography>
-              </>
-            )}
-          </StatCard1>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={4}>
           <StatCard2 elevation={6}>
             <IconContainer>
               <SeminarIcon sx={{ fontSize: 32 }} />
@@ -464,7 +452,7 @@ const FacultyDashboardds = () => {
             )}
           </StatCard2>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={4}>
           <StatCard3 elevation={6}>
             <IconContainer>
               <ProjectIcon sx={{ fontSize: 32 }} />
@@ -481,7 +469,7 @@ const FacultyDashboardds = () => {
             )}
           </StatCard3>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={4}>
           <StatCard4 elevation={6}>
             <IconContainer>
               <ClassIcon sx={{ fontSize: 32 }} />
@@ -502,239 +490,6 @@ const FacultyDashboardds = () => {
 
       {/* Main Dashboard Content */}
       <Grid container spacing={4}>
-        {/* Task Management Section - Fixed Spacing */}
-        <Grid item xs={12}>
-          <SectionTitle variant="h4">
-            <TaskIcon sx={{ mr: 2, fontSize: 32 }} />
-            Task Management
-          </SectionTitle>
-          
-          {loading.tasks ? (
-            <Box display="flex" justifyContent="center" p={4}>
-              <CircularProgress size={60} />
-            </Box>
-          ) : (
-            <Grid container spacing={3} sx={{ mb: 5 }}>
-              {/* Created Tasks Card */}
-              <Grid item xs={12} md={4}>
-                <StyledCard onClick={() => navigate('/taskcreatorpage')} elevation={4}>
-                  <StyledCardContent>
-                    <CardHeader>
-                      <TaskIcon color="primary" sx={{ fontSize: 48 }} />
-                      <Typography variant="h3" fontWeight="bold" color="primary">
-                        {taskAnalytics?.creator?.total || 0}
-                      </Typography>
-                    </CardHeader>
-                    
-                    <Typography variant="h5" fontWeight="bold" gutterBottom>
-                      Tasks Created
-                    </Typography>
-                    
-                    <TaskMetricContainer>
-                      <MetricBox>
-                        <Typography variant="body1" fontWeight="medium">Pending</Typography>
-                        <Chip 
-                          label={taskAnalytics?.creator?.pending || 0} 
-                          color="warning" 
-                          size="medium"
-                        />
-                      </MetricBox>
-                      <MetricBox>
-                        <Typography variant="body1" fontWeight="medium">Approved</Typography>
-                        <Chip 
-                          label={taskAnalytics?.creator?.approved || 0} 
-                          color="info" 
-                          size="medium"
-                        />
-                      </MetricBox>
-                      <MetricBox>
-                        <Typography variant="body1" fontWeight="medium">Completed</Typography>
-                        <Chip 
-                          label={taskAnalytics?.creator?.completed || 0} 
-                          color="success" 
-                          size="medium"
-                        />
-                      </MetricBox>
-
-                      <Box sx={{ mt: 3, mb: 2 }}>
-                        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                          <Typography variant="body2" color="text.secondary">
-                            Progress
-                          </Typography>
-                          <Typography variant="body2" fontWeight="bold">
-                            {Math.round(calculateProgress(taskAnalytics?.creator?.completed || 0, taskAnalytics?.creator?.total || 0))}%
-                          </Typography>
-                        </Box>
-                        <LinearProgress 
-                          variant="determinate" 
-                          value={calculateProgress(taskAnalytics?.creator?.completed || 0, taskAnalytics?.creator?.total || 0)}
-                          sx={{ height: 8, borderRadius: 4 }}
-                        />
-                      </Box>
-                    </TaskMetricContainer>
-                    
-                    <Button
-                      fullWidth
-                      variant="contained"
-                      size="large"
-                      endIcon={<ArrowForwardIcon />}
-                      sx={{ mt: 'auto', py: 1.5 }}
-                    >
-                      View Created Tasks
-                    </Button>
-                  </StyledCardContent>
-                </StyledCard>
-              </Grid>
-
-              {/* Assigned Tasks Card */}
-              <Grid item xs={12} md={4}>
-                <StyledCard onClick={() => navigate('/assigneetaskpage')} elevation={4}>
-                  <StyledCardContent>
-                    <CardHeader>
-                      <AssignmentIcon color="secondary" sx={{ fontSize: 48 }} />
-                      <Typography variant="h3" fontWeight="bold" color="secondary">
-                        {taskAnalytics?.assignee?.total || 0}
-                      </Typography>
-                    </CardHeader>
-                    
-                    <Typography variant="h5" fontWeight="bold" gutterBottom>
-                      Tasks Assigned
-                    </Typography>
-                    
-                    <TaskMetricContainer>
-                      <MetricBox>
-                        <Typography variant="body1" fontWeight="medium">Pending</Typography>
-                        <Chip 
-                          label={taskAnalytics?.assignee?.pending || 0} 
-                          color="warning" 
-                          size="medium"
-                        />
-                      </MetricBox>
-                      <MetricBox>
-                        <Typography variant="body1" fontWeight="medium">Approved</Typography>
-                        <Chip 
-                          label={taskAnalytics?.assignee?.approved || 0} 
-                          color="info" 
-                          size="medium"
-                        />
-                      </MetricBox>
-                      <MetricBox>
-                        <Typography variant="body1" fontWeight="medium">Completed</Typography>
-                        <Chip 
-                          label={taskAnalytics?.assignee?.completed || 0} 
-                          color="success" 
-                          size="medium"
-                        />
-                      </MetricBox>
-
-                      <Box sx={{ mt: 3, mb: 2 }}>
-                        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                          <Typography variant="body2" color="text.secondary">
-                            Progress
-                          </Typography>
-                          <Typography variant="body2" fontWeight="bold">
-                            {Math.round(calculateProgress(taskAnalytics?.assignee?.completed || 0, taskAnalytics?.assignee?.total || 0))}%
-                          </Typography>
-                        </Box>
-                        <LinearProgress 
-                          variant="determinate" 
-                          value={calculateProgress(taskAnalytics?.assignee?.completed || 0, taskAnalytics?.assignee?.total || 0)}
-                          sx={{ height: 8, borderRadius: 4 }}
-                          color="secondary"
-                        />
-                      </Box>
-                    </TaskMetricContainer>
-                    
-                    <Button
-                      fullWidth
-                      variant="contained"
-                      color="secondary"
-                      size="large"
-                      endIcon={<ArrowForwardIcon />}
-                      sx={{ mt: 'auto', py: 1.5 }}
-                    >
-                      View Assigned Tasks
-                    </Button>
-                  </StyledCardContent>
-                </StyledCard>
-              </Grid>
-
-              {/* Approver Tasks Card */}
-              <Grid item xs={12} md={4}>
-                <StyledCard onClick={() => navigate('/approvertaskpage')} elevation={4}>
-                  <StyledCardContent>
-                    <CardHeader>
-                      <ApprovalIcon color="success" sx={{ fontSize: 48 }} />
-                      <Typography variant="h3" fontWeight="bold" color="success.main">
-                        {taskAnalytics?.approver?.total || 0}
-                      </Typography>
-                    </CardHeader>
-                    
-                    <Typography variant="h5" fontWeight="bold" gutterBottom>
-                      Tasks for Approval
-                    </Typography>
-                    
-                    <TaskMetricContainer>
-                      <MetricBox>
-                        <Typography variant="body1" fontWeight="medium">Pending</Typography>
-                        <Chip 
-                          label={taskAnalytics?.approver?.pending || 0} 
-                          color="warning" 
-                          size="medium"
-                        />
-                      </MetricBox>
-                      <MetricBox>
-                        <Typography variant="body1" fontWeight="medium">Approved</Typography>
-                        <Chip 
-                          label={taskAnalytics?.approver?.approved || 0} 
-                          color="info" 
-                          size="medium"
-                        />
-                      </MetricBox>
-                      <MetricBox>
-                        <Typography variant="body1" fontWeight="medium">Completed</Typography>
-                        <Chip 
-                          label={taskAnalytics?.approver?.completed || 0} 
-                          color="success" 
-                          size="medium"
-                        />
-                      </MetricBox>
-
-                      <Box sx={{ mt: 3, mb: 2 }}>
-                        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                          <Typography variant="body2" color="text.secondary">
-                            Progress
-                          </Typography>
-                          <Typography variant="body2" fontWeight="bold">
-                            {Math.round(calculateProgress(taskAnalytics?.approver?.completed || 0, taskAnalytics?.approver?.total || 0))}%
-                          </Typography>
-                        </Box>
-                        <LinearProgress 
-                          variant="determinate" 
-                          value={calculateProgress(taskAnalytics?.approver?.completed || 0, taskAnalytics?.approver?.total || 0)}
-                          sx={{ height: 8, borderRadius: 4 }}
-                          color="success"
-                        />
-                      </Box>
-                    </TaskMetricContainer>
-                    
-                    <Button
-                      fullWidth
-                      variant="contained"
-                      color="success"
-                      size="large"
-                      endIcon={<ArrowForwardIcon />}
-                      sx={{ mt: 'auto', py: 1.5 }}
-                    >
-                      View Approver Tasks
-                    </Button>
-                  </StyledCardContent>
-                </StyledCard>
-              </Grid>
-            </Grid>
-          )}
-        </Grid>
-
         {/* Academic Activities Section */}
         <Grid item xs={12}>
           <SectionTitle variant="h4">

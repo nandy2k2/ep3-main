@@ -257,6 +257,41 @@ export function menuitemsall() {
         </AccordionDetails>
       </Accordion>
 
+      <Accordion>
+        <AccordionSummary aria-controls="panel-estate-management-content" id="panel-estate-management-header">
+          <BusinessIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{ fontSize: 14 }}>Estate management</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          {[
+            ["/estate-types", "Real estate types"],
+            ["/estate-campus", "Campus"],
+            ["/estate-real-estates", "Real estates"],
+            ["/estate-service-types", "Shared service master"],
+            ["/estate-maintenance-schedule", "Maintenance schedule"],
+            ["/estate-service-providers", "Shared service providers"],
+            ["/estate-vendor-contracts", "External vendor contracts"],
+            ["/estate-service-allocation", "Shared service allocation"],
+            ["/estate-service-shift", "Shared service shift"],
+            ["/estate-daily-roster", "Daily roster"],
+            ["/estate-daily-roster-report", "Daily roster report"],
+            ["/estate-meeting-room-features", "Meeting room features"],
+            ["/estate-meeting-rooms", "Meeting rooms"],
+            ["/estate-meeting-room-planner", "Meeting room planner"],
+            ["/roomconfiguration", "Room configuration"],
+            ["/roomcalendar", "Room calendar"],
+            ["/conduct-exam-rooms", "Exam rooms"]
+          ].map(([to, label]) => (
+            <ListItem button component={RouterLink} to={to} key={to}>
+              <ListItemIcon>
+                <BusinessIcon />
+              </ListItemIcon>
+              {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary={label} />}
+            </ListItem>
+          ))}
+        </AccordionDetails>
+      </Accordion>
+
       {false && (
       <Accordion>
         <AccordionSummary aria-controls="panel2-content" id="panel2-header">
@@ -542,6 +577,18 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Course Assessment" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/assessmentcomponent">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Assessment component" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/passmarksconfiguration">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Passmarks configuration" />}
           </ListItem>
           <ListItem button component={RouterLink} to="/syllabus">
             <ListItemIcon>
@@ -1136,6 +1183,20 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Dynamic admission form" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/admission-ai-agents">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Admission AI agents" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/admission-ai-agent-logs">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Admission AI agent logs" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/admission-address-configuration">
             <ListItemIcon>
               <PersonIcon />
@@ -1190,6 +1251,13 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Admission datewise summary" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/admission-dynamic-report">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Dynamic admission report" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/admission-payments">
@@ -1389,6 +1457,20 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Exam marks entry" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/exammodel2-component-marks-crud">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Interim processing" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/exammodel2-interim-marks-transfer">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Interim marks transfer" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/exammodel2vivamarks">
             <ListItemIcon>
               <PersonIcon />
@@ -1443,6 +1525,13 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Generate viva marksheet" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/exammodel2viva-marksheet-marks">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Exam Viva Marksheet Marks" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/exammodel2gradingtemplate">
@@ -1681,20 +1770,6 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Timetable room creator" />}
-          </ListItem>
-
-          <ListItem button component={RouterLink} to="/roomconfiguration">
-            <ListItemIcon>
-              <PersonIcon />
-            </ListItemIcon>
-            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Room configuration" />}
-          </ListItem>
-
-          <ListItem button component={RouterLink} to="/roomcalendar">
-            <ListItemIcon>
-              <PersonIcon />
-            </ListItemIcon>
-            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Room calendar" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/periodconfiguration">
@@ -1992,13 +2067,6 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Exam dates" />}
           </ListItem>
 
-          <ListItem button component={RouterLink} to="/conduct-exam-rooms">
-            <ListItemIcon>
-              <PersonIcon />
-            </ListItemIcon>
-            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Seat master" />}
-          </ListItem>
-
           <ListItem button component={RouterLink} to="/conduct-exam-courses">
             <ListItemIcon>
               <PersonIcon />
@@ -2155,6 +2223,13 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Examiner allotment" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/conduct-exam-componentwise-allocation">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Componentwise allocation" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/conduct-exam-examiner-allotment-report">
             <ListItemIcon>
               <PersonIcon />
@@ -2167,6 +2242,34 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Examiner marks entry" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-componentwise-marks">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Componentwise marks" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-marks-entry-monitoring">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Marks entry monitoring" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-examiner-monitoring">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Examiner monitoring" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-examiner-reassignment">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Examiner reassignment" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/conduct-exam-score-rule">
@@ -2241,6 +2344,44 @@ export function menuitemsall() {
         </AccordionDetails>
       </Accordion>
       <Accordion>
+        <AccordionSummary aria-controls="panel-activity-monitoring-content" id="panel-activity-monitoring-header">
+          <SettingsIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{ fontSize: 14 }}>Activity monitoring</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          <ListItem button component={RouterLink} to="/activitypointsconfiguration">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Activity points configuration" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/neplmsattendanceevent">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Attendance event" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/activityuserpoints">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="User points" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/activitymonitoringreport">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Activity report" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/activitymonitoringreport2">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Activity report 2" />}
+          </ListItem>
+        </AccordionDetails>
+      </Accordion>
+      <Accordion>
         <AccordionSummary aria-controls="panel-mentoring-content" id="panel-mentoring-header">
           <BusinessIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{ fontSize: 14 }}>Mentoring</Typography>}
@@ -2251,6 +2392,24 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Mentoring workspace" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/mentoringhomevisits">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Home visit details" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/mentoringsessions">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Student mentoring session" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/mentoringstudentprofile">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Student profile" />}
           </ListItem>
         </AccordionDetails>
       </Accordion>
@@ -5230,6 +5389,7 @@ export function menuitemsall() {
       </Accordion>
       )}
 
+      {false && (
       <Accordion>
         <AccordionSummary aria-controls="panel3-content" id="panel3-header">
           <BusinessIcon sx={{ marginRight: 1 }} />
@@ -5267,6 +5427,7 @@ export function menuitemsall() {
 
         </AccordionDetails>
       </Accordion>
+      )}
 
       <Accordion>
         <AccordionSummary aria-controls="panel1-content" id="panel1-header">
@@ -5288,6 +5449,7 @@ export function menuitemsall() {
 
 
 
+      {false && (
       <Accordion>
         <AccordionSummary aria-controls="panel3-content" id="panel3-header">
           <BusinessIcon sx={{ marginRight: 1 }} />
@@ -5313,6 +5475,7 @@ export function menuitemsall() {
 
         </AccordionDetails>
       </Accordion>
+      )}
 
        {/* <Accordion>
         <AccordionSummary aria-controls="panel3-content" id="panel3-header">
@@ -7969,6 +8132,13 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Institution Policies" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/studentpolicies">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Policy" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/emailconfiguration">

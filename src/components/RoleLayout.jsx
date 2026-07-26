@@ -31,6 +31,8 @@ import { menucma as MenuCMA } from '../pages/menucma';
 import { menuao as MenuAO } from '../pages/menuao';
 import { menupe as MenuPE } from '../pages/menupe';
 import { getTitle } from '../utils/routeTitles';
+import ActivityPointBadge from '../pages/ActivityPointBadge';
+import TopMenuSearch from '../pages/TopMenuSearch';
 
 const drawerWidth = 240;
 
@@ -155,6 +157,8 @@ function RoleLayoutContent({ children, customMenu }) {
                         >
                             {getTitle(location.pathname)}
                         </Typography>
+                        <TopMenuSearch />
+                        <ActivityPointBadge sx={{ ml: 2 }} />
                         <Button
                             color="inherit"
                             startIcon={<HomeIcon />}

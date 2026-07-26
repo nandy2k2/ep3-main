@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Chip,
@@ -446,12 +447,14 @@ export default function RegulationCourseMapPage() {
             </FormControl>
           </Grid>
           <Grid item xs={12} md={4}>
-            <FormControl fullWidth required>
-              <InputLabel>Program</InputLabel>
-              <Select label="Program" value={form.programcode} onChange={(e) => selectProgram(e.target.value)}>
-                {programOptions.map((item) => <MenuItem key={item.programcode} value={item.programcode}>{item.programcode}{item.program ? ` - ${item.program}` : ""}</MenuItem>)}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              options={programOptions}
+              value={programOptions.find((item) => item.programcode === form.programcode) || null}
+              onChange={(_, value) => selectProgram(value?.programcode || "")}
+              getOptionLabel={(option) => option ? `${option.programcode || ""}${option.program ? ` - ${option.program}` : ""}` : ""}
+              isOptionEqualToValue={(option, value) => option.programcode === value.programcode}
+              renderInput={(params) => <TextField {...params} label="Program" required />}
+            />
           </Grid>
           <Grid item xs={12} md={2}>
             <FormControl fullWidth required>

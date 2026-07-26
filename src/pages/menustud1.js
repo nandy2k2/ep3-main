@@ -207,6 +207,13 @@ function DefaultStudentListItems({ open }) {
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Profile print" />}
 </ListItem>
 
+        <ListItem button component={RouterLink} to="/studentmentoringdetails">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Mentoring details" />}
+</ListItem>
+
         <ListItem button component={RouterLink} to="/studentprofilelayoutdisplay">
 <ListItemIcon>
 <PersonIcon />
@@ -392,6 +399,13 @@ function DefaultStudentListItems({ open }) {
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="My mentoring" />}
+</ListItem>
+
+           <ListItem button component={RouterLink} to="/studentmentoringdetails">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Mentoring details" />}
 </ListItem>
 
         </AccordionDetails>

@@ -50,10 +50,13 @@ const columnsBase = [
 
 const uniqueSorted = (values = []) => [...new Set(values.map((item) => String(item || "").trim()).filter(Boolean))]
   .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+const norm = (value) => String(value || "").trim().toLowerCase();
 
 export default function RoomResourcePage() {
   const [rows, setRows] = useState([]);
   const [owners, setOwners] = useState([]);
+  const [campuses, setCampuses] = useState([]);
+  const [estateBuildings, setEstateBuildings] = useState([]);
   const [form, setForm] = useState(blankForm);
   const [editingId, setEditingId] = useState("");
   const [filters, setFilters] = useState({ campus: "", building: "", floor: "", roomno: "", type: "", labcourse: "", labcoursecode: "" });
@@ -71,6 +74,8 @@ export default function RoomResourcePage() {
       ]);
       setRows(roomRes.data?.data || []);
       setOwners(optionRes.data?.owners || []);
+      setCampuses(optionRes.data?.campuses || []);
+      setEstateBuildings(optionRes.data?.estateBuildings || []);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load room resources");
     } finally {
@@ -95,12 +100,34 @@ export default function RoomResourcePage() {
   const filteredRows = useMemo(() => rows.filter((row) => Object.entries(filters).every(([key, value]) => !value || row[key] === value)), [filters, rows]);
 
   const selectedOwner = useMemo(() => owners.find((owner) => owner.email === form.roomowneremail) || null, [form.roomowneremail, owners]);
+  const selectedCampus = useMemo(() => campuses.find((campus) => norm(campus.campus) === norm(form.campus)) || null, [campuses, form.campus]);
+  const buildingOptions = useMemo(() => {
+    if (!selectedCampus) return [];
+    const campusValues = [selectedCampus.campus, selectedCampus.location, selectedCampus._id].map(norm).filter(Boolean);
+    return estateBuildings.filter((building) => campusValues.includes(norm(building.location)) || campusValues.includes(norm(building.campus)));
+  }, [estateBuildings, selectedCampus]);
+  const selectedBuilding = useMemo(() => buildingOptions.find((building) => building.estatename === form.building) || null, [buildingOptions, form.building]);
 
   const selectOwner = (owner) => {
     setForm((prev) => ({
       ...prev,
       roomownername: owner?.name || "",
       roomowneremail: owner?.email || ""
+    }));
+  };
+
+  const selectCampus = (campus) => {
+    setForm((prev) => ({
+      ...prev,
+      campus: campus?.campus || "",
+      building: ""
+    }));
+  };
+
+  const selectBuilding = (building) => {
+    setForm((prev) => ({
+      ...prev,
+      building: building?.estatename || ""
     }));
   };
 
@@ -232,7 +259,28 @@ export default function RoomResourcePage() {
             </Stack>
           </Stack>
           <Grid container spacing={2}>
-            {["campus", "building", "floor", "roomno"].map((field) => (
+            <Grid item xs={12} md={3}>
+              <Autocomplete
+                options={campuses}
+                value={selectedCampus}
+                onChange={(event, value) => selectCampus(value)}
+                getOptionLabel={(option) => `${option.campus || ""}${option.location ? ` - ${option.location}` : ""}`}
+                isOptionEqualToValue={(option, value) => option._id === value._id}
+                renderInput={(params) => <TextField {...params} label="Campus" />}
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <Autocomplete
+                options={buildingOptions}
+                value={selectedBuilding}
+                onChange={(event, value) => selectBuilding(value)}
+                disabled={!form.campus}
+                getOptionLabel={(option) => `${option.estatename || ""}${option.estatecode ? ` (${option.estatecode})` : ""}`}
+                isOptionEqualToValue={(option, value) => option._id === value._id}
+                renderInput={(params) => <TextField {...params} label="Building" helperText={form.campus ? "Buildings from selected campus" : "Select campus first"} />}
+              />
+            </Grid>
+            {["floor", "roomno"].map((field) => (
               <Grid item xs={12} md={3} key={field}>
                 <TextField
                   fullWidth

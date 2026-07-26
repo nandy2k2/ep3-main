@@ -32,7 +32,7 @@ const filterFields = [
   { key: "building", label: "Building" },
   { key: "examroom", label: "Exam Room" },
   { key: "seatno", label: "Seat No" },
-  { key: "examseatno", label: "Exam Seat No" }
+  { key: "examseatno", label: "Unique ID" }
 ];
 const blankForm = {
   academicyear: "",
@@ -309,6 +309,7 @@ export default function ConductExamRollPage() {
   };
 
   const columns = useMemo(() => [
+    { field: "_id", headerName: "Unique ID", width: 230 },
     { field: "academicyear", headerName: "Year", width: 120 },
     { field: "regulation", headerName: "Regulation", width: 140 },
     { field: "exam", headerName: "Exam", minWidth: 170, flex: 1 },
@@ -334,7 +335,6 @@ export default function ConductExamRollPage() {
     { field: "building", headerName: "Building", width: 150 },
     { field: "examroom", headerName: "Exam Room", width: 130 },
     { field: "seatno", headerName: "Seat No", width: 110 },
-    { field: "examseatno", headerName: "Exam Seat No", width: 220 },
     { field: "actions", headerName: "Actions", width: 170, sortable: false, renderCell: (params) => <Stack direction="row" spacing={1}><Button size="small" onClick={() => editRow(params.row)}>Edit</Button><Button size="small" color="error" onClick={() => deleteRow(params.row._id)}>Delete</Button></Stack> }
   ], []);
 

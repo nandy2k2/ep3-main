@@ -3,7 +3,9 @@ export const studentDefaultMenuGroups = [
   { group: "Profile", items: [
     { path: "/studentprofiledynamic", title: "Profile" },
     { path: "/userdocumentupload", title: "Upload documents" },
+    { path: "/studentbankaccounts", title: "Bank account" },
     { path: "/userprofileprint", title: "Profile print" },
+    { path: "/studentmentoringdetails", title: "Mentoring details" },
     { path: "/studentprofilelayoutdisplay", title: "Rolewise profile print" },
     { path: "/userconsent", title: "Give consent" },
     { path: "/userconsentwithdraw", title: "Withdraw consent" }
@@ -78,7 +80,10 @@ export const studentDefaultMenuGroups = [
     { path: "/dashmscholnewstud", title: "Scholarships" },
     { path: "/dashmstudawardsnewstud", title: "Student awards" }
   ] },
-  { group: "Settings", items: [{ path: "/dashmpasswordstud", title: "Change password" }] },
+  { group: "Settings", items: [
+    { path: "/dashmpasswordstud", title: "Change password" },
+    { path: "/studentpolicies", title: "Policy" }
+  ] },
   { group: "Virtual lab", items: [
     { path: "/codeeditor", title: "Code editor" },
     { path: "/subhalfadder1", title: "Half adder 1" },

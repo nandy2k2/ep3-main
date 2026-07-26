@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import ep1 from '../api/ep1';
 import global1 from './global1';
 import readXlsxFile from "read-excel-file";
+import MenuPageShell from "./MenuPageShell";
 
 const roles = ["Admin", "crm", "Faculty", "HOD", "REGISTRAR","ACCOUNTS","MANAGEMENT", "HOI"];
 const generateRandomPassword = (length = 12) => {
@@ -234,7 +235,7 @@ const handleFileUpload = async (e) => {
     }
   ];
 
-  return (
+  const pageContent = (
     <Box p={3}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <h2>User Management</h2>
@@ -349,4 +350,7 @@ const handleFileUpload = async (e) => {
       </Dialog>
     </Box>
   );
+
+  if (embedded) return pageContent;
+  return <MenuPageShell title="User Management">{pageContent}</MenuPageShell>;
 }

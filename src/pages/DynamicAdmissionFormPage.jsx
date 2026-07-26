@@ -202,6 +202,8 @@ export default function DynamicAdmissionFormPage() {
   const shortAiPhRetrieveLink = `${window.location.origin}/admission-ai-ph?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}`;
   const shortAiPhFormDocumentsAdmissionLink = `${window.location.origin}/admission-ai-ph-documents?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}`;
   const shortAiPhFormDocumentsRetrieveLink = `${window.location.origin}/admission-ai-ph-documents?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}`;
+  const aiAgentDocumentsAdmissionLink = `${window.location.origin}/admission-ai-agent-documents?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}`;
+  const aiAgentDocumentsRetrieveLink = `${window.location.origin}/admission-ai-agent-documents?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}`;
   const applicationLookupLink = `${window.location.origin}/admission-application-lookup?colid=${global1.colid}`;
   const subjectAdmissionLink = `${window.location.origin}/admission-apply-subjects?colid=${global1.colid}&formid=${encodeURIComponent(selectedFormId || "default")}${levelQuery}`;
   const shareLinks = [
@@ -225,6 +227,8 @@ export default function DynamicAdmissionFormPage() {
     { label: "Short AI PH retrieve link", value: shortAiPhRetrieveLink },
     { label: "Short AI PH admission link with form documents", value: shortAiPhFormDocumentsAdmissionLink },
     { label: "Short AI PH retrieve link with form documents", value: shortAiPhFormDocumentsRetrieveLink },
+    { label: "AI agent admission link with form documents", value: aiAgentDocumentsAdmissionLink },
+    { label: "AI agent retrieve link with form documents", value: aiAgentDocumentsRetrieveLink },
     { label: "Application print/payment lookup link", value: applicationLookupLink },
     { label: "Admission configuration link", value: subjectAdmissionLink }
   ];

@@ -57,7 +57,7 @@ const defaultAcademicYears = ["2029-30", "2028-29", "2027-28", "2026-27", "2025-
 
 const chartHeight = 270;
 
-function DashboardPageFrame({ title, children }) {
+function DashboardPageFrame({ title, children, showNav = true }) {
   return (
     <MenuPageShell title={title}>
       <Box sx={{ p: 3 }}>
@@ -66,11 +66,13 @@ function DashboardPageFrame({ title, children }) {
             <Typography variant="h5" fontWeight={800}>{title}</Typography>
             <Typography variant="body2" color="text.secondary">Create reusable dashboard widgets and assemble rolewise dashboards.</Typography>
           </Box>
-          <Stack direction="row" gap={1} flexWrap="wrap">
-            <Button component={RouterLink} to="/dashboard-widgets" variant="outlined">Widgets</Button>
-            <Button component={RouterLink} to="/dashboard-widget-builder" variant="outlined">Builder</Button>
-            <Button component={RouterLink} to="/dashboard-widget-view" variant="contained">View</Button>
-          </Stack>
+          {showNav && (
+            <Stack direction="row" gap={1} flexWrap="wrap">
+              <Button component={RouterLink} to="/dashboard-widgets" variant="outlined">Widgets</Button>
+              <Button component={RouterLink} to="/dashboard-widget-builder" variant="outlined">Builder</Button>
+              <Button component={RouterLink} to="/dashboard-widget-view" variant="contained">View</Button>
+            </Stack>
+          )}
         </Stack>
         {children}
       </Box>
@@ -126,7 +128,14 @@ function WidgetChart({ widget, data = [] }) {
 function WidgetGrid({ rows = [] }) {
   if (!rows.length) return null;
   const first = rows[0] || {};
-  const preferred = ["academicyear", "facultyname", "facultyemail", "program", "programcode", "semester", "type", "subject", "course", "coursecode", "classdate", "classtime", "total", "present", "average", "status"];
+  const preferred = [
+    "academicyear", "year", "month", "department", "role", "employeename", "employeeemail", "employee", "empid",
+    "facultyname", "facultyemail", "program", "programcode", "semester", "type", "subject", "course", "coursecode",
+    "category", "categorytype", "item", "feegroup", "feeitem", "feecategory", "student", "regno", "name", "email",
+    "classdate", "classtime", "total", "present", "average", "amount", "paid", "balance", "concession", "days",
+    "status", "stage", "applicationstatus", "paymentstatus", "enrollmentstatus", "validationstatus", "paystatus",
+    "assetid", "store", "assignedto", "assignedtoemail", "condition", "createdAt"
+  ];
   const fields = preferred.filter((field) => Object.prototype.hasOwnProperty.call(first, field));
   const columns = fields.map((field) => ({
     field,
@@ -157,8 +166,12 @@ function WidgetCard({
   faculties = [],
   selectedAcademicYear = "",
   selectedFacultyEmail = "",
+  secondaryOptions = [],
+  selectedSecondaryValue = "",
+  secondaryFilterLabel = "",
   onAcademicYearChange,
-  onFacultyChange
+  onFacultyChange,
+  onSecondaryFilterChange
 }) {
   const years = academicYears.length ? academicYears : defaultAcademicYears;
   return (
@@ -194,6 +207,19 @@ function WidgetCard({
                 sx={{ minWidth: 270, flex: 1 }}
               />
             )}
+            {!!secondaryFilterLabel && (
+              <TextField
+                select
+                size="small"
+                label={secondaryFilterLabel}
+                value={selectedSecondaryValue || ""}
+                onChange={(event) => onSecondaryFilterChange?.(widget.widgetid, event.target.value)}
+                sx={{ minWidth: 190 }}
+              >
+                <MenuItem value="">All</MenuItem>
+                {(secondaryOptions || []).map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
+              </TextField>
+            )}
           </Stack>
         )}
         <WidgetChart widget={widget} data={data} />
@@ -211,16 +237,18 @@ function useWidgetCatalog() {
   const [widgetMeta, setWidgetMeta] = useState({});
   const [widgetYears, setWidgetYears] = useState({});
   const [widgetFaculty, setWidgetFaculty] = useState({});
+  const [widgetSecondary, setWidgetSecondary] = useState({});
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  const fetchWidgetData = useCallback(async (widget, academicYear = "", facultyemail = "") => {
+  const fetchWidgetData = useCallback(async (widget, academicYear = "", facultyemail = "", secondaryValue = "") => {
     const dataRes = await ep1.get("/api/v2/dashboard-widget-data", {
       params: {
         colid: global1.colid,
         widgetid: widget.widgetid,
         ...(academicYear ? { academicyear: academicYear } : {}),
-        ...(facultyemail ? { facultyemail } : {})
+        ...(facultyemail ? { facultyemail } : {}),
+        ...(secondaryValue ? { secondaryValue } : {})
       }
     });
     return dataRes;
@@ -234,7 +262,7 @@ function useWidgetCatalog() {
       const catalog = apiRows(widgetRes);
       setWidgets(catalog);
       const pairs = await Promise.all(catalog.map(async (widget) => {
-        const dataRes = await fetchWidgetData(widget, widgetYears[widget.widgetid], widgetFaculty[widget.widgetid]);
+        const dataRes = await fetchWidgetData(widget, widgetYears[widget.widgetid], widgetFaculty[widget.widgetid], widgetSecondary[widget.widgetid]);
         return [widget.widgetid, dataRes];
       }));
       const nextData = {};
@@ -242,6 +270,7 @@ function useWidgetCatalog() {
       const nextMeta = {};
       const nextYears = {};
       const nextFaculty = {};
+      const nextSecondary = {};
       pairs.forEach(([widgetid, dataRes]) => {
         nextData[widgetid] = apiRows(dataRes);
         nextGrid[widgetid] = dataRes.data?.grid || [];
@@ -249,7 +278,10 @@ function useWidgetCatalog() {
           academicYears: dataRes.data?.academicYears || [],
           selectedAcademicYear: dataRes.data?.selectedAcademicYear || "",
           faculties: dataRes.data?.faculties || [],
-          selectedFacultyEmail: dataRes.data?.selectedFacultyEmail || ""
+          selectedFacultyEmail: dataRes.data?.selectedFacultyEmail || "",
+          secondaryOptions: dataRes.data?.secondaryOptions || [],
+          selectedSecondaryValue: dataRes.data?.selectedSecondaryValue || "",
+          secondaryFilterLabel: dataRes.data?.secondaryFilterLabel || ""
         };
         if (dataRes.data?.selectedAcademicYear) {
           nextYears[widgetid] = dataRes.data.selectedAcademicYear;
@@ -257,25 +289,29 @@ function useWidgetCatalog() {
         if (dataRes.data?.selectedFacultyEmail) {
           nextFaculty[widgetid] = dataRes.data.selectedFacultyEmail;
         }
+        if (dataRes.data?.selectedSecondaryValue) {
+          nextSecondary[widgetid] = dataRes.data.selectedSecondaryValue;
+        }
       });
       setWidgetData(nextData);
       setWidgetGrid(nextGrid);
       setWidgetMeta(nextMeta);
       setWidgetYears((current) => ({ ...nextYears, ...current }));
       setWidgetFaculty((current) => ({ ...nextFaculty, ...current }));
+      setWidgetSecondary((current) => ({ ...nextSecondary, ...current }));
     } catch (err) {
       setMessage(err.response?.data?.message || err.message || "Unable to load widgets");
     } finally {
       setLoading(false);
     }
-  }, [fetchWidgetData, widgetYears]);
+  }, [fetchWidgetData, widgetYears, widgetFaculty, widgetSecondary]);
 
   const changeAcademicYear = useCallback(async (widgetid, academicYear) => {
     const widget = widgets.find((item) => item.widgetid === widgetid);
     if (!widget) return;
     setWidgetYears((current) => ({ ...current, [widgetid]: academicYear }));
     try {
-      const dataRes = await fetchWidgetData(widget, academicYear, widgetFaculty[widgetid]);
+      const dataRes = await fetchWidgetData(widget, academicYear, widgetFaculty[widgetid], widgetSecondary[widgetid]);
       setWidgetData((current) => ({ ...current, [widgetid]: apiRows(dataRes) }));
       setWidgetGrid((current) => ({ ...current, [widgetid]: dataRes.data?.grid || [] }));
       setWidgetMeta((current) => ({
@@ -284,7 +320,10 @@ function useWidgetCatalog() {
           academicYears: dataRes.data?.academicYears || current[widgetid]?.academicYears || [],
           selectedAcademicYear: dataRes.data?.selectedAcademicYear || academicYear,
           faculties: dataRes.data?.faculties || current[widgetid]?.faculties || [],
-          selectedFacultyEmail: dataRes.data?.selectedFacultyEmail || widgetFaculty[widgetid] || ""
+          selectedFacultyEmail: dataRes.data?.selectedFacultyEmail || widgetFaculty[widgetid] || "",
+          secondaryOptions: dataRes.data?.secondaryOptions || current[widgetid]?.secondaryOptions || [],
+          selectedSecondaryValue: dataRes.data?.selectedSecondaryValue || widgetSecondary[widgetid] || "",
+          secondaryFilterLabel: dataRes.data?.secondaryFilterLabel || current[widgetid]?.secondaryFilterLabel || ""
         }
       }));
       if (dataRes.data?.selectedFacultyEmail) {
@@ -293,14 +332,14 @@ function useWidgetCatalog() {
     } catch (err) {
       setMessage(err.response?.data?.message || err.message || "Unable to load widget data");
     }
-  }, [fetchWidgetData, widgetFaculty, widgets]);
+  }, [fetchWidgetData, widgetFaculty, widgetSecondary, widgets]);
 
   const changeFaculty = useCallback(async (widgetid, facultyemail) => {
     const widget = widgets.find((item) => item.widgetid === widgetid);
     if (!widget) return;
     setWidgetFaculty((current) => ({ ...current, [widgetid]: facultyemail }));
     try {
-      const dataRes = await fetchWidgetData(widget, widgetYears[widgetid], facultyemail);
+      const dataRes = await fetchWidgetData(widget, widgetYears[widgetid], facultyemail, widgetSecondary[widgetid]);
       setWidgetData((current) => ({ ...current, [widgetid]: apiRows(dataRes) }));
       setWidgetGrid((current) => ({ ...current, [widgetid]: dataRes.data?.grid || [] }));
       setWidgetMeta((current) => ({
@@ -309,7 +348,10 @@ function useWidgetCatalog() {
           academicYears: dataRes.data?.academicYears || current[widgetid]?.academicYears || [],
           selectedAcademicYear: dataRes.data?.selectedAcademicYear || widgetYears[widgetid] || "",
           faculties: dataRes.data?.faculties || current[widgetid]?.faculties || [],
-          selectedFacultyEmail: dataRes.data?.selectedFacultyEmail || facultyemail
+          selectedFacultyEmail: dataRes.data?.selectedFacultyEmail || facultyemail,
+          secondaryOptions: dataRes.data?.secondaryOptions || current[widgetid]?.secondaryOptions || [],
+          selectedSecondaryValue: dataRes.data?.selectedSecondaryValue || widgetSecondary[widgetid] || "",
+          secondaryFilterLabel: dataRes.data?.secondaryFilterLabel || current[widgetid]?.secondaryFilterLabel || ""
         }
       }));
       if (dataRes.data?.selectedAcademicYear) {
@@ -318,7 +360,38 @@ function useWidgetCatalog() {
     } catch (err) {
       setMessage(err.response?.data?.message || err.message || "Unable to load widget data");
     }
-  }, [fetchWidgetData, widgetYears, widgets]);
+  }, [fetchWidgetData, widgetYears, widgetSecondary, widgets]);
+
+  const changeSecondaryFilter = useCallback(async (widgetid, secondaryValue) => {
+    const widget = widgets.find((item) => item.widgetid === widgetid);
+    if (!widget) return;
+    setWidgetSecondary((current) => ({ ...current, [widgetid]: secondaryValue }));
+    try {
+      const dataRes = await fetchWidgetData(widget, widgetYears[widgetid], widgetFaculty[widgetid], secondaryValue);
+      setWidgetData((current) => ({ ...current, [widgetid]: apiRows(dataRes) }));
+      setWidgetGrid((current) => ({ ...current, [widgetid]: dataRes.data?.grid || [] }));
+      setWidgetMeta((current) => ({
+        ...current,
+        [widgetid]: {
+          academicYears: dataRes.data?.academicYears || current[widgetid]?.academicYears || [],
+          selectedAcademicYear: dataRes.data?.selectedAcademicYear || widgetYears[widgetid] || "",
+          faculties: dataRes.data?.faculties || current[widgetid]?.faculties || [],
+          selectedFacultyEmail: dataRes.data?.selectedFacultyEmail || widgetFaculty[widgetid] || "",
+          secondaryOptions: dataRes.data?.secondaryOptions || current[widgetid]?.secondaryOptions || [],
+          selectedSecondaryValue: dataRes.data?.selectedSecondaryValue || secondaryValue,
+          secondaryFilterLabel: dataRes.data?.secondaryFilterLabel || current[widgetid]?.secondaryFilterLabel || ""
+        }
+      }));
+      if (dataRes.data?.selectedAcademicYear) {
+        setWidgetYears((current) => ({ ...current, [widgetid]: dataRes.data.selectedAcademicYear }));
+      }
+      if (dataRes.data?.selectedFacultyEmail) {
+        setWidgetFaculty((current) => ({ ...current, [widgetid]: dataRes.data.selectedFacultyEmail }));
+      }
+    } catch (err) {
+      setMessage(err.response?.data?.message || err.message || "Unable to load widget data");
+    }
+  }, [fetchWidgetData, widgetFaculty, widgetYears, widgets]);
 
   useEffect(() => {
     load();
@@ -333,16 +406,18 @@ function useWidgetCatalog() {
     widgetMeta,
     widgetYears,
     widgetFaculty,
+    widgetSecondary,
     loading,
     message,
     reload: load,
     changeAcademicYear,
-    changeFaculty
+    changeFaculty,
+    changeSecondaryFilter
   };
 }
 
 export function DashboardWidgetCatalogPage() {
-  const { widgets, widgetData, widgetGrid, widgetMeta, widgetYears, widgetFaculty, loading, message, changeAcademicYear, changeFaculty } = useWidgetCatalog();
+  const { widgets, widgetData, widgetGrid, widgetMeta, widgetYears, widgetFaculty, widgetSecondary, loading, message, changeAcademicYear, changeFaculty, changeSecondaryFilter } = useWidgetCatalog();
   const rows = widgets.map((widget, index) => ({ id: widget.widgetid, sr: index + 1, ...widget }));
   const columns = [
     { field: "sr", headerName: "#", width: 70 },
@@ -369,8 +444,12 @@ export function DashboardWidgetCatalogPage() {
                   faculties={widgetMeta[widget.widgetid]?.faculties}
                   selectedAcademicYear={widgetYears[widget.widgetid] || widgetMeta[widget.widgetid]?.selectedAcademicYear}
                   selectedFacultyEmail={widgetFaculty[widget.widgetid] || widgetMeta[widget.widgetid]?.selectedFacultyEmail}
+                  secondaryOptions={widgetMeta[widget.widgetid]?.secondaryOptions}
+                  selectedSecondaryValue={widgetSecondary[widget.widgetid] || widgetMeta[widget.widgetid]?.selectedSecondaryValue}
+                  secondaryFilterLabel={widgetMeta[widget.widgetid]?.secondaryFilterLabel}
                   onAcademicYearChange={changeAcademicYear}
                   onFacultyChange={changeFaculty}
+                  onSecondaryFilterChange={changeSecondaryFilter}
                 />
               </Grid>
             ))}
@@ -396,7 +475,7 @@ export function DashboardWidgetCatalogPage() {
 
 export function DashboardWidgetBuilderPage() {
   const navigate = useNavigate();
-  const { widgets, widgetData, widgetGrid, widgetMeta, widgetYears, widgetFaculty, loading, message, changeAcademicYear, changeFaculty } = useWidgetCatalog();
+  const { widgets, widgetData, widgetGrid, widgetMeta, widgetYears, widgetFaculty, widgetSecondary, loading, message, changeAcademicYear, changeFaculty, changeSecondaryFilter } = useWidgetCatalog();
   const [dashboards, setDashboards] = useState([]);
   const [form, setForm] = useState(emptyDashboard);
   const [saving, setSaving] = useState(false);
@@ -679,8 +758,12 @@ export function DashboardWidgetBuilderPage() {
                   faculties={widgetMeta[item.widgetid]?.faculties}
                   selectedAcademicYear={widgetYears[item.widgetid] || widgetMeta[item.widgetid]?.selectedAcademicYear}
                   selectedFacultyEmail={widgetFaculty[item.widgetid] || widgetMeta[item.widgetid]?.selectedFacultyEmail}
+                  secondaryOptions={widgetMeta[item.widgetid]?.secondaryOptions}
+                  selectedSecondaryValue={widgetSecondary[item.widgetid] || widgetMeta[item.widgetid]?.selectedSecondaryValue}
+                  secondaryFilterLabel={widgetMeta[item.widgetid]?.secondaryFilterLabel}
                   onAcademicYearChange={changeAcademicYear}
                   onFacultyChange={changeFaculty}
+                  onSecondaryFilterChange={changeSecondaryFilter}
                 />
               </Grid>
             );
@@ -707,7 +790,7 @@ export function DashboardWidgetBuilderPage() {
 
 export function DashboardWidgetViewPage() {
   const [params] = useSearchParams();
-  const { widgets, widgetData, widgetGrid, widgetMeta, widgetYears, widgetFaculty, loading, message, changeAcademicYear, changeFaculty } = useWidgetCatalog();
+  const { widgets, widgetData, widgetGrid, widgetMeta, widgetYears, widgetFaculty, widgetSecondary, loading, message, changeAcademicYear, changeFaculty, changeSecondaryFilter } = useWidgetCatalog();
   const [dashboards, setDashboards] = useState([]);
   const [selectedId, setSelectedId] = useState(params.get("id") || "");
   const widgetMap = useMemo(() => new Map(widgets.map((widget) => [widget.widgetid, widget])), [widgets]);
@@ -730,7 +813,7 @@ export function DashboardWidgetViewPage() {
   const selectedWidgets = (selectedDashboard?.widgets || []).slice().sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
 
   return (
-    <DashboardPageFrame title="Dashboard view">
+    <DashboardPageFrame title="Dashboard view" showNav={false}>
       {message && <Alert severity="error" sx={{ mb: 2 }}>{message}</Alert>}
       <Paper sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={2} alignItems="center">
@@ -767,8 +850,12 @@ export function DashboardWidgetViewPage() {
                   faculties={widgetMeta[item.widgetid]?.faculties}
                   selectedAcademicYear={widgetYears[item.widgetid] || widgetMeta[item.widgetid]?.selectedAcademicYear}
                   selectedFacultyEmail={widgetFaculty[item.widgetid] || widgetMeta[item.widgetid]?.selectedFacultyEmail}
+                  secondaryOptions={widgetMeta[item.widgetid]?.secondaryOptions}
+                  selectedSecondaryValue={widgetSecondary[item.widgetid] || widgetMeta[item.widgetid]?.selectedSecondaryValue}
+                  secondaryFilterLabel={widgetMeta[item.widgetid]?.secondaryFilterLabel}
                   onAcademicYearChange={changeAcademicYear}
                   onFacultyChange={changeFaculty}
+                  onSecondaryFilterChange={changeSecondaryFilter}
                 />
               </Grid>
             );
