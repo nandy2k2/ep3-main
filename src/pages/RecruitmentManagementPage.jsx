@@ -24,6 +24,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import PrintIcon from "@mui/icons-material/Print";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
@@ -81,7 +82,16 @@ export default function RecruitmentManagementPage() {
   const [approvalLevels, setApprovalLevels] = useState([]);
   const [selectedForm, setSelectedForm] = useState("");
   const [selectedJob, setSelectedJob] = useState("");
-  const [formData, setFormData] = useState({ formid: "", title: "", description: "", isactive: "Yes" });
+  const [formData, setFormData] = useState({
+    formid: "",
+    title: "",
+    description: "",
+    isactive: "Yes",
+    includeeducationpanel: "No",
+    includefamilypanel: "No",
+    includeemploymentpanel: "No",
+    includedocumentpanel: "No"
+  });
   const [jobData, setJobData] = useState(blankJob);
   const [fieldData, setFieldData] = useState(blankField);
   const [docData, setDocData] = useState({ documenttype: "", description: "", isrequired: "No" });
@@ -173,7 +183,16 @@ export default function RecruitmentManagementPage() {
     const res = await ep1.post("/api/v2/recruitment/forms", { ...formData, colid, user: global1.user });
     setMessage("Recruitment form saved");
     setSelectedForm(res.data.formid);
-    setFormData({ formid: "", title: "", description: "", isactive: "Yes" });
+    setFormData({
+      formid: "",
+      title: "",
+      description: "",
+      isactive: "Yes",
+      includeeducationpanel: "No",
+      includefamilypanel: "No",
+      includeemploymentpanel: "No",
+      includedocumentpanel: "No"
+    });
     await loadForms();
   };
 
@@ -317,6 +336,170 @@ Regards,
 ${global1.name || "Recruitment Team"}`;
   };
 
+  const safeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#39;"
+  }[char]));
+
+  const asText = (value) => Array.isArray(value) ? value.join(", ") : String(value ?? "");
+  const experienceMonthsBetween = (start, end) => {
+    const from = new Date(start);
+    const to = new Date(end);
+    if (!start || !end || Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to < from) return 0;
+    let months = (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
+    if (to.getDate() >= from.getDate()) months += 1;
+    return Math.max(0, months);
+  };
+  const formatExperienceMonths = (months) => {
+    const safeMonths = Math.max(0, Number(months || 0));
+    const years = Math.floor(safeMonths / 12);
+    const remaining = safeMonths % 12;
+    if (years && remaining) return `${years} year${years === 1 ? "" : "s"} ${remaining} month${remaining === 1 ? "" : "s"}`;
+    if (years) return `${years} year${years === 1 ? "" : "s"}`;
+    if (remaining) return `${remaining} month${remaining === 1 ? "" : "s"}`;
+    return "";
+  };
+  const candidateTotalExperience = (candidate) => candidate?.totalexperience || formatExperienceMonths((candidate?.pastemployments || []).reduce((sum, row) => sum + experienceMonthsBetween(row.dateofjoining, row.lastworkingdate), 0));
+
+  const tableHtml = (title, rows = [], columns = []) => {
+    const bodyRows = rows.length ? rows : [{}];
+    return `
+      <section>
+        <h3>${safeHtml(title)}</h3>
+        <table>
+          <thead><tr>${columns.map((col) => `<th>${safeHtml(col.label)}</th>`).join("")}</tr></thead>
+          <tbody>
+            ${bodyRows.map((row) => `<tr>${columns.map((col) => {
+              const value = asText(row[col.name]);
+              return `<td>${col.link && value ? `<a href="${safeHtml(value)}">${safeHtml(value)}</a>` : safeHtml(value || "-")}</td>`;
+            }).join("")}</tr>`).join("")}
+          </tbody>
+        </table>
+      </section>
+    `;
+  };
+
+  const printCandidateProfile = (candidate) => {
+    if (!candidate) return;
+    const job = jobs.find((item) => item.jobid === candidate.jobid) || selectedJobInfo || {};
+    const photo = candidate.photourl || candidate.documents?.find((doc) => /photo/i.test(doc.documenttype || ""))?.url || "";
+    const customRows = Object.entries(candidate.customfields || {}).map(([field, value]) => ({ field, value: asText(value) }));
+    const standardDocs = (candidate.documents || []).map((doc) => ({ documenttype: doc.documenttype, link: doc.url || doc.link || "" }));
+    const html = `
+      <!doctype html>
+      <html>
+        <head>
+          <title>Candidate Profile</title>
+          <style>
+            @page { size: A4; margin: 10mm; }
+            * { box-sizing: border-box; }
+            body { margin: 0; color: #111; font-family: Arial, sans-serif; font-size: 11px; }
+            .sheet { width: 190mm; min-height: 277mm; margin: 0 auto; }
+            .header { display: flex; justify-content: space-between; gap: 12px; border-bottom: 2px solid #111; padding-bottom: 8px; }
+            .logo { width: 58px; height: 58px; object-fit: contain; }
+            .photo { width: 76px; height: 92px; object-fit: cover; border: 1px solid #111; }
+            h1 { margin: 0; font-size: 17px; }
+            h2 { margin: 2px 0 0; font-size: 13px; }
+            h3 { margin: 9px 0 4px; font-size: 12px; padding: 3px 5px; background: #eef2f7; border-left: 3px solid #111; }
+            .meta { display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px 12px; margin-top: 8px; }
+            .meta div { border-bottom: 1px dotted #aaa; padding-bottom: 2px; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 5px; table-layout: fixed; }
+            th, td { border: 1px solid #999; padding: 3px 4px; vertical-align: top; word-break: break-word; }
+            th { background: #f3f4f6; text-align: left; font-weight: 700; }
+            a { color: #111; text-decoration: underline; }
+            .footer { margin-top: 12px; display: flex; justify-content: space-between; }
+          </style>
+        </head>
+        <body>
+          <div class="sheet">
+            <div class="header">
+              <div style="display:flex;gap:10px;align-items:flex-start">
+                ${global1.logo ? `<img class="logo" src="${safeHtml(global1.logo)}" />` : ""}
+                <div>
+                  <h1>${safeHtml(global1.insname || "Institution")}</h1>
+                  <div>${safeHtml(global1.address || "")}</div>
+                  <h2>Recruitment Candidate Profile</h2>
+                </div>
+              </div>
+              ${photo ? `<img class="photo" src="${safeHtml(photo)}" />` : `<div class="photo"></div>`}
+            </div>
+            <h3>Job details</h3>
+            <div class="meta">
+              <div><b>Job:</b> ${safeHtml(job.title || candidate.jobid || "")}</div>
+              <div><b>Job ID:</b> ${safeHtml(candidate.jobid || "")}</div>
+              <div><b>Department:</b> ${safeHtml(job.department || "")}</div>
+              <div><b>Employment Type:</b> ${safeHtml(job.employmenttype || "")}</div>
+              <div><b>Location:</b> ${safeHtml(job.location || "")}</div>
+              <div><b>Application No:</b> ${safeHtml(candidate.applicationno || "")}</div>
+            </div>
+            <h3>Candidate details</h3>
+            <div class="meta">
+              <div><b>Name:</b> ${safeHtml(candidate.applicantname || "")}</div>
+              <div><b>Email:</b> ${safeHtml(candidate.email || "")}</div>
+	              <div><b>Phone:</b> ${safeHtml(candidate.phone || "")}</div>
+	              <div><b>Total Experience:</b> ${safeHtml(candidateTotalExperience(candidate) || "")}</div>
+	              <div><b>Status:</b> ${safeHtml(candidate.status || "")}</div>
+              <div><b>Approval:</b> ${safeHtml(candidate.approvalstatus || "")}</div>
+              <div><b>Submitted:</b> ${safeHtml(candidate.submittedat ? new Date(candidate.submittedat).toLocaleString() : "")}</div>
+            </div>
+            ${tableHtml("Form fields", customRows, [{ name: "field", label: "Field" }, { name: "value", label: "Value" }])}
+            ${tableHtml("Educational qualification", candidate.educationalqualifications || [], [
+              { name: "qualification", label: "Qualification" },
+              { name: "specialization", label: "Specialization" },
+              { name: "universityboard", label: "University/Board" },
+	              { name: "institute", label: "Institute" },
+	              { name: "passingyear", label: "Year" },
+	              { name: "percentagecgpa", label: "Marks/Grade" },
+	              { name: "mediumofinstruction", label: "Medium" },
+	              { name: "modeofstudy", label: "Mode" }
+	            ])}
+	            ${tableHtml("Family details", candidate.familydetails || [], [
+	              { name: "name", label: "Name" },
+	              { name: "age", label: "Age" },
+	              { name: "relationship", label: "Relation" },
+	              { name: "location", label: "Location" },
+	              { name: "occupation", label: "Occupation" },
+	              { name: "contactemail", label: "Email" },
+	              { name: "contactphone", label: "Phone" }
+	            ])}
+            ${tableHtml("Past employment and references", candidate.pastemployments || [], [
+              { name: "organization", label: "Organization" },
+              { name: "designation", label: "Designation" },
+              { name: "employmenttype", label: "Type" },
+              { name: "dateofjoining", label: "Joining" },
+              { name: "lastworkingdate", label: "Last day" },
+              { name: "totalexperience", label: "Experience" },
+              { name: "referencename", label: "Reference" },
+              { name: "referenceemail", label: "Ref email" },
+              { name: "referencephone", label: "Ref phone" }
+            ])}
+            ${tableHtml("Candidate document panel", candidate.candidatedocuments || [], [
+              { name: "type", label: "Type" },
+              { name: "documentname", label: "Document" },
+              { name: "link", label: "Link", link: true }
+            ])}
+            ${tableHtml("Uploaded documents", standardDocs, [
+              { name: "documenttype", label: "Document" },
+              { name: "link", label: "Link", link: true }
+            ])}
+            <h3>Validation</h3>
+            <div>${safeHtml(candidate.validationcomments || candidate.mandatoryvalidationcomments || "-")}</div>
+            <div class="footer"><span>Prepared by: ${safeHtml(global1.name || "")}</span><span>Office use / Signature</span></div>
+          </div>
+          <script>window.onload = () => { window.print(); };</script>
+        </body>
+      </html>
+    `;
+    const popup = window.open("", "_blank", "noopener,noreferrer");
+    if (!popup) return setError("Popup blocked. Please allow popups to print candidate profile.");
+    popup.document.open();
+    popup.document.write(html);
+    popup.document.close();
+  };
+
   const selectCandidate = (candidate) => {
     setSelectedCandidate(candidate);
     setConfirmationMail({
@@ -444,10 +627,17 @@ ${global1.name || "Recruitment Team"}`;
     { field: "applicantname", headerName: "Candidate", width: 180 },
     { field: "email", headerName: "Email", width: 220 },
     { field: "phone", headerName: "Phone", width: 140 },
+    { field: "totalexperience", headerName: "Total Experience", width: 160, valueGetter: ({ row }) => candidateTotalExperience(row) },
     { field: "status", headerName: "Status", width: 130 },
     { field: "approvalstatus", headerName: "Approval", width: 130 },
     { field: "approvallevel", headerName: "Level", width: 90 },
     { field: "validationstatus", headerName: "Validation", width: 130 },
+    {
+      field: "profile",
+      headerName: "Profile",
+      width: 120,
+      renderCell: ({ row }) => <Button size="small" startIcon={<PrintIcon />} onClick={() => printCandidateProfile(row)}>Profile</Button>
+    },
     {
       field: "changestatus",
       headerName: "Change Status",
@@ -558,15 +748,23 @@ ${global1.name || "Recruitment Team"}`;
             <Grid item xs={12} md={4}><TextField fullWidth size="small" label="Form name" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} /></Grid>
             <Grid item xs={12} md={4}><TextField fullWidth size="small" label="Description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} /></Grid>
             <Grid item xs={12} md={2}><TextField select fullWidth size="small" label="Active" value={formData.isactive} onChange={(e) => setFormData({ ...formData, isactive: e.target.value })}>{yesNo.map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={3}><TextField select fullWidth size="small" label="Educational qualification panel" value={formData.includeeducationpanel || "No"} onChange={(e) => setFormData({ ...formData, includeeducationpanel: e.target.value })}>{yesNo.map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={3}><TextField select fullWidth size="small" label="Family details panel" value={formData.includefamilypanel || "No"} onChange={(e) => setFormData({ ...formData, includefamilypanel: e.target.value })}>{yesNo.map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={3}><TextField select fullWidth size="small" label="Past employment panel" value={formData.includeemploymentpanel || "No"} onChange={(e) => setFormData({ ...formData, includeemploymentpanel: e.target.value })}>{yesNo.map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={3}><TextField select fullWidth size="small" label="Candidate documents panel" value={formData.includedocumentpanel || "No"} onChange={(e) => setFormData({ ...formData, includedocumentpanel: e.target.value })}>{yesNo.map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12}><Button variant="contained" onClick={saveForm}>Save form</Button></Grid>
           </Grid>
           <Box sx={{ height: 360, mt: 2 }}>
             <DataGrid rows={forms} getRowId={(row) => row._id} slots={{ toolbar: GridToolbar }} columns={[
               { field: "formid", headerName: "Form ID", width: 160 },
               { field: "title", headerName: "Title", width: 240 },
-              { field: "description", headerName: "Description", width: 360 },
-              { field: "isactive", headerName: "Active", width: 120 },
-              { field: "actions", headerName: "Actions", width: 220, renderCell: ({ row }) => (
+	              { field: "description", headerName: "Description", width: 360 },
+	              { field: "isactive", headerName: "Active", width: 120 },
+	              { field: "includeeducationpanel", headerName: "Education", width: 120 },
+	              { field: "includefamilypanel", headerName: "Family", width: 110 },
+	              { field: "includeemploymentpanel", headerName: "Employment", width: 130 },
+	              { field: "includedocumentpanel", headerName: "Documents", width: 130 },
+	              { field: "actions", headerName: "Actions", width: 220, renderCell: ({ row }) => (
                 <Stack direction="row" spacing={1}>
                   <Button size="small" onClick={() => { setSelectedForm(row.formid); setFormData(row); }}>Select/Edit</Button>
                   <Button color="error" size="small" onClick={() => deleteBy("/api/v2/recruitment/forms-delete", { id: row._id, formid: row.formid }, loadForms)}>Delete</Button>

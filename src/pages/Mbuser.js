@@ -7,6 +7,7 @@ import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useNavigate } from "react-router-dom";
 // import Papa from "papaparse";
+import * as XLSX from "xlsx";
 import ep1 from '../api/ep1';
 import global1 from './global1';
 import readXlsxFile from "read-excel-file";
@@ -26,6 +27,8 @@ const emptyForm = {
   role: "",
   institution: "",
   department: "",
+  designation: "",
+  joiningdate: "",
   admissionyear: ""
 };
 
@@ -36,6 +39,7 @@ export default function MbUserPage({ embedded = false, onRowsChange }) {
   const [editId, setEditId] = useState("");
   const [autoPassword, setAutoPassword] = useState(false);
   const [passwordLength, setPasswordLength] = useState(12);
+  const [selectedIds, setSelectedIds] = useState([]);
   const navigate = useNavigate();
   const colid = global1.colid; // global1.colid later
 
@@ -77,6 +81,8 @@ const openEditDialog = (row) => {
     role: row.role || "",
     institution: row.institution || "",
     department: row.department || "",
+    designation: row.designation || "",
+    joiningdate: row.joiningdate ? String(row.joiningdate).slice(0, 10) : "",
     admissionyear: row.admissionyear || ""
   });
   setAutoPassword(false);
@@ -124,6 +130,24 @@ const handleSave = async () => {
 
   handleClose();
   fetchData();
+};
+
+const downloadTemplate = () => {
+  const workbook = XLSX.utils.book_new();
+  const worksheet = XLSX.utils.json_to_sheet([{
+    name: "Employee Name",
+    email: "employee@example.com",
+    phone: "9999999999",
+    password: "Password@123",
+    role: "Faculty",
+    institution: "Institution",
+    department: "Department",
+    designation: "Assistant Professor",
+    dateofjoining: "2026-07-29",
+    joiningyear: "2026-27"
+  }]);
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Users");
+  XLSX.writeFile(workbook, "non_student_user_template.xlsx");
 };
 
   const handleDelete = async (id) => {
@@ -184,6 +208,8 @@ const handleSave = async () => {
 
 const handleFileUpload = async (e) => {
   const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
 
   const rows = await readXlsxFile(file);
   const data = rows.slice(1);
@@ -196,7 +222,10 @@ const handleFileUpload = async (e) => {
     role: row[4],
     institution: row[5],
     department: row[6],
-    joiningyear: row[7],
+    designation: row[7],
+    dateofjoining: row[8],
+    joiningdate: row[8],
+    joiningyear: row[9],
 
     // 🔑 inject here
     user: global1.user,
@@ -208,12 +237,29 @@ const handleFileUpload = async (e) => {
   fetchData();
 };
 
+const handleBulkDelete = async () => {
+  if (!selectedIds.length) {
+    alert("Select at least one user to delete");
+    return;
+  }
+  if (!window.confirm(`Delete ${selectedIds.length} selected user(s)?`)) return;
+  try {
+    await ep1.post("/mbusers-bulk-delete", { ids: selectedIds, colid: global1.colid });
+    setSelectedIds([]);
+    fetchData();
+  } catch (err) {
+    alert(err.response?.data?.error || "Bulk delete failed");
+  }
+};
+
   const columns = [
     { field: "name", headerName: "Name", flex: 1 },
     { field: "email", headerName: "Email", flex: 1 },
     { field: "password", headerName: "Password", flex: 1 },
     { field: "phone", headerName: "Phone", flex: 1 },
     { field: "role", headerName: "Role", flex: 1 },
+    { field: "designation", headerName: "Designation", flex: 1 },
+    { field: "joiningdate", headerName: "Date of joining", flex: 1, valueFormatter: ({ value }) => value ? String(value).slice(0, 10) : "" },
     { field: "status", headerName: "Status", flex: 1 },
     { field: "lastlogin", headerName: "Last login", flex: 1 },
     {
@@ -257,11 +303,19 @@ const handleFileUpload = async (e) => {
           Upload Excel
           <input type="file" hidden onChange={handleFileUpload} />
         </Button>
+
+        <Button variant="outlined" onClick={downloadTemplate}>
+          Download Template
+        </Button>
+
+        <Button variant="outlined" color="error" disabled={!selectedIds.length} onClick={handleBulkDelete}>
+          Bulk Delete
+        </Button>
       </Box>
 
       <Box mb={2} display="flex" gap={2}>
         <p>
-            Format of excel file - name, email, phone, password, role, institution, department, joiningyear
+            Format of excel file - name, email, phone, password, role, institution, department, designation, dateofjoining, joiningyear
         </p>
       </Box>
 
@@ -271,6 +325,9 @@ const handleFileUpload = async (e) => {
         columns={columns}
         getRowId={(r) => r._id}
         autoHeight
+        checkboxSelection
+        rowSelectionModel={selectedIds}
+        onRowSelectionModelChange={(model) => setSelectedIds(Array.from(model))}
         slots={{ toolbar: GridToolbar }}
       />
 
@@ -323,6 +380,17 @@ const handleFileUpload = async (e) => {
            <TextField label="Department" fullWidth margin="dense"
             value={form.department}
             onChange={(e) => setForm({ ...form, department: e.target.value })}
+          />
+
+          <TextField label="Designation" fullWidth margin="dense"
+            value={form.designation}
+            onChange={(e) => setForm({ ...form, designation: e.target.value })}
+          />
+
+          <TextField label="Date of joining" type="date" fullWidth margin="dense"
+            value={form.joiningdate}
+            onChange={(e) => setForm({ ...form, joiningdate: e.target.value })}
+            InputLabelProps={{ shrink: true }}
           />
 
           <TextField label="Joining year" fullWidth margin="dense"

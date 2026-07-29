@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Card,
@@ -56,6 +57,11 @@ const blank = {
   employees: 8,
   programs: 3,
   recordsPerCourse: 5,
+  periodProgramCodes: [],
+  periodsPerDay: 6,
+  periodStartTime: "09:00",
+  periodDurationMinutes: 60,
+  periodGapMinutes: 0,
   includeExistingUsers: true,
   sections: generatorSections.map((section) => section.key),
   password: ""
@@ -69,6 +75,7 @@ export default function DummyDataGeneratorPage() {
   const [summary, setSummary] = useState([]);
   const [roleUsers, setRoleUsers] = useState([]);
   const [meta, setMeta] = useState(null);
+  const [periodOptions, setPeriodOptions] = useState({ programs: [] });
 
   const payload = useMemo(() => ({
     ...form,
@@ -77,12 +84,20 @@ export default function DummyDataGeneratorPage() {
     employees: Number(form.employees || Math.ceil(Number(form.count || 1) / 2)),
     programs: Number(form.programs || 2),
     recordsPerCourse: Number(form.recordsPerCourse || 5),
+    periodsPerDay: Number(form.periodsPerDay || 6),
+    periodDurationMinutes: Number(form.periodDurationMinutes || 60),
+    periodGapMinutes: Number(form.periodGapMinutes || 0),
     colid: global1.colid,
     user: global1.user,
     username: global1.name
   }), [form]);
 
   const update = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+  useEffect(() => {
+    ep1.get("/api/v2/program-period-slots/options", { params: { colid: global1.colid } })
+      .then((res) => setPeriodOptions(res.data || { programs: [] }))
+      .catch(() => setPeriodOptions({ programs: [] }));
+  }, []);
   const toggleSection = (key) => {
     setForm((prev) => {
       const current = new Set(prev.sections || []);
@@ -112,6 +127,26 @@ export default function DummyDataGeneratorPage() {
       setSummary((err.response?.data?.summary || []).map((row, index) => ({ ...row, id: index + 1 })));
       setRoleUsers([]);
       setError(err.response?.data?.message || "Unable to generate dummy data");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const generatePeriodsOnly = async () => {
+    if (!window.confirm("Generate only missing weekday periods for the selected programs?")) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    setSummary([]);
+    setMeta(null);
+    try {
+      const res = await ep1.post("/api/v2/dummy-data/generate", { ...payload, sectionsOnly: true, sections: ["periods"] });
+      setSummary((res.data?.summary || []).map((row, index) => ({ ...row, id: index + 1 })));
+      setRoleUsers((res.data?.roleUsers || []).map((row, index) => ({ ...row, id: row._id || index + 1 })));
+      setMeta(res.data?.meta || null);
+      setMessage(res.data?.message || "Periods generated");
+    } catch (err) {
+      setSummary((err.response?.data?.summary || []).map((row, index) => ({ ...row, id: index + 1 })));
+      setError(err.response?.data?.message || "Unable to generate periods");
     } finally {
       setBusy(false);
     }
@@ -210,6 +245,49 @@ export default function DummyDataGeneratorPage() {
                     Reset
                   </Button>
                 </Stack>
+              </Grid>
+            </Grid>
+          </Paper>
+
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="h6" fontWeight={900} sx={{ mb: 1 }}>Period Generation</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Select programs and target periods per day. Existing weekday periods are counted first; only the missing extra periods are created after existing times.
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={5}>
+                <Autocomplete
+                  multiple
+                  disableCloseOnSelect
+                  options={periodOptions.programs || []}
+                  getOptionLabel={(option) => `${option.program || ""} (${option.programcode || ""})`}
+                  value={(periodOptions.programs || []).filter((item) => (form.periodProgramCodes || []).includes(item.programcode))}
+                  onChange={(_, values) => update("periodProgramCodes", values.map((item) => item.programcode))}
+                  renderOption={(props, option, { selected }) => (
+                    <li {...props}>
+                      <Checkbox checked={selected} />
+                      {`${option.program || ""} (${option.programcode || ""})`}
+                    </li>
+                  )}
+                  renderInput={(params) => <TextField {...params} label="Programs for period generation" helperText="Leave blank to use all generated/available programs" />}
+                />
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <TextField fullWidth type="number" label="Periods per day" value={form.periodsPerDay} inputProps={{ min: 1, max: 12 }} onChange={(e) => update("periodsPerDay", e.target.value)} />
+              </Grid>
+              <Grid item xs={12} md={1.7}>
+                <TextField fullWidth type="time" label="Start time" InputLabelProps={{ shrink: true }} value={form.periodStartTime} onChange={(e) => update("periodStartTime", e.target.value)} />
+              </Grid>
+              <Grid item xs={12} md={1.7}>
+                <TextField fullWidth type="number" label="Duration min" value={form.periodDurationMinutes} inputProps={{ min: 30, max: 180 }} onChange={(e) => update("periodDurationMinutes", e.target.value)} />
+              </Grid>
+              <Grid item xs={12} md={1.6}>
+                <TextField fullWidth type="number" label="Gap min" value={form.periodGapMinutes} inputProps={{ min: 0, max: 60 }} onChange={(e) => update("periodGapMinutes", e.target.value)} />
+              </Grid>
+              <Grid item xs={12}>
+                <Button variant="contained" disabled={busy} startIcon={<AutoFixHigh />} onClick={generatePeriodsOnly}>
+                  {busy ? "Generating..." : "Generate Periods Only"}
+                </Button>
               </Grid>
             </Grid>
           </Paper>

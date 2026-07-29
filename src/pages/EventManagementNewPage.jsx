@@ -10,6 +10,7 @@ import {
   Card,
   CardContent,
   Checkbox,
+  Chip,
   CircularProgress,
   Container,
   FormControl,
@@ -121,6 +122,13 @@ const config = {
     endpoint: "vehicleallocations",
     fields: ["eventid", "attendee", "email", "requirementtype", "vehicleno", "vehiclename", "vehicletype", "drivername", "driverphone", "allocationdate", "allocationtime", "location", "destination", "allocationmode", "status", "remarks"],
     defaults: { allocationdate: today(), allocationtime: "09:00", allocationmode: "Manual", status: "Allocated" }
+  },
+  papersubmissions: {
+    title: "Paper Submissions",
+    group: "Event management new",
+    endpoint: "papersubmissions",
+    fields: ["eventid", "attendee", "email", "phone", "papertitle", "authors", "abstract", "keywords", "paperlink", "paperfilename", "submitteddate", "status", "remarks"],
+    defaults: { submitteddate: today(), status: "Submitted" }
   }
 };
 
@@ -556,6 +564,133 @@ function PublicCertificatePage() {
   return <Container maxWidth="md" sx={{ py: 4 }}>{error && <Alert severity="error">{error}</Alert>}{cert && <CertificateView cert={cert} />}</Container>;
 }
 
+function EventPaperSubmissionInnerPage() {
+  const [login, setLogin] = useState({ email: "", phone: "" });
+  const [attendees, setAttendees] = useState([]);
+  const [attendee, setAttendee] = useState("");
+  const [form, setForm] = useState({ papertitle: "", authors: "", abstract: "", keywords: "", paperlink: "", paperfilename: "", remarks: "" });
+  const [submissions, setSubmissions] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const selectedAttendee = attendees.find((item) => item._id === attendee);
+  const load = async () => {
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const res = await ep1.get("/api/v2/event-management-new/papers/attendee-options", { params: { colid: global1.colid, ...login } });
+      setAttendees(res.data.attendees || []);
+      setSubmissions((res.data.submissions || []).map((row) => ({ ...row, id: row._id })));
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load approved event registrations");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const upload = async (file) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const data = new FormData();
+      data.append("file", file);
+      data.append("colid", global1.colid);
+      const res = await ep1.post("/api/v2/event-management-new/papers/upload", data, { headers: { "Content-Type": "multipart/form-data" } });
+      setForm((prev) => ({ ...prev, paperlink: res.data.url || "", paperfilename: res.data.filename || file.name }));
+      setMessage("Paper uploaded to AWS");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to upload paper");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const submit = async () => {
+    if (!attendee) return setError("Select conference registration");
+    if (!form.papertitle || !form.paperlink) return setError("Paper title and uploaded paper are required");
+    setBusy(true);
+    try {
+      await ep1.post("/api/v2/event-management-new/papers/submit", { ...form, attendeeid: attendee, colid: global1.colid, user: global1.user, name: global1.name });
+      setMessage("Paper submitted");
+      setForm({ papertitle: "", authors: "", abstract: "", keywords: "", paperlink: "", paperfilename: "", remarks: "" });
+      load();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to submit paper");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <MenuPageShell title="Upload conference paper">
+      <Container maxWidth="xl" sx={{ py: 3 }}>
+        <Breadcrumbs sx={{ mb: 2 }}><Link component={RouterLink} to="/">Home</Link><Typography>Event management new</Typography><Typography>Upload paper</Typography></Breadcrumbs>
+        {message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>Attendee Login</Typography>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={4}><TextField fullWidth label="Registered email" value={login.email} onChange={(e) => setLogin({ ...login, email: e.target.value })} /></Grid>
+            <Grid item xs={12} md={3}><TextField fullWidth label="Phone" value={login.phone} onChange={(e) => setLogin({ ...login, phone: e.target.value })} /></Grid>
+            <Grid item xs={12} md={2}><Button fullWidth variant="contained" disabled={busy} onClick={load}>Login / Load</Button></Grid>
+          </Grid>
+        </Paper>
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}><TextField select fullWidth label="Conference / Event Registration" value={attendee} onChange={(e) => setAttendee(e.target.value)}>{attendees.map((item) => <MenuItem key={item._id} value={item._id}>{item.eventname} ({item.eventcode}) - {item.attendee}</MenuItem>)}</TextField></Grid>
+            {selectedAttendee && <Grid item xs={12} md={6}><Chip color="success" label={`${selectedAttendee.status} registration: ${selectedAttendee.email}`} /></Grid>}
+            {["papertitle", "authors", "keywords"].map((field) => <Grid item xs={12} md={field === "papertitle" ? 5 : 3.5} key={field}><TextField fullWidth label={titleCase(field)} value={form[field]} onChange={(e) => setForm({ ...form, [field]: e.target.value })} /></Grid>)}
+            <Grid item xs={12}><TextField fullWidth multiline minRows={4} label="Abstract" value={form.abstract} onChange={(e) => setForm({ ...form, abstract: e.target.value })} /></Grid>
+            <Grid item xs={12} md={3}><Button component="label" fullWidth variant="outlined" startIcon={<UploadFileIcon />} disabled={busy}>Upload paper<input hidden type="file" onChange={(e) => upload(e.target.files?.[0])} /></Button></Grid>
+            <Grid item xs={12} md={9}><TextField fullWidth label="Paper link" value={form.paperlink} onChange={(e) => setForm({ ...form, paperlink: e.target.value })} /></Grid>
+            <Grid item xs={12}><TextField fullWidth label="Remarks" value={form.remarks} onChange={(e) => setForm({ ...form, remarks: e.target.value })} /></Grid>
+            <Grid item xs={12}><Button variant="contained" disabled={busy} onClick={submit}>Submit paper</Button></Grid>
+          </Grid>
+        </Paper>
+        <Paper sx={{ p: 1 }}>
+          <Typography variant="h6" sx={{ p: 1 }}>My Submissions</Typography>
+          <DataGrid rows={submissions} columns={["eventname", "eventcode", "papertitle", "authors", "paperlink", "submitteddate", "status"].map((field) => ({ field, headerName: titleCase(field), minWidth: 150, flex: 1, valueGetter: (params) => field.includes("date") ? dateOnly(params.row[field]) : params.row[field] }))} autoHeight slots={{ toolbar: GridToolbar }} />
+        </Paper>
+      </Container>
+    </MenuPageShell>
+  );
+}
+
+function EventPaperSubmissionReportInnerPage() {
+  const [rows, setRows] = useState([]);
+  const [filters, setFilters] = useState([]);
+  const [data, setData] = useState({ events: [], attendees: [], papersubmissions: [] });
+  useEffect(() => { ep1.post("/api/v2/event-management-new/report", { colid: global1.colid }).then((res) => setData(res.data.data || {})); }, []);
+  const fields = ["eventname", "eventcode", "attendee", "email", "phone", "papertitle", "authors", "keywords", "status"];
+  const load = async () => {
+    const res = await ep1.post("/api/v2/event-management-new/papersubmissions/list", { colid: global1.colid, filters });
+    setRows((res.data.data || []).map((row) => ({ ...row, id: row._id })));
+  };
+  useEffect(() => { load(); }, []);
+  const summary = useMemo(() => {
+    const source = rows.length ? rows : (data.papersubmissions || []);
+    const byEvent = Object.values(source.reduce((acc, item) => {
+      const key = item.eventname || "Not specified";
+      acc[key] = acc[key] || { name: key, count: 0 };
+      acc[key].count += 1;
+      return acc;
+    }, {}));
+    return { total: source.length, events: new Set(source.map((item) => item.eventcode)).size, byEvent };
+  }, [rows, data.papersubmissions]);
+  return (
+    <MenuPageShell title="Paper submission report">
+      <Container maxWidth="xl" sx={{ py: 3 }}>
+        <Breadcrumbs sx={{ mb: 2 }}><Link component={RouterLink} to="/">Home</Link><Typography>Event management new</Typography><Typography>Paper submission report</Typography></Breadcrumbs>
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Stack spacing={2}>
+            {filters.map((filter, index) => <Grid container spacing={2} key={index}><Grid item xs={12} md={3}><TextField select fullWidth label="Field" value={filter.field} onChange={(e) => setFilters((prev) => prev.map((f, i) => i === index ? { ...f, field: e.target.value } : f))}>{fields.map((field) => <MenuItem key={field} value={field}>{titleCase(field)}</MenuItem>)}</TextField></Grid><Grid item xs={12} md={6}><TextField fullWidth label="Value" value={filter.value} onChange={(e) => setFilters((prev) => prev.map((f, i) => i === index ? { ...f, value: e.target.value } : f))} /></Grid><Grid item xs={12} md={2}><Button color="error" onClick={() => setFilters((prev) => prev.filter((_, i) => i !== index))}>Remove</Button></Grid></Grid>)}
+            <Stack direction="row" spacing={1}><Button variant="outlined" onClick={() => setFilters((prev) => [...prev, { field: "eventname", value: "" }])}>Add filter</Button><Button variant="contained" onClick={load}>Apply</Button><Button startIcon={<PrintIcon />} onClick={() => window.print()}>Print</Button></Stack>
+          </Stack>
+        </Paper>
+        <Grid container spacing={2} sx={{ mb: 2 }}><Grid item xs={12} md={3}><Card><CardContent><Typography>Total submissions</Typography><Typography variant="h4">{summary.total}</Typography></CardContent></Card></Grid><Grid item xs={12} md={3}><Card><CardContent><Typography>Events</Typography><Typography variant="h4">{summary.events}</Typography></CardContent></Card></Grid></Grid>
+        <Paper sx={{ p: 2, mb: 2, height: 320 }}><ResponsiveContainer><BarChart data={summary.byEvent}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" hide /><YAxis allowDecimals={false} /><ChartTooltip /><Bar dataKey="count">{summary.byEvent.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}</Bar></BarChart></ResponsiveContainer></Paper>
+        <Paper sx={{ p: 1 }}><DataGrid rows={rows} columns={["eventname", "eventcode", "attendee", "email", "phone", "papertitle", "authors", "keywords", "paperlink", "submitteddate", "status", "remarks"].map((field) => ({ field, headerName: titleCase(field), minWidth: 150, flex: 1, valueGetter: (params) => field.includes("date") ? dateOnly(params.row[field]) : params.row[field] }))} autoHeight slots={{ toolbar: GridToolbar }} /></Paper>
+      </Container>
+    </MenuPageShell>
+  );
+}
+
 export function EventNewCrudPage({ mode }) { return <CrudPage mode={mode} />; }
 export function EventNewAllocationPage() { return <AllocationPage type="vehicle" />; }
 export function GuestHouseAllocationPage() { return <AllocationPage type="guest" />; }
@@ -566,4 +701,5 @@ export function EventNewTransportReportsPage() { return <ReportsPage area="trans
 export function EventNewPublicRegisterPage() { return <PublicRegisterPage />; }
 export function EventNewPublicFeedbackPage() { return <PublicFeedbackPage />; }
 export function EventNewPublicCertificatePage() { return <PublicCertificatePage />; }
-
+export function EventPaperSubmissionPage() { return <EventPaperSubmissionInnerPage />; }
+export function EventPaperSubmissionReportPage() { return <EventPaperSubmissionReportInnerPage />; }

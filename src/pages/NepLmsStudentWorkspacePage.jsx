@@ -19,7 +19,7 @@ import {
   Typography
 } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
-import { Refresh, UploadFile } from "@mui/icons-material";
+import { PlayArrow, Refresh, UploadFile } from "@mui/icons-material";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
@@ -379,13 +379,31 @@ export default function NepLmsStudentWorkspacePage() {
   ];
 
   const timetableColumns = [
+    {
+      field: "joinonline",
+      headerName: "Online Class",
+      minWidth: 150,
+      sortable: false,
+      renderCell: (params) => (
+        <Button
+          size="small"
+          variant="contained"
+          startIcon={<PlayArrow />}
+          component={RouterLink}
+          to={`/neplmsonlineclass?classid=${params.row._id}&role=student`}
+          disabled={params.row.onlineenabled === "No"}
+        >
+          Join
+        </Button>
+      )
+    },
     { field: "classdate", headerName: "Class Date", minWidth: 130 },
     { field: "classtime", headerName: "Class Time", minWidth: 120 },
     { field: "period", headerName: "Period", minWidth: 100 },
     { field: "durationminutes", headerName: "Duration", minWidth: 120 },
+    { field: "onlineclassstatus", headerName: "Online Status", minWidth: 140 },
     { field: "module", headerName: "Module", minWidth: 140 },
-    { field: "topic", headerName: "Topic", minWidth: 220 },
-    { field: "workcompleted", headerName: "Work Completed", minWidth: 300, flex: 1 }
+    { field: "topic", headerName: "Topic", minWidth: 220, flex: 1 }
   ];
 
   const submissionColumns = [

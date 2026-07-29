@@ -2,11 +2,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Chip,
   FormControl,
   Grid,
+  IconButton,
   InputLabel,
   LinearProgress,
   MenuItem,
@@ -17,7 +19,7 @@ import {
   Typography
 } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
-import { FileDownload, Print, Refresh } from "@mui/icons-material";
+import { Add, Delete, FileDownload, Print, Refresh } from "@mui/icons-material";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
@@ -61,6 +63,24 @@ const currentMonthRange = () => {
 };
 
 const classLabel = (row) => `${row.classtime || "-"} P${row.period || "-"} | ${row.coursecode || ""} ${row.course || ""}`;
+const filterFields = [
+  { field: "academicyear", label: "Academic year" },
+  { field: "regulation", label: "Regulation" },
+  { field: "program", label: "Program" },
+  { field: "programcode", label: "Program code" },
+  { field: "semester", label: "Semester" },
+  { field: "section", label: "Section" },
+  { field: "course", label: "Course" },
+  { field: "coursecode", label: "Course code" },
+  { field: "faculty", label: "Faculty" },
+  { field: "facultyemail", label: "Faculty email" },
+  { field: "period", label: "Period" },
+  { field: "classtime", label: "Class time" },
+  { field: "building", label: "Building" },
+  { field: "roomno", label: "Room no" },
+  { field: "status", label: "Status" }
+];
+const emptyFilter = { field: "academicyear", value: "" };
 
 export default function NepLmsMasterTimetableReportPage() {
   const initialRange = currentMonthRange();
@@ -70,6 +90,7 @@ export default function NepLmsMasterTimetableReportPage() {
   const [fromdate, setFromdate] = useState(initialRange.fromdate);
   const [todate, setTodate] = useState(initialRange.todate);
   const [selectedFacultyEmail, setSelectedFacultyEmail] = useState("");
+  const [dynamicFilters, setDynamicFilters] = useState([{ ...emptyFilter }]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -115,15 +136,25 @@ export default function NepLmsMasterTimetableReportPage() {
     return true;
   }), [rows, fromdate, todate]);
 
+  const filterOptions = useMemo(() => Object.fromEntries(filterFields.map(({ field }) => [
+    field,
+    uniqueSorted(dateFilteredRows.map((row) => row[field]))
+  ])), [dateFilteredRows]);
+
+  const dynamicFilteredRows = useMemo(() => dateFilteredRows.filter((row) => dynamicFilters.every((filter) => {
+    if (!filter.field || !filter.value) return true;
+    return String(row[filter.field] || "").trim().toLowerCase() === String(filter.value || "").trim().toLowerCase();
+  })), [dateFilteredRows, dynamicFilters]);
+
   const filteredRows = useMemo(() => (
     selectedFacultyEmail
-      ? dateFilteredRows.filter((row) => String(row.facultyemail || row.faculty || "") === selectedFacultyEmail)
-      : dateFilteredRows
-  ), [dateFilteredRows, selectedFacultyEmail]);
+      ? dynamicFilteredRows.filter((row) => String(row.facultyemail || row.faculty || "") === selectedFacultyEmail)
+      : dynamicFilteredRows
+  ), [dynamicFilteredRows, selectedFacultyEmail]);
 
   const facultySummary = useMemo(() => {
     const map = new Map();
-    dateFilteredRows.forEach((row) => {
+    dynamicFilteredRows.forEach((row) => {
       const key = row.facultyemail || row.faculty || "Not assigned";
       const current = map.get(key) || {
         id: key,
@@ -147,7 +178,7 @@ export default function NepLmsMasterTimetableReportPage() {
       programs: item.programs.size,
       semesters: uniqueSorted([...item.semesters]).join(", ")
     })).sort((a, b) => a.faculty.localeCompare(b.faculty));
-  }, [dateFilteredRows, facultyColorMap]);
+  }, [dynamicFilteredRows, facultyColorMap]);
 
   const selectedFaculty = facultySummary.find((item) => item.id === selectedFacultyEmail);
 
@@ -221,6 +252,31 @@ export default function NepLmsMasterTimetableReportPage() {
       Status: row.status
     }))), "Classes");
     XLSX.writeFile(workbook, "nep_lms_master_timetable_report.xlsx");
+  };
+
+  const addFilter = () => {
+    const used = new Set(dynamicFilters.map((filter) => filter.field));
+    const nextField = filterFields.find((item) => !used.has(item.field))?.field || filterFields[0].field;
+    setDynamicFilters((prev) => [...prev, { field: nextField, value: "" }]);
+  };
+
+  const updateFilter = (index, patch) => {
+    setDynamicFilters((prev) => prev.map((filter, itemIndex) => (
+      itemIndex === index
+        ? { ...filter, ...patch, ...(patch.field ? { value: "" } : {}) }
+        : filter
+    )));
+    setSelectedFacultyEmail("");
+  };
+
+  const removeFilter = (index) => {
+    setDynamicFilters((prev) => (prev.length === 1 ? [{ ...emptyFilter }] : prev.filter((_, itemIndex) => itemIndex !== index)));
+    setSelectedFacultyEmail("");
+  };
+
+  const clearFilters = () => {
+    setDynamicFilters([{ ...emptyFilter }]);
+    setSelectedFacultyEmail("");
   };
 
   const facultyColumns = [
@@ -315,6 +371,56 @@ export default function NepLmsMasterTimetableReportPage() {
             </Grid>
             <Grid item xs={12} md={3}>
               <Button fullWidth variant="outlined" sx={{ height: 56 }} onClick={() => setSelectedFacultyEmail("")} disabled={!selectedFacultyEmail}>Show all faculties</Button>
+            </Grid>
+            <Grid item xs={12}>
+              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "#f8fafc" }}>
+                <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={1} sx={{ mb: 1 }}>
+                  <Typography variant="subtitle2" fontWeight={900}>Dynamic filters</Typography>
+                  <Stack direction="row" spacing={1}>
+                    <Button size="small" startIcon={<Add />} onClick={addFilter}>Add Filter</Button>
+                    <Button size="small" onClick={clearFilters}>Clear</Button>
+                  </Stack>
+                </Stack>
+                <Grid container spacing={1.5}>
+                  {dynamicFilters.map((filter, index) => (
+                    <React.Fragment key={`${filter.field}-${index}`}>
+                      <Grid item xs={12} md={4}>
+                        <TextField
+                          select
+                          fullWidth
+                          size="small"
+                          label="Field"
+                          value={filter.field}
+                          onChange={(event) => updateFilter(index, { field: event.target.value })}
+                        >
+                          {filterFields.map((item) => <MenuItem key={item.field} value={item.field}>{item.label}</MenuItem>)}
+                        </TextField>
+                      </Grid>
+                      <Grid item xs={12} md={7}>
+                        <Autocomplete
+                          freeSolo
+                          options={filterOptions[filter.field] || []}
+                          value={filter.value || ""}
+                          onInputChange={(_, value) => updateFilter(index, { value })}
+                          onChange={(_, value) => updateFilter(index, { value: value || "" })}
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              size="small"
+                              label={filterFields.find((item) => item.field === filter.field)?.label || "Value"}
+                            />
+                          )}
+                        />
+                      </Grid>
+                      <Grid item xs={12} md={1}>
+                        <IconButton color="error" onClick={() => removeFilter(index)} sx={{ height: 40, width: 40 }}>
+                          <Delete />
+                        </IconButton>
+                      </Grid>
+                    </React.Fragment>
+                  ))}
+                </Grid>
+              </Paper>
             </Grid>
             <Grid item xs={12}>
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>

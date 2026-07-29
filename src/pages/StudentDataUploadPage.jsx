@@ -13,6 +13,8 @@ import {
   LinearProgress,
   MenuItem,
   Paper,
+  Radio,
+  RadioGroup,
   Stack,
   TextField,
   Typography
@@ -85,6 +87,10 @@ const blankViewFilter = { field: "academicyear", value: "" };
 const blankForm = { ...fields.reduce((acc, field) => ({ ...acc, [field]: staticDropdownOptions[field]?.[0] || "" }), {}), customFields: {} };
 const normalizeKey = (key) => String(key || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 const geminiModelOptions = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash"];
+const regnoGenerationModes = [
+  { value: "random", label: "Random alphanumeric" },
+  { value: "academicYearMongo", label: "Academic year / MongoDB ID" }
+];
 
 const valueFromRow = (row, field) => {
   const aliases = {
@@ -151,6 +157,8 @@ export default function StudentDataUploadPage() {
   const [bulkGeneratePasswords, setBulkGeneratePasswords] = useState(false);
   const [bulkPasswordLength, setBulkPasswordLength] = useState(10);
   const [autoScholarNumber, setAutoScholarNumber] = useState(true);
+  const [autoRegno, setAutoRegno] = useState(false);
+  const [regnoMode, setRegnoMode] = useState("random");
   const [selectedIds, setSelectedIds] = useState([]);
   const [viewFilters, setViewFilters] = useState([{ ...blankViewFilter }]);
   const [bulkSubject, setBulkSubject] = useState({ oldMajor: "", newMajor: "", oldMinor: "", newMinor: "" });
@@ -264,6 +272,8 @@ export default function StudentDataUploadPage() {
     setEditingId("");
     setError("");
     setAutoScholarNumber(true);
+    setAutoRegno(false);
+    setRegnoMode("random");
   };
 
   const fieldOptions = (field) => {
@@ -373,6 +383,40 @@ export default function StudentDataUploadPage() {
     updateField("password", generatePasswordValue(length));
   };
 
+  const randomIndex = (max) => {
+    if (window.crypto?.getRandomValues) {
+      const values = new Uint32Array(1);
+      window.crypto.getRandomValues(values);
+      return values[0] % max;
+    }
+    return Math.floor(Math.random() * max);
+  };
+
+  const generateRandomRegnoValue = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    return Array.from({ length: 10 }, () => chars[randomIndex(chars.length)]).join("");
+  };
+
+  const generateMongoLikeId = () => {
+    const chars = "0123456789abcdef";
+    return Array.from({ length: 24 }, () => chars[randomIndex(chars.length)]).join("");
+  };
+
+  const generateRegnoValue = () => (
+    regnoMode === "academicYearMongo"
+      ? `${form.academicyear || "NA"}/${generateMongoLikeId()}`
+      : generateRandomRegnoValue()
+  );
+
+  const generateRegno = () => {
+    updateField("regno", generateRegnoValue());
+    setAutoRegno(false);
+  };
+
+  const regnoHelperText = autoRegno
+    ? (regnoMode === "academicYearMongo" ? "Will be generated as Academic Year/MongoDB ID on save" : "Will be generated as random alphanumeric on save")
+    : "";
+
   const uploadPhoto = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -401,9 +445,19 @@ export default function StudentDataUploadPage() {
       setError("");
       setMessage("");
       setAiGenerating(true);
-      const baseForm = autoScholarNumber ? { ...form, scholarnumber: "", autogeneratescholarnumber: "Yes" } : { ...form, autogeneratescholarnumber: "No" };
+      const withScholarNumber = autoScholarNumber ? { ...form, scholarnumber: "", autogeneratescholarnumber: "Yes" } : { ...form, autogeneratescholarnumber: "No" };
+      const baseForm = autoRegno
+        ? { ...withScholarNumber, regno: "", autogenerateregno: "Yes", regnogenerationmode: regnoMode }
+        : { ...withScholarNumber, autogenerateregno: "No", regnogenerationmode: regnoMode };
       const aiResult = await applyAiRulesToItem(baseForm);
-      const aiForm = autoScholarNumber ? { ...aiResult, scholarnumber: "", autogeneratescholarnumber: "Yes" } : aiResult;
+      const aiForm = {
+        ...aiResult,
+        autogeneratescholarnumber: autoScholarNumber ? "Yes" : "No",
+        autogenerateregno: autoRegno ? "Yes" : "No",
+        regnogenerationmode: regnoMode,
+        ...(autoScholarNumber ? { scholarnumber: "" } : {}),
+        ...(autoRegno ? { regno: "" } : {})
+      };
       if (!aiForm.email) {
         setError("Email is required");
         return;
@@ -442,6 +496,7 @@ export default function StudentDataUploadPage() {
     next.MDC = row.MDC || row.mdc || row.mdcsub || "";
     setForm(next);
     setAutoScholarNumber(false);
+    setAutoRegno(false);
     setEditingId(row._id);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -827,6 +882,31 @@ export default function StudentDataUploadPage() {
               <Grid container spacing={2} alignItems="center">
                 <Grid item xs={12} md={3}>
                   <FormControlLabel
+                    control={<Checkbox checked={autoRegno} onChange={(event) => setAutoRegno(event.target.checked)} />}
+                    label="Auto-generate regno"
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Stack spacing={0.5}>
+                    <Typography variant="caption" color="text.secondary">Regno generation style</Typography>
+                    <RadioGroup
+                      row
+                      value={regnoMode}
+                      onChange={(event) => setRegnoMode(event.target.value)}
+                    >
+                      {regnoGenerationModes.map((mode) => (
+                        <FormControlLabel key={mode.value} value={mode.value} control={<Radio size="small" />} label={mode.label} />
+                      ))}
+                    </RadioGroup>
+                  </Stack>
+                </Grid>
+                <Grid item xs={12} md={2}>
+                  <Button fullWidth variant="outlined" sx={{ height: 56 }} onClick={generateRegno}>
+                    Generate Regno
+                  </Button>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <FormControlLabel
                     control={<Checkbox checked={autoScholarNumber} onChange={(event) => setAutoScholarNumber(event.target.checked)} />}
                     label="Auto-generate scholar number"
                   />
@@ -880,12 +960,12 @@ export default function StudentDataUploadPage() {
                 <TextField
                   fullWidth
                   select={fieldOptions(field).length > 0 && field !== "programcode"}
-                  disabled={field === "programcode" || (field === "scholarnumber" && autoScholarNumber)}
+                  disabled={field === "programcode" || (field === "scholarnumber" && autoScholarNumber) || (field === "regno" && autoRegno)}
                   required={field === "email"}
                   label={labels[field]}
-                  value={field === "scholarnumber" && autoScholarNumber ? "" : fieldValue(field)}
+                  value={(field === "scholarnumber" && autoScholarNumber) || (field === "regno" && autoRegno) ? "" : fieldValue(field)}
                   onChange={(event) => updateField(field, event.target.value)}
-                  helperText={field === "scholarnumber" && autoScholarNumber ? "Will be generated on save" : ""}
+                  helperText={field === "scholarnumber" && autoScholarNumber ? "Will be generated on save" : (field === "regno" ? regnoHelperText : "")}
                 >
                   {fieldOptions(field).map((option) => (
                     <MenuItem key={option} value={option}>{option}</MenuItem>

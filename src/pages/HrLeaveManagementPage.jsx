@@ -54,6 +54,7 @@ export default function HrLeaveManagementPage({ defaultTab = "hierarchy", single
   const [rows, setRows] = useState({ hierarchy: [], type: [], cycle: [], balance: [], applications: [] });
   const [forms, setForms] = useState({ hierarchy: blankHierarchy, type: blankType, cycle: blankCycle, balance: blankBalance, apply: createBlankApply() });
   const [editing, setEditing] = useState({ kind: "", id: "" });
+  const [selectedRows, setSelectedRows] = useState({ type: [], balance: [] });
   const [classPlanRows, setClassPlanRows] = useState([]);
   const [selectedApproval, setSelectedApproval] = useState(null);
   const [dashboardCycle, setDashboardCycle] = useState("");
@@ -158,6 +159,24 @@ export default function HrLeaveManagementPage({ defaultTab = "hierarchy", single
     await ep1.post(`/api/v2/hrleave/${kind}/delete`, { id: row._id, colid: global1.colid });
     setMessage("Deleted");
     loadKind(kind);
+  };
+
+  const bulkDeleteKind = async (kind) => {
+    const ids = selectedRows[kind] || [];
+    if (!ids.length) {
+      setError("Select at least one record to delete");
+      return;
+    }
+    if (!window.confirm(`Delete ${ids.length} selected record(s)?`)) return;
+    try {
+      setError("");
+      await Promise.all(ids.map((id) => ep1.post(`/api/v2/hrleave/${kind}/delete`, { id, colid: global1.colid })));
+      setSelectedRows((prev) => ({ ...prev, [kind]: [] }));
+      setMessage("Selected records deleted");
+      await Promise.all([loadKind(kind), loadOptions()]);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete selected records");
+    }
   };
 
   const bulkUpload = async (kind, file) => {
@@ -284,9 +303,19 @@ export default function HrLeaveManagementPage({ defaultTab = "hierarchy", single
     ] }
   ];
 
-  const renderGrid = (kind, columns) => (
+  const renderGrid = (kind, columns, options = {}) => (
     <Paper sx={{ p: 1, mt: 2, overflowX: "auto" }}>
-      <DataGrid rows={(rows[kind] || []).map((row) => ({ ...row, id: row._id }))} columns={[...baseColumns(kind), ...columns]} autoHeight slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: `hr_leave_${kind}` } } }} sx={{ minWidth: 1300 }} />
+      <DataGrid
+        rows={(rows[kind] || []).map((row) => ({ ...row, id: row._id }))}
+        columns={[...baseColumns(kind), ...columns]}
+        autoHeight
+        checkboxSelection={Boolean(options.checkboxSelection)}
+        rowSelectionModel={selectedRows[kind] || []}
+        onRowSelectionModelChange={(model) => setSelectedRows((prev) => ({ ...prev, [kind]: model }))}
+        slots={{ toolbar: GridToolbar }}
+        slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: `hr_leave_${kind}` } } }}
+        sx={{ minWidth: 1300 }}
+      />
     </Paper>
   );
 
@@ -501,13 +530,13 @@ export default function HrLeaveManagementPage({ defaultTab = "hierarchy", single
               <Grid item xs={12} md={2}>{field("type", "carryforwardmaxdays", "Max Days", { type: "number" })}</Grid>
               <Grid item xs={12} md={2}>{field("type", "carryforwardpercentage", "Percentage", { type: "number" })}</Grid>
               <Grid item xs={12} md={8}>{field("type", "description", "Description")}</Grid>
-              <Grid item xs={12}><Stack direction="row" spacing={1}><Button variant="contained" startIcon={<Save />} onClick={() => saveKind("type")}>Save</Button><Button component="label" startIcon={<UploadFile />}>Bulk Upload<input hidden type="file" accept=".xlsx,.xls" onChange={(e) => bulkUpload("type", e.target.files?.[0])} /></Button></Stack></Grid>
+              <Grid item xs={12}><Stack direction="row" spacing={1} flexWrap="wrap"><Button variant="contained" startIcon={<Save />} onClick={() => saveKind("type")}>Save</Button><Button component="label" startIcon={<UploadFile />}>Bulk Upload<input hidden type="file" accept=".xlsx,.xls" onChange={(e) => bulkUpload("type", e.target.files?.[0])} /></Button><Button color="error" variant="outlined" startIcon={<Delete />} disabled={!selectedRows.type.length} onClick={() => bulkDeleteKind("type")}>Bulk Delete</Button></Stack></Grid>
             </Grid>
             {renderGrid("type", [
               { field: "leavetype", headerName: "Leave Type", width: 160 },
               { field: "leavetypecategory", headerName: "EL / Non EL", width: 150 },
               ...["code", "roles", "annualquota", "documentrequired", "carryforwardcriteria", "carryforwardmaxdays", "carryforwardpercentage", "status"].map((f) => ({ field: f, headerName: f, width: 160 }))
-            ])}
+            ], { checkboxSelection: true })}
           </>
         )}
 
@@ -533,13 +562,14 @@ export default function HrLeaveManagementPage({ defaultTab = "hierarchy", single
               {["openingbalance", "carryforward", "earned", "used", "balance"].map((name) => <Grid item xs={12} md={2} key={name}>{field("balance", name, name, { type: "number", InputProps: name === "balance" ? { readOnly: true } : undefined })}</Grid>)}
               <Grid item xs={12}>
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                  <Button variant="contained" startIcon={<Save />} onClick={() => saveKind("balance")}>Save</Button>
-                  <Button variant="outlined" startIcon={<FileDownload />} onClick={downloadBalanceTemplate}>Download Template</Button>
-                  <Button component="label" startIcon={<UploadFile />}>Bulk Upload<input hidden type="file" accept=".xlsx,.xls" onChange={(e) => bulkUpload("balance", e.target.files?.[0])} /></Button>
+	                  <Button variant="contained" startIcon={<Save />} onClick={() => saveKind("balance")}>Save</Button>
+	                  <Button variant="outlined" startIcon={<FileDownload />} onClick={downloadBalanceTemplate}>Download Template</Button>
+	                  <Button component="label" startIcon={<UploadFile />}>Bulk Upload<input hidden type="file" accept=".xlsx,.xls" onChange={(e) => bulkUpload("balance", e.target.files?.[0])} /></Button>
+	                  <Button color="error" variant="outlined" startIcon={<Delete />} disabled={!selectedRows.balance.length} onClick={() => bulkDeleteKind("balance")}>Bulk Delete</Button>
                 </Stack>
               </Grid>
             </Grid>
-            {renderGrid("balance", ["cyclename", "employeename", "employeeemail", "department", "leavetype", "openingbalance", "carryforward", "earned", "used", "balance", "status"].map((f) => ({ field: f, headerName: f, width: 160 })))}
+            {renderGrid("balance", ["cyclename", "employeename", "employeeemail", "department", "leavetype", "openingbalance", "carryforward", "earned", "used", "balance", "status"].map((f) => ({ field: f, headerName: f, width: 160 })), { checkboxSelection: true })}
           </>
         )}
 

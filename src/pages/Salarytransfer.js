@@ -166,7 +166,7 @@ export default function GenerateSalary() {
         user: global1.user
       });
       setEarnedLeaveRows(res.data.results || []);
-      setMessage(`${res.data.message} (${res.data.count || 0} leave balance records updated)`);
+      setMessage(`${res.data.message} (${res.data.addedCount ?? res.data.count ?? 0} added, ${res.data.skippedCount ?? 0} skipped)`);
     } catch (err) {
       setEarnedLeaveRows([]);
       setError(err.response?.data?.message || err.response?.data?.error || "Unable to add earned leave");
@@ -201,16 +201,20 @@ export default function GenerateSalary() {
   const earnedLeaveColumns = [
     { field: 'employeename', headerName: 'Employee', minWidth: 220, flex: 1 },
     { field: 'employeeemail', headerName: 'Employee email', minWidth: 220, flex: 1 },
+    { field: 'role', headerName: 'Role', width: 130 },
     { field: 'cyclename', headerName: 'Cycle', width: 130 },
     { field: 'leavetype', headerName: 'EL type', width: 150 },
     { field: 'totaldays', headerName: 'Total days', width: 120, type: 'number' },
     { field: 'presentdays', headerName: 'Present days', width: 130, type: 'number' },
+    { field: 'minimumdayspresent', headerName: 'Min days', width: 110 },
     { field: 'attendanceratio', headerName: 'Ratio', width: 120, type: 'number' },
     { field: 'annualquota', headerName: 'Annual quota', width: 130, type: 'number' },
     { field: 'proratemontlyleave', headerName: 'Monthly EL', width: 130, type: 'number' },
     { field: 'daysadded', headerName: 'Days added', width: 130, type: 'number' },
     { field: 'earned', headerName: 'Total earned', width: 130, type: 'number' },
-    { field: 'balance', headerName: 'Balance', width: 130, type: 'number' }
+    { field: 'balance', headerName: 'Balance', width: 130, type: 'number' },
+    { field: 'accrualstatus', headerName: 'Accrual status', width: 140 },
+    { field: 'accrualremarks', headerName: 'Remarks', minWidth: 240, flex: 1 }
   ];
 
   return (

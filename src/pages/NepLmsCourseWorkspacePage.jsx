@@ -24,7 +24,7 @@ import {
   TextField,
   Typography
 } from "@mui/material";
-import { Add, ArrowBack, Delete, Edit, FileDownload, Refresh, Save, UploadFile } from "@mui/icons-material";
+import { Add, ArrowBack, Delete, Edit, FileDownload, PlayArrow, Refresh, Save, UploadFile } from "@mui/icons-material";
 import { DataGrid, GridActionsCellItem, GridToolbar } from "@mui/x-data-grid";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
@@ -147,7 +147,10 @@ const blankClass = {
   durationminutes: "",
   module: "",
   topic: "",
-  workcompleted: ""
+  workcompleted: "",
+  onlineenabled: "No",
+  onlineclassstatus: "Scheduled",
+  onlineclasslink: ""
 };
 
 const uniqueSorted = (values = []) => [...new Set(values.map((item) => String(item || "").trim()).filter(Boolean))]
@@ -1323,7 +1326,10 @@ export default function NepLmsCourseWorkspacePage() {
       durationminutes: row.durationminutes || "",
       module: row.module || "",
       topic: row.topic || "",
-      workcompleted: row.workcompleted || ""
+      workcompleted: row.workcompleted || "",
+      onlineenabled: row.onlineenabled || "No",
+      onlineclassstatus: row.onlineclassstatus || "Scheduled",
+      onlineclasslink: row.onlineclasslink || ""
     });
   };
 
@@ -1335,6 +1341,32 @@ export default function NepLmsCourseWorkspacePage() {
       loadCourseData();
     } catch (err) {
       setError(err.response?.data?.message || "Unable to delete class");
+    }
+  };
+
+  const startOnlineClass = async (row) => {
+    if (!row?._id) {
+      setError("Save the class before starting online class");
+      return;
+    }
+    try {
+      setError("");
+      const patch = {
+        ...row,
+        id: row._id,
+        colid: global1.colid,
+        user: global1.user,
+        onlineenabled: "Yes",
+        onlineclassstatus: "Live",
+        onlineclassstartedat: new Date().toISOString(),
+        onlineclasslink: `/neplmsonlineclass?classid=${row._id}`
+      };
+      await ep1.post("/api/v2/neplms/timetable/update", patch);
+      setTimetable((prev) => prev.map((item) => item._id === row._id ? { ...item, ...patch } : item));
+      setMessage("Online class started");
+      window.location.href = `/neplmsonlineclass?classid=${row._id}&role=faculty`;
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to start online class");
     }
   };
 
@@ -1558,15 +1590,27 @@ export default function NepLmsCourseWorkspacePage() {
     { field: "module", headerName: "Module", width: 140 },
     { field: "topic", headerName: "Topic", width: 220 },
     { field: "workcompleted", headerName: "Work Completed", width: 260 },
+    { field: "onlineenabled", headerName: "Online", width: 110 },
+    { field: "onlineclassstatus", headerName: "Online Status", width: 140 },
     {
       field: "actions",
-      type: "actions",
       headerName: "Actions",
-      width: 120,
-      getActions: (params) => [
-        <GridActionsCellItem icon={<Edit />} label="Edit" onClick={() => editClass(params.row)} />,
-        <GridActionsCellItem icon={<Delete />} label="Delete" onClick={() => deleteClass(params.row)} />
-      ]
+      width: 330,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => (
+        <Stack direction="row" spacing={0.75} sx={{ py: 0.5 }}>
+          <Button size="small" variant="contained" startIcon={<PlayArrow />} onClick={() => startOnlineClass(params.row)}>
+            Start Class
+          </Button>
+          <Button size="small" variant="outlined" startIcon={<Edit />} onClick={() => editClass(params.row)}>
+            Edit
+          </Button>
+          <Button size="small" color="error" variant="outlined" startIcon={<Delete />} onClick={() => deleteClass(params.row)}>
+            Delete
+          </Button>
+        </Stack>
+      )
     }
   ];
 
@@ -2386,10 +2430,15 @@ export default function NepLmsCourseWorkspacePage() {
         rows={rows.map((row) => ({ ...row, id: row._id }))}
         columns={timetableColumns}
         autoHeight
+        rowHeight={58}
         slots={{ toolbar: GridToolbar }}
         slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName } } }}
         pageSizeOptions={[10, 25, 50]}
-        sx={{ minWidth: 2500 }}
+        sx={{
+          minWidth: 2680,
+          "& .MuiDataGrid-cell": { alignItems: "center" },
+          "& .MuiDataGrid-columnHeaders": { bgcolor: "grey.50" }
+        }}
       />
     </Paper>
   );
@@ -2559,6 +2608,11 @@ export default function NepLmsCourseWorkspacePage() {
       {timetableView === "day" && renderDayCalendar()}
       {timetableView === "week" && renderWeekCalendar()}
       {timetableView === "month" && renderMonthCalendar()}
+      <Paper sx={{ p: 2, mb: 1 }}>
+        <Typography variant="h6" sx={{ fontWeight: 800 }}>Classes Grid</Typography>
+        <Typography variant="body2" color="text.secondary">Saved timetable rows with start class, edit and delete actions.</Typography>
+      </Paper>
+      {renderTimetableGrid(filteredTimetable, "faculty_calendar_classes")}
     </Box>
   );
 
@@ -3328,7 +3382,20 @@ export default function NepLmsCourseWorkspacePage() {
               <Grid item xs={12} md={2}><TextField fullWidth type="number" label="Duration in minutes" value={classForm.durationminutes} onChange={(e) => setClassForm((prev) => ({ ...prev, durationminutes: e.target.value }))} /></Grid>
               <Grid item xs={12} md={2}><TextField fullWidth label="Module" value={classForm.module} onChange={(e) => setClassForm((prev) => ({ ...prev, module: e.target.value }))} /></Grid>
               <Grid item xs={12} md={2}><TextField fullWidth label="Topic" value={classForm.topic} onChange={(e) => setClassForm((prev) => ({ ...prev, topic: e.target.value }))} /></Grid>
-              <Grid item xs={12} md={9}>
+              <Grid item xs={12} md={2}>
+                <TextField select fullWidth label="Online Enabled" value={classForm.onlineenabled || "No"} onChange={(e) => setClassForm((prev) => ({ ...prev, onlineenabled: e.target.value }))}>
+                  <MenuItem value="Yes">Yes</MenuItem>
+                  <MenuItem value="No">No</MenuItem>
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <TextField select fullWidth label="Online Status" value={classForm.onlineclassstatus || "Scheduled"} onChange={(e) => setClassForm((prev) => ({ ...prev, onlineclassstatus: e.target.value }))}>
+                  <MenuItem value="Scheduled">Scheduled</MenuItem>
+                  <MenuItem value="Live">Live</MenuItem>
+                  <MenuItem value="Ended">Ended</MenuItem>
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={8}>
                 <FormControl fullWidth>
                   <InputLabel>Work Completed</InputLabel>
                   <Select
@@ -3418,13 +3485,15 @@ export default function NepLmsCourseWorkspacePage() {
           <Paper sx={{ mb: 2 }}>
             <Tabs value={timetableTab} onChange={(event, value) => setTimetableTab(value)} variant="scrollable" scrollButtons="auto">
               <Tab label={`Calendar (${filteredTimetable.length})`} />
+              <Tab label={`All Classes (${filteredTimetable.length})`} />
               <Tab label={`Upcoming Classes (${upcomingFilteredTimetable.length})`} />
               <Tab label={`Past Classes (${pastFilteredTimetable.length})`} />
             </Tabs>
           </Paper>
           {timetableTab === 0 && renderTimetableCalendar()}
-          {timetableTab === 1 && renderTimetableGrid(upcomingFilteredTimetable, "faculty_upcoming_classes")}
-          {timetableTab === 2 && renderTimetableGrid(pastFilteredTimetable, "faculty_past_classes")}
+          {timetableTab === 1 && renderTimetableGrid(filteredTimetable, "faculty_all_classes")}
+          {timetableTab === 2 && renderTimetableGrid(upcomingFilteredTimetable, "faculty_upcoming_classes")}
+          {timetableTab === 3 && renderTimetableGrid(pastFilteredTimetable, "faculty_past_classes")}
         </Box>
       )}
       {tab === 4 && (

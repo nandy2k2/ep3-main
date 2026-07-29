@@ -18,7 +18,7 @@ import {
   TextField,
   Typography
 } from "@mui/material";
-import { Add, ArrowBack, Delete, Edit, FileDownload, Print, Refresh, Save, SwapHoriz, UploadFile } from "@mui/icons-material";
+import { Add, ArrowBack, Delete, Edit, FileDownload, PlayArrow, Print, Refresh, Save, SwapHoriz, UploadFile } from "@mui/icons-material";
 import { DataGrid, GridActionsCellItem, GridToolbar } from "@mui/x-data-grid";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
@@ -49,6 +49,9 @@ const blankClass = {
   module: "",
   topic: "",
   workcompleted: "",
+  onlineenabled: "No",
+  onlineclassstatus: "Scheduled",
+  onlineclasslink: "",
   status: "Active"
 };
 
@@ -450,6 +453,9 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
       module: row.module || "",
       topic: row.topic || "",
       workcompleted: row.workcompleted || "",
+      onlineenabled: row.onlineenabled || "No",
+      onlineclassstatus: row.onlineclassstatus || "Scheduled",
+      onlineclasslink: row.onlineclasslink || "",
       status: row.status || "Active"
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -513,6 +519,8 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
       module: "Module 1",
       topic: "Introduction",
       workcompleted: "",
+      onlineenabled: "No",
+      onlineclassstatus: "Scheduled",
       status: "Active"
     }]);
     const workbook = XLSX.utils.book_new();
@@ -564,6 +572,8 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
       module: "Module 1",
       topic: "Introduction",
       workcompleted: "",
+      onlineenabled: "No",
+      onlineclassstatus: "Scheduled",
       status: "Active"
     }]);
     const workbook = XLSX.utils.book_new();
@@ -664,13 +674,16 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
     { field: "module", headerName: "Module", width: 140 },
     { field: "topic", headerName: "Topic", width: 220 },
     { field: "workcompleted", headerName: "Work Completed", width: 260 },
+    { field: "onlineenabled", headerName: "Online", width: 110 },
+    { field: "onlineclassstatus", headerName: "Online Status", width: 140 },
     { field: "status", headerName: "Status", width: 110 },
     {
       field: "actions",
       type: "actions",
       headerName: "Actions",
-      width: 120,
+      width: 150,
       getActions: (params) => [
+        <GridActionsCellItem icon={<PlayArrow />} label="Start Online Class" onClick={() => { window.location.href = `/neplmsonlineclass?classid=${params.row._id}&role=faculty`; }} />,
         <GridActionsCellItem icon={<Edit />} label="Edit" onClick={() => editRow(params.row)} />,
         <GridActionsCellItem icon={<Delete />} label="Delete" onClick={() => deleteRow(params.row)} />
       ]
@@ -685,7 +698,7 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
     ...(classGroupMode ? [["classgroup", "Class Group"]] : []),
     ["course", "Course"], ["coursecode", "Course Code"], ["classdate", "Class Date", "date"], ["classtime", "Class Time", "time"],
     ["period", "Period"], ["durationminutes", "Duration in minutes", "number"], ["module", "Module"], ["topic", "Topic"],
-    ["workcompleted", "Work Completed"], ["status", "Status"]
+    ["workcompleted", "Work Completed"], ["onlineenabled", "Online Enabled"], ["onlineclassstatus", "Online Class Status"], ["status", "Status"]
   ];
   const courseMapDropdownFields = new Set(["academicyear", "regulation", "program", "programcode", "major", "semester", "course", "coursecode"]);
 
@@ -777,6 +790,16 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
                   <TextField select fullWidth label={label} value={form.classgroup} onChange={(e) => updateForm("classgroup", e.target.value)}>
                     <MenuItem value="">Select</MenuItem>
                     {classGroupOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                  </TextField>
+                </Grid>
+              );
+            }
+            if (field === "onlineenabled" || field === "onlineclassstatus") {
+              const options = field === "onlineenabled" ? ["Yes", "No"] : ["Scheduled", "Live", "Ended"];
+              return (
+                <Grid item xs={12} md={2} key={field}>
+                  <TextField select fullWidth label={label} value={form[field]} onChange={(e) => updateForm(field, e.target.value)}>
+                    {options.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
                   </TextField>
                 </Grid>
               );

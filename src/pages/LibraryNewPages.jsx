@@ -944,8 +944,13 @@ export function StudentLibraryOpacPage() {
   const { libraries } = useLibraryList(true);
   const [libraryid, setLibraryid] = useState("");
   const [rows, setRows] = useState([]);
+  const [photocopyRows, setPhotocopyRows] = useState([]);
   const [options, setOptions] = useState({});
+  const [aiOptions, setAiOptions] = useState({ geminiModels: [], ollama: [] });
   const [filters, setFilters] = useState([{ field: "title", value: "" }]);
+  const [ai, setAi] = useState({ provider: "Gemini", geminiModel: "gemini-2.5-flash", ollamaId: "" });
+  const [summaryDialog, setSummaryDialog] = useState({ open: false, book: null, summary: "", loading: false });
+  const [copyDialog, setCopyDialog] = useState({ open: false, book: null, frompage: "", topage: "", remarks: "" });
   const [message, setMessage] = useState("");
   const load = async () => {
     const params = { colid: global1.colid };
@@ -954,11 +959,46 @@ export function StudentLibraryOpacPage() {
     const res = await ep1.get("/api/v2/librarynew/opac", { params });
     setRows(res.data?.data || []);
     setOptions(res.data?.options || {});
+    await loadPhotocopies();
+  };
+  const loadAiOptions = async () => {
+    const res = await ep1.get("/api/v2/librarynew/ai-options", { params: { colid: global1.colid } });
+    setAiOptions(res.data || {});
+  };
+  const loadPhotocopies = async () => {
+    const params = { colid: global1.colid, regno: global1.regno, email: global1.user, user: global1.user };
+    if (libraryid) params.libraryid = libraryid;
+    const res = await ep1.get("/api/v2/librarynew/student-photocopy-requests", { params });
+    setPhotocopyRows(res.data?.data || []);
   };
   useEffect(() => { load(); }, []);
+  useEffect(() => { loadAiOptions(); }, []);
   const request = async (row) => {
     const res = await ep1.post("/api/v2/librarynew/request", { colid: global1.colid, bookid: row._id, regno: global1.regno, user: global1.user });
     setMessage(`Request created for ${res.data?.data?.title}`);
+  };
+  const summarize = async (row) => {
+    setSummaryDialog({ open: true, book: row, summary: "", loading: true });
+    try {
+      const res = await ep1.post("/api/v2/librarynew/book-summary", { colid: global1.colid, bookid: row._id, ...ai });
+      setSummaryDialog({ open: true, book: row, summary: res.data?.summary || "", loading: false });
+    } catch (error) {
+      setSummaryDialog({ open: true, book: row, summary: error.response?.data?.message || "Unable to summarize this book", loading: false });
+    }
+  };
+  const submitPhotocopy = async () => {
+    await ep1.post("/api/v2/librarynew/photocopy-request", {
+      colid: global1.colid,
+      bookid: copyDialog.book?._id,
+      regno: global1.regno,
+      user: global1.user,
+      frompage: copyDialog.frompage,
+      topage: copyDialog.topage,
+      remarks: copyDialog.remarks
+    });
+    setMessage(`Photocopy request created for ${copyDialog.book?.title}`);
+    setCopyDialog({ open: false, book: null, frompage: "", topage: "", remarks: "" });
+    await loadPhotocopies();
   };
   const columns = [
     { field: "libraryname", headerName: "Library", width: 160 },
@@ -973,9 +1013,69 @@ export function StudentLibraryOpacPage() {
     { field: "keywords", headerName: "Keywords", minWidth: 220 },
     { field: "category", headerName: "Category", width: 130 },
     { field: "status", headerName: "Status", width: 120 },
-    { field: "actions", type: "actions", width: 110, getActions: (p) => [<GridActionsCellItem icon={<Save />} label="Request" disabled={!/^Available$/i.test(p.row.status || "")} onClick={() => request(p.row)} />] }
+    { field: "actions", type: "actions", width: 180, getActions: (p) => [
+      <GridActionsCellItem icon={<Save />} label="Request book" disabled={!/^Available$/i.test(p.row.status || "")} onClick={() => request(p.row)} />,
+      <GridActionsCellItem icon={<Refresh />} label="Summary" onClick={() => summarize(p.row)} />,
+      <GridActionsCellItem icon={<UploadFile />} label="Photocopy" onClick={() => setCopyDialog({ open: true, book: p.row, frompage: "", topage: "", remarks: "" })} />
+    ] }
   ];
-  return <MenuPageShell title="Library OPAC" menuType="student"><Stack spacing={2}>{message && <Alert severity="success">{message}</Alert>}<Paper sx={{ p: 2 }}><Box sx={{ mb: 2, maxWidth: 420 }}><LibrarySelect libraries={libraries} value={libraryid} onChange={setLibraryid} allowAll /></Box><FieldFilters fields={bookFields} options={options} filters={filters} setFilters={setFilters} /><Button sx={{ mt: 1 }} variant="contained" onClick={load}>Search</Button></Paper><Box sx={{ height: 580 }}><DataGrid rows={rows} columns={columns} getRowId={(r) => r._id} slots={{ toolbar: GridToolbar }} /></Box></Stack></MenuPageShell>;
+  const photocopyColumns = [
+    { field: "libraryname", headerName: "Library", width: 150 },
+    { field: "requestdate", headerName: "Request Date", width: 125, valueGetter: (p) => shortDate(p.row.requestdate) },
+    { field: "title", headerName: "Book", minWidth: 220, flex: 1 },
+    { field: "accessionno", headerName: "Accession", width: 120 },
+    { field: "frompage", headerName: "From", width: 80 },
+    { field: "topage", headerName: "To", width: 80 },
+    { field: "status", headerName: "Status", width: 120 },
+    { field: "remarks", headerName: "Remarks", minWidth: 180 },
+    { field: "documentlink", headerName: "Document", width: 150, renderCell: (p) => p.value ? <Button size="small" href={p.value} target="_blank">Open</Button> : "" }
+  ];
+  return (
+    <MenuPageShell title="Library OPAC" menuType="student">
+      <Stack spacing={2}>
+        {message && <Alert severity="success">{message}</Alert>}
+        <Paper sx={{ p: 2 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={4}><LibrarySelect libraries={libraries} value={libraryid} onChange={setLibraryid} allowAll /></Grid>
+            <Grid item xs={12} md={2}><TextField select fullWidth size="small" label="AI Provider" value={ai.provider} onChange={(e) => setAi({ ...ai, provider: e.target.value })}>{["Gemini", "Ollama"].map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}</TextField></Grid>
+            {ai.provider === "Gemini" ? (
+              <Grid item xs={12} md={3}><TextField select fullWidth size="small" label="Gemini Model" value={ai.geminiModel} onChange={(e) => setAi({ ...ai, geminiModel: e.target.value })}>{(aiOptions.geminiModels || ["gemini-2.5-flash"]).map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}</TextField></Grid>
+            ) : (
+              <Grid item xs={12} md={3}><TextField select fullWidth size="small" label="Ollama" value={ai.ollamaId} onChange={(e) => setAi({ ...ai, ollamaId: e.target.value })}>{(aiOptions.ollama || []).map((v) => <MenuItem key={v._id} value={v._id}>{v.name || v.modelname}</MenuItem>)}</TextField></Grid>
+            )}
+          </Grid>
+          <Box sx={{ mt: 2 }}><FieldFilters fields={bookFields} options={options} filters={filters} setFilters={setFilters} /></Box>
+          <Button sx={{ mt: 1 }} variant="contained" onClick={load}>Search</Button>
+        </Paper>
+        <Box sx={{ height: 520 }}><DataGrid rows={rows} columns={columns} getRowId={(r) => r._id} slots={{ toolbar: GridToolbar }} /></Box>
+        <Paper sx={{ p: 2 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+            <Typography variant="h6" fontWeight={900}>My Photocopy Requests</Typography>
+            <Button size="small" startIcon={<Refresh />} onClick={loadPhotocopies}>Refresh</Button>
+          </Stack>
+          <Box sx={{ height: 360 }}><DataGrid rows={photocopyRows} columns={photocopyColumns} getRowId={(r) => r._id} slots={{ toolbar: GridToolbar }} /></Box>
+        </Paper>
+        <Dialog open={summaryDialog.open} onClose={() => setSummaryDialog({ open: false, book: null, summary: "", loading: false })} maxWidth="md" fullWidth>
+          <DialogTitle>Book Summary - {summaryDialog.book?.title}</DialogTitle>
+          <DialogContent>
+            {summaryDialog.loading ? <Stack alignItems="center" sx={{ p: 4 }}><CircularProgress /><Typography sx={{ mt: 1 }}>Generating summary...</Typography></Stack> : <Typography sx={{ whiteSpace: "pre-wrap" }}>{summaryDialog.summary}</Typography>}
+          </DialogContent>
+        </Dialog>
+        <Dialog open={copyDialog.open} onClose={() => setCopyDialog({ open: false, book: null, frompage: "", topage: "", remarks: "" })} maxWidth="sm" fullWidth>
+          <DialogTitle>Request Photocopy - {copyDialog.book?.title}</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ pt: 1 }}>
+              <Typography color="text.secondary">Total pages: {copyDialog.book?.pages || "Not specified"}</Typography>
+              <TextField type="number" label="From Page" value={copyDialog.frompage} onChange={(e) => setCopyDialog({ ...copyDialog, frompage: e.target.value })} />
+              <TextField type="number" label="To Page" value={copyDialog.topage} onChange={(e) => setCopyDialog({ ...copyDialog, topage: e.target.value })} />
+              <TextField multiline minRows={2} label="Remarks" value={copyDialog.remarks} onChange={(e) => setCopyDialog({ ...copyDialog, remarks: e.target.value })} />
+              <Button variant="contained" onClick={submitPhotocopy}>Submit Request</Button>
+            </Stack>
+          </DialogContent>
+        </Dialog>
+      </Stack>
+    </MenuPageShell>
+  );
 }
 
 export function LibraryRequestsPage() {
@@ -1018,6 +1118,90 @@ export function LibraryRequestsPage() {
     { field: "actions", type: "actions", width: 120, getActions: (p) => [<GridActionsCellItem icon={<Save />} label="Issue" disabled={!/^Requested$/i.test(p.row.status || "")} onClick={() => issue(p.row)} />, <GridActionsCellItem icon={<Delete />} label="Reject" disabled={!/^Requested$/i.test(p.row.status || "")} onClick={() => reject(p.row)} />] }
   ];
   return <MenuPageShell title="Library Requests"><Stack spacing={2}><Paper sx={{ p: 2 }}><Box sx={{ mb: 2, maxWidth: 420 }}><LibrarySelect libraries={libraries} value={libraryid} onChange={setLibraryid} allowAll /></Box><FieldFilters fields={["student", "regno", "email", "programcode", "semester", "title", "accessionno", "classification", "publisher", "publisheraddress", "keywords", "invoiceno", "status"]} options={options} filters={filters} setFilters={setFilters} /><Button sx={{ mt: 1 }} variant="contained" onClick={load}>Apply</Button></Paper><Box sx={{ height: 620 }}><DataGrid rows={rows} columns={columns} getRowId={(r) => r._id} slots={{ toolbar: GridToolbar }} /></Box></Stack></MenuPageShell>;
+}
+
+export function LibraryPhotocopyRequestsPage() {
+  const { libraries } = useLibraryList(/^All$/i.test(global1.role || ""));
+  const [libraryid, setLibraryid] = useState("");
+  const [rows, setRows] = useState([]);
+  const [filters, setFilters] = useState([{ field: "status", value: "Requested" }]);
+  const [options, setOptions] = useState({});
+  const [uploadDialog, setUploadDialog] = useState({ open: false, row: null, file: null, remarks: "" });
+  const [message, setMessage] = useState("");
+  const load = async () => {
+    const params = { colid: global1.colid, user: global1.user, role: global1.role };
+    if (libraryid) params.libraryid = libraryid;
+    filters.forEach((f) => { if (f.field && f.value) params[f.field] = f.value; });
+    const res = await ep1.get("/api/v2/librarynew/photocopy-requests", { params });
+    setRows(res.data?.data || []);
+    setOptions(res.data?.options || {});
+  };
+  useEffect(() => { load(); }, []);
+  const reject = async (row) => {
+    await ep1.post("/api/v2/librarynew/photocopy-request/reject", { colid: global1.colid, id: row._id, user: global1.user, remarks: row.remarks || "Rejected by librarian" });
+    setMessage("Request rejected");
+    load();
+  };
+  const uploadCopy = async () => {
+    if (!uploadDialog.file || !uploadDialog.row) return;
+    const fd = new FormData();
+    fd.append("file", uploadDialog.file);
+    fd.append("colid", global1.colid);
+    fd.append("id", uploadDialog.row._id);
+    fd.append("user", global1.user);
+    fd.append("remarks", uploadDialog.remarks || "");
+    await ep1.post("/api/v2/librarynew/photocopy-request/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
+    setMessage("Photocopy uploaded and visible to student");
+    setUploadDialog({ open: false, row: null, file: null, remarks: "" });
+    load();
+  };
+  const columns = [
+    { field: "libraryname", headerName: "Library", width: 160 },
+    { field: "requestdate", headerName: "Request Date", width: 130, valueGetter: (p) => shortDate(p.row.requestdate) },
+    { field: "student", headerName: "Student", minWidth: 180 },
+    { field: "regno", headerName: "Reg No", width: 120 },
+    { field: "programcode", headerName: "Program", width: 120 },
+    { field: "semester", headerName: "Semester", width: 100 },
+    { field: "title", headerName: "Book", minWidth: 240, flex: 1 },
+    { field: "accessionno", headerName: "Accession", width: 120 },
+    { field: "frompage", headerName: "From", width: 80 },
+    { field: "topage", headerName: "To", width: 80 },
+    { field: "status", headerName: "Status", width: 120 },
+    { field: "remarks", headerName: "Remarks", minWidth: 180 },
+    { field: "documentlink", headerName: "Document", width: 130, renderCell: (p) => p.value ? <Button size="small" href={p.value} target="_blank">Open</Button> : "" },
+    { field: "actions", type: "actions", width: 120, getActions: (p) => [
+      <GridActionsCellItem icon={<UploadFile />} label="Upload" disabled={!/^Requested$/i.test(p.row.status || "")} onClick={() => setUploadDialog({ open: true, row: p.row, file: null, remarks: p.row.remarks || "" })} />,
+      <GridActionsCellItem icon={<Delete />} label="Reject" disabled={!/^Requested$/i.test(p.row.status || "")} onClick={() => reject(p.row)} />
+    ] }
+  ];
+  return (
+    <MenuPageShell title="Photocopy Requests">
+      <Stack spacing={2}>
+        {message && <Alert severity="success">{message}</Alert>}
+        <Paper sx={{ p: 2 }}>
+          <Box sx={{ mb: 2, maxWidth: 420 }}><LibrarySelect libraries={libraries} value={libraryid} onChange={setLibraryid} allowAll /></Box>
+          <FieldFilters fields={["student", "regno", "email", "programcode", "semester", "title", "accessionno", "status"]} options={options} filters={filters} setFilters={setFilters} />
+          <Button sx={{ mt: 1 }} variant="contained" onClick={load}>Apply</Button>
+        </Paper>
+        <Box sx={{ height: 620 }}><DataGrid rows={rows} columns={columns} getRowId={(r) => r._id} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} /></Box>
+        <Dialog open={uploadDialog.open} onClose={() => setUploadDialog({ open: false, row: null, file: null, remarks: "" })} maxWidth="sm" fullWidth>
+          <DialogTitle>Upload Photocopy - {uploadDialog.row?.title}</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ pt: 1 }}>
+              <Typography color="text.secondary">Pages {uploadDialog.row?.frompage} to {uploadDialog.row?.topage}</Typography>
+              <Button component="label" variant="outlined" startIcon={<UploadFile />}>
+                Select File
+                <input hidden type="file" onChange={(e) => setUploadDialog({ ...uploadDialog, file: e.target.files?.[0] || null })} />
+              </Button>
+              {uploadDialog.file && <Alert severity="info">{uploadDialog.file.name}</Alert>}
+              <TextField multiline minRows={2} label="Remarks" value={uploadDialog.remarks} onChange={(e) => setUploadDialog({ ...uploadDialog, remarks: e.target.value })} />
+              <Button variant="contained" onClick={uploadCopy} disabled={!uploadDialog.file}>Upload and Close Request</Button>
+            </Stack>
+          </DialogContent>
+        </Dialog>
+      </Stack>
+    </MenuPageShell>
+  );
 }
 
 function LibraryMovementPage({ mode }) {

@@ -392,6 +392,17 @@ export default function NepLmsStudentDashboardPage() {
       <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
         {row.topic || row.module || "Class"} | {row.faculty || "-"}
       </Typography>
+      {row.onlineenabled === "Yes" && (
+        <Button
+          size="small"
+          variant="contained"
+          component={RouterLink}
+          to={`/neplmsonlineclass?classid=${row._id}&role=student`}
+          sx={{ mt: 0.75, minHeight: 26, py: 0, fontSize: 11 }}
+        >
+          Join online
+        </Button>
+      )}
     </Box>
   );
 
@@ -511,6 +522,9 @@ export default function NepLmsStudentDashboardPage() {
         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2}>
           <Box>
             <Typography variant="overline" sx={{ opacity: 0.86 }}>Student Dashboard</Typography>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800, opacity: 0.92 }}>
+              {student.institution || global1.insname || "Institution"}
+            </Typography>
             <Typography variant="h4" fontWeight={900}>{student.name || global1.name || "Student"}</Typography>
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
               <Chip size="small" label={`Reg No: ${student.regno || global1.regno || "-"}`} sx={{ bgcolor: "rgba(255,255,255,0.18)", color: "white" }} />

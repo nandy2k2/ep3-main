@@ -19,6 +19,34 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 import ep1 from "../api/ep1";
 
 const fieldDefault = (field) => field.fieldtype === "Checkbox" ? [] : "";
+const blankEducation = { qualification: "", specialization: "", universityboard: "", institute: "", passingyear: "", percentagecgpa: "", mediumofinstruction: "", modeofstudy: "Regular" };
+const blankFamily = { name: "", age: "", relationship: "", location: "", occupation: "", contactemail: "", contactphone: "" };
+const blankEmployment = { organization: "", designation: "", employmenttype: "", dateofjoining: "", lastworkingdate: "", totalexperience: "", lastdrawnsalary: "", reasonforleaving: "", referencename: "", referenceemail: "", referencephone: "" };
+const blankCandidateDocument = { type: "Academic", documentname: "", link: "" };
+
+const enabled = (value) => /^yes$/i.test(String(value || ""));
+const displayValue = (value) => Array.isArray(value) ? value.join(", ") : String(value || "");
+const experienceMonthsBetween = (start, end) => {
+  const from = new Date(start);
+  const to = new Date(end);
+  if (!start || !end || Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to < from) return 0;
+  let months = (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
+  if (to.getDate() >= from.getDate()) months += 1;
+  return Math.max(0, months);
+};
+const formatExperienceMonths = (months) => {
+  const safeMonths = Math.max(0, Number(months || 0));
+  const years = Math.floor(safeMonths / 12);
+  const remaining = safeMonths % 12;
+  if (years && remaining) return `${years} year${years === 1 ? "" : "s"} ${remaining} month${remaining === 1 ? "" : "s"}`;
+  if (years) return `${years} year${years === 1 ? "" : "s"}`;
+  if (remaining) return `${remaining} month${remaining === 1 ? "" : "s"}`;
+  return "";
+};
+const withExperience = (rows = []) => rows.map((row) => {
+  const months = experienceMonthsBetween(row.dateofjoining, row.lastworkingdate);
+  return { ...row, totalexperience: months ? formatExperienceMonths(months) : (row.totalexperience || "") };
+});
 
 export default function PublicRecruitmentApplyPage() {
   const query = new URLSearchParams(window.location.search);
@@ -27,7 +55,21 @@ export default function PublicRecruitmentApplyPage() {
   const token = query.get("token") || "";
   const [bundle, setBundle] = useState(null);
   const [tab, setTab] = useState(0);
-  const [form, setForm] = useState({ applicantname: "", email: "", phone: "", username: "", password: "", photourl: "", customfields: {}, documents: [] });
+  const [form, setForm] = useState({
+    applicantname: "",
+    email: "",
+    phone: "",
+    username: "",
+    password: "",
+    photourl: "",
+    customfields: {},
+    documents: [],
+    educationalqualifications: [],
+    familydetails: [],
+    pastemployments: [],
+    totalexperience: "",
+    candidatedocuments: []
+  });
   const [retrieve, setRetrieve] = useState({ applicationno: "", email: "", phone: "" });
   const [showRetrieve, setShowRetrieve] = useState(false);
   const [submitted, setSubmitted] = useState(null);
@@ -39,6 +81,8 @@ export default function PublicRecruitmentApplyPage() {
   const docs = useMemo(() => bundle?.documents || [], [bundle]);
   const photoDocument = useMemo(() => form.documents?.find((doc) => /photo/i.test(doc.documenttype || doc.originalname || "")), [form.documents]);
   const photoUrl = form.photourl || photoDocument?.url || "";
+  const calculatedPastEmployments = useMemo(() => withExperience(form.pastemployments || []), [form.pastemployments]);
+  const totalExperience = useMemo(() => formatExperienceMonths((form.pastemployments || []).reduce((sum, row) => sum + experienceMonthsBetween(row.dateofjoining, row.lastworkingdate), 0)), [form.pastemployments]);
 
   const pages = useMemo(() => {
     const ordered = [];
@@ -46,8 +90,14 @@ export default function PublicRecruitmentApplyPage() {
       const page = field.page || "Page 1";
       if (!ordered.includes(page)) ordered.push(page);
     });
-    return ["Basic details", ...ordered, "Documents", "Preview"];
-  }, [fields]);
+    const panelPages = [
+      enabled(bundle?.form?.includeeducationpanel) ? "Educational qualification" : "",
+      enabled(bundle?.form?.includefamilypanel) ? "Family details" : "",
+      enabled(bundle?.form?.includeemploymentpanel) ? "Past employment" : "",
+      enabled(bundle?.form?.includedocumentpanel) ? "Other documents" : ""
+    ].filter(Boolean);
+    return ["Basic details", ...ordered, ...panelPages, "Documents", "Preview"];
+  }, [fields, bundle]);
 
   useEffect(() => {
     const load = async () => {
@@ -89,12 +139,61 @@ export default function PublicRecruitmentApplyPage() {
     }
   };
 
+  const updateArrayField = (collection, index, field, value) => {
+    setForm((old) => {
+      const rows = [...(old[collection] || [])];
+      rows[index] = { ...(rows[index] || {}), [field]: value };
+      if (collection === "pastemployments" && ["dateofjoining", "lastworkingdate"].includes(field)) {
+        const months = experienceMonthsBetween(rows[index].dateofjoining, rows[index].lastworkingdate);
+        rows[index].totalexperience = months ? formatExperienceMonths(months) : "";
+      }
+      const next = { ...old, [collection]: rows };
+      if (collection === "pastemployments") {
+        next.totalexperience = formatExperienceMonths(rows.reduce((sum, row) => sum + experienceMonthsBetween(row.dateofjoining, row.lastworkingdate), 0));
+      }
+      return next;
+    });
+  };
+
+  const addArrayRow = (collection, blank) => setForm((old) => ({ ...old, [collection]: [...(old[collection] || []), { ...blank }] }));
+  const removeArrayRow = (collection, index) => setForm((old) => {
+    const rows = (old[collection] || []).filter((_, i) => i !== index);
+    return {
+      ...old,
+      [collection]: rows,
+      ...(collection === "pastemployments" ? { totalexperience: formatExperienceMonths(rows.reduce((sum, row) => sum + experienceMonthsBetween(row.dateofjoining, row.lastworkingdate), 0)) } : {})
+    };
+  });
+
+  const uploadCandidatePanelDocument = async (index, file) => {
+    if (!file) return;
+    setLoading(true);
+    try {
+      const row = form.candidatedocuments?.[index] || {};
+      const docType = row.documentname || `Candidate ${row.type || "Document"}`;
+      const data = new FormData();
+      data.append("document", file);
+      data.append("colid", colid);
+      data.append("jobid", jobid);
+      data.append("documenttype", docType);
+      data.append("description", row.type || "Candidate document");
+      const res = await ep1.post("/api/v2/recruitment/upload-document", data, { headers: { "Content-Type": "multipart/form-data" } });
+      updateArrayField("candidatedocuments", index, "link", res.data.url);
+    } catch (err) {
+      setError(err.response?.data?.msg || err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const validateAndSubmit = async () => {
     setLoading(true);
     setError("");
     try {
       const payload = {
         ...form,
+        pastemployments: calculatedPastEmployments,
+        totalexperience: totalExperience,
         username: form.email,
         photourl: photoUrl,
         colid,
@@ -139,7 +238,12 @@ export default function PublicRecruitmentApplyPage() {
         password: res.data.password || "",
         photourl: res.data.photourl || "",
         customfields: res.data.customfields || {},
-        documents: res.data.documents || []
+        documents: res.data.documents || [],
+        educationalqualifications: res.data.educationalqualifications || [],
+        familydetails: res.data.familydetails || [],
+        pastemployments: withExperience(res.data.pastemployments || []),
+        totalexperience: res.data.totalexperience || formatExperienceMonths((res.data.pastemployments || []).reduce((sum, row) => sum + experienceMonthsBetween(row.dateofjoining, row.lastworkingdate), 0)),
+        candidatedocuments: res.data.candidatedocuments || []
       });
       setTab(pages.length - 1);
     } catch (err) {
@@ -148,6 +252,65 @@ export default function PublicRecruitmentApplyPage() {
       setLoading(false);
     }
   };
+
+  const renderEditableRows = (title, collection, blank, fieldsList) => (
+    <Stack spacing={2}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Typography variant="h6" fontWeight={900}>{title}</Typography>
+        <Button variant="outlined" onClick={() => addArrayRow(collection, blank)}>Add row</Button>
+      </Stack>
+      {!(form[collection] || []).length && <Alert severity="info">No rows added. Click Add row to enter details.</Alert>}
+      {(form[collection] || []).map((row, index) => (
+        <Paper key={`${collection}-${index}`} variant="outlined" sx={{ p: 2 }}>
+          <Grid container spacing={2}>
+            {fieldsList.map((field) => (
+              <Grid item xs={12} md={field.full ? 12 : 4} key={field.name}>
+                <TextField
+                  select={!!field.options}
+                  fullWidth
+                  size="small"
+                  type={field.type || "text"}
+                  label={field.label}
+                  InputLabelProps={field.type === "date" ? { shrink: true } : undefined}
+                  value={row[field.name] || ""}
+                  onChange={(e) => updateArrayField(collection, index, field.name, e.target.value)}
+                  InputProps={field.readOnly ? { readOnly: true } : undefined}
+                  multiline={field.multiline}
+                  minRows={field.multiline ? 2 : undefined}
+                >
+                  {(field.options || []).map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
+                </TextField>
+              </Grid>
+            ))}
+            {collection === "candidatedocuments" && (
+              <Grid item xs={12} md={4}>
+                <Button fullWidth variant="outlined" component="label" startIcon={<UploadFileIcon />} disabled={loading}>
+                  Upload through AWS
+                  <input hidden type="file" onChange={(e) => uploadCandidatePanelDocument(index, e.target.files?.[0])} />
+                </Button>
+                {row.link && <Typography variant="caption" component="a" href={row.link} target="_blank" rel="noreferrer" sx={{ display: "block", wordBreak: "break-all", mt: 1 }}>{row.link}</Typography>}
+              </Grid>
+            )}
+            <Grid item xs={12}>
+              <Button color="error" size="small" onClick={() => removeArrayRow(collection, index)}>Remove row</Button>
+            </Grid>
+          </Grid>
+        </Paper>
+      ))}
+    </Stack>
+  );
+
+  const renderReadonlyRows = (title, rows, columns) => rows?.length ? (
+    <Box sx={{ mt: 2 }}>
+      <Typography variant="h6" fontWeight={800}>{title}</Typography>
+      <Box component="table" sx={{ width: "100%", borderCollapse: "collapse", mt: 0.5, "& th, & td": { border: "1px solid #d1d5db", p: 0.75, fontSize: 12, verticalAlign: "top" }, "& th": { bgcolor: "#eef2ff" } }}>
+        <tbody>
+          <tr>{columns.map((col) => <th key={col.name}>{col.label}</th>)}</tr>
+          {rows.map((row, index) => <tr key={`${title}-${index}`}>{columns.map((col) => <td key={col.name}>{col.link && row[col.name] ? <a href={row[col.name]} target="_blank" rel="noreferrer">{row[col.name]}</a> : displayValue(row[col.name])}</td>)}</tr>)}
+        </tbody>
+      </Box>
+    </Box>
+  ) : null;
 
   const renderField = (field) => {
     const value = form.customfields?.[field.fieldname] ?? "";
@@ -277,6 +440,52 @@ export default function PublicRecruitmentApplyPage() {
             </Grid>
           )}
 
+          {pages[tab] === "Educational qualification" && renderEditableRows("Educational qualification", "educationalqualifications", blankEducation, [
+            { name: "qualification", label: "Qualification/Degree" },
+            { name: "specialization", label: "Specialization" },
+            { name: "universityboard", label: "University/Board" },
+            { name: "institute", label: "Institute/College Name" },
+            { name: "passingyear", label: "Passing Year", type: "number" },
+            { name: "percentagecgpa", label: "Percentage/CGPA/Grade" },
+            { name: "mediumofinstruction", label: "Medium of instruction" },
+            { name: "modeofstudy", label: "Mode of Study", options: ["Regular", "Distance", "Part-Time"] }
+          ])}
+
+          {pages[tab] === "Family details" && renderEditableRows("Family details", "familydetails", blankFamily, [
+            { name: "name", label: "Name" },
+            { name: "age", label: "Age", type: "number" },
+            { name: "relationship", label: "Relationship" },
+            { name: "location", label: "Location" },
+            { name: "occupation", label: "Occupation" },
+            { name: "contactemail", label: "Contact email", type: "email" },
+            { name: "contactphone", label: "Contact phone" }
+          ])}
+
+          {pages[tab] === "Past employment" && renderEditableRows("Past employment", "pastemployments", blankEmployment, [
+            { name: "organization", label: "Organization" },
+            { name: "designation", label: "Designation" },
+            { name: "employmenttype", label: "Employment type" },
+            { name: "dateofjoining", label: "Date of Joining", type: "date" },
+            { name: "lastworkingdate", label: "Last Working Date", type: "date" },
+            { name: "totalexperience", label: "Total Experience", readOnly: true },
+            { name: "lastdrawnsalary", label: "Last Drawn Salary" },
+            { name: "reasonforleaving", label: "Reason for Leaving", full: true, multiline: true },
+            { name: "referencename", label: "Reference name" },
+            { name: "referenceemail", label: "Reference email", type: "email" },
+            { name: "referencephone", label: "Reference phone" }
+          ])}
+          {pages[tab] === "Past employment" && (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              Total experience across all jobs: <b>{totalExperience || "0 months"}</b>
+            </Alert>
+          )}
+
+          {pages[tab] === "Other documents" && renderEditableRows("Other documents", "candidatedocuments", blankCandidateDocument, [
+            { name: "type", label: "Type", options: ["Academic", "Employment", "Others"] },
+            { name: "documentname", label: "Document name" },
+            { name: "link", label: "Link" }
+          ])}
+
           {pages[tab] === "Preview" && (
             <Box id="recruitment-print">
               <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
@@ -290,19 +499,55 @@ export default function PublicRecruitmentApplyPage() {
                 </Box>
               </Stack>
               <Divider sx={{ my: 2 }} />
-              <Grid container spacing={1}>
+	              <Grid container spacing={1}>
                 {[
-                  ["Name", form.applicantname],
-                  ["Email", form.email],
-                  ["Phone", form.phone],
-                  ["Status", submitted?.status || "Draft"]
+	                  ["Name", form.applicantname],
+	                  ["Email", form.email],
+	                  ["Phone", form.phone],
+	                  ["Total experience", totalExperience || form.totalexperience || ""],
+	                  ["Status", submitted?.status || "Draft"]
                 ].map(([label, value]) => (
                   <Grid item xs={12} md={6} key={label}><Typography><b>{label}:</b> {value}</Typography></Grid>
                 ))}
-                {Object.entries(form.customfields || {}).map(([key, value]) => (
-                  <Grid item xs={12} md={6} key={key}><Typography><b>{key}:</b> {Array.isArray(value) ? value.join(", ") : String(value || "")}</Typography></Grid>
-                ))}
-              </Grid>
+	                {Object.entries(form.customfields || {}).map(([key, value]) => (
+	                  <Grid item xs={12} md={6} key={key}><Typography><b>{key}:</b> {displayValue(value)}</Typography></Grid>
+	                ))}
+	              </Grid>
+	              {renderReadonlyRows("Educational qualification", form.educationalqualifications, [
+	                { name: "qualification", label: "Qualification" },
+	                { name: "specialization", label: "Specialization" },
+	                { name: "universityboard", label: "University/Board" },
+	                { name: "institute", label: "Institute" },
+		                { name: "passingyear", label: "Year" },
+		                { name: "percentagecgpa", label: "Marks/Grade" },
+		                { name: "mediumofinstruction", label: "Medium" },
+		                { name: "modeofstudy", label: "Mode" }
+		              ])}
+		              {renderReadonlyRows("Family details", form.familydetails, [
+		                { name: "name", label: "Name" },
+		                { name: "age", label: "Age" },
+		                { name: "relationship", label: "Relation" },
+		                { name: "location", label: "Location" },
+		                { name: "occupation", label: "Occupation" },
+		                { name: "contactemail", label: "Email" },
+		                { name: "contactphone", label: "Phone" }
+		              ])}
+		              {renderReadonlyRows("Past employment", calculatedPastEmployments, [
+	                { name: "organization", label: "Organization" },
+	                { name: "designation", label: "Designation" },
+	                { name: "employmenttype", label: "Type" },
+	                { name: "dateofjoining", label: "Joining" },
+	                { name: "lastworkingdate", label: "Last day" },
+	                { name: "totalexperience", label: "Experience" },
+	                { name: "referencename", label: "Reference" },
+	                { name: "referenceemail", label: "Reference email" },
+	                { name: "referencephone", label: "Reference phone" }
+	              ])}
+	              {renderReadonlyRows("Other documents", form.candidatedocuments, [
+	                { name: "type", label: "Type" },
+	                { name: "documentname", label: "Document" },
+	                { name: "link", label: "Link", link: true }
+	              ])}
               <Typography variant="h6" fontWeight={800} sx={{ mt: 2 }}>Documents</Typography>
               {form.documents?.map((doc) => <Typography key={doc.url} sx={{ wordBreak: "break-all" }}><b>{doc.documenttype}:</b> {doc.url}</Typography>)}
               <Divider sx={{ my: 2 }} />

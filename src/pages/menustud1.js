@@ -200,6 +200,34 @@ function DefaultStudentListItems({ open }) {
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Bank account" />}
 </ListItem>
 
+        <ListItem button component={RouterLink} to="/studentlocationpublish">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Publish coordinates" />}
+</ListItem>
+
+        <ListItem button component={RouterLink} to="/studentlocationsearch">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Location search" />}
+</ListItem>
+
+        <ListItem button component={RouterLink} to="/studentadmissionprofile">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Admission profile" />}
+</ListItem>
+
+        <ListItem button component={RouterLink} to="/studentdynamicprofile">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Dynamic profile" />}
+</ListItem>
+
         <ListItem button component={RouterLink} to="/userprofileprint">
 <ListItemIcon>
 <PersonIcon />
@@ -349,6 +377,13 @@ function DefaultStudentListItems({ open }) {
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Live quiz" />}
 </ListItem>
 
+           <ListItem button component={RouterLink} to="/continuous-feedback-student">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Class feedback" />}
+</ListItem>
+
            <ListItem button component={RouterLink} to="/studentprereading">
 <ListItemIcon>
 <PersonIcon />
@@ -382,6 +417,23 @@ function DefaultStudentListItems({ open }) {
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Remedial" />}
+</ListItem>
+
+        </AccordionDetails>
+        </Accordion>
+
+        <Accordion>
+        <AccordionSummary aria-controls="panel-student-online-exam-content" id="panel-student-online-exam-header">
+          <BusinessIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{fontSize: 14}}>Online examination</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+
+           <ListItem button component={RouterLink} to="/student-online-exam">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Online examination" />}
 </ListItem>
 
         </AccordionDetails>
@@ -591,6 +643,58 @@ function DefaultStudentListItems({ open }) {
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Scholarship suggestion" />}
 </ListItem>
 
+
+        </AccordionDetails>
+        </Accordion>
+
+          <Accordion>
+        <AccordionSummary aria-controls="panel-placement-new-student-content" id="panel-placement-new-student-header">
+          <BusinessIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{fontSize: 14}}>Placement new</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+
+            <ListItem button component={RouterLink} to="/student-placement-skills">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="My skills" />}
+</ListItem>
+
+            <ListItem button component={RouterLink} to="/student-placement-internships">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Internship projects" />}
+</ListItem>
+
+            <ListItem button component={RouterLink} to="/student-placement-sip">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="My SIP" />}
+</ListItem>
+
+            <ListItem button component={RouterLink} to="/student-placement-project-stages">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Project stages" />}
+</ListItem>
+
+            <ListItem button component={RouterLink} to="/student-placement-stage-details">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Stage details" />}
+</ListItem>
+
+<ListItem button component={RouterLink} to="/student-placement-project-report">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="SIP report" />}
+</ListItem>
 
         </AccordionDetails>
         </Accordion>

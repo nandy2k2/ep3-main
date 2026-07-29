@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   CircularProgress,
@@ -9,6 +10,7 @@ import {
   Grid,
   Link,
   Paper,
+  TextField,
   Stack,
   Tab,
   Tabs,
@@ -134,9 +136,10 @@ const groupFields = (fields = [], application = {}) => {
   }));
 };
 
-export default function DynamicAdmissionProfile2Page() {
+export default function DynamicAdmissionProfile2Page({ student = false }) {
   const navigate = useNavigate();
   const { id } = useParams();
+  const [applications, setApplications] = useState([]);
   const [application, setApplication] = useState(null);
   const [institution, setInstitution] = useState(null);
   const [fields, setFields] = useState([]);
@@ -146,9 +149,10 @@ export default function DynamicAdmissionProfile2Page() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    loadProfile();
+    if (student) loadStudentProfiles();
+    else loadProfile();
     loadInstitution();
-  }, [id]);
+  }, [id, student]);
 
   useEffect(() => {
     if (application?.formid) {
@@ -165,6 +169,33 @@ export default function DynamicAdmissionProfile2Page() {
       setApplication(res.data || null);
     } catch (err) {
       setError(err.response?.data?.msg || "Unable to load admission profile");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadStudentProfiles = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const res = await ep1.get("/admission-dynamic/student-applications", {
+        params: {
+          colid: global1.colid,
+          email: global1.email || global1.user,
+          user: global1.user,
+          username: global1.user,
+          regno: global1.regno,
+          phone: global1.phone
+        }
+      });
+      const rows = Array.isArray(res.data) ? res.data : [];
+      setApplications(rows);
+      setApplication(rows[0] || null);
+      if (!rows.length) setError("No dynamic admission application was found for your login.");
+    } catch (err) {
+      setApplications([]);
+      setApplication(null);
+      setError(err.response?.data?.msg || "Unable to load your admission profile");
     } finally {
       setLoading(false);
     }
@@ -241,7 +272,7 @@ export default function DynamicAdmissionProfile2Page() {
   );
 
   return (
-    <MenuPageShell title="Admission Profile 2">
+    <MenuPageShell title={student ? "Admission Profile" : "Admission Profile 2"} menuType={student ? "student" : undefined}>
       <Box sx={{ p: { xs: 1.5, md: 2.5 }, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
         <style>{`
           @media print {
@@ -255,7 +286,7 @@ export default function DynamicAdmissionProfile2Page() {
           }
         `}</style>
         <Stack className="no-print" direction="row" spacing={1} sx={{ mb: 1.5, flexWrap: "wrap" }}>
-          <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => navigate("/dynamic-admission-applications")}>Back</Button>
+          {!student && <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => navigate("/dynamic-admission-applications")}>Back</Button>}
           <Button variant="contained" startIcon={<PrintIcon />} onClick={() => window.print()} disabled={!application}>Print A4</Button>
         </Stack>
         {loading && <Alert severity="info" className="no-print" icon={<CircularProgress size={18} />}>Loading profile...</Alert>}
@@ -263,6 +294,25 @@ export default function DynamicAdmissionProfile2Page() {
 
         {application && (
           <>
+            {student && applications.length > 1 && (
+              <Paper className="no-print" sx={{ p: 1.5, mb: 1.5, borderRadius: 2 }}>
+                <Autocomplete
+                  size="small"
+                  options={applications}
+                  value={application}
+                  onChange={(_, value) => {
+                    setApplication(value || applications[0] || null);
+                    setActivePage(0);
+                  }}
+                  getOptionLabel={(option) => [
+                    option.formid || "default",
+                    option.applicationid || option.applicationnumber || option._id,
+                    option.programapplied || option.programcode
+                  ].filter(Boolean).join(" | ")}
+                  renderInput={(params) => <TextField {...params} label="Select admission application" />}
+                />
+              </Paper>
+            )}
             <Paper className="no-print" sx={{ mb: 1.5, borderRadius: 2, overflow: "hidden" }}>
               <Tabs value={activePage} onChange={(_, value) => setActivePage(value)} variant="scrollable" scrollButtons="auto">
                 {pageGroups.map((group, index) => <Tab key={group.page} label={group.page} value={index} />)}

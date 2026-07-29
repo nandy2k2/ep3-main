@@ -26,6 +26,32 @@ const commonFields = [
 ];
 
 const configs = {
+  departmentindentds2: {
+    title: "Department indent",
+    fields: [
+      ...commonFields,
+      { field: "department", label: "Department" },
+      { field: "departmentcode", label: "Department Code" },
+      { field: "hodname", label: "HOD Name" },
+      { field: "hodemail", label: "HOD Email" },
+      { field: "status", label: "Status" },
+      { field: "remarks", label: "Remarks" }
+    ]
+  },
+  itemmasterds2: {
+    title: "Item master",
+    fields: [
+      ...commonFields,
+      { field: "itemcode", label: "Item Code" },
+      { field: "itemname", label: "Item Name" },
+      { field: "category", label: "Category" },
+      { field: "type", label: "Type" },
+      { field: "unit", label: "Unit" },
+      { field: "description", label: "Description" },
+      { field: "approxprice", label: "Approx Price", type: "number" },
+      { field: "status", label: "Status" }
+    ]
+  },
   storecashaccountds2: {
     title: "Store cash account",
     fields: [
@@ -39,6 +65,21 @@ const configs = {
     ]
   },
   storeitemds2: {
+    title: "Store items",
+    fields: [
+      ...commonFields,
+      { field: "storeid", label: "Store ID" },
+      { field: "storename", label: "Store Name" },
+      { field: "itemcode", label: "Item Code" },
+      { field: "itemname", label: "Item Name" },
+      { field: "quantity", label: "Quantity", type: "number" },
+      { field: "type", label: "Type" },
+      { field: "status", label: "Status" },
+      { field: "category", label: "Category" },
+      { field: "unit", label: "Unit" }
+    ]
+  },
+  storeitemsds2: {
     title: "Store items",
     fields: [
       ...commonFields,
@@ -179,7 +220,124 @@ const configs = {
       { field: "level", label: "Level" }
     ]
   },
+  storeusersds2: {
+    title: "Store users",
+    fields: [
+      ...commonFields,
+      { field: "storeuser", label: "Store User" },
+      { field: "storeid", label: "Store ID" },
+      { field: "store", label: "Store" },
+      { field: "userid", label: "User ID" },
+      { field: "level", label: "Level" }
+    ]
+  },
+  storerequisitionds2: {
+    title: "Store requisition",
+    fields: [
+      ...commonFields,
+      { field: "year", label: "Year" },
+      { field: "itemcode", label: "Item Code" },
+      { field: "itemname", label: "Item Name" },
+      { field: "store", label: "Store" },
+      { field: "storeid", label: "Store ID" },
+      { field: "reqdate", label: "Req Date", type: "date" },
+      { field: "quantity", label: "Quantity", type: "number" },
+      { field: "orderedQuantity", label: "Ordered Quantity", type: "number" },
+      { field: "reqstatus", label: "Req Status" },
+      { field: "prnumber", label: "PR Number" },
+      { field: "assignedTo", label: "Assigned To" },
+      { field: "departmentname", label: "Department" },
+      { field: "approvalStatus", label: "Approval Status" },
+      { field: "remarks", label: "Remarks" }
+    ]
+  },
+  storerequisitionitemsds2: {
+    title: "Store requisition items",
+    fields: [
+      ...commonFields,
+      { field: "requisitionid", label: "Requisition ID" },
+      { field: "reqid", label: "Req ID" },
+      { field: "itemid", label: "Item ID" },
+      { field: "itemcode", label: "Item Code" },
+      { field: "itemname", label: "Item Name" },
+      { field: "category", label: "Category" },
+      { field: "unit", label: "Unit" },
+      { field: "quantity", label: "Quantity", type: "number" },
+      { field: "approvedquantity", label: "Approved Qty", type: "number" },
+      { field: "issuedquantity", label: "Issued Qty", type: "number" },
+      { field: "status", label: "Status" },
+      { field: "remarks", label: "Remarks" }
+    ]
+  },
+  storeprrequestds2: {
+    title: "Store PR request",
+    fields: [
+      ...commonFields,
+      { field: "prnumber", label: "PR Number" },
+      { field: "storeid", label: "Store ID" },
+      { field: "storename", label: "Store Name" },
+      { field: "departmentname", label: "Department" },
+      { field: "requestdate", label: "Request Date", type: "date" },
+      { field: "requestedby", label: "Requested By" },
+      { field: "requestedbyemail", label: "Requested By Email" },
+      { field: "priority", label: "Priority" },
+      { field: "totalamount", label: "Total Amount", type: "number" },
+      { field: "status", label: "Status" },
+      { field: "remarks", label: "Remarks" }
+    ]
+  },
+  storeprrequestitemsds2: {
+    title: "Store PR request items",
+    fields: [
+      ...commonFields,
+      { field: "prnumber", label: "PR Number" },
+      { field: "prrequestid", label: "PR Request ID" },
+      { field: "itemid", label: "Item ID" },
+      { field: "itemcode", label: "Item Code" },
+      { field: "itemname", label: "Item Name" },
+      { field: "category", label: "Category" },
+      { field: "unit", label: "Unit" },
+      { field: "quantity", label: "Quantity", type: "number" },
+      { field: "estimatedprice", label: "Estimated Price", type: "number" },
+      { field: "estimatedtotal", label: "Estimated Total", type: "number" },
+      { field: "vendorid", label: "Vendor ID" },
+      { field: "vendorname", label: "Vendor Name" },
+      { field: "remarks", label: "Remarks" }
+    ]
+  },
+  storepoassignmentds2: {
+    title: "Store PO assignment",
+    fields: [
+      ...commonFields,
+      { field: "requestid", label: "Request ID" },
+      { field: "prnumber", label: "PR Number" },
+      { field: "assignedto", label: "Assigned To" },
+      { field: "assignedtoemail", label: "Assigned To Email" },
+      { field: "assignedby", label: "Assigned By" },
+      { field: "assignedbyemail", label: "Assigned By Email" },
+      { field: "assigneddate", label: "Assigned Date", type: "date" },
+      { field: "status", label: "Status" },
+      { field: "remarks", label: "Remarks" }
+    ]
+  },
   vendords2: {
+    title: "Vendors",
+    fields: [
+      ...commonFields,
+      { field: "vendorname", label: "Vendor Name" },
+      { field: "pan", label: "PAN" },
+      { field: "gst", label: "GST" },
+      { field: "address", label: "Address" },
+      { field: "state", label: "State" },
+      { field: "city", label: "City" },
+      { field: "mobileno", label: "Mobile No" },
+      { field: "email", label: "Email" },
+      { field: "type", label: "Type" },
+      { field: "payterm", label: "Pay Term" },
+      { field: "doclink", label: "Doc Link" }
+    ]
+  },
+  vendorsds2: {
     title: "Vendors",
     fields: [
       ...commonFields,
@@ -218,6 +376,24 @@ const configs = {
       { field: "category", label: "Category" }
     ]
   },
+  vendoritemsds2: {
+    title: "Vendor items",
+    fields: [
+      ...commonFields,
+      { field: "vendorname", label: "Vendor Name" },
+      { field: "vendorid", label: "Vendor ID" },
+      { field: "itemid", label: "Item ID" },
+      { field: "item", label: "Item" },
+      { field: "price", label: "Price", type: "number" },
+      { field: "discount", label: "Discount", type: "number" },
+      { field: "status", label: "Status" },
+      { field: "type", label: "Type" },
+      { field: "unit", label: "Unit" },
+      { field: "gst", label: "GST", type: "number" },
+      { field: "total", label: "Total", type: "number" },
+      { field: "category", label: "Category" }
+    ]
+  },
   vendorpayschds: {
     title: "Vendor payment schedule",
     fields: [
@@ -231,6 +407,165 @@ const configs = {
       { field: "deliverydesc", label: "Delivery Description" },
       { field: "paymentdesc", label: "Payment Description" },
       { field: "status", label: "Status" },
+      { field: "remarks", label: "Remarks" }
+    ]
+  },
+  vendorpaymentscheduleds2: {
+    title: "Vendor payment schedule",
+    fields: [
+      ...commonFields,
+      { field: "vendorname", label: "Vendor Name" },
+      { field: "vendorid", label: "Vendor ID" },
+      { field: "isadvance", label: "Is Advance" },
+      { field: "isdeliverylinked", label: "Is Delivery Linked" },
+      { field: "deliverytype", label: "Delivery Type" },
+      { field: "paymenttype", label: "Payment Type" },
+      { field: "deliverydesc", label: "Delivery Description" },
+      { field: "paymentdesc", label: "Payment Description" },
+      { field: "status", label: "Status" },
+      { field: "remarks", label: "Remarks" }
+    ]
+  },
+  storegatepassds2: {
+    title: "Store gate pass",
+    fields: [
+      ...commonFields,
+      { field: "gatepassno", label: "Gate Pass No" },
+      { field: "poid", label: "PO ID" },
+      { field: "vendorid", label: "Vendor ID" },
+      { field: "vendorname", label: "Vendor Name" },
+      { field: "receiveddate", label: "Received Date", type: "date" },
+      { field: "receivedby", label: "Received By" },
+      { field: "vehicle", label: "Vehicle" },
+      { field: "challanno", label: "Challan No" },
+      { field: "invoiceno", label: "Invoice No" },
+      { field: "status", label: "Status" },
+      { field: "remarks", label: "Remarks" }
+    ]
+  },
+  storegatepassitemsds2: {
+    title: "Store gate pass items",
+    fields: [
+      ...commonFields,
+      { field: "gatepassno", label: "Gate Pass No" },
+      { field: "poid", label: "PO ID" },
+      { field: "itemid", label: "Item ID" },
+      { field: "itemcode", label: "Item Code" },
+      { field: "itemname", label: "Item Name" },
+      { field: "orderedquantity", label: "Ordered Qty", type: "number" },
+      { field: "receivedquantity", label: "Received Qty", type: "number" },
+      { field: "unit", label: "Unit" },
+      { field: "remarks", label: "Remarks" }
+    ]
+  },
+  storequalitycheckds2: {
+    title: "Store quality check",
+    fields: [
+      ...commonFields,
+      { field: "qcno", label: "QC No" },
+      { field: "gatepassno", label: "Gate Pass No" },
+      { field: "grnno", label: "GRN No" },
+      { field: "poid", label: "PO ID" },
+      { field: "checkedby", label: "Checked By" },
+      { field: "checkedbyemail", label: "Checked By Email" },
+      { field: "checkdate", label: "Check Date", type: "date" },
+      { field: "status", label: "Status" },
+      { field: "remarks", label: "Remarks" }
+    ]
+  },
+  storequalitycheckitemsds2: {
+    title: "Store quality check items",
+    fields: [
+      ...commonFields,
+      { field: "qcno", label: "QC No" },
+      { field: "itemid", label: "Item ID" },
+      { field: "itemcode", label: "Item Code" },
+      { field: "itemname", label: "Item Name" },
+      { field: "receivedquantity", label: "Received Qty", type: "number" },
+      { field: "approvedquantity", label: "Approved Qty", type: "number" },
+      { field: "rejectedquantity", label: "Rejected Qty", type: "number" },
+      { field: "returnedquantity", label: "Returned Qty", type: "number" },
+      { field: "reason", label: "Reason" },
+      { field: "status", label: "Status" }
+    ]
+  },
+  grnds2: {
+    title: "GRN",
+    fields: [
+      ...commonFields,
+      { field: "grnNo", label: "GRN No" },
+      { field: "gatePassNumber", label: "Gate Pass Number" },
+      { field: "poid", label: "PO ID" },
+      { field: "vendorName", label: "Vendor Name" },
+      { field: "vendorAddress", label: "Vendor Address" },
+      { field: "partyName", label: "Party Name" },
+      { field: "storeId", label: "Store ID" },
+      { field: "storeName", label: "Store Name" },
+      { field: "receivedBy", label: "Received By" },
+      { field: "grnDate", label: "GRN Date", type: "date" },
+      { field: "dcInvoiceNo", label: "DC/Invoice No" },
+      { field: "lrNo", label: "LR No" },
+      { field: "vehicleNo", label: "Vehicle No" },
+      { field: "billAmount", label: "Bill Amount", type: "number" },
+      { field: "status", label: "Status" },
+      { field: "remarks", label: "Remarks" }
+    ]
+  },
+  storegrnds2: {
+    title: "Store GRN",
+    fields: [
+      ...commonFields,
+      { field: "grnNo", label: "GRN No" },
+      { field: "gatePassNumber", label: "Gate Pass Number" },
+      { field: "poid", label: "PO ID" },
+      { field: "vendorName", label: "Vendor Name" },
+      { field: "vendorAddress", label: "Vendor Address" },
+      { field: "partyName", label: "Party Name" },
+      { field: "storeId", label: "Store ID" },
+      { field: "storeName", label: "Store Name" },
+      { field: "receivedBy", label: "Received By" },
+      { field: "grnDate", label: "GRN Date", type: "date" },
+      { field: "dcInvoiceNo", label: "DC/Invoice No" },
+      { field: "lrNo", label: "LR No" },
+      { field: "vehicleNo", label: "Vehicle No" },
+      { field: "billAmount", label: "Bill Amount", type: "number" },
+      { field: "status", label: "Status" },
+      { field: "remarks", label: "Remarks" }
+    ]
+  },
+  grnitemsds2: {
+    title: "GRN items",
+    fields: [
+      ...commonFields,
+      { field: "grnno", label: "GRN No" },
+      { field: "grnid", label: "GRN ID" },
+      { field: "poid", label: "PO ID" },
+      { field: "itemid", label: "Item ID" },
+      { field: "itemcode", label: "Item Code" },
+      { field: "itemname", label: "Item Name" },
+      { field: "acceptedquantity", label: "Accepted Qty", type: "number" },
+      { field: "rejectedquantity", label: "Rejected Qty", type: "number" },
+      { field: "rate", label: "Rate", type: "number" },
+      { field: "total", label: "Total", type: "number" },
+      { field: "unit", label: "Unit" },
+      { field: "remarks", label: "Remarks" }
+    ]
+  },
+  storegrnitemsds2: {
+    title: "Store GRN items",
+    fields: [
+      ...commonFields,
+      { field: "grnno", label: "GRN No" },
+      { field: "grnid", label: "GRN ID" },
+      { field: "poid", label: "PO ID" },
+      { field: "itemid", label: "Item ID" },
+      { field: "itemcode", label: "Item Code" },
+      { field: "itemname", label: "Item Name" },
+      { field: "acceptedquantity", label: "Accepted Qty", type: "number" },
+      { field: "rejectedquantity", label: "Rejected Qty", type: "number" },
+      { field: "rate", label: "Rate", type: "number" },
+      { field: "total", label: "Total", type: "number" },
+      { field: "unit", label: "Unit" },
       { field: "remarks", label: "Remarks" }
     ]
   }
@@ -289,6 +624,8 @@ export default function Purchase2CrudPage() {
   const [rows, setRows] = useState([]);
   const [filters, setFilters] = useState([]);
   const [filterDraft, setFilterDraft] = useState({ field: fields[0]?.field || "", value: "" });
+  const [selectedRows, setSelectedRows] = useState([]);
+  const [bulkEdit, setBulkEdit] = useState({ field: fields[0]?.field || "", value: "" });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -298,6 +635,8 @@ export default function Purchase2CrudPage() {
     setForm(makeEmptyForm(fields));
     setFilters([]);
     setFilterDraft({ field: fields[0]?.field || "", value: "" });
+    setBulkEdit({ field: fields[0]?.field || "", value: "" });
+    setSelectedRows([]);
   }, [modelKey]);
 
   const loadRows = async (overrideFilters = filters) => {
@@ -324,6 +663,17 @@ export default function Purchase2CrudPage() {
     setError("");
     setMessage("");
     try {
+      if (["itemmasterds2", "departmentindentds2"].includes(modelKey)) {
+        const requiredFields = modelKey === "itemmasterds2" ? ["itemname", "itemcode", "category", "unit", "status"] : ["department", "departmentcode"];
+        const missing = requiredFields.filter((field) => !String(form[field] || "").trim());
+        if (missing.length) throw new Error(`Required fields missing: ${missing.join(", ")}`);
+        const duplicate = rows.find((row) => row._id !== form.id && (
+          modelKey === "itemmasterds2"
+            ? String(row.itemcode || "").trim().toLowerCase() === String(form.itemcode || "").trim().toLowerCase()
+            : String(row.departmentcode || "").trim().toLowerCase() === String(form.departmentcode || "").trim().toLowerCase()
+        ));
+        if (duplicate) throw new Error(modelKey === "itemmasterds2" ? "Duplicate item code is not allowed" : "Duplicate department code is not allowed");
+      }
       await ep1.post(`/api/v2/purchase2/${modelKey}`, preparePayload(form, fields, colid, currentName, currentUser));
       setMessage(form.id ? "Record updated." : "Record saved.");
       setForm(makeEmptyForm(fields));
@@ -390,6 +740,55 @@ export default function Purchase2CrudPage() {
       await loadRows();
     } catch (err) {
       setError(err.response?.data?.message || err.message || "Unable to upload bulk data");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const bulkDelete = async () => {
+    if (!selectedRows.length) {
+      setError("Select at least one row");
+      return;
+    }
+    if (!window.confirm(`Delete ${selectedRows.length} selected record(s)?`)) return;
+    setSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      await Promise.all(selectedRows.map((id) => ep1.post(`/api/v2/purchase2/${modelKey}/delete`, { id, colid })));
+      setSelectedRows([]);
+      setMessage("Selected records deleted.");
+      await loadRows();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || "Unable to bulk delete");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const applyBulkEdit = async () => {
+    if (!selectedRows.length || !bulkEdit.field) {
+      setError("Select rows and a field to update");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      const fieldConfig = fields.find((field) => field.field === bulkEdit.field);
+      await Promise.all(selectedRows.map((id) => {
+        const row = rows.find((item) => item._id === id);
+        if (!row) return Promise.resolve();
+        const payload = preparePayload(normaliseForForm(row, fields), fields, colid, currentName, currentUser);
+        payload.id = id;
+        payload[bulkEdit.field] = fieldConfig?.type === "number" ? Number(bulkEdit.value || 0) : bulkEdit.value;
+        return ep1.post(`/api/v2/purchase2/${modelKey}`, payload);
+      }));
+      setSelectedRows([]);
+      setMessage("Selected records updated.");
+      await loadRows();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || "Unable to bulk edit");
     } finally {
       setSaving(false);
     }
@@ -464,6 +863,7 @@ export default function Purchase2CrudPage() {
             Bulk upload
             <input hidden type="file" accept=".xlsx,.xls,.csv" onChange={uploadBulk} />
           </Button>
+          <Button variant="outlined" color="error" startIcon={<Delete />} disabled={!selectedRows.length || saving} onClick={bulkDelete}>Bulk delete</Button>
           <Button variant="text" startIcon={<Refresh />} onClick={() => loadRows()}>Refresh</Button>
         </Stack>
       </Paper>
@@ -489,12 +889,30 @@ export default function Purchase2CrudPage() {
         )}
       </Paper>
 
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 1 }}>Bulk edit selected rows</Typography>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }}>
+          <FormControl size="small" sx={{ minWidth: 220 }}>
+            <InputLabel>Field</InputLabel>
+            <Select label="Field" value={bulkEdit.field} onChange={(event) => setBulkEdit({ ...bulkEdit, field: event.target.value })}>
+              {fields.map((field) => <MenuItem key={field.field} value={field.field}>{field.label}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <TextField size="small" label="New value" value={bulkEdit.value} onChange={(event) => setBulkEdit({ ...bulkEdit, value: event.target.value })} />
+          <Button variant="contained" disabled={!selectedRows.length || saving} onClick={applyBulkEdit}>Apply bulk edit</Button>
+          <Typography variant="body2" color="text.secondary">{selectedRows.length} selected</Typography>
+        </Stack>
+      </Paper>
+
       <Paper sx={{ p: 2, overflowX: "auto" }}>
         <DataGrid
           rows={rows.map((row) => ({ ...row, id: row._id }))}
           columns={columns}
           autoHeight
           loading={loading}
+          checkboxSelection
+          rowSelectionModel={selectedRows}
+          onRowSelectionModelChange={(model) => setSelectedRows(model)}
           density="compact"
           slots={{ toolbar: GridToolbar }}
           slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: modelKey } } }}
