@@ -14,6 +14,7 @@ export default function ExamrollRulesCheckPage() {
   const [filters, setFilters] = useState({});
   const [rows, setRows] = useState([]);
   const [threshold, setThreshold] = useState(75);
+  const [selectedIds, setSelectedIds] = useState([]);
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState("");
   const [message, setMessage] = useState("");
@@ -39,6 +40,7 @@ export default function ExamrollRulesCheckPage() {
       setLoading(true);
       const res = await ep1.get("/api/v2/conductexam/examroll-rules/rows", { params: params() });
       setRows(res.data.data || []);
+      setSelectedIds([]);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load examroll");
     } finally {
@@ -62,6 +64,38 @@ export default function ExamrollRulesCheckPage() {
       await loadOptions();
     } catch (err) {
       setError(err.response?.data?.message || `Unable to run ${type} check`);
+    } finally {
+      setProcessing("");
+    }
+  };
+  const handleSelectionChange = (model) => {
+    if (Array.isArray(model)) {
+      setSelectedIds(model);
+    } else if (model?.ids instanceof Set) {
+      const visibleIds = rows.map((row) => row._id);
+      setSelectedIds(model.type === "exclude" ? visibleIds.filter((id) => !model.ids.has(id)) : [...model.ids]);
+    } else {
+      setSelectedIds([]);
+    }
+  };
+  const bulkUpdate = async (action) => {
+    if (!selectedIds.length) {
+      setError("Select at least one row.");
+      return;
+    }
+    try {
+      setProcessing(action);
+      setError("");
+      const res = await ep1.post("/api/v2/conductexam/examroll-rules/bulk-update", {
+        colid: global1.colid,
+        ids: selectedIds,
+        action
+      });
+      setMessage(`Updated ${res.data.updated || 0} selected rows.`);
+      await loadRows();
+      await loadOptions();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to update selected rows");
     } finally {
       setProcessing("");
     }
@@ -112,10 +146,29 @@ export default function ExamrollRulesCheckPage() {
             <Button variant="outlined" startIcon={processing === "fees" ? <CircularProgress size={18} /> : <RuleIcon />} disabled={!!processing} onClick={() => runCheck("fees")}>Check Fees</Button>
             <Button variant="outlined" startIcon={processing === "disciplinary" ? <CircularProgress size={18} /> : <RuleIcon />} disabled={!!processing} onClick={() => runCheck("disciplinary")}>Check Disciplinary</Button>
             <Button variant="outlined" startIcon={processing === "backlogs" ? <CircularProgress size={18} /> : <RuleIcon />} disabled={!!processing} onClick={() => runCheck("backlogs")}>Check Backlogs</Button>
+            <Button variant="contained" color="success" disabled={!!processing || !selectedIds.length} onClick={() => bulkUpdate("admiteligible")}>
+              {processing === "admiteligible" ? "Updating..." : `Set Admit Eligible Yes (${selectedIds.length})`}
+            </Button>
+            <Button variant="contained" color="secondary" disabled={!!processing || !selectedIds.length} onClick={() => bulkUpdate("attendancepresent")}>
+              {processing === "attendancepresent" ? "Updating..." : `Set Attendance Present/1 (${selectedIds.length})`}
+            </Button>
           </Stack>
         </Paper>
         <Paper sx={{ p: 1, overflowX: "auto" }}>
-          <DataGrid rows={rows.map((row) => ({ ...row, id: row._id }))} columns={columns} loading={loading} autoHeight slots={{ toolbar: GridToolbar }} pageSizeOptions={[10, 25, 50, 100]} initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }} sx={{ minWidth: 1700 }} />
+          <DataGrid
+            rows={rows.map((row) => ({ ...row, id: row._id }))}
+            columns={columns}
+            loading={loading}
+            autoHeight
+            checkboxSelection
+            rowSelectionModel={selectedIds}
+            onRowSelectionModelChange={handleSelectionChange}
+            disableRowSelectionOnClick
+            slots={{ toolbar: GridToolbar }}
+            pageSizeOptions={[10, 25, 50, 100]}
+            initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }}
+            sx={{ minWidth: 1700 }}
+          />
         </Paper>
       </Box>
     </MenuPageShell>

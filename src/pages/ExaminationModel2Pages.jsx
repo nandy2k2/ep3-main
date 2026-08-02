@@ -146,6 +146,7 @@ function useExamOptions() {
 export function ExaminationModel2MarksPage() {
   const { options, courses, reloadOptions } = useExamOptions();
   const [rows, setRows] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
   const [students, setStudents] = useState([]);
   const [form, setForm] = useState(baseForm);
   const [editingId, setEditingId] = useState("");
@@ -214,6 +215,7 @@ export function ExaminationModel2MarksPage() {
       setLoading(true);
       const res = await ep1.get("/api/v2/examination-model2/marks", { params: { colid: global1.colid, ...filters } });
       setRows(res.data?.data || []);
+      setSelectedIds([]);
     } catch (err) {
       setError(msg(err, "Unable to load marks"));
     } finally {
@@ -253,6 +255,24 @@ export function ExaminationModel2MarksPage() {
       loadRows();
     } catch (err) {
       setError(msg(err, "Unable to delete"));
+    }
+  };
+
+  const bulkRemove = async () => {
+    if (!selectedIds.length) return setError("Select one or more marks entries to delete.");
+    if (!window.confirm(`Delete ${selectedIds.length} selected marks entr${selectedIds.length === 1 ? "y" : "ies"}?`)) return;
+    try {
+      setLoading(true);
+      setError("");
+      const res = await ep1.post("/api/v2/examination-model2/marks-delete", { ids: selectedIds, colid: global1.colid });
+      setMessage(`Deleted ${res.data?.deleted || selectedIds.length} selected entr${selectedIds.length === 1 ? "y" : "ies"}`);
+      setSelectedIds([]);
+      await loadRows();
+      await reloadOptions();
+    } catch (err) {
+      setError(msg(err, "Unable to delete selected entries"));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -358,8 +378,14 @@ export function ExaminationModel2MarksPage() {
               <Grid item xs={12} md={3}><TextField fullWidth size="small" label="Student / Regno / ABC ID" value={filters.studentsearch} onChange={(e) => setFilters({ ...filters, studentsearch: e.target.value })} /></Grid>
               <Grid item xs={12} md={1}><Button fullWidth variant="contained" sx={{ height: "100%" }} onClick={loadRows}>Apply</Button></Grid>
             </Grid>
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }} flexWrap="wrap">
+              <Button variant="outlined" color="error" startIcon={<DeleteIcon />} disabled={!selectedIds.length || loading} onClick={bulkRemove}>
+                Bulk delete selected
+              </Button>
+              <Typography variant="body2" color="text.secondary">{selectedIds.length} selected</Typography>
+            </Stack>
             <Box sx={{ height: 620, width: "100%" }}>
-              <DataGrid rows={rows} columns={columns} getRowId={(row) => row._id} loading={loading} slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "exam_model2_marks" } } }} pageSizeOptions={[10, 25, 50, 100]} initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }} />
+              <DataGrid rows={rows} columns={columns} getRowId={(row) => row._id} loading={loading} checkboxSelection rowSelectionModel={selectedIds} onRowSelectionModelChange={(model) => setSelectedIds(model)} slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "exam_model2_marks" } } }} pageSizeOptions={[10, 25, 50, 100]} initialState={{ pagination: { paginationModel: { pageSize: 25, page: 0 } } }} />
             </Box>
           </Paper>
         </Stack>
@@ -2230,12 +2256,15 @@ export function ExaminationModel2VivaComponentFailRulePage() {
   );
 }
 
-export function ExaminationModel2VivaMarksheetPage({ marksMode = false }) {
-  const { options } = useExamOptions();
+export function ExaminationModel2VivaMarksheetPage({ marksMode = false, dynamicStudentMode = false }) {
+  const { options, programs } = useExamOptions();
   const [filters, setFilters] = useState({ academicyear: "2026-27", exam: "", examcode: "", regulation: "", program: "", programcode: "", semester: "", name: "", email: "", phone: "", regno: "" });
   const [componentDisplay, setComponentDisplay] = useState({ Theory: true, Practical: true, Viva: true });
   const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [studentFilterFields, setStudentFilterFields] = useState([]);
+  const [studentFilterOptions, setStudentFilterOptions] = useState({});
+  const [studentFilters, setStudentFilters] = useState([{ field: "", operator: "equals", value: "" }]);
   const [marksheet, setMarksheet] = useState(null);
   const [blockchainLink, setBlockchainLink] = useState("");
   const [qr, setQr] = useState("");
@@ -2249,6 +2278,53 @@ export function ExaminationModel2VivaMarksheetPage({ marksMode = false }) {
     setMarksheet(null);
     setBlockchainLink("");
     setQr("");
+  };
+
+  const selectedComponents = () => Object.entries(componentDisplay)
+    .filter(([, enabled]) => enabled)
+    .map(([component]) => component);
+
+  useEffect(() => {
+    if (!dynamicStudentMode) return;
+    ep1.get("/api/v2/student-dynamic-filter/options", { params: { colid: global1.colid } })
+      .then((res) => {
+        setStudentFilterFields(res.data?.fields || []);
+        setStudentFilterOptions(res.data?.options || {});
+      })
+      .catch(() => {});
+  }, [dynamicStudentMode]);
+
+  const cleanStudentFilters = () =>
+    studentFilters
+      .map((filter) => ({
+        field: filter.field,
+        operator: filter.operator || "equals",
+        value: String(filter.value || "").trim()
+      }))
+      .filter((filter) => filter.field && (filter.operator === "notempty" || filter.value));
+
+  const updateStudentFilter = (index, field, value) => {
+    setStudentFilters((prev) => prev.map((filter, itemIndex) => {
+      if (itemIndex !== index) return filter;
+      const next = { ...filter, [field]: value };
+      if (field === "field" || (field === "operator" && value === "notempty")) next.value = "";
+      return next;
+    }));
+  };
+
+  const loadDynamicStudents = async () => {
+    try {
+      setStudentsLoading(true);
+      setError("");
+      setSelectedStudent(null);
+      setMarksheet(null);
+      const res = await ep1.post("/api/v2/student-dynamic-filter/search", { colid: global1.colid, filters: cleanStudentFilters() });
+      setStudents(res.data?.data || []);
+    } catch (err) {
+      setError(msg(err, "Unable to load students from dynamic filters"));
+    } finally {
+      setStudentsLoading(false);
+    }
   };
 
   const loadStudents = async () => {
@@ -2270,13 +2346,13 @@ export function ExaminationModel2VivaMarksheetPage({ marksMode = false }) {
     setSelectedStudent(student);
     setFilters((prev) => ({
       ...prev,
-      academicyear: student.academicyear || prev.academicyear,
-      exam: student.exam || prev.exam,
-      examcode: student.examcode || prev.examcode,
-      regulation: student.regulation || prev.regulation,
-      program: student.program || prev.program,
-      programcode: student.programcode || prev.programcode,
-      semester: student.semester || prev.semester,
+      academicyear: dynamicStudentMode ? (prev.academicyear || student.academicyear || "") : (student.academicyear || prev.academicyear),
+      exam: dynamicStudentMode ? prev.exam : (student.exam || prev.exam),
+      examcode: dynamicStudentMode ? prev.examcode : (student.examcode || prev.examcode),
+      regulation: dynamicStudentMode ? (prev.regulation || student.regulation || "") : (student.regulation || prev.regulation),
+      program: dynamicStudentMode ? (prev.program || student.program || "") : (student.program || prev.program),
+      programcode: dynamicStudentMode ? (prev.programcode || student.programcode || "") : (student.programcode || prev.programcode),
+      semester: dynamicStudentMode ? (prev.semester || student.semester || "") : (student.semester || prev.semester),
       regno: student.regno || prev.regno
     }));
     setMarksheet(null);
@@ -2290,7 +2366,12 @@ export function ExaminationModel2VivaMarksheetPage({ marksMode = false }) {
       setError("");
       setBlockchainLink("");
       setQr("");
-      const res = await ep1.get("/api/v2/examination-model2/viva-marksheet", { params: { colid: global1.colid, ...filters } });
+      const components = selectedComponents();
+      if (!components.length) {
+        setError("Select at least one component to display");
+        return;
+      }
+      const res = await ep1.get("/api/v2/examination-model2/viva-marksheet", { params: { colid: global1.colid, ...filters, components: components.join(",") } });
       setMarksheet(res.data);
     } catch (err) {
       setError(msg(err, "Unable to load viva marksheet"));
@@ -2301,7 +2382,12 @@ export function ExaminationModel2VivaMarksheetPage({ marksMode = false }) {
 
   const storeBlockchain = async () => {
     try {
-      const res = await ep1.post("/api/v2/examination-model2/viva-marksheet-blockchain-store", { ...filters, colid: global1.colid, user: global1.user, origin: window.location.origin });
+      const components = selectedComponents();
+      if (!components.length) {
+        setError("Select at least one component to store");
+        return;
+      }
+      const res = await ep1.post("/api/v2/examination-model2/viva-marksheet-blockchain-store", { ...filters, components: components.join(","), colid: global1.colid, user: global1.user, origin: window.location.origin });
       const url = res.data?.data?.verificationurl || "";
       setBlockchainLink(url);
       if (url) setQr(await QRCode.toDataURL(url));
@@ -2351,21 +2437,111 @@ export function ExaminationModel2VivaMarksheetPage({ marksMode = false }) {
     }
   ];
 
+  const dynamicStudentColumns = [
+    { field: "name", headerName: "Student", width: 190 },
+    { field: "regno", headerName: "Reg No", width: 140 },
+    { field: "email", headerName: "Email", width: 210 },
+    { field: "phone", headerName: "Phone", width: 140 },
+    { field: "academicyear", headerName: "Academic Year", width: 130 },
+    { field: "regulation", headerName: "Regulation", width: 130 },
+    { field: "program", headerName: "Program", width: 190 },
+    { field: "programcode", headerName: "Program Code", width: 130 },
+    { field: "semester", headerName: "Semester", width: 110 },
+    {
+      field: "select",
+      headerName: "Select",
+      width: 120,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => <Button size="small" variant={selectedStudent?._id === params.row._id ? "contained" : "outlined"} onClick={() => selectStudent(params.row)}>Select</Button>
+    }
+  ];
+
+  const selectedProgramOption = programs.find((item) => item.programcode === filters.programcode && (!filters.academicyear || item.year === filters.academicyear))
+    || programs.find((item) => item.programcode === filters.programcode)
+    || null;
+
   return (
-    <MenuPageShell title={marksMode ? "Exam Viva Marksheet Marks" : "Generate Viva Marksheet"}>
+    <MenuPageShell title={dynamicStudentMode ? (marksMode ? "Dynamic Exam Viva Marksheet Marks" : "Dynamic Viva Marksheet") : (marksMode ? "Exam Viva Marksheet Marks" : "Generate Viva Marksheet")}>
       <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
         <Stack spacing={2}>
           <Paper className="screen-only" elevation={0} sx={{ p: 2.5, borderRadius: 3, border: "1px solid #e5e7eb" }}>
-	            <Typography variant="h4" fontWeight={950}>{marksMode ? "Exam Viva Marksheet Marks" : "Generate Viva Marksheet"}</Typography>
-	            <Typography color="text.secondary">{marksMode ? "Generate printable marksheet with theory, practical and viva marks obtained." : "Generate printable marksheet with theory, practical and viva grade details."}</Typography>
+		            <Typography variant="h4" fontWeight={950}>{dynamicStudentMode ? (marksMode ? "Dynamic Exam Viva Marksheet Marks" : "Dynamic Viva Marksheet") : (marksMode ? "Exam Viva Marksheet Marks" : "Generate Viva Marksheet")}</Typography>
+		            <Typography color="text.secondary">{dynamicStudentMode ? "Select a student using dynamic filters, then choose program and semester to generate the marksheet." : (marksMode ? "Generate printable marksheet with theory, practical and viva marks obtained." : "Generate printable marksheet with theory, practical and viva grade details.")}</Typography>
           </Paper>
           {error && <Alert className="screen-only" severity="error" onClose={() => setError("")}>{error}</Alert>}
+          {dynamicStudentMode && (
+            <Paper className="screen-only" elevation={0} sx={{ p: 2, borderRadius: 3, border: "1px solid #e5e7eb" }}>
+              <Typography variant="h6" fontWeight={900} sx={{ mb: 1 }}>Student dynamic filters</Typography>
+              <Stack spacing={1.5}>
+                {studentFilters.map((filter, index) => (
+                  <Grid container spacing={1.5} key={index}>
+                    <Grid item xs={12} md={3}>
+                      <TextField select fullWidth size="small" label="Field" value={filter.field} onChange={(e) => updateStudentFilter(index, "field", e.target.value)}>
+                        <MenuItem value="">Select field</MenuItem>
+                        {studentFilterFields.map((item) => <MenuItem key={item.field} value={item.field}>{item.label}</MenuItem>)}
+                      </TextField>
+                    </Grid>
+                    <Grid item xs={12} md={2}>
+                      <TextField select fullWidth size="small" label="Operator" value={filter.operator} onChange={(e) => updateStudentFilter(index, "operator", e.target.value)}>
+                        <MenuItem value="equals">Equals</MenuItem>
+                        <MenuItem value="contains">Contains</MenuItem>
+                        <MenuItem value="notempty">Not empty</MenuItem>
+                      </TextField>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      {filter.operator === "notempty" ? (
+                        <TextField fullWidth size="small" label="Value" value="Not empty" disabled />
+                      ) : (
+                        <Autocomplete
+                          freeSolo
+                          options={filter.field ? (studentFilterOptions[filter.field]?.values || []) : []}
+                          value={filter.value || ""}
+                          onInputChange={(_, value) => updateStudentFilter(index, "value", value || "")}
+                          renderInput={(params) => <TextField {...params} size="small" label={studentFilterFields.find((item) => item.field === filter.field)?.label || "Value"} />}
+                        />
+                      )}
+                    </Grid>
+                    <Grid item xs={12} md={3}>
+                      <Stack direction="row" spacing={1}>
+                        <Button variant="outlined" onClick={() => setStudentFilters((prev) => [...prev, { field: "", operator: "equals", value: "" }])}>Add</Button>
+                        <Button color="error" variant="outlined" onClick={() => setStudentFilters((prev) => prev.length === 1 ? [{ field: "", operator: "equals", value: "" }] : prev.filter((_, itemIndex) => itemIndex !== index))}>Remove</Button>
+                      </Stack>
+                    </Grid>
+                  </Grid>
+                ))}
+                <Box><Button variant="contained" disabled={studentsLoading} onClick={loadDynamicStudents}>{studentsLoading ? "Loading..." : "Apply student filters"}</Button></Box>
+              </Stack>
+            </Paper>
+          )}
           <Paper className="screen-only" elevation={0} sx={{ p: 2, borderRadius: 3, border: "1px solid #e5e7eb" }}>
             <Grid container spacing={1.5}>
-              {["academicyear", "exam", "examcode", "regulation", "program", "programcode", "semester"].map((field) => <Grid item xs={12} md={2} key={field}><TextField select fullWidth size="small" label={labels[field] || field} value={filters[field] || ""} onChange={(e) => updateFilter(field, e.target.value)}><MenuItem value="">Select</MenuItem>{(options[field] || []).map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>)}
-              {["name", "email", "phone", "regno"].map((field) => <Grid item xs={12} md={2} key={field}><TextField fullWidth size="small" label={labels[field] || field.charAt(0).toUpperCase() + field.slice(1)} value={filters[field] || ""} onChange={(e) => updateFilter(field, e.target.value)} /></Grid>)}
-              <Grid item xs={12} md={2}><Button fullWidth variant="outlined" sx={{ height: "100%" }} disabled={studentsLoading} onClick={loadStudents}>{studentsLoading ? <><CircularProgress size={18} sx={{ mr: 1 }} />Loading...</> : "Apply filters"}</Button></Grid>
-              <Grid item xs={12} md={2}><Button fullWidth variant="contained" sx={{ height: "100%" }} disabled={loading || !filters.regno} onClick={load}>{loading ? "Loading..." : "Generate"}</Button></Grid>
+	              {dynamicStudentMode ? (
+	                <>
+	                  {["academicyear", "exam", "examcode", "regulation"].map((field) => <Grid item xs={12} md={2} key={field}><TextField select fullWidth size="small" label={labels[field] || field} value={filters[field] || ""} onChange={(e) => updateFilter(field, e.target.value)}><MenuItem value="">Select</MenuItem>{(options[field] || []).map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>)}
+	                  <Grid item xs={12} md={3}>
+	                    <Autocomplete
+	                      options={programs}
+	                      value={selectedProgramOption}
+	                      getOptionLabel={(item) => `${item.program || item.name || ""} - ${item.programcode || ""}`}
+	                      onChange={(_, item) => {
+	                        updateFilter("program", item?.program || item?.name || "");
+	                        updateFilter("programcode", item?.programcode || "");
+	                        if (item?.year) updateFilter("academicyear", item.year);
+	                      }}
+	                      renderInput={(params) => <TextField {...params} size="small" label="Program" />}
+	                    />
+	                  </Grid>
+	                  <Grid item xs={12} md={2}><TextField select fullWidth size="small" label="Semester" value={filters.semester || ""} onChange={(e) => updateFilter("semester", e.target.value)}><MenuItem value="">Select</MenuItem>{(options.semester || ["1", "2", "3", "4", "5", "6", "7", "8"]).map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+	                </>
+	              ) : (
+	                <>
+	                  {["academicyear", "exam", "examcode", "regulation", "program", "programcode", "semester"].map((field) => <Grid item xs={12} md={2} key={field}><TextField select fullWidth size="small" label={labels[field] || field} value={filters[field] || ""} onChange={(e) => updateFilter(field, e.target.value)}><MenuItem value="">Select</MenuItem>{(options[field] || []).map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>)}
+	                  {["name", "email", "phone", "regno"].map((field) => <Grid item xs={12} md={2} key={field}><TextField fullWidth size="small" label={labels[field] || field.charAt(0).toUpperCase() + field.slice(1)} value={filters[field] || ""} onChange={(e) => updateFilter(field, e.target.value)} /></Grid>)}
+	                  <Grid item xs={12} md={2}><Button fullWidth variant="outlined" sx={{ height: "100%" }} disabled={studentsLoading} onClick={loadStudents}>{studentsLoading ? <><CircularProgress size={18} sx={{ mr: 1 }} />Loading...</> : "Apply filters"}</Button></Grid>
+	                </>
+	              )}
+	              <Grid item xs={12} md={2}><Button fullWidth variant="contained" sx={{ height: "100%" }} disabled={loading || !filters.regno} onClick={load}>{loading ? "Loading..." : "Generate"}</Button></Grid>
 	              <Grid item xs={12} md={2}><Button fullWidth variant="outlined" sx={{ height: "100%" }} disabled={!marksheet} onClick={storeBlockchain}>Store Blockchain</Button></Grid>
 	              <Grid item xs={12} md={2}><Button fullWidth variant="outlined" sx={{ height: "100%" }} disabled={!marksheet} onClick={() => window.print()}>Print</Button></Grid>
 	              {["Theory", "Practical", "Viva"].map((component) => (
@@ -2384,7 +2560,7 @@ export function ExaminationModel2VivaMarksheetPage({ marksMode = false }) {
             <Box sx={{ height: 360, width: "100%" }}>
               <DataGrid
                 rows={students}
-                columns={studentColumns}
+                columns={dynamicStudentMode ? dynamicStudentColumns : studentColumns}
                 getRowId={(row) => row._id || `${row.regno}-${row.academicyear}-${row.examcode}`}
                 loading={studentsLoading}
                 slots={{ toolbar: GridToolbar }}
@@ -2459,4 +2635,12 @@ export function ExaminationModel2VivaMarksheetPage({ marksMode = false }) {
 
 export function ExaminationModel2VivaMarksOnlyMarksheetPage() {
   return <ExaminationModel2VivaMarksheetPage marksMode />;
+}
+
+export function ExaminationModel2VivaDynamicMarksheetPage() {
+  return <ExaminationModel2VivaMarksheetPage dynamicStudentMode />;
+}
+
+export function ExaminationModel2VivaDynamicMarksOnlyMarksheetPage() {
+  return <ExaminationModel2VivaMarksheetPage marksMode dynamicStudentMode />;
 }

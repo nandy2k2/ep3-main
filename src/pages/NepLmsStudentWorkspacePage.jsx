@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link as RouterLink, useSearchParams } from "react-router-dom";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Checkbox,
@@ -39,12 +40,14 @@ const sortResourcesForStudent = (rows = []) => [...rows].sort((a, b) => {
   return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
 });
 
-export default function NepLmsStudentWorkspacePage() {
+export default function NepLmsStudentWorkspacePage({ courseGroupMode = false }) {
   const [searchParams] = useSearchParams();
   const [student, setStudent] = useState(null);
   const [courses, setCourses] = useState([]);
   const [filters, setFilters] = useState(blankFilters);
   const [courseId, setCourseId] = useState("");
+  const [courseGroup, setCourseGroup] = useState("");
+  const [courseGroups, setCourseGroups] = useState([]);
   const [tab, setTab] = useState(0);
   const [resources, setResources] = useState([]);
   const [timetable, setTimetable] = useState([]);
@@ -125,7 +128,12 @@ export default function NepLmsStudentWorkspacePage() {
       setLessonContent([]);
       setQuizAttempts([]);
     }
-  }, [courseId]);
+  }, [courseId, courseGroup]);
+
+  useEffect(() => {
+    if (courseGroupMode && selectedCourse) loadCourseGroups(selectedCourse);
+    if (!courseGroupMode) setCourseGroups([]);
+  }, [courseGroupMode, courseId]);
 
   const baseParams = (extra = {}) => ({
     colid: global1.colid,
@@ -157,7 +165,45 @@ export default function NepLmsStudentWorkspacePage() {
     }
   };
 
+  const loadCourseGroups = async (course) => {
+    if (!course) {
+      setCourseGroups([]);
+      setCourseGroup("");
+      return;
+    }
+    try {
+      const res = await ep1.get("/api/v2/neplms/class-groups", {
+        params: {
+          colid: global1.colid,
+          regno: global1.regno,
+          academicyear: course.academicyear,
+          regulation: course.regulation,
+          programcode: course.programcode,
+          semester: course.semester,
+          coursecode: course.coursecode
+        }
+      });
+      const groups = uniqueSorted((res.data?.data || []).map((row) => row.groupname));
+      setCourseGroups(groups);
+      setCourseGroup((prev) => (groups.includes(prev) ? prev : groups[0] || ""));
+    } catch (err) {
+      setCourseGroups([]);
+      setCourseGroup("");
+      setError(err.response?.data?.message || "Unable to load course groups");
+    }
+  };
+
   const loadWorkspace = async (course) => {
+    if (courseGroupMode && !courseGroup) {
+      setResources([]);
+      setTimetable([]);
+      setSubmissions([]);
+      setUpcomingAssignments([]);
+      setActiveQuizzes([]);
+      setLessonContent([]);
+      setQuizAttempts([]);
+      return;
+    }
     try {
       setLoading(true);
       setError("");
@@ -169,7 +215,8 @@ export default function NepLmsStudentWorkspacePage() {
           programcode: course.programcode,
           major: course.subject,
           semester: course.semester,
-          coursecode: course.coursecode
+          coursecode: course.coursecode,
+          ...(courseGroupMode ? { coursegroup: courseGroup } : {})
         })
       });
       setResources(res.data?.resources || []);
@@ -214,7 +261,8 @@ export default function NepLmsStudentWorkspacePage() {
         program: course.program,
         programcode: course.programcode,
         course: course.course,
-        coursecode: course.coursecode
+        coursecode: course.coursecode,
+        coursegroup: courseGroupMode ? courseGroup : ""
       });
     } catch (err) {
       // Login-based attendance should not block the workspace if logging fails.
@@ -231,7 +279,8 @@ export default function NepLmsStudentWorkspacePage() {
         params: baseParams({
           academicyear: course.academicyear,
           semester: course.semester,
-          coursecode: course.coursecode
+          coursecode: course.coursecode,
+          ...(courseGroupMode ? { coursegroup: courseGroup } : {})
         })
       });
       setLessonContent(res.data?.data || []);
@@ -267,11 +316,13 @@ export default function NepLmsStudentWorkspacePage() {
   const updateFilter = (field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
     setCourseId("");
+    setCourseGroup("");
   };
 
   const clearFilters = () => {
     setFilters(blankFilters);
     setCourseId("");
+    setCourseGroup("");
     setTimeout(loadCourses, 0);
   };
 
@@ -297,6 +348,7 @@ export default function NepLmsStudentWorkspacePage() {
       data.append("file", file);
       await ep1.post("/api/v2/neplms/student-workspace/assignment-submit", data, { headers: { "Content-Type": "multipart/form-data" } });
       setMessage("Assignment submitted successfully.");
+      window.alert("Assignment is submitted");
       setFile(null);
       setComments("");
       setSelectedAssignmentId("");
@@ -664,15 +716,18 @@ export default function NepLmsStudentWorkspacePage() {
     );
   };
 
+  const pageTitle = courseGroupMode ? "My Course Group Workspace" : "MY LMS";
+  const pageSubtitle = courseGroupMode
+    ? "View assignments, material, timetable, quizzes and sequence shared with your selected course group."
+    : "View assigned courses, materials, timetable and submit assignments.";
+
   return (
-    <MenuPageShell title="MY LMS" menuType="student">
+    <MenuPageShell title={pageTitle} menuType="student">
     <Box sx={{ p: { xs: 1.5, md: 3 } }}>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
         <Box>
-          <Typography variant="h5" fontWeight={800}>MY LMS</Typography>
-          <Typography variant="body2" color="text.secondary">
-            View assigned courses, materials, timetable and submit assignments.
-          </Typography>
+          <Typography variant="h5" fontWeight={800}>{pageTitle}</Typography>
+          <Typography variant="body2" color="text.secondary">{pageSubtitle}</Typography>
         </Box>
         <Stack direction="row" spacing={1}>
           <Button variant="outlined" startIcon={<Refresh />} onClick={loadCourses}>Refresh</Button>
@@ -705,7 +760,14 @@ export default function NepLmsStudentWorkspacePage() {
           <Grid item xs={12}>
             <FormControl fullWidth>
               <InputLabel>Course</InputLabel>
-              <Select label="Course" value={courseId} onChange={(event) => setCourseId(event.target.value)}>
+              <Select
+                label="Course"
+                value={courseId}
+                onChange={(event) => {
+                  setCourseId(event.target.value);
+                  setCourseGroup("");
+                }}
+              >
                 {filteredCourses.map((course) => (
                   <MenuItem key={course._id} value={course._id}>
                     {course.coursecode} - {course.course} | {course.subject} | Sem {course.semester}
@@ -714,7 +776,21 @@ export default function NepLmsStudentWorkspacePage() {
               </Select>
             </FormControl>
           </Grid>
+          {courseGroupMode && (
+            <Grid item xs={12}>
+              <Autocomplete
+                options={courseGroups}
+                value={courseGroup || null}
+                onChange={(event, value) => setCourseGroup(value || "")}
+                renderInput={(params) => <TextField {...params} label="Course Group" />}
+                noOptionsText={selectedCourse ? "No course group assigned to you for this course" : "Select course first"}
+              />
+            </Grid>
+          )}
         </Grid>
+        {courseGroupMode && selectedCourse && !courseGroup && (
+          <Alert severity="info" sx={{ mt: 2 }}>Select a course group to view group-specific content.</Alert>
+        )}
       </Paper>
 
       {selectedCourse && (
@@ -723,6 +799,7 @@ export default function NepLmsStudentWorkspacePage() {
             <Chip label={`Course: ${selectedCourse.coursecode} - ${selectedCourse.course}`} />
             <Chip label={`Faculty: ${selectedCourse.facultyname}`} />
             <Chip label={`Faculty Email: ${selectedCourse.facultyemail}`} />
+            {courseGroupMode && courseGroup && <Chip color="primary" label={`Course Group: ${courseGroup}`} />}
           </Stack>
         </Paper>
       )}

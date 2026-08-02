@@ -33,7 +33,7 @@ import ep1 from "../api/ep1";
 import global1 from "./global1";
 
 const subjectFields = ["Major", "Minor", "AEC", "SEC", "VAC", "IDC", "MDC"];
-const fields = ["name", "regno", "scholarnumber", "abcid", "password", "email", "phone", "regulation", "program", "programcode", "Mediumofinstruction", "specialization1", "specialization2", ...subjectFields, "academicyear", "admissionyear", "rollno", "gender", "category", "state", "city", "district", "pincode", "guardianname", "guardianmobile", "guardianemail", "photo", "semester", "section"];
+const fields = ["name", "regno", "scholarnumber", "abcid", "password", "email", "googleemail", "phone", "regulation", "program", "programcode", "Mediumofinstruction", "specialization1", "specialization2", ...subjectFields, "academicyear", "admissionyear", "rollno", "gender", "category", "state", "city", "district", "pincode", "guardianname", "guardianmobile", "guardianemail", "photo", "semester", "section"];
 const academicYears = ["2023-24", "2024-25", "2025-26", "2026-27", "2027-28"];
 const semesters = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
 const staticDropdownOptions = {
@@ -49,6 +49,7 @@ const labels = {
   scholarnumber: "Scholar Number",
   abcid: "ABC ID",
   password: "Password",
+  googleemail: "Google Email",
   email: "Email",
   phone: "Phone",
   program: "Program",
@@ -87,6 +88,26 @@ const blankViewFilter = { field: "academicyear", value: "" };
 const blankForm = { ...fields.reduce((acc, field) => ({ ...acc, [field]: staticDropdownOptions[field]?.[0] || "" }), {}), customFields: {} };
 const normalizeKey = (key) => String(key || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 const geminiModelOptions = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash"];
+const wrappedGridSx = {
+  minWidth: 1750,
+  "& .MuiDataGrid-cell": {
+    alignItems: "flex-start",
+    whiteSpace: "normal",
+    lineHeight: 1.35,
+    py: 1,
+    overflowWrap: "anywhere",
+    wordBreak: "break-word"
+  },
+  "& .MuiDataGrid-cellContent": {
+    whiteSpace: "normal",
+    overflow: "visible",
+    textOverflow: "clip"
+  },
+  "& .MuiDataGrid-columnHeaderTitle": {
+    whiteSpace: "normal",
+    lineHeight: 1.2
+  }
+};
 const regnoGenerationModes = [
   { value: "random", label: "Random alphanumeric" },
   { value: "academicYearMongo", label: "Academic year / MongoDB ID" }
@@ -1103,12 +1124,14 @@ export default function StudentDataUploadPage() {
           rowSelectionModel={selectedIds}
           onRowSelectionModelChange={(selection) => setSelectedIds(Array.from(selection))}
           disableRowSelectionOnClick
+          getRowHeight={() => "auto"}
+          getEstimatedRowHeight={() => 80}
           autoHeight
           slots={{ toolbar: GridToolbar }}
           slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "student_data_upload" } } }}
           pageSizeOptions={[10, 25, 50, 100]}
           initialState={{ pagination: { paginationModel: { pageSize: 10, page: 0 } } }}
-          sx={{ minWidth: 1750 }}
+          sx={wrappedGridSx}
         />
       </Paper>
     </Box>

@@ -173,6 +173,21 @@ function DefaultStudentListItems({ open }) {
       </Accordion>
 
       <Accordion>
+        <AccordionSummary aria-controls="panel-central-ticket-content" id="panel-central-ticket-header">
+          <BusinessIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{fontSize: 14}}>Central Ticketing</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          <ListItem button component={RouterLink} to="/central-ticket-raise">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Raise ticket" />}
+          </ListItem>
+        </AccordionDetails>
+      </Accordion>
+
+      <Accordion>
         <AccordionSummary aria-controls="panel-profile-content" id="panel-profile-header">
           <AccountCircleIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{fontSize: 14}}>Profile</Typography>}
@@ -340,6 +355,20 @@ function DefaultStudentListItems({ open }) {
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="My NEP LMS" />}
+</ListItem>
+
+           <ListItem button component={RouterLink} to="/studentneplmscoursematerial">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Course material" />}
+</ListItem>
+
+           <ListItem button component={RouterLink} to="/studentneplmscoursegroupworkspace">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Course group workspace" />}
 </ListItem>
 
            <ListItem button component={RouterLink} to="/studentsequentialcontent">
@@ -661,6 +690,20 @@ function DefaultStudentListItems({ open }) {
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="My skills" />}
 </ListItem>
 
+            <ListItem button component={RouterLink} to="/student-placement-sip-jobs">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="SIP jobs" />}
+</ListItem>
+
+            <ListItem button component={RouterLink} to="/student-placement-jobs">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Placement jobs" />}
+</ListItem>
+
             <ListItem button component={RouterLink} to="/student-placement-internships">
 <ListItemIcon>
 <PersonIcon />
@@ -902,6 +945,23 @@ function DefaultStudentListItems({ open }) {
 </ListItem>
 
 
+
+        </AccordionDetails>
+        </Accordion>
+
+          <Accordion>
+        <AccordionSummary aria-controls="panel-appeal-content" id="panel-appeal-header">
+          <ApprovalIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{fontSize: 14}}>Appeal</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+
+          <ListItem button component={RouterLink} to="/student-exam-appeal">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Exam appeal" />}
+</ListItem>
 
         </AccordionDetails>
         </Accordion>

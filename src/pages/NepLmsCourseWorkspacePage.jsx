@@ -2,11 +2,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Checkbox,
   Chip,
-  CircularProgress,
   Divider,
   FormControl,
   FormControlLabel,
@@ -31,26 +31,11 @@ import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import dayjs from "dayjs";
 import * as XLSX from "xlsx";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis
-} from "recharts";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
 
-const blankResource = { title: "", module: "", topic: "", description: "", order: "", employabilityrelated: "No", duedate: "", fullmarks: "", file: null };
+const blankResource = { title: "", module: "", topic: "", description: "", url: "", order: "", employabilityrelated: "No", duedate: "", fullmarks: "", file: null };
 const blankQuiz = { title: "", module: "", topic: "", startdatetime: "", enddatetime: "", status: "Active" };
 const blankLessonContent = {
   lessonresourceid: "",
@@ -106,13 +91,6 @@ const aiProviders = ["Gemini", "ChatGPT", "Claude"];
 const lessonContentTypes = ["Text", "File Link", "Infographics", "Video Link", "Quiz", "Mindmap", "Flash Card"];
 const geminiModels = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
 const difficultyLevels = ["Easy", "Medium", "Hard"];
-const attainmentLevels = ["Level 1", "Level 2", "Level 3"];
-const defaultLevelCriteria = [
-  { level: "Level 1", fromvalue: "0", tovalue: "49" },
-  { level: "Level 2", fromvalue: "50", tovalue: "69" },
-  { level: "Level 3", fromvalue: "70", tovalue: "100" }
-];
-const chartColors = ["#2563eb", "#16a34a", "#f97316", "#9333ea", "#dc2626", "#0891b2", "#ca8a04"];
 const languages = [
   "English",
   "French",
@@ -215,14 +193,14 @@ const userMatches = (row) => {
   return String(row.facultyemail || "").trim().toLowerCase() === currentUser;
 };
 
-export default function NepLmsCourseWorkspacePage() {
-  const facultyEmail = String(global1.email || global1.user || "").trim();
-  const [institution, setInstitution] = useState(null);
+export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
   const [courses, setCourses] = useState([]);
   const [academicYear, setAcademicYear] = useState("");
   const [semester, setSemester] = useState("");
   const [coursecode, setCoursecode] = useState("");
   const [courseRowId, setCourseRowId] = useState("");
+  const [courseGroup, setCourseGroup] = useState("");
+  const [courseGroups, setCourseGroups] = useState([]);
   const [tab, setTab] = useState(0);
   const [resources, setResources] = useState([]);
   const [lessonContents, setLessonContents] = useState([]);
@@ -236,23 +214,6 @@ export default function NepLmsCourseWorkspacePage() {
   const [quizzes, setQuizzes] = useState([]);
   const [quizAttempts, setQuizAttempts] = useState([]);
   const [selectedQuizAttempt, setSelectedQuizAttempt] = useState(null);
-  const [courseOutcomes, setCourseOutcomes] = useState([]);
-  const [assessments, setAssessments] = useState([]);
-  const [selectedAssessmentId, setSelectedAssessmentId] = useState("");
-  const [attainmentAssessmentId, setAttainmentAssessmentId] = useState("");
-  const [attainmentThreshold, setAttainmentThreshold] = useState("50");
-  const [levelCriteria, setLevelCriteria] = useState(defaultLevelCriteria);
-  const [attainmentRows, setAttainmentRows] = useState([]);
-  const [processingAttainment, setProcessingAttainment] = useState(false);
-  const [scoreAnalysisAssessmentId, setScoreAnalysisAssessmentId] = useState("");
-  const [scoreAnalysisAttempts, setScoreAnalysisAttempts] = useState([]);
-  const [loadingScoreAnalysis, setLoadingScoreAnalysis] = useState(false);
-  const [remedialAssessmentId, setRemedialAssessmentId] = useState("");
-  const [remedialThreshold, setRemedialThreshold] = useState("40");
-  const [remedialProvider, setRemedialProvider] = useState("Gemini");
-  const [remedialRows, setRemedialRows] = useState([]);
-  const [remedialSelection, setRemedialSelection] = useState([]);
-  const [processingRemedial, setProcessingRemedial] = useState(false);
   const [selectedAssignmentId, setSelectedAssignmentId] = useState("");
   const [selectedQuizId, setSelectedQuizId] = useState("");
   const [gradingForm, setGradingForm] = useState({ id: "", student: "", fullmarks: "", marks: "", facultycomments: "" });
@@ -291,15 +252,15 @@ export default function NepLmsCourseWorkspacePage() {
   useEffect(() => {
     loadCourses();
     loadOllamaConfigs();
-    loadInstitution();
   }, []);
 
   useEffect(() => {
     if (selectedCourse) {
       resetCourseForms();
+      if (courseGroupMode && !courseGroup) return;
       loadCourseData(selectedCourse);
     }
-  }, [courseRowId, coursecode]);
+  }, [courseRowId, coursecode, courseGroup]);
 
   useEffect(() => {
     const lessons = resources.filter((row) => row.resourcetype === "Lesson Plan");
@@ -350,15 +311,6 @@ export default function NepLmsCourseWorkspacePage() {
     }
   };
 
-  const loadInstitution = async () => {
-    try {
-      const res = await ep1.get("/vins", { params: { colid: global1.colid } });
-      setInstitution(res.data || null);
-    } catch (err) {
-      setInstitution(null);
-    }
-  };
-
   const years = useMemo(() => uniqueSorted(courses.map((row) => row.academicyear)), [courses]);
   const semesters = useMemo(() => uniqueSorted(courses.filter((row) => !academicYear || row.academicyear === academicYear).map((row) => row.semester)), [courses, academicYear]);
   const filteredCourses = useMemo(() => courses.filter((row) => (
@@ -371,6 +323,39 @@ export default function NepLmsCourseWorkspacePage() {
     || filteredCourses.find((row) => row.coursecode === coursecode)
     || null
   ), [filteredCourses, courseRowId, coursecode]);
+
+  useEffect(() => {
+    if (courseGroupMode && selectedCourse) loadCourseGroups(selectedCourse);
+    if (!courseGroupMode) setCourseGroups([]);
+  }, [courseGroupMode, courseRowId, coursecode]);
+
+  const loadCourseGroups = async (course = selectedCourse) => {
+    if (!course) {
+      setCourseGroups([]);
+      setCourseGroup("");
+      return;
+    }
+    try {
+      const res = await ep1.get("/api/v2/neplms/class-groups", {
+        params: {
+          colid: global1.colid,
+          academicyear: course.academicyear,
+          regulation: course.regulation,
+          programcode: course.programcode,
+          semester: course.semester,
+          coursecode: course.coursecode,
+          facultyemail: global1.user
+        }
+      });
+      const groups = uniqueSorted((res.data?.data || []).map((row) => row.groupname));
+      setCourseGroups(groups);
+      setCourseGroup((prev) => (groups.includes(prev) ? prev : groups[0] || ""));
+    } catch (err) {
+      setCourseGroups([]);
+      setCourseGroup("");
+      setError(err.response?.data?.message || "Unable to load course groups");
+    }
+  };
 
   const coursePayload = () => ({
     colid: global1.colid,
@@ -385,14 +370,11 @@ export default function NepLmsCourseWorkspacePage() {
     semester: selectedCourse?.semester || "",
     course: selectedCourse?.course || "",
     coursecode: selectedCourse?.coursecode || "",
+    coursegroup: courseGroupMode ? courseGroup : "",
     section: selectedCourse?.section || "",
     faculty: selectedCourse?.facultyname || "",
     facultyemail: selectedCourse?.facultyemail || ""
   });
-
-  const selectedAssessment = useMemo(() => assessments.find((row) => row._id === selectedAssessmentId) || null, [assessments, selectedAssessmentId]);
-  const selectedAttainmentAssessment = useMemo(() => assessments.find((row) => row._id === attainmentAssessmentId) || selectedAssessment || null, [assessments, attainmentAssessmentId, selectedAssessment]);
-  const selectedScoreAssessment = useMemo(() => assessments.find((row) => row._id === scoreAnalysisAssessmentId) || selectedAssessment || null, [assessments, scoreAnalysisAssessmentId, selectedAssessment]);
 
   const changeYear = (value) => {
     setAcademicYear(value);
@@ -401,6 +383,7 @@ export default function NepLmsCourseWorkspacePage() {
     const nextCourse = courses.find((row) => (!value || row.academicyear === value) && (!nextSemester || row.semester === nextSemester));
     setCourseRowId(nextCourse?._id || "");
     setCoursecode(nextCourse?.coursecode || "");
+    setCourseGroup("");
   };
 
   const changeSemester = (value) => {
@@ -408,27 +391,19 @@ export default function NepLmsCourseWorkspacePage() {
     const nextCourse = courses.find((row) => (!academicYear || row.academicyear === academicYear) && (!value || row.semester === value));
     setCourseRowId(nextCourse?._id || "");
     setCoursecode(nextCourse?.coursecode || "");
+    setCourseGroup("");
   };
 
   const changeCourse = (value) => {
     const nextCourse = filteredCourses.find((row) => row._id === value) || courses.find((row) => row._id === value);
     setCourseRowId(value);
     setCoursecode(nextCourse?.coursecode || "");
+    setCourseGroup("");
   };
 
   const resetCourseForms = () => {
     setResources([]);
     setSyllabusRows([]);
-    setCourseOutcomes([]);
-    setAssessments([]);
-    setSelectedAssessmentId("");
-    setAttainmentAssessmentId("");
-    setScoreAnalysisAssessmentId("");
-    setRemedialAssessmentId("");
-    setAttainmentRows([]);
-    setScoreAnalysisAttempts([]);
-    setRemedialRows([]);
-    setRemedialSelection([]);
     setTimetable([]);
     setQuizzes([]);
     setMindMaps([]);
@@ -458,9 +433,18 @@ export default function NepLmsCourseWorkspacePage() {
 
   const loadCourseData = async (course = selectedCourse) => {
     if (!course) return;
+    if (courseGroupMode && !courseGroup) {
+      setResources([]);
+      setTimetable([]);
+      setQuizzes([]);
+      setLessonContents([]);
+      setLessonProgress([]);
+      return;
+    }
     try {
       setError("");
       const params = { colid: global1.colid, academicyear: course.academicyear, semester: course.semester, coursecode: course.coursecode };
+      if (courseGroupMode) params.coursegroup = courseGroup;
       const syllabusParams = {
         colid: global1.colid,
         academicyear: course.academicyear,
@@ -473,39 +457,20 @@ export default function NepLmsCourseWorkspacePage() {
         course: course.course,
         coursecode: course.coursecode
       };
-      const [resourceRes, timetableRes, syllabusRes, quizRes, mindMapRes, outcomeRes, assessmentRes] = await Promise.all([
+      const [resourceRes, timetableRes, syllabusRes, quizRes, mindMapRes] = await Promise.all([
         ep1.get("/api/v2/neplms/resources", { params }),
         ep1.get("/api/v2/neplms/timetable", { params }),
         ep1.get("/api/v2/syllabus", { params: syllabusParams }),
         ep1.get("/api/v2/neplms/quizzes", { params: { ...params, facultyemail: global1.user } }),
-        ep1.get("/api/v2/neplms/mindmaps", { params: { ...params, published: "Yes" } }),
-        ep1.get("/api/v2/courseoutcomes", { params: { ...syllabusParams, status: "Active" } }),
-        ep1.get("/api/v2/neplms/assessments", { params: { colid: global1.colid, coursecode: course.coursecode, academicyear: course.academicyear, semester: course.semester, facultyemail: global1.user } })
+        ep1.get("/api/v2/neplms/mindmaps", { params: { ...params, published: "Yes" } })
       ]);
       const nextResources = resourceRes.data?.data || [];
       const nextQuizzes = quizRes.data?.data || [];
-      const nextAssessments = assessmentRes.data?.data || [];
       setResources(nextResources);
       setSyllabusRows(syllabusRes.data?.data || []);
       setTimetable(timetableRes.data?.data || []);
       setQuizzes(nextQuizzes);
       setMindMaps(mindMapRes.data?.data || []);
-      setCourseOutcomes(outcomeRes.data?.data || []);
-      setAssessments(nextAssessments);
-      const nextAssessmentId = nextAssessments.some((row) => row._id === selectedAssessmentId) ? selectedAssessmentId : nextAssessments[0]?._id || "";
-      setSelectedAssessmentId(nextAssessmentId);
-      setAttainmentAssessmentId((prev) => nextAssessments.some((row) => row._id === prev) ? prev : nextAssessmentId);
-      setScoreAnalysisAssessmentId((prev) => nextAssessments.some((row) => row._id === prev) ? prev : nextAssessmentId);
-      setRemedialAssessmentId((prev) => nextAssessments.some((row) => row._id === prev) ? prev : nextAssessmentId);
-      if (nextAssessmentId) {
-        loadScoreAnalysis(nextAssessmentId);
-        loadAttainment(nextAssessmentId);
-      } else {
-        setScoreAnalysisAttempts([]);
-        setAttainmentRows([]);
-        setRemedialRows([]);
-        setRemedialSelection([]);
-      }
       const assignments = nextResources.filter((row) => row.resourcetype === "Assignment");
       const nextAssignmentId = assignments.some((row) => row._id === selectedAssignmentId)
         ? selectedAssignmentId
@@ -537,6 +502,7 @@ export default function NepLmsCourseWorkspacePage() {
           colid: global1.colid,
           assignmentid: assignmentId,
           coursecode: selectedCourse.coursecode,
+          ...(courseGroupMode ? { coursegroup: courseGroup } : {}),
           facultyemail: global1.user
         }
       });
@@ -546,6 +512,11 @@ export default function NepLmsCourseWorkspacePage() {
       setError(err.response?.data?.message || "Unable to load assignment submissions");
     }
   };
+
+  const pageTitle = courseGroupMode ? "Course Group Workspace" : "Course Workspace";
+  const pageSubtitle = courseGroupMode
+    ? "Manage assignments, course material, lesson plans, quizzes and timetable for a selected course group."
+    : "Manage assignments, course material, lesson plans and timetable for active assigned courses.";
 
   const loadLessonContent = async (lessonId = selectedLessonResourceId) => {
     if (!selectedCourse || !lessonId) {
@@ -560,6 +531,7 @@ export default function NepLmsCourseWorkspacePage() {
         academicyear: selectedCourse.academicyear,
         semester: selectedCourse.semester,
         coursecode: selectedCourse.coursecode,
+        ...(courseGroupMode ? { coursegroup: courseGroup } : {}),
         facultyemail: global1.user
       };
       const [contentRes, progressRes] = await Promise.all([
@@ -761,8 +733,8 @@ export default function NepLmsCourseWorkspacePage() {
       setError("Select a course first");
       return;
     }
-    if (!form.title && !form.file) {
-      setError("Add a title or select a file");
+    if (!form.title && !form.file && !form.url) {
+      setError("Add a title, select a file, or provide a file link");
       return;
     }
     try {
@@ -777,6 +749,7 @@ export default function NepLmsCourseWorkspacePage() {
           module: valueFromList(form.module),
           topic: valueFromList(form.topic),
           description: form.description,
+          url: form.url,
           order: form.order,
           employabilityrelated: resourcetype === "Course Material" ? form.employabilityrelated : "No",
           duedate: form.duedate,
@@ -798,6 +771,7 @@ export default function NepLmsCourseWorkspacePage() {
         module: valueFromList(form.module),
         topic: valueFromList(form.topic),
         description: form.description,
+        url: form.url,
         order: form.order,
         employabilityrelated: resourcetype === "Course Material" ? form.employabilityrelated : "No",
         duedate: form.duedate,
@@ -956,6 +930,7 @@ export default function NepLmsCourseWorkspacePage() {
       module: row.module || "",
       topic: row.topic || "",
       description: row.description || "",
+      url: row.url || "",
       order: row.order || "",
       employabilityrelated: row.employabilityrelated || "No",
       duedate: row.duedate || "",
@@ -1687,220 +1662,6 @@ export default function NepLmsCourseWorkspacePage() {
     { field: "maxscore", headerName: "Max", width: 100 }
   ];
 
-  const loadScoreAnalysis = async (assessmentId = scoreAnalysisAssessmentId || selectedAssessmentId) => {
-    if (!assessmentId) {
-      setScoreAnalysisAttempts([]);
-      return;
-    }
-    try {
-      setLoadingScoreAnalysis(true);
-      const res = await ep1.get("/api/v2/neplms/assessments/attempts", {
-        params: { colid: global1.colid, assessmentid: assessmentId, facultyemail: facultyEmail }
-      });
-      setScoreAnalysisAttempts(res.data?.data || []);
-    } catch (err) {
-      setError(err.response?.data?.message || "Unable to load score analysis");
-    } finally {
-      setLoadingScoreAnalysis(false);
-    }
-  };
-
-  const loadAttainment = async (assessmentId = attainmentAssessmentId || selectedAssessmentId) => {
-    if (!assessmentId) {
-      setAttainmentRows([]);
-      return;
-    }
-    try {
-      const res = await ep1.get("/api/v2/neplms/co-attainment", { params: { colid: global1.colid, assessmentid: assessmentId } });
-      setAttainmentRows(res.data?.data || []);
-    } catch (err) {
-      setError(err.response?.data?.message || "Unable to load CO/PO attainment");
-    }
-  };
-
-  const processCoAttainment = async () => {
-    try {
-      const assessmentid = attainmentAssessmentId || selectedAssessmentId;
-      if (!assessmentid) throw new Error("Select assessment first");
-      setProcessingAttainment(true);
-      setError("");
-      setMessage("");
-      const res = await ep1.post("/api/v2/neplms/co-attainment/process", {
-        colid: global1.colid,
-        assessmentid,
-        threshold: attainmentThreshold,
-        levelcriteria: levelCriteria,
-        facultyname: global1.name,
-        facultyemail: global1.user,
-        user: global1.user
-      });
-      setAttainmentRows(res.data?.data || []);
-      setMessage("CO/PO attainment calculated and saved");
-    } catch (err) {
-      setError(err.response?.data?.message || err.message || "Unable to calculate CO/PO attainment");
-    } finally {
-      setProcessingAttainment(false);
-    }
-  };
-
-  const loadRemedialCandidates = async (assessmentId = remedialAssessmentId || selectedAssessmentId) => {
-    if (!assessmentId) {
-      setRemedialRows([]);
-      return;
-    }
-    try {
-      setLoadingScoreAnalysis(true);
-      setError("");
-      const res = await ep1.get("/api/v2/neplms/remedial/candidates", {
-        params: {
-          colid: global1.colid,
-          assessmentid: assessmentId,
-          threshold: remedialThreshold,
-          facultyemail: facultyEmail,
-          user: global1.user
-        }
-      });
-      setRemedialRows(res.data?.data || []);
-      setRemedialSelection([]);
-    } catch (err) {
-      setError(err.response?.data?.message || "Unable to load remedial candidates");
-    } finally {
-      setLoadingScoreAnalysis(false);
-    }
-  };
-
-  const createRemedial = async (mode) => {
-    const selected = new Set(remedialSelection);
-    const items = remedialRows.filter((row) => selected.has(row.id));
-    if (!items.length) {
-      setError("Please select at least one remedial row");
-      return;
-    }
-    try {
-      setProcessingRemedial(true);
-      setError("");
-      setMessage("");
-      await ep1.post(`/api/v2/neplms/remedial/${mode}`, {
-        colid: global1.colid,
-        user: global1.user,
-        provider: remedialProvider,
-        items
-      });
-      setMessage(mode === "videos" ? "Remedial videos saved" : "Remedial course material created and saved");
-    } catch (err) {
-      setError(err.response?.data?.message || "Unable to create remedial content");
-    } finally {
-      setProcessingRemedial(false);
-    }
-  };
-
-  const updateLevelCriteria = (index, field, value) => {
-    setLevelCriteria((prev) => prev.map((item, itemIndex) => itemIndex === index ? { ...item, [field]: value } : item));
-  };
-
-  const attainmentColumns = [
-    { field: "conumber", headerName: "CO No", width: 110 },
-    { field: "co", headerName: "Course Outcome", minWidth: 280, flex: 1 },
-    { field: "threshold", headerName: "Threshold %", width: 120 },
-    { field: "studentsabove", headerName: "Above", width: 100 },
-    { field: "totalstudents", headerName: "Total Students", width: 130 },
-    { field: "attainmentpercentage", headerName: "Attainment %", width: 140 },
-    { field: "level", headerName: "Level", width: 120 }
-  ];
-
-  const scoreRows = useMemo(() => scoreAnalysisAttempts.map((row) => {
-    const total = Number(row.totalmarks || 0);
-    const obtained = Number(row.obtainedmarks || 0);
-    return {
-      ...row,
-      id: row._id,
-      totalmarks: total,
-      obtainedmarks: obtained,
-      percentage: total > 0 ? Number(((obtained / total) * 100).toFixed(2)) : 0
-    };
-  }), [scoreAnalysisAttempts]);
-
-  const scoreStats = useMemo(() => {
-    const percentages = scoreRows.map((row) => Number(row.percentage || 0)).sort((a, b) => a - b);
-    const obtained = scoreRows.map((row) => Number(row.obtainedmarks || 0));
-    const count = percentages.length;
-    const average = count ? percentages.reduce((sum, value) => sum + value, 0) / count : 0;
-    const median = count ? (count % 2 ? percentages[(count - 1) / 2] : (percentages[count / 2 - 1] + percentages[count / 2]) / 2) : 0;
-    const variance = count ? percentages.reduce((sum, value) => sum + Math.pow(value - average, 2), 0) / count : 0;
-    return {
-      count,
-      average: Number(average.toFixed(2)),
-      median: Number(median.toFixed(2)),
-      min: count ? Number(Math.min(...percentages).toFixed(2)) : 0,
-      max: count ? Number(Math.max(...percentages).toFixed(2)) : 0,
-      averageMarks: obtained.length ? Number((obtained.reduce((sum, value) => sum + value, 0) / obtained.length).toFixed(2)) : 0,
-      standardDeviation: Number(Math.sqrt(variance).toFixed(2))
-    };
-  }, [scoreRows]);
-
-  const histogramData = useMemo(() => {
-    const bins = Array.from({ length: 10 }, (_, index) => ({ range: `${index * 10}-${index === 9 ? 100 : index * 10 + 9}`, students: 0 }));
-    scoreRows.forEach((row) => {
-      const index = Math.min(9, Math.max(0, Math.floor(Number(row.percentage || 0) / 10)));
-      bins[index].students += 1;
-    });
-    return bins;
-  }, [scoreRows]);
-
-  const bellCurveData = useMemo(() => {
-    const average = scoreStats.average;
-    const sd = scoreStats.standardDeviation || 1;
-    return Array.from({ length: 21 }, (_, index) => {
-      const score = index * 5;
-      const density = Math.exp(-0.5 * Math.pow((score - average) / sd, 2)) / (sd * Math.sqrt(2 * Math.PI));
-      return { score, density: Number((density * 100).toFixed(3)) };
-    });
-  }, [scoreStats.average, scoreStats.standardDeviation]);
-
-  const sectionScoreData = useMemo(() => {
-    const map = new Map();
-    scoreAnalysisAttempts.forEach((attempt) => {
-      (attempt.answers || []).forEach((answer) => {
-        const key = answer.sectiontitle || "Section";
-        const current = map.get(key) || { section: key, marks: 0, maxmarks: 0 };
-        current.marks += Number(answer.marks || 0);
-        current.maxmarks += Number(answer.maxmarks || 0);
-        map.set(key, current);
-      });
-    });
-    return [...map.values()].map((row) => ({
-      ...row,
-      average: row.maxmarks > 0 ? Number(((row.marks / row.maxmarks) * 100).toFixed(2)) : 0
-    }));
-  }, [scoreAnalysisAttempts]);
-
-  const levelPieData = useMemo(() => attainmentLevels.map((level) => ({
-    name: level,
-    value: attainmentRows.filter((row) => row.level === level).length
-  })).filter((item) => item.value > 0), [attainmentRows]);
-
-  const scoreAnalysisColumns = [
-    { field: "student", headerName: "Student", minWidth: 180, flex: 1 },
-    { field: "regno", headerName: "Reg No", width: 130 },
-    { field: "email", headerName: "Email", width: 220 },
-    { field: "totalmarks", headerName: "Total", width: 100 },
-    { field: "obtainedmarks", headerName: "Obtained", width: 110 },
-    { field: "percentage", headerName: "Score %", width: 110 },
-    { field: "submitteddate", headerName: "Submitted", width: 170, valueGetter: (params) => params.row.submitteddate ? new Date(params.row.submitteddate).toLocaleString() : "" }
-  ];
-
-  const remedialColumns = [
-    { field: "student", headerName: "Student", minWidth: 180, flex: 1 },
-    { field: "regno", headerName: "Reg No", width: 130 },
-    { field: "course", headerName: "Course", width: 180 },
-    { field: "coursecode", headerName: "Course Code", width: 130 },
-    { field: "topic", headerName: "Topic", minWidth: 180, flex: 1 },
-    { field: "question", headerName: "Question", minWidth: 300, flex: 1 },
-    { field: "marks", headerName: "Marks", width: 90 },
-    { field: "maxmarks", headerName: "Max", width: 90 },
-    { field: "percentage", headerName: "Score %", width: 110 }
-  ];
-
   const renderUploadTab = (type, form, setForm) => {
     const currentTopicOptions = (() => {
       const selectedModules = listFromValue(form.module);
@@ -1989,6 +1750,15 @@ export default function NepLmsCourseWorkspacePage() {
                   label="Employability related content"
                 />
               </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  label="File Link"
+                  value={form.url}
+                  onChange={(e) => setForm((prev) => ({ ...prev, url: e.target.value }))}
+                  helperText="AWS upload will populate this automatically; you may also paste a link manually."
+                />
+              </Grid>
             </>
           )}
           {type === "Assignment" && (
@@ -1997,7 +1767,7 @@ export default function NepLmsCourseWorkspacePage() {
               <Grid item xs={12} md={1}><TextField fullWidth type="number" label="Full Marks" value={form.fullmarks} onChange={(e) => setForm((prev) => ({ ...prev, fullmarks: e.target.value }))} /></Grid>
             </>
           )}
-          <Grid item xs={12} md={type === "Assignment" ? 3 : 6}>
+          <Grid item xs={12} md={type === "Assignment" ? 3 : type === "Course Material" ? 3 : 6}>
             <Button component="label" variant="outlined" startIcon={<UploadFile />} fullWidth sx={{ height: 56 }}>
               {editingResourceId && editingResourceType === type ? "File link will remain unchanged" : form.file ? form.file.name : `Select ${type} file`}
               <input hidden type="file" onChange={(e) => setForm((prev) => ({ ...prev, file: e.target.files?.[0] || null }))} />
@@ -2616,273 +2386,6 @@ export default function NepLmsCourseWorkspacePage() {
     </Box>
   );
 
-  const renderAssessmentSelector = (value, onChange) => (
-    <FormControl fullWidth>
-      <InputLabel>Assessment</InputLabel>
-      <Select label="Assessment" value={value || selectedAssessmentId} onChange={(e) => onChange(e.target.value)}>
-        {assessments.map((item) => <MenuItem key={item._id} value={item._id}>{item.title}</MenuItem>)}
-      </Select>
-    </FormControl>
-  );
-
-  const renderAttainmentTab = () => (
-    <Box>
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={4}>
-            {renderAssessmentSelector(attainmentAssessmentId, (assessmentId) => {
-              setAttainmentAssessmentId(assessmentId);
-              loadAttainment(assessmentId);
-            })}
-          </Grid>
-          <Grid item xs={12} md={2}>
-            <TextField fullWidth type="number" label="Threshold %" value={attainmentThreshold} onChange={(e) => setAttainmentThreshold(e.target.value)} />
-          </Grid>
-          {levelCriteria.map((item, index) => (
-            <React.Fragment key={item.level}>
-              <Grid item xs={12} sm={4} md={2}>
-                <FormControl fullWidth>
-                  <InputLabel>Level</InputLabel>
-                  <Select label="Level" value={item.level} onChange={(e) => updateLevelCriteria(index, "level", e.target.value)}>
-                    {attainmentLevels.map((level) => <MenuItem key={level} value={level}>{level}</MenuItem>)}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={6} sm={4} md={1}>
-                <TextField fullWidth type="number" label="From" value={item.fromvalue} onChange={(e) => updateLevelCriteria(index, "fromvalue", e.target.value)} />
-              </Grid>
-              <Grid item xs={6} sm={4} md={1}>
-                <TextField fullWidth type="number" label="To" value={item.tovalue} onChange={(e) => updateLevelCriteria(index, "tovalue", e.target.value)} />
-              </Grid>
-            </React.Fragment>
-          ))}
-          <Grid item xs={12} md={3}>
-            <Button fullWidth variant="outlined" startIcon={<Refresh />} onClick={() => loadAttainment(attainmentAssessmentId || selectedAssessmentId)} sx={{ height: 56 }}>Load Saved</Button>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Button
-              fullWidth
-              variant="contained"
-              disabled={processingAttainment || !assessments.length}
-              startIcon={processingAttainment ? <CircularProgress size={18} color="inherit" /> : <Save />}
-              onClick={processCoAttainment}
-              sx={{ height: 56 }}
-            >
-              {processingAttainment ? "Processing..." : "Process CO/PO Attainment"}
-            </Button>
-          </Grid>
-          {processingAttainment && (
-            <Grid item xs={12}>
-              <LinearProgress />
-            </Grid>
-          )}
-        </Grid>
-      </Paper>
-      {!assessments.length && <Alert severity="info" sx={{ mb: 2 }}>No descriptive assessments are available for this course yet.</Alert>}
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
-        <Chip label={`Assessment: ${selectedAttainmentAssessment?.title || "-"}`} />
-        <Chip label={`Course Outcomes: ${courseOutcomes.length}`} />
-        <Chip label={`Institution: ${institution?.institutionname || global1.insname || "-"}`} />
-      </Stack>
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 1, overflowX: "auto" }}>
-            <DataGrid
-              rows={attainmentRows.map((row) => ({ ...row, id: row._id || `${row.conumber}-${row.co}` }))}
-              columns={attainmentColumns}
-              autoHeight
-              slots={{ toolbar: GridToolbar }}
-              slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "course_workspace_co_attainment" } } }}
-              pageSizeOptions={[10, 25, 50, 100]}
-              sx={{ minWidth: 1000 }}
-            />
-          </Paper>
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, height: 360 }}>
-            <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 1 }}>Attainment Levels</Typography>
-            <ResponsiveContainer width="100%" height="88%">
-              <PieChart>
-                <Pie data={levelPieData.length ? levelPieData : [{ name: "No Data", value: 1 }]} dataKey="value" nameKey="name" outerRadius={95} label>
-                  {(levelPieData.length ? levelPieData : [{ name: "No Data" }]).map((entry, index) => <Cell key={entry.name} fill={levelPieData.length ? chartColors[index % chartColors.length] : "#cbd5e1"} />)}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-      </Grid>
-    </Box>
-  );
-
-  const renderScoreAnalysisTab = () => (
-    <Box>
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>{renderAssessmentSelector(scoreAnalysisAssessmentId, setScoreAnalysisAssessmentId)}</Grid>
-          <Grid item xs={12} md={3}>
-            <Button
-              fullWidth
-              variant="contained"
-              disabled={loadingScoreAnalysis || !assessments.length}
-              startIcon={loadingScoreAnalysis ? <CircularProgress size={18} color="inherit" /> : <Refresh />}
-              onClick={() => loadScoreAnalysis(scoreAnalysisAssessmentId || selectedAssessmentId)}
-              sx={{ height: 56 }}
-            >
-              {loadingScoreAnalysis ? "Loading..." : "Load Analysis"}
-            </Button>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Chip label={`Assessments: ${assessments.length}`} sx={{ height: 40 }} />
-          </Grid>
-        </Grid>
-      </Paper>
-      {!assessments.length && <Alert severity="info" sx={{ mb: 2 }}>No descriptive assessments are available for this course yet.</Alert>}
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
-        <Chip label={`Assessment: ${selectedScoreAssessment?.title || "-"}`} />
-        <Chip label={`Course: ${selectedCourse?.course || "-"} (${selectedCourse?.coursecode || "-"})`} />
-        <Chip label={`Institution: ${institution?.institutionname || global1.insname || "-"}`} />
-      </Stack>
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        {[
-          { label: "Students", value: scoreStats.count },
-          { label: "Average %", value: `${scoreStats.average}%` },
-          { label: "Median %", value: `${scoreStats.median}%` },
-          { label: "Std Dev", value: scoreStats.standardDeviation },
-          { label: "Highest %", value: `${scoreStats.max}%` },
-          { label: "Lowest %", value: `${scoreStats.min}%` }
-        ].map((item) => (
-          <Grid item xs={12} sm={6} md={2} key={item.label}>
-            <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "#f8fafc" }}>
-              <Typography variant="caption" color="text.secondary">{item.label}</Typography>
-              <Typography variant="h6" fontWeight={900}>{item.value}</Typography>
-            </Paper>
-          </Grid>
-        ))}
-      </Grid>
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, height: 320 }}>
-            <Typography variant="subtitle1" fontWeight={800}>Histogram</Typography>
-            <ResponsiveContainer width="100%" height="88%">
-              <BarChart data={histogramData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="range" tick={{ fontSize: 10 }} />
-                <YAxis allowDecimals={false} />
-                <Tooltip />
-                <Bar dataKey="students" name="Students">
-                  {histogramData.map((entry, index) => <Cell key={entry.range} fill={chartColors[index % chartColors.length]} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, height: 320 }}>
-            <Typography variant="subtitle1" fontWeight={800}>Bell Curve</Typography>
-            <ResponsiveContainer width="100%" height="88%">
-              <LineChart data={bellCurveData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="score" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="density" name="Density" stroke="#7c3aed" strokeWidth={3} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, height: 320 }}>
-            <Typography variant="subtitle1" fontWeight={800}>Sectionwise Scoring</Typography>
-            <ResponsiveContainer width="100%" height="88%">
-              <BarChart data={sectionScoreData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="section" tick={{ fontSize: 10 }} />
-                <YAxis domain={[0, 100]} />
-                <Tooltip />
-                <Bar dataKey="average" name="Average %">
-                  {sectionScoreData.map((entry, index) => <Cell key={entry.section} fill={chartColors[(index + 2) % chartColors.length]} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-      </Grid>
-      <Paper sx={{ p: 1, overflowX: "auto" }}>
-        <DataGrid
-          rows={scoreRows}
-          columns={scoreAnalysisColumns}
-          loading={loadingScoreAnalysis}
-          autoHeight
-          slots={{ toolbar: GridToolbar }}
-          slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "course_workspace_score_analysis" } } }}
-          pageSizeOptions={[10, 25, 50, 100]}
-        />
-      </Paper>
-    </Box>
-  );
-
-  const renderRemedialTab = () => (
-    <Box>
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={4}>{renderAssessmentSelector(remedialAssessmentId, setRemedialAssessmentId)}</Grid>
-          <Grid item xs={12} md={2}>
-            <TextField fullWidth type="number" label="Threshold %" value={remedialThreshold} onChange={(e) => setRemedialThreshold(e.target.value)} />
-          </Grid>
-          <Grid item xs={12} md={2}>
-            <FormControl fullWidth>
-              <InputLabel>AI Model</InputLabel>
-              <Select label="AI Model" value={remedialProvider} onChange={(e) => setRemedialProvider(e.target.value)}>
-                {aiProviders.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={2}>
-            <Button fullWidth variant="outlined" disabled={loadingScoreAnalysis || !assessments.length} onClick={() => loadRemedialCandidates(remedialAssessmentId || selectedAssessmentId)} sx={{ height: 56 }}>
-              Load Students
-            </Button>
-          </Grid>
-          <Grid item xs={12} md={2}>
-            <Button fullWidth variant="contained" disabled={processingRemedial || !remedialSelection.length} onClick={() => createRemedial("videos")} sx={{ height: 56 }}>
-              Remedial
-            </Button>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Button fullWidth variant="contained" color="secondary" disabled={processingRemedial || !remedialSelection.length} onClick={() => createRemedial("material")} sx={{ height: 56 }}>
-              Course Material
-            </Button>
-          </Grid>
-          <Grid item xs={12} md={9}>
-            {processingRemedial && (
-              <Stack spacing={1}>
-                <Typography variant="body2" fontWeight={700}>Creating remedial content. Please wait.</Typography>
-                <LinearProgress />
-              </Stack>
-            )}
-          </Grid>
-        </Grid>
-      </Paper>
-      {!assessments.length && <Alert severity="info" sx={{ mb: 2 }}>No descriptive assessments are available for this course yet.</Alert>}
-      <Paper sx={{ p: 1, overflowX: "auto" }}>
-        <DataGrid
-          rows={remedialRows}
-          columns={remedialColumns}
-          loading={loadingScoreAnalysis}
-          autoHeight
-          checkboxSelection
-          rowSelectionModel={remedialSelection}
-          onRowSelectionModelChange={(selection) => setRemedialSelection(selection)}
-          slots={{ toolbar: GridToolbar }}
-          slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "course_workspace_remedial_candidates" } } }}
-          pageSizeOptions={[10, 25, 50, 100]}
-          sx={{ minWidth: 1300 }}
-        />
-      </Paper>
-    </Box>
-  );
-
   const renderQuizTab = () => (
     <Box>
       <Paper sx={{ p: 2, mb: 2 }}>
@@ -3292,12 +2795,12 @@ export default function NepLmsCourseWorkspacePage() {
   );
 
   return (
-    <MenuPageShell title="Course Workspace">
+    <MenuPageShell title={pageTitle}>
       <Box p={3}>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
         <Box>
-          <Typography variant="h5" fontWeight={700}>Course Workspace</Typography>
-          <Typography variant="body2" color="text.secondary">Manage assignments, course material, lesson plans and timetable for active assigned courses.</Typography>
+          <Typography variant="h5" fontWeight={700}>{pageTitle}</Typography>
+          <Typography variant="body2" color="text.secondary">{pageSubtitle}</Typography>
         </Box>
         <Stack direction="row" spacing={1}>
           <Button component={RouterLink} to="/dashdashfacnew" variant="outlined" startIcon={<ArrowBack />}>Back</Button>
@@ -3326,7 +2829,7 @@ export default function NepLmsCourseWorkspacePage() {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={courseGroupMode ? 4 : 6}>
             <FormControl fullWidth>
               <InputLabel>Course</InputLabel>
               <Select label="Course" value={selectedCourse?._id || courseRowId} onChange={(e) => changeCourse(e.target.value)}>
@@ -3338,12 +2841,27 @@ export default function NepLmsCourseWorkspacePage() {
               </Select>
             </FormControl>
           </Grid>
+          {courseGroupMode && (
+            <Grid item xs={12} md={2}>
+              <Autocomplete
+                options={courseGroups}
+                value={courseGroup || null}
+                onChange={(event, value) => setCourseGroup(value || "")}
+                renderInput={(params) => <TextField {...params} label="Course Group" />}
+                noOptionsText={selectedCourse ? "No group found for this course" : "Select course first"}
+              />
+            </Grid>
+          )}
         </Grid>
+        {courseGroupMode && selectedCourse && !courseGroup && (
+          <Alert severity="info" sx={{ mt: 2 }}>Select a course group to load group-specific content and classes.</Alert>
+        )}
         {selectedCourse && (
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
             <Chip label={`Program: ${selectedCourse.programcode || selectedCourse.program}`} />
             <Chip label={`Major: ${selectedCourse.subject}`} />
             <Chip label={`Faculty: ${selectedCourse.facultyname}`} />
+            {courseGroupMode && courseGroup && <Chip color="primary" label={`Course Group: ${courseGroup}`} />}
             <Chip label={`Status: ${selectedCourse.status}`} />
           </Stack>
         )}
@@ -3357,9 +2875,6 @@ export default function NepLmsCourseWorkspacePage() {
           <Tab label="Timetable" />
           <Tab label="Submissions" />
           <Tab label="Quiz" />
-          <Tab label="CO/PO Attainment" />
-          <Tab label="Score Analysis" />
-          <Tab label="Remedial" />
         </Tabs>
       </Paper>
 
@@ -3573,9 +3088,6 @@ export default function NepLmsCourseWorkspacePage() {
         </Box>
       )}
       {tab === 5 && renderQuizTab()}
-      {tab === 6 && renderAttainmentTab()}
-      {tab === 7 && renderScoreAnalysisTab()}
-      {tab === 8 && renderRemedialTab()}
       </Box>
     </MenuPageShell>
   );

@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import {
+  EventChecklistDetailsPage,
+  EventChecklistReportPage,
   EventNewAllocationPage,
   EventNewCrudPage,
   EventNewPublicCertificatePage,
@@ -969,6 +971,7 @@ import FacultyAvailabilityPage from "./pages/FacultyAvailabilityPage";
 import FacultyAvailabilityAdminPage from "./pages/FacultyAvailabilityAdminPage";
 import NepLmsAssignedCoursesPage from "./pages/NepLmsAssignedCoursesPage";
 import NepLmsCourseWorkspacePage from "./pages/NepLmsCourseWorkspacePage";
+import NepLmsCourseGroupWorkspacePage from "./pages/NepLmsCourseGroupWorkspacePage";
 import NepLmsFacultyLogbookPage from "./pages/NepLmsFacultyLogbookPage";
 import NepLmsTimetableCreatorFilteredPage from "./pages/NepLmsTimetableCreatorFilteredPage";
 import NepLmsAdminResourceAssignmentPage from "./pages/NepLmsAdminResourceAssignmentPage";
@@ -987,6 +990,8 @@ import NepLmsClassGroupsPage from "./pages/NepLmsClassGroupsPage";
 import NepLmsClassGroupsAdminPage from "./pages/NepLmsClassGroupsAdminPage";
 import NepLmsAiCourseGenerationPage from "./pages/NepLmsAiCourseGenerationPage";
 import NepLmsStudentWorkspacePage from "./pages/NepLmsStudentWorkspacePage";
+import NepLmsStudentCourseMaterialViewerPage, { NepLmsFacultyCourseMaterialPreviewPage } from "./pages/NepLmsStudentCourseMaterialViewerPage";
+import NepLmsStudentCourseGroupWorkspacePage from "./pages/NepLmsStudentCourseGroupWorkspacePage";
 import NepLmsStudentSequentialContentPage from "./pages/NepLmsStudentSequentialContentPage";
 import NepLmsStudentLiveQuizPage from "./pages/NepLmsStudentLiveQuizPage";
 import NepLmsMyAttendanceSummaryPage from "./pages/NepLmsMyAttendanceSummaryPage";
@@ -1019,16 +1024,32 @@ import StudentDemographicDashboardPage from "./pages/StudentDemographicDashboard
 import LmsDirectorDashboardPage from "./pages/LmsDirectorDashboardPage";
 import HodDashboardPage from "./pages/HodDashboardPage";
 import FeesDashboardPage from "./pages/FeesDashboardPage";
+import ExamDashboardPage, { ExamDashboard2Page } from "./pages/ExamDashboardPage";
+import { DummyHrAttendancePage, HrAttendanceDashboardPage, TeamAttendanceReportPage } from "./pages/HrAttendanceDashboardPages";
 import MentoringWorkspacePage from "./pages/MentoringWorkspacePage";
 import StudentMentoringWorkspacePage from "./pages/StudentMentoringWorkspacePage";
 import { ActivityMonitoringReport2Page, ActivityMonitoringReportPage, ActivityPointsConfigurationPage, ActivityUserPointsPage, NepLmsAttendanceEventPage } from "./pages/ActivityMonitoringPages";
 import { MentoringHomeVisitPage, MentoringSessionPage, MentoringStudentProfilePage, StudentMentoringReadonlyPage } from "./pages/MentoringDetailsPages";
 import CrmManagementPage from "./pages/CrmManagementPage";
+import RawDataManagementPage from "./pages/RawDataManagementPage";
 import CrmLeadActionPage from "./pages/CrmLeadActionPage";
 import CrmReportsPage from "./pages/CrmReportsPage";
+import CrmDailyInteractionReportPage from "./pages/CrmDailyInteractionReportPage";
 import CrmMyLeadsPage from "./pages/CrmMyLeadsPage";
 import CrmMyFollowupsPage from "./pages/CrmMyFollowupsPage";
 import CrmCounselorMappingPage from "./pages/CrmCounselorMappingPage";
+import {
+  CrmCampusVisitCommentsPage,
+  CrmCampusVisitFormPage,
+  CrmCampusVisitQueuePage,
+  CrmCounselorCampusVisitPage,
+  CrmRandomTelecallerAssignmentPage,
+  CrmTelecallerCounselorAssignmentPage,
+  CrmTelecallerBulkAssignmentPage,
+  CrmTelecallerMappingPage,
+  CrmTelecallerReportPage
+} from "./pages/CrmTelecallerPages";
+import { CentralSupportDeskPage, CentralTicketRaisePage, CentralTicketReportPage } from "./pages/CentralTicketingPages";
 import NepLmsMasterTimetableReportPage from "./pages/NepLmsMasterTimetableReportPage";
 import NepLmsTimetableManagerPage, { NepLmsClassGroupwiseTimetablePage, NepLmsSectionwiseTimetablePage } from "./pages/NepLmsTimetableManagerPage";
 import NepLmsOnlineClassRoomPage from "./pages/NepLmsOnlineClassRoomPage";
@@ -1073,6 +1094,7 @@ import ConductExamDatesPage from "./pages/ConductExamDatesPage";
 import ConductExamCoursePage from "./pages/ConductExamCoursePage";
 import ConductExamCourseSchedulerPage from "./pages/ConductExamCourseSchedulerPage";
 import ConductExamRollPage from "./pages/ConductExamRollPage";
+import ConductExamRollListReportPage from "./pages/ConductExamRollListReportPage";
 import StudentExamRegistrationPage from "./pages/StudentExamRegistrationPage";
 import ConductExamRoomPage from "./pages/ConductExamRoomPage";
 import ConductExamSeatAllocationPage from "./pages/ConductExamSeatAllocationPage";
@@ -1108,6 +1130,14 @@ import { ConductExamStationaryMasterPage, ConductExamStationaryRequirementPage }
 import { ConductExamGeneratorAllocationPage, ConductExamGeneratorMasterPage, ConductExamGeneratorRequirementPage } from "./pages/ConductExamGeneratorPages";
 import { ConductExamOnScreenMarkingPage, ConductExamScoreRulePage } from "./pages/ConductExamOnScreenMarkingPages";
 import { ConductExamFeePage, ConductExamFormBuilderPage, StudentExamDynamicFormPage } from "./pages/ConductExamFormPages";
+import {
+  ExamAppealAllocationPage,
+  ExamAppealApprovalPage,
+  ExamAppealCoeReviewPage,
+  ExamAppealExaminerMarksPage,
+  ExamAppealWorkflowPage,
+  StudentExamAppealPage
+} from "./pages/ConductExamAppealPages";
 import PublicQuestionPaperBlockchainVerifyPage from "./pages/PublicQuestionPaperBlockchainVerifyPage";
 import HrLeaveManagementPage from "./pages/HrLeaveManagementPage";
 import HrLeaveApplyPage from "./pages/HrLeaveApplyPage";
@@ -1135,6 +1165,7 @@ import EmployeeDatabaseReportPage from "./pages/EmployeeDatabaseReportPage";
 import EmployeeProfileEditPage from "./pages/EmployeeProfileEditPage";
 import StudentDataUploadPage from "./pages/StudentDataUploadPage";
 import StudentMenuManagementPage from "./pages/StudentMenuManagementPage";
+import { GoogleEmailManagementPage, GoogleRoleRegistrationPage } from "./pages/GoogleUserAccessPages";
 import SpecializationAssignmentPage from "./pages/SpecializationAssignmentPage";
 import CasNewEntryPage from "./pages/CasNewEntryPage";
 import CasNewSummaryPage from "./pages/CasNewSummaryPage";
@@ -1224,6 +1255,8 @@ import {
   PlacementConversionReportPage,
   PlacementJobPostingPage,
   PlacementIndustryReportPage,
+  PlacementInternshipStagesPage,
+  PlacementJobApplicationsPage,
   PlacementPlacedReportPage,
   PlacementProjectReportPage,
   PlacementProjectStagesPage,
@@ -1237,10 +1270,20 @@ import {
   PlacementStudentsPage,
   PlacementStudentAssignedSipPage,
   PlacementStudentInternshipProfilePage,
+  StudentPlacementJobsPage,
+  PlacementSipApplicationsPage,
   PlacementStudentMentorAssignmentPage,
   PlacementStudentSkillsPage,
+  StudentSipJobsPage,
   PlacementUnemployedStudentsPage
 } from "./pages/PlacementNewPages";
+import {
+  TrainingPlacementCoursesPage,
+  TrainingPlacementEventsPage,
+  TrainingPlacementGuestFacultyPage,
+  TrainingPlacementNeedsAnalysisPage,
+  TrainingPlacementStudentAssignmentPage
+} from "./pages/TrainingPlacementPages";
 import {
   ContinuousFeedbackQuickFormPage,
   ContinuousFeedbackReportPage,
@@ -1264,6 +1307,7 @@ import AiConfigurationPage from "./pages/AiConfigurationPage";
 import OllamaConfigurationPage from "./pages/OllamaConfigurationPage";
 import CountryConfigurationPage from "./pages/CountryConfigurationPage";
 import DummyDataGeneratorPage from "./pages/DummyDataGeneratorPage";
+import DummyMarksDataPage from "./pages/DummyMarksDataPage";
 import { observeStudentLabelChanges } from "./utils/countryTerminology";
 import UserCustomFieldsPage from "./pages/UserCustomFieldsPage";
 import UserDataUploadPage from "./pages/UserDataUploadPage";
@@ -1305,6 +1349,8 @@ import {
   ExaminationModel2VivaComponentFailRulePage,
   ExaminationModel2VivaMarksheetPage,
   ExaminationModel2VivaMarksOnlyMarksheetPage,
+  ExaminationModel2VivaDynamicMarksheetPage,
+  ExaminationModel2VivaDynamicMarksOnlyMarksheetPage,
   ExaminationModel2GradingTemplatePage,
   ExaminationModel2GradingTemplateDetailPage,
   ExaminationModel2ClassConfigurationPage,
@@ -1332,6 +1378,7 @@ import AdmissionRefundLetterPage from "./pages/AdmissionRefundLetterPage";
 import TranscriptRecorderPage from "./pages/TranscriptRecorderPage";
 import TranscriptMeetingsCalendarPage from "./pages/TranscriptMeetingsCalendarPage";
 import MeetingTranscriptRecorderPage from "./pages/MeetingTranscriptRecorderPage";
+import { LiveMeeting2CalendarPage, LiveMeeting2RoomPage, LiveMeeting3CalendarPage, LiveMeeting3RoomPage, LiveMeetingCalendarPage, LiveMeetingRoomPage } from "./pages/LiveMeetingPages";
 import KnowledgebasePage from "./pages/KnowledgebasePage";
 import PublicAiHelpdeskChatbotPage from "./pages/PublicAiHelpdeskChatbotPage";
 
@@ -1571,10 +1618,14 @@ import {
   Purchase2GrnCreationPage,
   Purchase2IndentRequestPage,
   Purchase2LocalPoPage,
+  Purchase2ManagePoAdminPage,
+  Purchase2ManagePoCreatorPage,
   Purchase2PoAssignmentPage,
+  Purchase2PoApprovalWorkflowPage,
   Purchase2QualityCheckPage,
   Purchase2StorePrRequestPage,
-  Purchase2StoreRequestReviewPage
+  Purchase2StoreRequestReviewPage,
+  UserSignatureUploadPage
 } from "./pages/Purchase2WorkflowPages";
 
 import FacultyRegistrationFormPage from "./pages/FacultyRegistrationFormPage";
@@ -2058,7 +2109,7 @@ import DisciplinaryActionPage from './pages/DisciplinaryActionPage';
 import DisciplinaryActionUpdatePage from './pages/DisciplinaryActionUpdatePage';
 import ExamrollRulesCheckPage from './pages/ExamrollRulesCheckPage';
 import { DetainedStudentsPage, ExamrollDisciplinaryHoldPage, FeesDefaultersPage } from './pages/ExamrollExceptionReviewPage';
-import ConductExamHallTicketPage, { PublicHallTicketBlockchainVerifyPage, StudentAdmitCardNewPage } from './pages/ConductExamHallTicketPage';
+import ConductExamHallTicketPage, { ConductExamHallTicket2Page, PublicHallTicketBlockchainVerifyPage, StudentAdmitCardNewPage } from './pages/ConductExamHallTicketPage';
 import StudentViewControlPage from './pages/StudentViewControlPage';
 import StudentLedgerCounterPaymentPage from './pages/StudentLedgerCounterPaymentPage';
 import CounterFee2PaymentPage from './pages/CounterFee2PaymentPage';
@@ -2070,7 +2121,7 @@ import CounterFee4ReceiptPage from './pages/CounterFee4ReceiptPage';
 import FeesReceiptNotePage from './pages/FeesReceiptNotePage';
 import StudentOnlineFeePayment2Page from './pages/StudentOnlineFeePayment2Page';
 import ChequePaymentDetailsPage from './pages/ChequePaymentDetailsPage';
-import { MiscellaneousAmountPage, MiscellaneousFeeCollectionPage } from './pages/MiscellaneousFeesPages';
+import { MiscellaneousAmountPage, MiscellaneousFeeCollectionPage, MiscellaneousFeeCollection2Page } from './pages/MiscellaneousFeesPages';
 import StudentFeesReceiptPage from './pages/StudentFeesReceiptPage';
 import BlockchainStudentFeesReceiptPage from './pages/BlockchainStudentFeesReceiptPage';
 import BlockchainFeesReceiptVerifyPage from './pages/BlockchainFeesReceiptVerifyPage';
@@ -2394,6 +2445,9 @@ function App() {
         <Route path="/event-new-transport-requirements" element={<EventNewCrudPage mode="transportrequirements" />} />
         <Route path="/event-new-vehicle-allocations" element={<EventNewCrudPage mode="vehicleallocations" />} />
         <Route path="/event-new-vehicle-auto-allocation" element={<EventNewAllocationPage />} />
+        <Route path="/event-new-checklist-config" element={<EventNewCrudPage mode="checklistconfigs" />} />
+        <Route path="/event-new-checklist-details" element={<EventChecklistDetailsPage />} />
+        <Route path="/event-new-checklist-report" element={<EventChecklistReportPage />} />
         <Route path="/event-new-reports" element={<EventNewReportsPage />} />
         <Route path="/event-new-transport-reports" element={<EventNewTransportReportsPage />} />
         <Route path="/event-new-paper-submission" element={<EventPaperSubmissionPage />} />
@@ -2609,6 +2663,8 @@ function App() {
         <Route path="/menuaccesscontrol" element={<MenuAccessControlPage />} />
         <Route path="/usercustomfields" element={<UserCustomFieldsPage />} />
         <Route path="/userdataupload" element={<UserDataUploadPage />} />
+        <Route path="/googleemailmanagement" element={<GoogleEmailManagementPage />} />
+        <Route path="/google-role-registration/:token" element={<GoogleRoleRegistrationPage />} />
         <Route path="/usereditjoiningdate" element={<UserEditJoiningDatePage />} />
         <Route path="/userdocumentrequirements" element={<UserDocumentRequirementPage />} />
         <Route path="/userdocumentupload" element={<UserDocumentUploadPage />} />
@@ -3188,9 +3244,13 @@ function App() {
         <Route path="/purchase2-store-pr-request" element={<Purchase2StorePrRequestPage />} />
         <Route path="/purchase2-po-assignment" element={<Purchase2PoAssignmentPage />} />
         <Route path="/purchase2-local-po" element={<Purchase2LocalPoPage />} />
+        <Route path="/purchase2-po-approval-workflow" element={<Purchase2PoApprovalWorkflowPage />} />
+        <Route path="/purchase2-manage-po-admin" element={<Purchase2ManagePoAdminPage />} />
+        <Route path="/purchase2-manage-po-creator" element={<Purchase2ManagePoCreatorPage />} />
         <Route path="/purchase2-gate-pass" element={<Purchase2GatePassPage />} />
         <Route path="/purchase2-quality-check" element={<Purchase2QualityCheckPage />} />
         <Route path="/purchase2-grn-creation" element={<Purchase2GrnCreationPage />} />
+        <Route path="/user-signature-upload" element={<UserSignatureUploadPage />} />
         <Route path="/researchapprovalmatrix" element={<ResearchApprovalMatrixPage />} />
         <Route path="/researchcomponents" element={<ResearchComponentPage />} />
         <Route path="/researchgrantapply" element={<ResearchGrantApplyPage />} />
@@ -3431,6 +3491,7 @@ function App() {
         <Route path="/facultyavailabilityadmin" element={<FacultyAvailabilityAdminPage />} />
         <Route path="/neplmsassignedcourses" element={<NepLmsAssignedCoursesPage />} />
         <Route path="/neplmscourseworkspace" element={<NepLmsCourseWorkspacePage />} />
+        <Route path="/neplmscoursegroupworkspace" element={<NepLmsCourseGroupWorkspacePage />} />
         <Route path="/neplmsfacultylogbook" element={<NepLmsFacultyLogbookPage />} />
         <Route path="/neplmsmindmaps" element={<NepLmsFacultyMindMapPage />} />
         <Route path="/neplmsmindmapsadmin" element={<NepLmsAdminMindMapPage />} />
@@ -3498,6 +3559,8 @@ function App() {
         <Route path="/exammodel2viva-componentfailrule" element={<ExaminationModel2VivaComponentFailRulePage />} />
         <Route path="/exammodel2viva-marksheet" element={<ExaminationModel2VivaMarksheetPage />} />
         <Route path="/exammodel2viva-marksheet-marks" element={<ExaminationModel2VivaMarksOnlyMarksheetPage />} />
+        <Route path="/exammodel2viva-dynamic-marksheet" element={<ExaminationModel2VivaDynamicMarksheetPage />} />
+        <Route path="/exammodel2viva-dynamic-marksheet-marks" element={<ExaminationModel2VivaDynamicMarksOnlyMarksheetPage />} />
         <Route path="/exammodel2gradingtemplate" element={<ExaminationModel2GradingTemplatePage />} />
         <Route path="/exammodel2gradingtemplatedetails" element={<ExaminationModel2GradingTemplateDetailPage />} />
         <Route path="/exammodel2classconfiguration" element={<ExaminationModel2ClassConfigurationPage />} />
@@ -3521,6 +3584,9 @@ function App() {
         <Route path="/facultydashboard" element={<NepLmsFacultyDashboardPage />} />
         <Route path="/studentdashboard" element={<NepLmsStudentDashboardPage />} />
         <Route path="/studentneplmsworkspace" element={<NepLmsStudentWorkspacePage />} />
+        <Route path="/studentneplmscoursematerial" element={<NepLmsStudentCourseMaterialViewerPage />} />
+        <Route path="/neplmscoursematerialpreview" element={<NepLmsFacultyCourseMaterialPreviewPage />} />
+        <Route path="/studentneplmscoursegroupworkspace" element={<NepLmsStudentCourseGroupWorkspacePage />} />
         <Route path="/studentneplmsmindmaps" element={<NepLmsStudentMindMapPage />} />
         <Route path="/studentsequentialcontent" element={<NepLmsStudentSequentialContentPage />} />
         <Route path="/studentneplmslivequiz" element={<NepLmsStudentLiveQuizPage />} />
@@ -3541,16 +3607,30 @@ function App() {
         <Route path="/online-exam-report" element={<OnlineExamReportPage />} />
         <Route path="/student-online-exam" element={<StudentOnlineExamPage />} />
         <Route path="/crm-management" element={<CrmManagementPage />} />
+        <Route path="/raw-data-management" element={<RawDataManagementPage />} />
         <Route path="/crm-lead-actions" element={<CrmLeadActionPage />} />
         <Route path="/crm-reports" element={<CrmReportsPage />} />
+        <Route path="/crm-daily-interaction-report" element={<CrmDailyInteractionReportPage />} />
         <Route path="/crm-my-leads" element={<CrmMyLeadsPage />} />
         <Route path="/crm-my-followups" element={<CrmMyFollowupsPage />} />
         <Route path="/crm-counselor-mapping" element={<CrmCounselorMappingPage />} />
+        <Route path="/crm-telecaller-mapping" element={<CrmTelecallerMappingPage />} />
+        <Route path="/crm-telecaller-bulk-assignment" element={<CrmTelecallerBulkAssignmentPage />} />
+        <Route path="/crm-random-telecaller-assignment" element={<CrmRandomTelecallerAssignmentPage />} />
+        <Route path="/crm-telecaller-report" element={<CrmTelecallerReportPage />} />
+        <Route path="/crm-telecaller-assign-counselor" element={<CrmTelecallerCounselorAssignmentPage />} />
+        <Route path="/crm-counselor-campus-visit" element={<CrmCounselorCampusVisitPage />} />
+        <Route path="/crm-campus-visit-form" element={<CrmCampusVisitFormPage />} />
+        <Route path="/crm-campus-visit-queue" element={<CrmCampusVisitQueuePage />} />
+        <Route path="/crm-campus-visit-comments" element={<CrmCampusVisitCommentsPage />} />
         <Route path="/crm-inbound-api" element={<CrmInboundApiPage />} />
         <Route path="/crm-bulk-assignment" element={<CrmBulkAssignmentPage />} />
         <Route path="/crm-form-link" element={<CrmFormLinkPage />} />
         <Route path="/crm-ai-agent" element={<CrmAiAgentPage />} />
         <Route path="/crm-public-form" element={<PublicCrmFormPage />} />
+        <Route path="/central-ticket-raise" element={<CentralTicketRaisePage />} />
+        <Route path="/central-support-desk" element={<CentralSupportDeskPage />} />
+        <Route path="/central-ticket-report" element={<CentralTicketReportPage />} />
         <Route path="/hrleavehierarchy" element={<HrLeaveManagementPage defaultTab="hierarchy" />} />
         <Route path="/hrleavetypes" element={<HrLeaveManagementPage defaultTab="types" />} />
         <Route path="/hrleavecycle" element={<HrLeaveManagementPage defaultTab="cycle" />} />
@@ -3661,6 +3741,7 @@ function App() {
         <Route path="/chequepaymentdetails" element={<ChequePaymentDetailsPage />} />
         <Route path="/miscellaneousamounts" element={<MiscellaneousAmountPage />} />
         <Route path="/miscellaneousfeecollection" element={<MiscellaneousFeeCollectionPage />} />
+        <Route path="/miscellaneousfeecollection2" element={<MiscellaneousFeeCollection2Page />} />
         <Route path="/studentfeesreceipt" element={<StudentFeesReceiptPage />} />
         <Route path="/blockchainfeesreceipt" element={<BlockchainStudentFeesReceiptPage />} />
         <Route path="/verify-blockchain-fees-receipt" element={<BlockchainFeesReceiptVerifyPage />} />
@@ -3724,6 +3805,9 @@ function App() {
         <Route path="/placement-new-sip-students" element={<PlacementSipStudentListPage />} />
         <Route path="/placement-new-placement-students" element={<PlacementStudentsPage />} />
         <Route path="/placement-new-stages" element={<PlacementStagesPage />} />
+        <Route path="/placement-new-internship-stages" element={<PlacementInternshipStagesPage />} />
+        <Route path="/placement-new-sip-applications" element={<PlacementSipApplicationsPage />} />
+        <Route path="/placement-new-placement-applications" element={<PlacementJobApplicationsPage />} />
         <Route path="/placement-new-stage-add-students" element={<PlacementStageAddStudentsPage />} />
         <Route path="/placement-new-stagewise-students" element={<PlacementStagewiseStudentsPage />} />
         <Route path="/placement-new-placed-report" element={<PlacementPlacedReportPage />} />
@@ -3734,10 +3818,17 @@ function App() {
         <Route path="/placement-new-mentors" element={<PlacementStudentMentorAssignmentPage />} />
         <Route path="/placement-new-reports" element={<PlacementReportsPage />} />
         <Route path="/placement-new-mentor-report" element={<PlacementProjectReportPage mentor />} />
+        <Route path="/training-placement-courses" element={<TrainingPlacementCoursesPage />} />
+        <Route path="/training-placement-events" element={<TrainingPlacementEventsPage />} />
+        <Route path="/training-placement-guest-faculty" element={<TrainingPlacementGuestFacultyPage />} />
+        <Route path="/training-placement-students" element={<TrainingPlacementStudentAssignmentPage />} />
+        <Route path="/training-placement-needs-analysis" element={<TrainingPlacementNeedsAnalysisPage />} />
         <Route path="/continuous-feedback-quick" element={<ContinuousFeedbackQuickFormPage />} />
         <Route path="/continuous-feedback-student" element={<StudentContinuousFeedbackPage />} />
         <Route path="/continuous-feedback-report" element={<ContinuousFeedbackReportPage />} />
         <Route path="/student-placement-skills" element={<PlacementStudentSkillsPage />} />
+        <Route path="/student-placement-sip-jobs" element={<StudentSipJobsPage />} />
+        <Route path="/student-placement-jobs" element={<StudentPlacementJobsPage />} />
         <Route path="/student-placement-internships" element={<PlacementStudentInternshipProfilePage />} />
         <Route path="/student-placement-sip" element={<PlacementStudentAssignedSipPage />} />
         <Route path="/student-placement-project-stages" element={<PlacementProjectStagesPage />} />
@@ -3761,11 +3852,19 @@ function App() {
         <Route path="/ollamaconfiguration" element={<OllamaConfigurationPage />} />
         <Route path="/countryconfiguration" element={<CountryConfigurationPage />} />
         <Route path="/dummy-data-generator" element={<DummyDataGeneratorPage />} />
+        <Route path="/dummy-marks-data" element={<DummyMarksDataPage />} />
+        <Route path="/dummy-hr-attendance" element={<DummyHrAttendancePage />} />
         <Route path="/emailconfiguration" element={<EmailConfigurationPage />} />
         <Route path="/transcript-recorder" element={<TranscriptRecorderPage />} />
         <Route path="/transcript-meetings" element={<TranscriptMeetingsCalendarPage />} />
         <Route path="/my-transcript-meetings" element={<TranscriptMeetingsCalendarPage myOnly />} />
         <Route path="/meeting-transcript-recorder" element={<MeetingTranscriptRecorderPage />} />
+        <Route path="/live-meeting" element={<LiveMeetingCalendarPage />} />
+        <Route path="/live-meeting-room" element={<LiveMeetingRoomPage />} />
+        <Route path="/live-meeting-2" element={<LiveMeeting2CalendarPage />} />
+        <Route path="/live-meeting-room-2" element={<LiveMeeting2RoomPage />} />
+        <Route path="/live-meeting-3" element={<LiveMeeting3CalendarPage />} />
+        <Route path="/live-meeting-room-3" element={<LiveMeeting3RoomPage />} />
         <Route path="/knowledgebase" element={<KnowledgebasePage />} />
         <Route path="/ai-helpdesk-chatbot" element={<PublicAiHelpdeskChatbotPage />} />
         <Route path="/userpivotreport" element={<UserPivotReportPage />} />
@@ -3783,17 +3882,25 @@ function App() {
         <Route path="/studentactivities" element={<StudentActivitiesPage />} />
         <Route path="/conduct-exam-master" element={<ConductExamMasterPage />} />
         <Route path="/conduct-exam-fees" element={<ConductExamFeePage />} />
+        <Route path="/exam-appeal-workflow" element={<ExamAppealWorkflowPage />} />
+        <Route path="/student-exam-appeal" element={<StudentExamAppealPage />} />
+        <Route path="/exam-appeal-approval" element={<ExamAppealApprovalPage />} />
+        <Route path="/exam-appeal-allocation" element={<ExamAppealAllocationPage />} />
+        <Route path="/exam-appeal-examiner-marks" element={<ExamAppealExaminerMarksPage />} />
+        <Route path="/exam-appeal-coe-review" element={<ExamAppealCoeReviewPage />} />
         <Route path="/conduct-exam-form-builder" element={<ConductExamFormBuilderPage />} />
         <Route path="/conduct-exam-dates" element={<ConductExamDatesPage />} />
         <Route path="/conduct-exam-rooms" element={<ConductExamRoomPage />} />
         <Route path="/conduct-exam-courses" element={<ConductExamCoursePage />} />
         <Route path="/conduct-exam-course-scheduler" element={<ConductExamCourseSchedulerPage />} />
         <Route path="/examroll" element={<ConductExamRollPage />} />
+        <Route path="/conduct-exam-roll-list-report" element={<ConductExamRollListReportPage />} />
         <Route path="/examrollrulescheck" element={<ExamrollRulesCheckPage />} />
         <Route path="/detainedstudents" element={<DetainedStudentsPage />} />
         <Route path="/examrolldisciplinary" element={<ExamrollDisciplinaryHoldPage />} />
         <Route path="/feesdefaulters" element={<FeesDefaultersPage />} />
         <Route path="/conduct-exam-hall-ticket" element={<ConductExamHallTicketPage />} />
+        <Route path="/conduct-exam-hall-ticket-2" element={<ConductExamHallTicket2Page />} />
         <Route path="/student-view-control" element={<StudentViewControlPage />} />
         <Route path="/student-admit-card-new" element={<StudentAdmitCardNewPage />} />
         <Route path="/verify-hallticket-blockchain" element={<PublicHallTicketBlockchainVerifyPage />} />
@@ -4097,6 +4204,10 @@ function App() {
         <Route path="/lms-director-dashboard" element={<LmsDirectorDashboardPage />} />
         <Route path="/hod-dashboard" element={<HodDashboardPage />} />
         <Route path="/fees-dashboard" element={<FeesDashboardPage />} />
+        <Route path="/exam-dashboard" element={<ExamDashboardPage />} />
+        <Route path="/exam-dashboard-2" element={<ExamDashboard2Page />} />
+        <Route path="/hr-attendance-dashboard" element={<HrAttendanceDashboardPage />} />
+        <Route path="/team-attendance-report" element={<TeamAttendanceReportPage />} />
         <Route path="/studbonafide" element={<Studbonafide />} />
         <Route path="/studmarksheet" element={<Studmarksheet />} />
         <Route path="/dashmarksheet" element={<Dashmarksheet />} />

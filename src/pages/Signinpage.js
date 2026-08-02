@@ -8,6 +8,8 @@ import { useNavigate } from 'react-router-dom';
 import global1 from './global1';
 import ep1 from '../api/ep1';
 import { configureCountryTerminology } from '../utils/countryTerminology';
+import GoogleCredentialButton from '../components/GoogleCredentialButton';
+import { applyLoginSession } from '../utils/loginSession';
 
 const orthintelLogoUrl = "https://epaathsalagenai.s3.ap-southeast-2.amazonaws.com/orthintellogo.jpeg";
 
@@ -241,6 +243,16 @@ const Signup = () => {
        
     };
 
+    const handleGoogleLogin = async (credential) => {
+      try {
+        const response = await ep1.post('/api/v2/google-auth/login', { credential });
+        const destination = await applyLoginSession(response.data, { isOrthintelDomain });
+        navigate(destination);
+      } catch (err) {
+        alert(err.response?.data?.message || err.message || 'Google login failed');
+      }
+    };
+
   return (
     <Box
       sx={{
@@ -400,6 +412,9 @@ const Signup = () => {
                   >
                     Login
                   </Button>
+                </Grid>
+                <Grid item xs={12}>
+                  <GoogleCredentialButton onCredential={handleGoogleLogin} text="Login with Google" />
                 </Grid>
                 <Grid item xs={12}>
                   <Typography variant="body1" align="center" color='black' sx={{ mt: 2, mb: 1 }}>

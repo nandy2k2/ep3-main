@@ -426,3 +426,200 @@ export function MiscellaneousFeeCollectionPage() {
     </MenuPageShell>
   );
 }
+
+export function MiscellaneousFeeCollection2Page() {
+  const blankStudent = {
+    name: "",
+    email: "",
+    academicyear: "2026-27",
+    admissionyear: "2026-27",
+    program: "",
+    programcode: "",
+    regno: ""
+  };
+  const [student, setStudent] = useState(blankStudent);
+  const [studentOptions, setStudentOptions] = useState({});
+  const [amounts, setAmounts] = useState([]);
+  const [amountSelection, setAmountSelection] = useState([]);
+  const [paidAmounts, setPaidAmounts] = useState({});
+  const [paiddate, setPaiddate] = useState(today());
+  const [paymode, setPaymode] = useState("Cash");
+  const [referenceNumber, setReferenceNumber] = useState("");
+  const [paydetails, setPaydetails] = useState("");
+  const [remarks, setRemarks] = useState("");
+  const [receipt, setReceipt] = useState(null);
+  const [institution, setInstitution] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const selectedAmounts = useMemo(() => amounts.filter((row) => amountSelection.includes(row._id)), [amounts, amountSelection]);
+  const total = selectedAmounts.reduce((sum, row) => sum + num(paidAmounts[row._id] ?? row.amount), 0);
+  const setStudentField = (field, value) => setStudent((prev) => ({ ...prev, [field]: value || "" }));
+
+  const loadOptions = async () => {
+    try {
+      const [studentRes, amountRes] = await Promise.all([
+        ep1.get("/api/v2/miscellaneous-collection/student-options", { params: { colid: global1.colid } }),
+        ep1.get("/api/v2/miscellaneous-amounts", { params: { colid: global1.colid, status: "Active" } })
+      ]);
+      setStudentOptions(studentRes.data?.options || {});
+      const data = amountRes.data?.data || [];
+      setAmounts(data);
+      setPaidAmounts(Object.fromEntries(data.map((row) => [row._id, num(row.amount)])));
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load miscellaneous collection data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    setLoading(true);
+    loadOptions();
+  }, []);
+
+  const updatePaidAmount = (id, value) => setPaidAmounts((prev) => ({ ...prev, [id]: value }));
+  const onAmountSelection = (ids) => {
+    const next = Array.from(ids?.ids || ids || []);
+    setAmountSelection(next);
+    setPaidAmounts((prev) => {
+      const copy = { ...prev };
+      next.forEach((id) => {
+        if (copy[id] === "" || copy[id] === undefined) copy[id] = num(amounts.find((row) => row._id === id)?.amount);
+      });
+      return copy;
+    });
+  };
+
+  const validate = () => {
+    if (!student.name.trim()) return "Name is required";
+    if (!student.email.trim()) return "Email is required";
+    if (!student.academicyear.trim()) return "Academic year is required";
+    if (!student.admissionyear.trim()) return "Admission year is required";
+    if (!student.programcode.trim()) return "Program code is required";
+    if (!student.regno.trim()) return "Regno is required";
+    const items = selectedAmounts.map((row) => ({ ...row, paidamount: num(paidAmounts[row._id]) })).filter((row) => row.paidamount > 0);
+    if (!items.length) return "Select miscellaneous amounts and enter paid amount";
+    return "";
+  };
+
+  const collect = async () => {
+    const validation = validate();
+    if (validation) return setError(validation);
+    const items = selectedAmounts.map((row) => ({ ...row, paidamount: num(paidAmounts[row._id]) })).filter((row) => row.paidamount > 0);
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await ep1.post("/api/v2/miscellaneous-collection/collect-new-student", {
+        colid: global1.colid,
+        student,
+        items,
+        paiddate,
+        paymode,
+        referenceNumber,
+        paydetails,
+        remarks,
+        user: global1.user,
+        name: global1.name
+      });
+      setMessage(`Student saved and payment recorded. Transaction ID: ${res.data?.transactionid}`);
+      setReceipt(res.data?.data || null);
+      setInstitution(res.data?.institution || null);
+      setAmountSelection([]);
+      setReferenceNumber("");
+      setPaydetails("");
+      setRemarks("");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to collect miscellaneous fee");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const amountColumns = [
+    { field: "academicyear", headerName: "Academic Year", width: 140 },
+    { field: "feegroup", headerName: "Fee Group", width: 160 },
+    { field: "feeitem", headerName: "Fee Item", minWidth: 220, flex: 1 },
+    { field: "description", headerName: "Description", minWidth: 220, flex: 1 },
+    { field: "amount", headerName: "Default Amount", width: 140, type: "number" },
+    {
+      field: "paidamount",
+      headerName: "Amount Paid",
+      width: 150,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => (
+        <TextField size="small" type="number" value={paidAmounts[params.row._id] ?? ""} onKeyDown={(event) => event.stopPropagation()} onChange={(event) => updatePaidAmount(params.row._id, event.target.value)} />
+      )
+    }
+  ];
+
+  const autoField = (field, label, options = []) => (
+    <Autocomplete
+      freeSolo
+      options={options || []}
+      value={student[field] || ""}
+      inputValue={student[field] || ""}
+      onInputChange={(_, value) => setStudentField(field, value)}
+      onChange={(_, value) => setStudentField(field, value || "")}
+      renderInput={(params) => <TextField {...params} label={label} required={["academicyear", "admissionyear", "programcode", "regno"].includes(field)} />}
+    />
+  );
+
+  return (
+    <MenuPageShell title="Miscellaneous Collection 2">
+      <Stack spacing={2} sx={{ p: { xs: 2, md: 3 } }}>
+        {message && <Alert severity="success" onClose={() => setMessage("")}>{message}</Alert>}
+        {error && <Alert severity="error" onClose={() => setError("")}>{error}</Alert>}
+        <Paper sx={{ p: 2 }}>
+          <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} sx={{ mb: 2 }}>
+            <Box>
+              <Typography variant="h5" fontWeight={900}>Miscellaneous Collection 2</Typography>
+              <Typography color="text.secondary">Enter student details, create the student record, collect miscellaneous fees, and generate the receipt.</Typography>
+            </Box>
+            <Chip color="primary" label={`Selected total: ${total}`} />
+          </Stack>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={4}><TextField fullWidth required label="Name" value={student.name} onChange={(event) => setStudentField("name", event.target.value)} /></Grid>
+            <Grid item xs={12} md={4}><TextField fullWidth required type="email" label="Email" value={student.email} onChange={(event) => setStudentField("email", event.target.value)} /></Grid>
+            <Grid item xs={12} md={4}>{autoField("regno", "Regno", studentOptions.regno)}</Grid>
+            <Grid item xs={12} md={3}>{autoField("academicyear", "Academic Year", studentOptions.academicyear)}</Grid>
+            <Grid item xs={12} md={3}>{autoField("admissionyear", "Admission Year", studentOptions.admissionyear)}</Grid>
+            <Grid item xs={12} md={3}>{autoField("program", "Program", studentOptions.program)}</Grid>
+            <Grid item xs={12} md={3}>{autoField("programcode", "Program Code", studentOptions.programcode)}</Grid>
+          </Grid>
+        </Paper>
+
+        <Paper sx={{ p: 2 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={3}><TextField fullWidth type="date" label="Paid Date" InputLabelProps={{ shrink: true }} value={paiddate} onChange={(event) => setPaiddate(event.target.value)} /></Grid>
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Mode of Payment</InputLabel>
+                <Select label="Mode of Payment" value={paymode} onChange={(event) => setPaymode(event.target.value)}>
+                  {payModes.map((mode) => <MenuItem key={mode} value={mode}>{mode}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={3}><TextField fullWidth label="Reference Number" value={referenceNumber} onChange={(event) => setReferenceNumber(event.target.value)} /></Grid>
+            <Grid item xs={12} md={3}><TextField fullWidth label="Payment Details" value={paydetails} onChange={(event) => setPaydetails(event.target.value)} /></Grid>
+            <Grid item xs={12}><TextField fullWidth label="Remarks" value={remarks} onChange={(event) => setRemarks(event.target.value)} /></Grid>
+          </Grid>
+        </Paper>
+
+        <Paper sx={{ p: 1, overflowX: "auto" }}>
+          <DataGrid rows={amounts} columns={amountColumns} getRowId={(row) => row._id} checkboxSelection rowSelectionModel={amountSelection} onRowSelectionModelChange={onAmountSelection} loading={loading} autoHeight slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "miscellaneous_collection_2_amounts" } } }} pageSizeOptions={[10, 25, 50, 100]} initialState={{ pagination: { paginationModel: { pageSize: 10, page: 0 } } }} disableRowSelectionOnClick sx={{ minWidth: 1100 }} />
+        </Paper>
+
+        <Stack direction="row" spacing={1}>
+          <Button variant="contained" startIcon={<Payment />} disabled={!amountSelection.length || total <= 0 || busy} onClick={collect}>{busy ? "Posting..." : "Create Student, Record Payment and Generate Receipt"}</Button>
+        </Stack>
+
+        {receipt && <CounterFee2ReceiptView receipt={receipt} institution={institution} />}
+      </Stack>
+    </MenuPageShell>
+  );
+}

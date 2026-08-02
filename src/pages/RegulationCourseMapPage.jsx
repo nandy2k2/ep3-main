@@ -29,7 +29,7 @@ import MenuPageShell from "./MenuPageShell";
 const academicYears = ["2026-27", "2027-28", "2028-29", "2029-30", "2030-31"];
 const semesters = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
 const subjectTypes = ["Major", "Minor", "AEC", "SEC", "VAC", "IDC"];
-const courseTypes = ["Theory", "Practical"];
+const courseTypes = ["Theory", "Practical", "Tutorial", "Internship", "Project", "Experiential learning"];
 const deliveryTypes = ["Compulsory", "Elective"];
 const filterLabels = {
   academicyear: "Academic Year",

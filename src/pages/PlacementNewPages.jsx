@@ -367,6 +367,221 @@ export function PlacementStagesPage() {
   )} />;
 }
 
+export function PlacementInternshipStagesPage() {
+  const blank = { stagename: "", stageorder: 1, description: "", status: "Active" };
+  return <CrudPage kind="internshipstage" title="Internship stages" blank={blank} templateRows={[blank]} columns={[
+    { field: "stagename", headerName: "Stage", width: 220 },
+    { field: "stageorder", headerName: "Order", width: 110 },
+    { field: "description", headerName: "Description", width: 320 },
+    { field: "status", headerName: "Status", width: 120 }
+  ]} renderForm={({ form, setForm, save, editingId }) => (
+    <Grid container spacing={2}>
+      <Grid item xs={12} md={3}><TextField fullWidth size="small" label="Stage" value={form.stagename || ""} onChange={(e) => setForm((p) => ({ ...p, stagename: e.target.value }))} /></Grid>
+      <Grid item xs={12} md={2}><TextField fullWidth size="small" type="number" label="Order" value={form.stageorder || ""} onChange={(e) => setForm((p) => ({ ...p, stageorder: e.target.value }))} /></Grid>
+      <Grid item xs={12} md={4}><TextField fullWidth size="small" label="Description" value={form.description || ""} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} /></Grid>
+      <Grid item xs={12} md={1.5}><TextField select fullWidth size="small" label="Status" value={form.status || "Active"} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}><MenuItem value="Active">Active</MenuItem><MenuItem value="Inactive">Inactive</MenuItem></TextField></Grid>
+      <Grid item xs={12} md={1.5}><Button fullWidth variant="contained" startIcon={<Save />} onClick={save}>{editingId ? "Update" : "Save"}</Button></Grid>
+    </Grid>
+  )} />;
+}
+
+function StudentJobBrowser({ type = "SIP", title = "SIP jobs" }) {
+  const [rows, setRows] = useState([]);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const load = async () => {
+    try {
+      setLoading(true);
+      const res = await ep1.get("/api/v2/placement-new-student/jobs", { params: { ...basePayload(), type, email: global1.user, regno: global1.regno, programcode: global1.programcode } });
+      setRows(res.data?.data || []);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load jobs");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { load(); }, [type]);
+  const apply = async (job) => {
+    try {
+      setError("");
+      await ep1.post("/api/v2/placement-new-student/apply", { ...basePayload(), type, jobid: job._id, email: global1.user, regno: global1.regno });
+      setMessage("Application submitted");
+      load();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to apply");
+    }
+  };
+  return (
+    <Shell title={title} student>
+      <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} sx={{ mb: 2 }}>
+        <Typography variant="h5" fontWeight={900}>{title}</Typography>
+        <Button startIcon={<Refresh />} variant="outlined" onClick={load} disabled={loading}>Refresh</Button>
+      </Stack>
+      {messageBlock(message, error)}
+      <Grid container spacing={2}>
+        {rows.map((job) => (
+          <Grid item xs={12} md={6} lg={4} key={job._id}>
+            <Card sx={{ height: "100%", border: job.applied ? "1px solid #86efac" : "1px solid #e5e7eb" }}>
+              <CardContent>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                  <Box>
+                    <Typography variant="h6" fontWeight={900}>{job.jobtitle || type}</Typography>
+                    <Typography color="text.secondary">{job.company}</Typography>
+                  </Box>
+                  <Chip color={job.applied ? "success" : "primary"} label={job.applied ? "Applied" : "Open"} />
+                </Stack>
+                <Typography variant="body2" sx={{ mt: 1 }}>{job.startdate || "-"} to {job.enddate || "-"}</Typography>
+                <Typography variant="body2" sx={{ mt: 1, whiteSpace: "pre-wrap" }}>{job.description || job.jobdetails}</Typography>
+                {job.skills && <Typography variant="body2" sx={{ mt: 1 }}><b>Skills:</b> {job.skills}</Typography>}
+                {job.application && <Box sx={{ mt: 1 }}>
+                  <Typography variant="body2"><b>Stage:</b> {job.application.stagename || job.application.status}</Typography>
+                  <Typography variant="body2"><b>Selected:</b> {job.application.selected || "No"}</Typography>
+                  {job.application.offerletterlink && <Button size="small" href={job.application.offerletterlink} target="_blank" sx={{ mt: 1 }}>View offer letter</Button>}
+                </Box>}
+                <Button fullWidth sx={{ mt: 2 }} variant="contained" disabled={job.applied || loading} onClick={() => apply(job)}>Apply</Button>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+      {!rows.length && !loading && <Alert severity="info">No active {type} jobs are available for your program right now.</Alert>}
+    </Shell>
+  );
+}
+
+export function StudentSipJobsPage() {
+  return <StudentJobBrowser type="SIP" title="SIP jobs" />;
+}
+
+export function StudentPlacementJobsPage() {
+  return <StudentJobBrowser type="Placement" title="Placement jobs" />;
+}
+
+function PlacementApplicationReviewPage({ type = "SIP", title = "SIP applications" }) {
+  const [rows, setRows] = useState([]);
+  const [stages, setStages] = useState([]);
+  const [selectedRows, setSelectedRows] = useState([]);
+  const [filters, setFilters] = useState({});
+  const [form, setForm] = useState({ status: "Applied", selected: "No", stage: null, offerletterlink: "", offerlettername: "", remarks: "" });
+  const [profile, setProfile] = useState(null);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const profileRef = useRef(null);
+  const fields = ["jobtitle", "company", "industry", "student", "studentemail", "regno", "academicyear", "program", "programcode", "semester", "section", "stagename", "status", "selected"];
+  const load = async () => {
+    try {
+      setLoading(true);
+      const res = await ep1.get("/api/v2/placement-new/applications", { params: { ...basePayload(), type, ...filters } });
+      setRows(res.data?.data || []);
+      setStages(res.data?.stages || []);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load applications");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { load(); }, [type]);
+  const uploadOffer = async (file) => {
+    if (!file) return;
+    const data = new FormData();
+    data.append("file", file);
+    data.append("colid", global1.colid);
+    data.append("user", global1.user);
+    const res = await ep1.post("/api/v2/placement-new/upload", data, { headers: { "Content-Type": "multipart/form-data" } });
+    setForm((p) => ({ ...p, offerletterlink: res.data?.url || "", offerlettername: file.name }));
+  };
+  const updateStatus = async () => {
+    try {
+      setError("");
+      if (!selectedRows.length) return setError("Select at least one application");
+      await ep1.post("/api/v2/placement-new/applications/status", { ...basePayload(), type, ids: selectedRows, ...form });
+      setMessage("Applications updated");
+      setSelectedRows([]);
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to update applications");
+    }
+  };
+  const loadProfile = async (row) => {
+    try {
+      const res = await ep1.get("/api/v2/placement-new/applications/profile", { params: { ...basePayload(), email: row.studentemail, regno: row.regno } });
+      setProfile(res.data || null);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load student profile");
+    }
+  };
+  const printProfile = () => {
+    const w = window.open("", "_blank");
+    w.document.write(`<html><head><title>Student Profile</title><style>@page{size:A4;margin:12mm}body{font-family:Arial;color:#111}.head{text-align:center}.photo{float:right;width:90px;height:110px;object-fit:cover;border:1px solid #999}table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}td,th{border:1px solid #ddd;padding:5px}h3{margin:12px 0 4px}</style></head><body>${profileRef.current?.innerHTML || ""}</body></html>`);
+    w.document.close();
+    w.print();
+  };
+  return (
+    <Shell title={title}>
+      <Typography variant="h5" fontWeight={900} sx={{ mb: 1 }}>{title}</Typography>
+      {messageBlock(message, error)}
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Grid container spacing={2}>
+          {fields.map((field) => <Grid item xs={12} md={2} key={field}><TextField fullWidth size="small" label={field} value={filters[field] || ""} onChange={(e) => setFilters((p) => ({ ...p, [field]: e.target.value }))} /></Grid>)}
+          <Grid item xs={12} md={2}><TextField fullWidth type="date" size="small" label="Applied from" InputLabelProps={{ shrink: true }} value={filters.appliedFrom || ""} onChange={(e) => setFilters((p) => ({ ...p, appliedFrom: e.target.value }))} /></Grid>
+          <Grid item xs={12} md={2}><TextField fullWidth type="date" size="small" label="Applied to" InputLabelProps={{ shrink: true }} value={filters.appliedTo || ""} onChange={(e) => setFilters((p) => ({ ...p, appliedTo: e.target.value }))} /></Grid>
+          <Grid item xs={12} md={2}><Button fullWidth variant="contained" onClick={load}>Apply filters</Button></Grid>
+        </Grid>
+      </Paper>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} md={3}><Autocomplete options={stages} value={form.stage} getOptionLabel={(o) => `${o.stageorder || ""}. ${o.stagename || ""}`} onChange={(_, v) => setForm((p) => ({ ...p, stage: v, status: v?.stagename || p.status }))} renderInput={(params) => <TextField {...params} size="small" label={`${type} stage`} />} /></Grid>
+          <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Status" value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))} /></Grid>
+          <Grid item xs={12} md={2}><TextField select fullWidth size="small" label="Selected" value={form.selected} onChange={(e) => setForm((p) => ({ ...p, selected: e.target.value }))}><MenuItem value="No">No</MenuItem><MenuItem value="Yes">Yes</MenuItem></TextField></Grid>
+          <Grid item xs={12} md={2}><Button component="label" fullWidth variant="outlined" startIcon={<UploadFile />}>Offer letter<input hidden type="file" onChange={(e) => uploadOffer(e.target.files?.[0])} /></Button></Grid>
+          <Grid item xs={12} md={2}><Button fullWidth variant="contained" onClick={updateStatus}>Update selected</Button></Grid>
+          <Grid item xs={12}><TextField fullWidth size="small" label="Offer letter link" value={form.offerletterlink} onChange={(e) => setForm((p) => ({ ...p, offerletterlink: e.target.value }))} /></Grid>
+          <Grid item xs={12}><TextField fullWidth multiline minRows={2} label="Remarks" value={form.remarks} onChange={(e) => setForm((p) => ({ ...p, remarks: e.target.value }))} /></Grid>
+        </Grid>
+      </Paper>
+      <Paper sx={{ p: 1, mb: 2 }}>
+        <DataGrid rows={rows} getRowId={(r) => r._id} checkboxSelection rowSelectionModel={selectedRows} onRowSelectionModelChange={(m) => setSelectedRows(m)} loading={loading} autoHeight slots={{ toolbar: GridToolbar }} columns={[
+          { field: "jobtitle", headerName: "Job", width: 180 },
+          { field: "company", headerName: "Company", width: 170 },
+          { field: "student", headerName: "Student", width: 180 },
+          { field: "studentemail", headerName: "Email", width: 220 },
+          { field: "regno", headerName: "Reg no", width: 130 },
+          { field: "programcode", headerName: "Program code", width: 130 },
+          { field: "semester", headerName: "Semester", width: 110 },
+          { field: "applieddate", headerName: "Applied date", width: 130 },
+          { field: "stagename", headerName: "Stage", width: 150 },
+          { field: "status", headerName: "Status", width: 130 },
+          { field: "selected", headerName: "Selected", width: 110 },
+          { field: "offerletterlink", headerName: "Offer letter", width: 160, renderCell: ({ value }) => value ? <Button size="small" href={value} target="_blank">Open</Button> : "" },
+          { field: "actions", type: "actions", width: 130, getActions: ({ row }) => [<GridActionsCellItem icon={<Print />} label="Profile" onClick={() => loadProfile(row)} />] }
+        ]} />
+      </Paper>
+      {profile && <Paper sx={{ p: 3 }}>
+        <Stack direction="row" justifyContent="space-between" sx={{ mb: 2 }}><Typography variant="h6" fontWeight={900}>Student profile</Typography><Button startIcon={<Print />} onClick={printProfile}>Print profile</Button></Stack>
+        <Box ref={profileRef}>
+          <Box className="head" sx={{ textAlign: "center", mb: 2 }}>{profile.institution?.logolink && <img src={profile.institution.logolink} alt="logo" style={{ height: 56 }} />}<Typography variant="h5" fontWeight={900}>{profile.institution?.institutionname || "Institution"}</Typography><Typography>{profile.institution?.address}</Typography><Typography variant="h6" fontWeight={800} sx={{ mt: 1 }}>Student Placement Profile</Typography></Box>
+          {profile.student?.photo && <img className="photo" src={profile.student.photo} alt="student" style={{ float: "right", width: 90, height: 110, objectFit: "cover", border: "1px solid #999" }} />}
+          <Grid container spacing={1}>{["name", "email", "phone", "regno", "academicyear", "admissionyear", "program", "programcode", "semester", "section", "skills"].map((f) => <Grid item xs={12} md={3} key={f}><b>{f}:</b> {profile.student?.[f]}</Grid>)}</Grid>
+          <Typography variant="h6" sx={{ mt: 2 }}>Marks</Typography>
+          <DataGrid rows={profile.marks || []} getRowId={(r) => r._id} autoHeight hideFooter columns={[{ field: "coursecode", headerName: "Course code", width: 130 }, { field: "course", headerName: "Course", width: 200 }, { field: "overallgrade", headerName: "Grade", width: 100 }, { field: "overallgradepoint", headerName: "Grade point", width: 120 }, { field: "overallpercentage", headerName: "Percentage", width: 120 }, { field: "status", headerName: "Status", width: 100 }]} />
+          <Typography variant="h6" sx={{ mt: 2 }}>Internship / SIP</Typography>
+          <DataGrid rows={[...(profile.internships || []), ...(profile.sipAssignments || [])]} getRowId={(r) => r._id} autoHeight hideFooter columns={[{ field: "company", headerName: "Company", width: 180 }, { field: "project", headerName: "Project", width: 220 }, { field: "areaofexpertise", headerName: "Area", width: 180 }, { field: "startdate", headerName: "Start", width: 110 }, { field: "enddate", headerName: "End", width: 110 }, { field: "mentor", headerName: "Mentor", width: 180 }]} />
+        </Box>
+      </Paper>}
+    </Shell>
+  );
+}
+
+export function PlacementSipApplicationsPage() {
+  return <PlacementApplicationReviewPage type="SIP" title="SIP applications" />;
+}
+
+export function PlacementJobApplicationsPage() {
+  return <PlacementApplicationReviewPage type="Placement" title="Placement applications" />;
+}
+
 function placementStudentColumns(extra = []) {
   return [
     { field: "student", headerName: "Student", width: 180 },

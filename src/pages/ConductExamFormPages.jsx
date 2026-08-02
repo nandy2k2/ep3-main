@@ -40,6 +40,7 @@ const blankFee = {
   coursecode: "",
   regularfee: "",
   supplementaryfee: "",
+  appealfee: "",
   status: "Active"
 };
 const blankForm = {
@@ -301,6 +302,7 @@ export function ConductExamFeePage() {
       coursecode: "COURSE101",
       regularfee: 500,
       supplementaryfee: 800,
+      appealfee: 1000,
       status: "Active"
     }]);
     const wb = XLSX.utils.book_new();
@@ -338,6 +340,7 @@ export function ConductExamFeePage() {
     { field: "coursecode", headerName: "Course code", width: 140 },
     { field: "regularfee", headerName: "Regular fee", width: 130, type: "number" },
     { field: "supplementaryfee", headerName: "Supplementary fee", width: 160, type: "number" },
+    { field: "appealfee", headerName: "Appeal fee", width: 130, type: "number" },
     { field: "status", headerName: "Status", width: 120 },
     {
       field: "actions",
@@ -368,6 +371,7 @@ export function ConductExamFeePage() {
             <Grid item xs={12} md={4}><MultiSelectCheckbox label="Course" value={selectedCourses} options={courseOptions} onChange={setCourses} getLabel={(option) => { const parts = option.split("||"); return `${parts[2]} (${parts[3]}) - ${parts[1]}`; }} /></Grid>
             <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Regular fee" type="number" value={form.regularfee} onChange={(e) => setForm((prev) => ({ ...prev, regularfee: e.target.value }))} /></Grid>
             <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Supplementary fee" type="number" value={form.supplementaryfee} onChange={(e) => setForm((prev) => ({ ...prev, supplementaryfee: e.target.value }))} /></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Appeal fee" type="number" value={form.appealfee} onChange={(e) => setForm((prev) => ({ ...prev, appealfee: e.target.value }))} /></Grid>
             <Grid item xs={12} md={2}><SelectText label="Status" value={form.status} options={["Active", "Inactive"]} onChange={(value) => setForm((prev) => ({ ...prev, status: value }))} /></Grid>
             <Grid item xs={12} md={2}>
               <Stack direction="row" spacing={1}>

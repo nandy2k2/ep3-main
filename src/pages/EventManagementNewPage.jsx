@@ -129,6 +129,13 @@ const config = {
     endpoint: "papersubmissions",
     fields: ["eventid", "attendee", "email", "phone", "papertitle", "authors", "abstract", "keywords", "paperlink", "paperfilename", "submitteddate", "status", "remarks"],
     defaults: { submitteddate: today(), status: "Submitted" }
+  },
+  checklistconfigs: {
+    title: "Event Checklist Configuration",
+    group: "Event management new",
+    endpoint: "checklistconfigs",
+    fields: ["eventtype", "category", "checklistitem", "description", "mandatory", "order", "status"],
+    defaults: { eventtype: "Conference", category: "Planning", mandatory: "Yes", order: 1, status: "Active" }
   }
 };
 
@@ -142,7 +149,7 @@ function FieldInput({ field, value, setValue, options, events }) {
   if (["startdate", "enddate", "registrationstartdate", "registrationenddate", "fromdate", "todate", "requirementdate", "allocationdate"].includes(field)) {
     return <TextField fullWidth type="date" label={label} value={dateOnly(value)} onChange={(e) => setValue(field, e.target.value)} InputLabelProps={{ shrink: true }} />;
   }
-  if (field === "description" || field === "comments" || field === "remarks" || field === "protocol") {
+  if (field === "description" || field === "comments" || field === "remarks" || field === "protocol" || field === "detail") {
     return <TextField fullWidth multiline minRows={2} label={label} value={eventValue} onChange={(e) => setValue(field, e.target.value)} />;
   }
   if (field === "eventid") {
@@ -152,13 +159,13 @@ function FieldInput({ field, value, setValue, options, events }) {
       </TextField>
     );
   }
-  if (field === "type") {
+  if (field === "type" || field === "eventtype") {
     return <TextField select fullWidth label={label} value={eventValue} onChange={(e) => setValue(field, e.target.value)}>{eventTypes.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField>;
   }
   if (field === "gender") {
     return <TextField select fullWidth label={label} value={eventValue} onChange={(e) => setValue(field, e.target.value)}>{genderOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField>;
   }
-  if (["publicregistration", "certificateenabled", "feedbackrequired", "needsaccommodation", "needstransport", "pickuprequired", "droprequired"].includes(field)) {
+  if (["publicregistration", "certificateenabled", "feedbackrequired", "needsaccommodation", "needstransport", "pickuprequired", "droprequired", "mandatory"].includes(field)) {
     return <TextField select fullWidth label={label} value={eventValue} onChange={(e) => setValue(field, e.target.value)}>{yesNo.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField>;
   }
   if (["mode"].includes(field)) {
@@ -167,10 +174,13 @@ function FieldInput({ field, value, setValue, options, events }) {
   if (["occupancytype"].includes(field)) {
     return <TextField select fullWidth label={label} value={eventValue} onChange={(e) => setValue(field, e.target.value)}>{["Single", "Double"].map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField>;
   }
+  if (["checkliststatus"].includes(field)) {
+    return <TextField select fullWidth label={label} value={eventValue} onChange={(e) => setValue(field, e.target.value)}>{["Pending", "In Progress", "Completed", "Not Applicable", "Delayed"].map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField>;
+  }
   if (["status"].includes(field)) {
     return <TextField select fullWidth label={label} value={eventValue} onChange={(e) => setValue(field, e.target.value)}>{["Active", "Inactive", "Applied", "Approved", "Rejected", "Confirmed", "Reserved", "Allocated", "Pending", "Cancelled"].map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField>;
   }
-  if (["rentperday", "noofbeds", "capacity", "passengercount"].includes(field)) {
+  if (["rentperday", "noofbeds", "capacity", "passengercount", "order"].includes(field)) {
     return <TextField fullWidth type="number" label={label} value={eventValue} onChange={(e) => setValue(field, e.target.value)} />;
   }
   const values = options[field] || [];
@@ -691,6 +701,197 @@ function EventPaperSubmissionReportInnerPage() {
   );
 }
 
+function EventChecklistDetailsInnerPage() {
+  const [options, setOptions] = useState({ events: [] });
+  const [eventid, setEventid] = useState("");
+  const [configs, setConfigs] = useState([]);
+  const [details, setDetails] = useState({});
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const selectedEvent = (options.events || []).find((event) => event._id === eventid);
+
+  useEffect(() => {
+    ep1.get("/api/v2/event-management-new/options", { params: { colid: global1.colid } }).then((res) => setOptions(res.data || {}));
+  }, []);
+
+  const loadChecklist = async (nextEventId = eventid) => {
+    const event = (options.events || []).find((item) => item._id === nextEventId);
+    if (!event) return;
+    setBusy(true);
+    setError("");
+    try {
+      const [cfgRes, detailRes] = await Promise.all([
+        ep1.post("/api/v2/event-management-new/checklistconfigs/list", { colid: global1.colid, query: { eventtype: event.type, status: "Active" }, limit: 5000 }),
+        ep1.post("/api/v2/event-management-new/checklistdetails/list", { colid: global1.colid, query: { eventid: nextEventId }, limit: 5000 })
+      ]);
+      const configRows = (cfgRes.data.data || []).sort((a, b) => Number(a.order || 0) - Number(b.order || 0) || String(a.category || "").localeCompare(String(b.category || "")));
+      const detailRows = detailRes.data.data || [];
+      const detailMap = {};
+      configRows.forEach((cfg) => {
+        const found = detailRows.find((row) => row.category === cfg.category && row.checklistitem === cfg.checklistitem);
+        detailMap[cfg._id] = {
+          id: found?._id || "",
+          checkliststatus: found?.checkliststatus || "Pending",
+          detail: found?.detail || "",
+          responsible: found?.responsible || "",
+          targetdate: dateOnly(found?.targetdate),
+          completeddate: dateOnly(found?.completeddate),
+          remarks: found?.remarks || ""
+        };
+      });
+      setConfigs(configRows);
+      setDetails(detailMap);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load checklist.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const setDetailValue = (configId, field, value) => {
+    setDetails((prev) => ({ ...prev, [configId]: { ...(prev[configId] || {}), [field]: value } }));
+  };
+
+  const saveAll = async () => {
+    if (!selectedEvent) return setError("Select an event.");
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      for (const cfg of configs) {
+        const row = details[cfg._id] || {};
+        await ep1.post("/api/v2/event-management-new/checklistdetails/save", {
+          id: row.id,
+          colid: global1.colid,
+          user: global1.user,
+          name: global1.name,
+          eventid: selectedEvent._id,
+          eventname: selectedEvent.eventname,
+          eventcode: selectedEvent.eventcode,
+          eventtype: selectedEvent.type,
+          category: cfg.category,
+          checklistitem: cfg.checklistitem,
+          description: cfg.description,
+          mandatory: cfg.mandatory,
+          order: cfg.order,
+          checkliststatus: row.checkliststatus || "Pending",
+          detail: row.detail || "",
+          responsible: row.responsible || "",
+          targetdate: row.targetdate || "",
+          completeddate: row.completeddate || "",
+          remarks: row.remarks || ""
+        });
+      }
+      setMessage("Event checklist details saved.");
+      await loadChecklist(selectedEvent._id);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to save checklist details.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const columns = [
+    { field: "order", headerName: "Order", width: 90 },
+    { field: "category", headerName: "Category", width: 150 },
+    { field: "checklistitem", headerName: "Checklist Item", minWidth: 220, flex: 1 },
+    { field: "mandatory", headerName: "Mandatory", width: 120 },
+    { field: "checkliststatus", headerName: "Status", width: 170, renderCell: ({ row }) => <TextField select size="small" fullWidth value={details[row._id]?.checkliststatus || "Pending"} onChange={(e) => setDetailValue(row._id, "checkliststatus", e.target.value)}>{["Pending", "In Progress", "Completed", "Not Applicable", "Delayed"].map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField> },
+    { field: "responsible", headerName: "Responsible", width: 180, renderCell: ({ row }) => <TextField size="small" fullWidth value={details[row._id]?.responsible || ""} onChange={(e) => setDetailValue(row._id, "responsible", e.target.value)} /> },
+    { field: "targetdate", headerName: "Target Date", width: 160, renderCell: ({ row }) => <TextField type="date" size="small" fullWidth value={details[row._id]?.targetdate || ""} onChange={(e) => setDetailValue(row._id, "targetdate", e.target.value)} /> },
+    { field: "completeddate", headerName: "Completed Date", width: 170, renderCell: ({ row }) => <TextField type="date" size="small" fullWidth value={details[row._id]?.completeddate || ""} onChange={(e) => setDetailValue(row._id, "completeddate", e.target.value)} /> },
+    { field: "detail", headerName: "Details", width: 260, renderCell: ({ row }) => <TextField size="small" fullWidth value={details[row._id]?.detail || ""} onChange={(e) => setDetailValue(row._id, "detail", e.target.value)} /> },
+    { field: "remarks", headerName: "Remarks", width: 220, renderCell: ({ row }) => <TextField size="small" fullWidth value={details[row._id]?.remarks || ""} onChange={(e) => setDetailValue(row._id, "remarks", e.target.value)} /> }
+  ];
+
+  return (
+    <MenuPageShell title="Event Checklist Details">
+      <Container maxWidth="xl" sx={{ py: 3 }}>
+        <Breadcrumbs sx={{ mb: 2 }}><Link component={RouterLink} to="/">Home</Link><Typography>Event management new</Typography><Typography>Checklist details</Typography></Breadcrumbs>
+        {message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={6}><TextField select fullWidth label="Event" value={eventid} onChange={(e) => { setEventid(e.target.value); loadChecklist(e.target.value); }}>{(options.events || []).map((event) => <MenuItem key={event._id} value={event._id}>{event.eventname} ({event.eventcode}) - {event.type}</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={2}><Button fullWidth variant="contained" disabled={busy || !eventid} onClick={() => loadChecklist()}>{busy ? "Loading..." : "Load"}</Button></Grid>
+            <Grid item xs={12} md={2}><Button fullWidth variant="contained" color="success" disabled={busy || !configs.length} onClick={saveAll}>Save Details</Button></Grid>
+            <Grid item xs={12} md={2}><Button fullWidth variant="outlined" startIcon={<PrintIcon />} onClick={() => window.print()}>Print</Button></Grid>
+          </Grid>
+        </Paper>
+        {selectedEvent && <Grid container spacing={2} sx={{ mb: 2 }}>{[["Event", selectedEvent.eventname], ["Type", selectedEvent.type], ["Start", dateOnly(selectedEvent.startdate)], ["Venue", selectedEvent.venue]].map(([label, value]) => <Grid item xs={12} md={3} key={label}><Card><CardContent><Typography color="text.secondary">{label}</Typography><Typography variant="h6">{value || "-"}</Typography></CardContent></Card></Grid>)}</Grid>}
+        <Paper sx={{ p: 1 }}>
+          <DataGrid rows={configs.map((row) => ({ ...row, id: row._id }))} columns={columns} loading={busy} autoHeight rowHeight={64} pageSizeOptions={[25, 50, 100]} initialState={{ pagination: { paginationModel: { pageSize: 25 } } }} slots={{ toolbar: GridToolbar }} />
+        </Paper>
+      </Container>
+    </MenuPageShell>
+  );
+}
+
+function EventChecklistReportInnerPage() {
+  const [filters, setFilters] = useState([]);
+  const [form, setForm] = useState({ fromdate: "", todate: "" });
+  const [rows, setRows] = useState([]);
+  const [totals, setTotals] = useState({ total: 0 });
+  const [pivot, setPivot] = useState(["eventname", "category"]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const fields = ["eventname", "eventcode", "eventtype", "mode", "academicyear", "venue", "category", "checklistitem", "mandatory", "checkliststatus", "responsible"];
+  const load = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const res = await ep1.post("/api/v2/event-management-new/checklist-report", { colid: global1.colid, ...form, filters });
+      setRows((res.data.data || []).map((row, index) => ({ ...row, id: row.id || index })));
+      setTotals(res.data.totals || { total: 0 });
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load checklist report.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  useEffect(() => { load(); }, []);
+  const summary = useMemo(() => {
+    const map = new Map();
+    rows.forEach((row) => {
+      const key = pivot.map((field) => row[field] || "NA").join(" / ");
+      const current = map.get(key) || { group: key, total: 0, completed: 0, pending: 0, delayed: 0, inprogress: 0 };
+      current.total += 1;
+      const status = String(row.checkliststatus || "Pending").toLowerCase();
+      if (status === "completed") current.completed += 1;
+      else if (status === "delayed") current.delayed += 1;
+      else if (status.includes("progress")) current.inprogress += 1;
+      else current.pending += 1;
+      map.set(key, current);
+    });
+    return [...map.values()];
+  }, [rows, pivot]);
+  return (
+    <MenuPageShell title="Event Checklist Report">
+      <Container maxWidth="xl" sx={{ py: 3 }}>
+        <Breadcrumbs sx={{ mb: 2 }}><Link component={RouterLink} to="/">Home</Link><Typography>Event management new</Typography><Typography>Checklist report</Typography></Breadcrumbs>
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Stack spacing={2}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={3}><TextField type="date" fullWidth label="From Date" value={form.fromdate} onChange={(e) => setForm({ ...form, fromdate: e.target.value })} InputLabelProps={{ shrink: true }} /></Grid>
+              <Grid item xs={12} md={3}><TextField type="date" fullWidth label="To Date" value={form.todate} onChange={(e) => setForm({ ...form, todate: e.target.value })} InputLabelProps={{ shrink: true }} /></Grid>
+              <Grid item xs={12} md={4}><FormControl fullWidth><InputLabel>Pivot Fields</InputLabel><Select multiple label="Pivot Fields" value={pivot} onChange={(e) => setPivot(e.target.value)} renderValue={(selected) => selected.join(", ")}>{fields.map((field) => <MenuItem key={field} value={field}><Checkbox checked={pivot.includes(field)} /><ListItemText primary={titleCase(field)} /></MenuItem>)}</Select></FormControl></Grid>
+              <Grid item xs={12} md={2}><Button fullWidth variant="contained" disabled={busy} onClick={load} sx={{ height: 56 }}>{busy ? "Loading..." : "Apply"}</Button></Grid>
+            </Grid>
+            {filters.map((filter, index) => <Grid container spacing={2} key={index}><Grid item xs={12} md={3}><TextField select fullWidth label="Filter Field" value={filter.field} onChange={(e) => setFilters((prev) => prev.map((item, i) => i === index ? { ...item, field: e.target.value } : item))}>{fields.map((field) => <MenuItem key={field} value={field}>{titleCase(field)}</MenuItem>)}</TextField></Grid><Grid item xs={12} md={6}><TextField fullWidth label="Value" value={filter.value} onChange={(e) => setFilters((prev) => prev.map((item, i) => i === index ? { ...item, value: e.target.value } : item))} /></Grid><Grid item xs={12} md={2}><Button color="error" onClick={() => setFilters((prev) => prev.filter((_, i) => i !== index))}>Remove</Button></Grid></Grid>)}
+            <Stack direction="row" spacing={1}><Button variant="outlined" onClick={() => setFilters((prev) => [...prev, { field: "eventtype", value: "" }])}>Add Filter</Button><Button startIcon={<PrintIcon />} onClick={() => window.print()}>Print</Button></Stack>
+          </Stack>
+        </Paper>
+        <Grid container spacing={2} sx={{ mb: 2 }}>{[["Total", totals.total || 0], ["Completed", totals.Completed || totals.completed || 0], ["Pending", totals.Pending || totals.pending || 0], ["Delayed", totals.Delayed || totals.delayed || 0]].map(([label, value]) => <Grid item xs={12} md={3} key={label}><Card><CardContent><Typography color="text.secondary">{label}</Typography><Typography variant="h4">{value}</Typography></CardContent></Card></Grid>)}</Grid>
+        <Paper sx={{ p: 2, mb: 2, height: 320 }}><ResponsiveContainer><BarChart data={summary}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="group" hide /><YAxis allowDecimals={false} /><ChartTooltip /><Bar dataKey="completed" stackId="a" fill="#16a34a" /><Bar dataKey="inprogress" stackId="a" fill="#2563eb" /><Bar dataKey="pending" stackId="a" fill="#f59e0b" /><Bar dataKey="delayed" stackId="a" fill="#dc2626" /></BarChart></ResponsiveContainer></Paper>
+        <Paper sx={{ p: 1, mb: 2 }}><Typography variant="h6" sx={{ p: 1 }}>Pivot Summary</Typography><DataGrid rows={summary.map((row, index) => ({ id: index, ...row }))} columns={[{ field: "group", headerName: "Group", flex: 2, minWidth: 260 }, { field: "total", headerName: "Total", width: 100 }, { field: "completed", headerName: "Completed", width: 120 }, { field: "inprogress", headerName: "In Progress", width: 130 }, { field: "pending", headerName: "Pending", width: 110 }, { field: "delayed", headerName: "Delayed", width: 110 }]} autoHeight slots={{ toolbar: GridToolbar }} /></Paper>
+        <Paper sx={{ p: 1 }}><Typography variant="h6" sx={{ p: 1 }}>Checklist Details</Typography><DataGrid rows={rows} columns={["eventname", "eventcode", "eventtype", "startdate", "venue", "category", "checklistitem", "mandatory", "checkliststatus", "responsible", "targetdate", "completeddate", "detail", "remarks"].map((field) => ({ field, headerName: titleCase(field), minWidth: 150, flex: 1, valueGetter: (params) => String(field).includes("date") ? dateOnly(params.row[field]) : params.row[field] }))} autoHeight pageSizeOptions={[25, 50, 100]} slots={{ toolbar: GridToolbar }} /></Paper>
+      </Container>
+    </MenuPageShell>
+  );
+}
+
 export function EventNewCrudPage({ mode }) { return <CrudPage mode={mode} />; }
 export function EventNewAllocationPage() { return <AllocationPage type="vehicle" />; }
 export function GuestHouseAllocationPage() { return <AllocationPage type="guest" />; }
@@ -703,3 +904,5 @@ export function EventNewPublicFeedbackPage() { return <PublicFeedbackPage />; }
 export function EventNewPublicCertificatePage() { return <PublicCertificatePage />; }
 export function EventPaperSubmissionPage() { return <EventPaperSubmissionInnerPage />; }
 export function EventPaperSubmissionReportPage() { return <EventPaperSubmissionReportInnerPage />; }
+export function EventChecklistDetailsPage() { return <EventChecklistDetailsInnerPage />; }
+export function EventChecklistReportPage() { return <EventChecklistReportInnerPage />; }

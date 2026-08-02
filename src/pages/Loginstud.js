@@ -18,6 +18,8 @@ import Link from '@mui/material/Link';
 import ep1 from '../api/ep1';
 import global1 from './global1';
 import { configureCountryTerminology, displayText } from '../utils/countryTerminology';
+import GoogleCredentialButton from '../components/GoogleCredentialButton';
+import { applyLoginSession } from '../utils/loginSession';
 
 const theme = createTheme();
 
@@ -284,6 +286,16 @@ const username=email;
    
 };
 
+  const handleGoogleLogin = async (credential) => {
+    try {
+      const response = await ep1.post('/api/v2/google-auth/login', { credential });
+      const destination = await applyLoginSession(response.data, { isOrthintelDomain });
+      navigate(destination);
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Google login failed');
+    }
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -327,6 +339,7 @@ const username=email;
             >
               Login
             </Button>
+            <GoogleCredentialButton onCredential={handleGoogleLogin} text="Login with Google" />
             <Grid container justifyContent="flex-end">
               <Grid item>
                 {/* <Link component={RouterLink} to="/signup" variant="body1">

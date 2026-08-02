@@ -21,6 +21,8 @@ const filterFields = [
   { key: "course", label: "Course" },
   { key: "coursecode", label: "Course Code" },
   { key: "regno", label: "Reg No" },
+  { key: "section", label: "Section" },
+  { key: "examsection", label: "Exam Section" },
   { key: "applied", label: "Applied" },
   { key: "admitcardeligible", label: "Admit Eligible" },
   { key: "attended", label: "Attended" },
@@ -50,6 +52,7 @@ const blankForm = {
   email: "",
   phone: "",
   section: "",
+  examsection: "",
   applied: "Yes",
   admitcardeligible: "Yes",
   attended: "No",
@@ -264,7 +267,7 @@ export default function ConductExamRollPage() {
   };
 
   const downloadTemplate = () => {
-    const worksheet = XLSX.utils.json_to_sheet([{ academicyear: "2026-27", regulation: "NEP 2026", exam: "Semester End Examination", examcode: "SEE-2026-ODD", program: "B.Com", programcode: "BCOM", type: "Major", subject: "Accountancy", semester: "1", course: "Financial Accounting", coursecode: "BCOM-MAJ-101", student: "Student Name", regno: "REG001", email: "student@example.com", phone: "9999999999", section: "A", applied: "Yes", admitcardeligible: "Yes", attended: "No", noofbacklogs: 0, atkt: "", remarks: "", examdate: "2026-12-10", examslot: "10:00 AM - 1:00 PM", campus: "Main Campus", building: "Academic Block", examroom: "", seatno: "", examseatno: "" }]);
+    const worksheet = XLSX.utils.json_to_sheet([{ academicyear: "2026-27", regulation: "NEP 2026", exam: "Semester End Examination", examcode: "SEE-2026-ODD", program: "B.Com", programcode: "BCOM", type: "Major", subject: "Accountancy", semester: "1", course: "Financial Accounting", coursecode: "BCOM-MAJ-101", student: "Student Name", regno: "REG001", email: "student@example.com", phone: "9999999999", section: "A", examsection: "Section-A, Section-B, Pr", applied: "Yes", admitcardeligible: "Yes", attended: "No", noofbacklogs: 0, atkt: "", remarks: "", examdate: "2026-12-10", examslot: "10:00 AM - 1:00 PM", campus: "Main Campus", building: "Academic Block", examroom: "", seatno: "", examseatno: "" }]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Exam Roll");
     XLSX.writeFile(workbook, "conduct_exam_roll_template.xlsx");
@@ -323,6 +326,7 @@ export default function ConductExamRollPage() {
     { field: "student", headerName: "Student", minWidth: 170, flex: 1 },
     { field: "regno", headerName: "Reg No", width: 130 },
     { field: "section", headerName: "Section", width: 100 },
+    { field: "examsection", headerName: "Exam Section", width: 160 },
     { field: "applied", headerName: "Applied", width: 100 },
     { field: "admitcardeligible", headerName: "Admit Eligible", width: 130 },
     { field: "attended", headerName: "Attended", width: 110 },
@@ -399,6 +403,7 @@ export default function ConductExamRollPage() {
               <Grid item xs={12} md={2}><TextField fullWidth label="Building" value={form.building || ""} onChange={(e) => setForm({ ...form, building: e.target.value })} /></Grid>
               <Grid item xs={12} md={2}><TextField fullWidth label="Exam Room" value={form.examroom} onChange={(e) => setForm({ ...form, examroom: e.target.value })} /></Grid>
               <Grid item xs={12} md={2}><TextField fullWidth label="Seat No" value={form.seatno} onChange={(e) => setForm({ ...form, seatno: e.target.value })} /></Grid>
+              <Grid item xs={12} md={2}><TextField fullWidth label="Exam Section" placeholder="Section-A, Section-B, Pr" value={form.examsection || ""} onChange={(e) => setForm({ ...form, examsection: e.target.value })} /></Grid>
               <Grid item xs={12} md={2}><Button fullWidth variant="contained" color="secondary" onClick={saveRoll} sx={{ height: 56 }}>Update Roll</Button></Grid>
             </>
           )}

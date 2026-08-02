@@ -36,15 +36,17 @@ function PrintBlock({ printRef, title, filters, institution, rows, columns, tota
 function useMonitoringOptions() {
   const [options, setOptions] = useState({});
   const [examiners, setExaminers] = useState([]);
+  const [optionsError, setOptionsError] = useState("");
   useEffect(() => {
     ep1.get("/api/v2/examination-model2/component-monitoring-options", { params: { colid: global1.colid } })
       .then((res) => {
         setOptions(res.data?.options || {});
         setExaminers(res.data?.examiners || []);
+        setOptionsError("");
       })
-      .catch(() => {});
+      .catch((err) => setOptionsError(err.response?.data?.message || "Unable to load monitoring options."));
   }, []);
-  return { options, examiners };
+  return { options, examiners, optionsError };
 }
 
 function FilterPanel({ filters, setFilters, options, onLoad, loading, children }) {
@@ -82,7 +84,7 @@ function printRefContent(printRef, title) {
 }
 
 export function ConductExamMarksEntryMonitoringPage() {
-  const { options } = useMonitoringOptions();
+  const { options, optionsError } = useMonitoringOptions();
   const [filters, setFilters] = useState(blankFilters);
   const [rows, setRows] = useState([]);
   const [details, setDetails] = useState([]);
@@ -132,7 +134,7 @@ export function ConductExamMarksEntryMonitoringPage() {
             <Button variant="outlined" onClick={() => printRefContent(printRef, "Marks Entry Monitoring")} disabled={!rows.length}>Print Preview</Button>
           </Stack>
         </Paper>
-        {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
+        {(error || optionsError) && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error || optionsError}</Alert>}
         <FilterPanel filters={filters} setFilters={setFilters} options={options} onLoad={load} loading={loading} />
         <Grid container spacing={2} sx={{ mb: 2 }}>
           {[["Allotted", totals.allocated], ["Draft", totals.draft], ["Submitted", totals.submitted], ["Pending", totals.pending], ["Submitted %", totals.allocated ? ((totals.submitted / totals.allocated) * 100).toFixed(2) : 0]].map(([label, value]) => <Grid item xs={12} md={2.4} key={label}><Paper sx={{ p: 2, border: "1px solid #e5e7eb" }} elevation={0}><Typography color="text.secondary">{label}</Typography><Typography variant="h5" fontWeight={900}>{value}</Typography></Paper></Grid>)}
@@ -149,7 +151,7 @@ export function ConductExamMarksEntryMonitoringPage() {
 }
 
 export function ConductExamDaywiseMarksMonitoringPage() {
-  const { options } = useMonitoringOptions();
+  const { options, optionsError } = useMonitoringOptions();
   const [filters, setFilters] = useState(blankFilters);
   const [rows, setRows] = useState([]);
   const [totals, setTotals] = useState({ allocated: 0, draft: 0, submitted: 0, marked: 0, days: 0 });
@@ -194,7 +196,7 @@ export function ConductExamDaywiseMarksMonitoringPage() {
             <Button variant="outlined" onClick={() => printRefContent(printRef, "Examiner Monitoring")} disabled={!rows.length}>Print Preview</Button>
           </Stack>
         </Paper>
-        {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
+        {(error || optionsError) && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error || optionsError}</Alert>}
         <FilterPanel filters={filters} setFilters={setFilters} options={options} onLoad={load} loading={loading} />
         <Grid container spacing={2} sx={{ mb: 2 }}>
           <Grid item xs={12} md={2}><Paper sx={{ p: 2 }} elevation={0}><Typography color="text.secondary">Allotted</Typography><Typography variant="h5" fontWeight={900}>{totals.allocated}</Typography></Paper></Grid>
@@ -212,7 +214,7 @@ export function ConductExamDaywiseMarksMonitoringPage() {
 }
 
 export function ConductExamExaminerReassignmentPage() {
-  const { options } = useMonitoringOptions();
+  const { options, optionsError } = useMonitoringOptions();
   const [filters, setFilters] = useState(blankFilters);
   const [marked, setMarked] = useState([]);
   const [pending, setPending] = useState([]);
@@ -280,7 +282,7 @@ export function ConductExamExaminerReassignmentPage() {
           <Typography color="text.secondary">Move marked or pending componentwise papers to another examiner for the same course code.</Typography>
         </Paper>
         {message && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setMessage("")}>{message}</Alert>}
-        {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
+        {(error || optionsError) && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error || optionsError}</Alert>}
         <FilterPanel filters={filters} setFilters={setFilters} options={options} onLoad={load} loading={loading}>
           <Grid item xs={12} md={4}><Autocomplete options={examiners} value={target} getOptionLabel={(option) => option ? `${option.examinername || ""} (${option.examineremail || ""})` : ""} isOptionEqualToValue={(option, value) => option._id === value._id} onChange={(_, value) => setTarget(value)} renderInput={(params) => <TextField {...params} label="Target Examiner" size="small" />} /></Grid>
           <Grid item xs={12} md={2}><Button fullWidth variant="contained" color="secondary" onClick={reassign} disabled={loading || !selectedIds.length} sx={{ height: 40 }}>Reassign ({selectedIds.length})</Button></Grid>

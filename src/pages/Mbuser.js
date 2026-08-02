@@ -24,6 +24,7 @@ const emptyForm = {
   email: "",
   phone: "",
   password: "",
+  googleemail: "",
   role: "",
   institution: "",
   department: "",
@@ -78,6 +79,7 @@ const openEditDialog = (row) => {
     email: row.email || "",
     phone: row.phone || "",
     password: row.password || "",
+    googleemail: row.googleemail || "",
     role: row.role || "",
     institution: row.institution || "",
     department: row.department || "",
@@ -139,6 +141,7 @@ const downloadTemplate = () => {
     email: "employee@example.com",
     phone: "9999999999",
     password: "Password@123",
+    googleemail: "google.user@gmail.com",
     role: "Faculty",
     institution: "Institution",
     department: "Department",
@@ -219,13 +222,14 @@ const handleFileUpload = async (e) => {
     email: row[1],
     phone: row[2],
     password: row[3],
-    role: row[4],
-    institution: row[5],
-    department: row[6],
-    designation: row[7],
-    dateofjoining: row[8],
-    joiningdate: row[8],
-    joiningyear: row[9],
+    googleemail: row[4],
+    role: row[5],
+    institution: row[6],
+    department: row[7],
+    designation: row[8],
+    dateofjoining: row[9],
+    joiningdate: row[9],
+    joiningyear: row[10],
 
     // 🔑 inject here
     user: global1.user,
@@ -257,6 +261,7 @@ const handleBulkDelete = async () => {
     { field: "email", headerName: "Email", flex: 1 },
     { field: "password", headerName: "Password", flex: 1 },
     { field: "phone", headerName: "Phone", flex: 1 },
+    { field: "googleemail", headerName: "Google Email", flex: 1 },
     { field: "role", headerName: "Role", flex: 1 },
     { field: "designation", headerName: "Designation", flex: 1 },
     { field: "joiningdate", headerName: "Date of joining", flex: 1, valueFormatter: ({ value }) => value ? String(value).slice(0, 10) : "" },
@@ -315,7 +320,7 @@ const handleBulkDelete = async () => {
 
       <Box mb={2} display="flex" gap={2}>
         <p>
-            Format of excel file - name, email, phone, password, role, institution, department, designation, dateofjoining, joiningyear
+            Format of excel file - name, email, phone, password, googleemail, role, institution, department, designation, dateofjoining, joiningyear
         </p>
       </Box>
 
@@ -353,6 +358,11 @@ const handleBulkDelete = async () => {
           <TextField label="Password" fullWidth margin="dense"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
+          />
+
+          <TextField label="Google Email" fullWidth margin="dense"
+            value={form.googleemail}
+            onChange={(e) => setForm({ ...form, googleemail: e.target.value })}
           />
 
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ xs: "stretch", sm: "center" }}>

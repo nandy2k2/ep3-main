@@ -18,6 +18,25 @@ import ep1 from "../api/ep1";
 import global1 from "./global1";
 
 const academicYears = ["", "2026-27", "2027-28", "2028-29"];
+const wrappedGridSx = {
+  "& .MuiDataGrid-cell": {
+    alignItems: "flex-start",
+    whiteSpace: "normal",
+    lineHeight: 1.35,
+    py: 1,
+    overflowWrap: "anywhere",
+    wordBreak: "break-word"
+  },
+  "& .MuiDataGrid-cellContent": {
+    whiteSpace: "normal",
+    overflow: "visible",
+    textOverflow: "clip"
+  },
+  "& .MuiDataGrid-columnHeaderTitle": {
+    whiteSpace: "normal",
+    lineHeight: 1.2
+  }
+};
 
 export default function DynamicAdmissionApplicationsPage() {
   const navigate = useNavigate();
@@ -210,8 +229,11 @@ export default function DynamicAdmissionApplicationsPage() {
               rows={rows}
               columns={columns}
               getRowId={(row) => row._id}
+              getRowHeight={() => "auto"}
+              getEstimatedRowHeight={() => 80}
               slots={{ toolbar: GridToolbar }}
               disableRowSelectionOnClick
+              sx={wrappedGridSx}
             />
           </Box>
         </Paper>

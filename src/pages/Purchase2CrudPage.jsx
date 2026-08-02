@@ -26,14 +26,20 @@ const commonFields = [
 ];
 
 const configs = {
-  departmentindentds2: {
+  departmentindentds: {
     title: "Department indent",
     fields: [
       ...commonFields,
-      { field: "department", label: "Department" },
-      { field: "departmentcode", label: "Department Code" },
-      { field: "hodname", label: "HOD Name" },
-      { field: "hodemail", label: "HOD Email" },
+      { field: "departmentname", label: "Department", required: true },
+      { field: "creatorname", label: "Creator Name" },
+      { field: "creatoruserid", label: "Creator User ID" },
+      { field: "hoiapprovername", label: "HOI Approver Name" },
+      { field: "hoiapproveruserid", label: "HOI Approver User ID" },
+      { field: "ahoiapprovername", label: "Assistant HOI Approver Name" },
+      { field: "ahoiapproveruserid", label: "Assistant HOI Approver User ID" },
+      { field: "institution", label: "Institution" },
+      { field: "institutionshort", label: "Institution Short" },
+      { field: "isfrozen", label: "Is Frozen" },
       { field: "status", label: "Status" },
       { field: "remarks", label: "Remarks" }
     ]
@@ -572,6 +578,7 @@ const configs = {
 };
 
 const systemColumns = ["_id", "__v", "id", "colid", "createdAt", "updatedAt"];
+configs.departmentindentds2 = configs.departmentindentds;
 
 const formatDateForInput = (value) => {
   if (!value) return "";
@@ -663,16 +670,16 @@ export default function Purchase2CrudPage() {
     setError("");
     setMessage("");
     try {
-      if (["itemmasterds2", "departmentindentds2"].includes(modelKey)) {
-        const requiredFields = modelKey === "itemmasterds2" ? ["itemname", "itemcode", "category", "unit", "status"] : ["department", "departmentcode"];
+      if (["itemmasterds2", "departmentindentds", "departmentindentds2"].includes(modelKey)) {
+        const requiredFields = modelKey === "itemmasterds2" ? ["itemname", "itemcode", "category", "unit", "status"] : ["departmentname"];
         const missing = requiredFields.filter((field) => !String(form[field] || "").trim());
         if (missing.length) throw new Error(`Required fields missing: ${missing.join(", ")}`);
         const duplicate = rows.find((row) => row._id !== form.id && (
           modelKey === "itemmasterds2"
             ? String(row.itemcode || "").trim().toLowerCase() === String(form.itemcode || "").trim().toLowerCase()
-            : String(row.departmentcode || "").trim().toLowerCase() === String(form.departmentcode || "").trim().toLowerCase()
+            : String(row.departmentname || "").trim().toLowerCase() === String(form.departmentname || "").trim().toLowerCase()
         ));
-        if (duplicate) throw new Error(modelKey === "itemmasterds2" ? "Duplicate item code is not allowed" : "Duplicate department code is not allowed");
+        if (duplicate) throw new Error(modelKey === "itemmasterds2" ? "Duplicate item code is not allowed" : "Duplicate department name is not allowed");
       }
       await ep1.post(`/api/v2/purchase2/${modelKey}`, preparePayload(form, fields, colid, currentName, currentUser));
       setMessage(form.id ? "Record updated." : "Record saved.");

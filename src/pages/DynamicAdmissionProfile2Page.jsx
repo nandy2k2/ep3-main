@@ -19,6 +19,7 @@ import {
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PrintIcon from "@mui/icons-material/Print";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+import VerifiedIcon from "@mui/icons-material/Verified";
 import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
@@ -146,6 +147,10 @@ export default function DynamicAdmissionProfile2Page({ student = false }) {
   const [requiredDocuments, setRequiredDocuments] = useState([]);
   const [activePage, setActivePage] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [blockchainSaving, setBlockchainSaving] = useState(false);
+  const [blockchainLoading, setBlockchainLoading] = useState(false);
+  const [blockchainRecords, setBlockchainRecords] = useState([]);
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -262,6 +267,72 @@ export default function DynamicAdmissionProfile2Page({ student = false }) {
 
   const visiblePage = pageGroups[activePage] || pageGroups[0];
 
+  const buildBlockchainPayload = () => ({
+    application: application || {},
+    fields: pageGroups,
+    documents: documentRows,
+    institution: {
+      institutionname: institution?.institutionname || global1.insname || "",
+      address: institution?.address || "",
+      logolink: institution?.logolink || ""
+    },
+    generatedat: new Date().toISOString()
+  });
+
+  const blockchainRecordId = application?._id ? String(application._id) : "";
+
+  const storeBlockchain = async () => {
+    if (!application?._id) return;
+    try {
+      setBlockchainSaving(true);
+      setError("");
+      setMessage("");
+      const res = await ep1.post("/api/v2/blockchain/append", {
+        colid: global1.colid,
+        modelname: "dynamicadmissionprofile2",
+        collectionname: "admissionapplicationdynamic",
+        recordid: blockchainRecordId,
+        action: "STORE_ADMISSION_PROFILE2",
+        payload: buildBlockchainPayload(),
+        metadata: {
+          formid: application.formid || "",
+          applicationid: application.applicationid || application.applicationnumber || "",
+          name: application.name || "",
+          email: application.email || "",
+          programcode: application.programcode || ""
+        },
+        user: global1.user || global1.email || global1.name || ""
+      });
+      setMessage(`Admission profile stored in blockchain. Hash: ${res.data?.data?.hash || ""}`);
+      await retrieveBlockchain();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to store admission profile in blockchain");
+    } finally {
+      setBlockchainSaving(false);
+    }
+  };
+
+  const retrieveBlockchain = async () => {
+    if (!blockchainRecordId) return;
+    try {
+      setBlockchainLoading(true);
+      setError("");
+      const res = await ep1.get("/api/v2/blockchain/blocks", {
+        params: {
+          colid: global1.colid,
+          modelname: "dynamicadmissionprofile2",
+          recordid: blockchainRecordId
+        }
+      });
+      setBlockchainRecords(res.data?.data || []);
+      if (!(res.data?.data || []).length) setMessage("No blockchain record found for this profile yet.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to retrieve admission profile from blockchain");
+    } finally {
+      setBlockchainLoading(false);
+    }
+  };
+
   const renderValueCell = (item) => (
     <Grid item xs={12} sm={6} md={4} key={item.key || item.label}>
       <Box className="profile2-field" sx={{ border: "1px solid #cbd5e1", minHeight: 42, p: 0.75, bgcolor: "#fff" }}>
@@ -288,9 +359,24 @@ export default function DynamicAdmissionProfile2Page({ student = false }) {
         <Stack className="no-print" direction="row" spacing={1} sx={{ mb: 1.5, flexWrap: "wrap" }}>
           {!student && <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => navigate("/dynamic-admission-applications")}>Back</Button>}
           <Button variant="contained" startIcon={<PrintIcon />} onClick={() => window.print()} disabled={!application}>Print A4</Button>
+          <Button variant="contained" color="success" startIcon={<VerifiedIcon />} onClick={storeBlockchain} disabled={!application || blockchainSaving}>{blockchainSaving ? "Storing..." : "Store in blockchain"}</Button>
+          <Button variant="outlined" startIcon={<VerifiedIcon />} onClick={retrieveBlockchain} disabled={!application || blockchainLoading}>{blockchainLoading ? "Retrieving..." : "Retrieve blockchain"}</Button>
         </Stack>
         {loading && <Alert severity="info" className="no-print" icon={<CircularProgress size={18} />}>Loading profile...</Alert>}
+        {message && <Alert severity="success" className="no-print" onClose={() => setMessage("")} sx={{ mb: 1 }}>{message}</Alert>}
         {error && <Alert severity="error" className="no-print" onClose={() => setError("")}>{error}</Alert>}
+        {!!blockchainRecords.length && (
+          <Paper className="no-print" sx={{ p: 1.5, mb: 1.5, borderRadius: 2, border: "1px solid #bbf7d0", bgcolor: "#f0fdf4" }}>
+            <Typography sx={{ fontWeight: 900, mb: 0.8 }}>Blockchain records</Typography>
+            <Stack spacing={0.6}>
+              {blockchainRecords.map((record) => (
+                <Box key={record._id} sx={{ fontSize: 12, wordBreak: "break-all" }}>
+                  <b>Block #{record.blockindex}</b> | {new Date(record.timestamp).toLocaleString()} | Hash: {record.hash}
+                </Box>
+              ))}
+            </Stack>
+          </Paper>
+        )}
 
         {application && (
           <>

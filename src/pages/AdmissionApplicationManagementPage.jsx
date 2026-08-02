@@ -44,6 +44,25 @@ const parseNumber = (value) => {
   const parsed = Number(value);
   return Number.isNaN(parsed) ? value : parsed;
 };
+const wrappedGridSx = {
+  "& .MuiDataGrid-cell": {
+    alignItems: "flex-start",
+    whiteSpace: "normal",
+    lineHeight: 1.35,
+    py: 1,
+    overflowWrap: "anywhere",
+    wordBreak: "break-word"
+  },
+  "& .MuiDataGrid-cellContent": {
+    whiteSpace: "normal",
+    overflow: "visible",
+    textOverflow: "clip"
+  },
+  "& .MuiDataGrid-columnHeaderTitle": {
+    whiteSpace: "normal",
+    lineHeight: 1.2
+  }
+};
 
 const emptyGeneralAdmission = {
   academicyear: "",
@@ -674,11 +693,14 @@ export default function AdmissionApplicationManagementPage() {
               checkboxSelection
               rowSelectionModel={selectedIds}
               onRowSelectionModelChange={(selection) => setSelectedIds(Array.from(selection?.ids || selection))}
+              getRowHeight={() => "auto"}
+              getEstimatedRowHeight={() => 80}
               disableRowSelectionOnClick
               loading={loadingRows}
               slots={{ toolbar: GridToolbar }}
               slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "admission_application_management" } } }}
               pageSizeOptions={[10, 25, 50, 100]}
+              sx={wrappedGridSx}
             />
           </Box>
         </Paper>

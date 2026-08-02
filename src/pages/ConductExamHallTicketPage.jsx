@@ -12,6 +12,19 @@ const filterFields = ["academicyear", "exam", "examcode", "regulation", "program
 const labels = { academicyear: "Academic Year", exam: "Exam", examcode: "Exam Code", regulation: "Regulation", program: "Program", programcode: "Program Code", semester: "Semester", section: "Section", student: "Student", regno: "Reg No" };
 const origin = () => window.location.origin;
 const verificationUrl = ({ colid, regno, hash }) => `${origin()}/verify-hallticket-blockchain?colid=${encodeURIComponent(colid)}&regno=${encodeURIComponent(regno || "")}&hash=${encodeURIComponent(hash || "")}`;
+const valueText = (...values) => values.map((value) => String(value || "").trim()).find(Boolean) || "-";
+const formatAdmitDate = (value) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }).replace(/ /g, "-");
+};
+const romanSemester = (value) => {
+  const map = { "1": "I", "2": "II", "3": "III", "4": "IV", "5": "V", "6": "VI", "7": "VII", "8": "VIII", "9": "IX", "10": "X" };
+  const cleaned = String(value || "").trim();
+  return map[cleaned] || cleaned || "-";
+};
+const photoUrl = (student = {}) => valueText(student.photo, student.photolink, student.profilephoto, "").replace(/^-$/, "");
 
 function HallTicketPrint({ ticket, qr }) {
   if (!ticket) return null;
@@ -80,6 +93,157 @@ function HallTicketPrint({ ticket, qr }) {
         {qr && <Box sx={{ textAlign: "center" }}><Box component="img" src={qr} alt="Blockchain QR" sx={{ width: 110, height: 110 }} /><Typography variant="caption">Blockchain verify</Typography></Box>}
         <Box sx={{ textAlign: "center", minWidth: 180, borderTop: "1px solid #111827", pt: 1 }}>Controller of Examinations</Box>
       </Stack>
+    </Box>
+  );
+}
+
+function HallTicketPrint2({ ticket, qr }) {
+  if (!ticket) return null;
+  const institution = ticket.institution || {};
+  const student = ticket.student || {};
+  const exam = ticket.exam || {};
+  const rows = ticket.rows || [];
+  const first = rows[0] || {};
+  const logo = valueText(institution.logolink, institution.logo, global1.logo, "").replace(/^-$/, "");
+  const photo = photoUrl(student);
+  const examName = valueText(exam.exam, first.exam);
+  const examCode = valueText(exam.examcode, first.examcode, "");
+  const institute = valueText(student.institution, institution.institutionname, global1.insname, "Institution");
+  const centre = valueText(first.examcentre, first.examcenter, first.campus && first.building ? `${first.campus}, ${first.building}` : "", first.campus, institution.institutionname);
+  const batch = valueText(student.admissionyear, first.admissionyear, student.academicyear, first.academicyear);
+  const mainSupp = /supp/i.test(valueText(first.examtype, first.type, exam.exam, "")) ? "Suppl." : "Main";
+  return (
+    <Box id="hall-ticket-print-2" sx={{
+      bgcolor: "#fff",
+      color: "#000",
+      width: "210mm",
+      minHeight: "297mm",
+      mx: "auto",
+      p: "9mm 9mm",
+      fontFamily: "Arial, Helvetica, sans-serif",
+      fontSize: "13px",
+      lineHeight: 1.18,
+      boxSizing: "border-box",
+      position: "relative",
+      "@media print": {
+        position: "absolute",
+        left: 0,
+        top: 0,
+        width: "210mm",
+        minHeight: "297mm",
+        p: "9mm 9mm",
+        boxShadow: "none"
+      }
+    }}>
+      <style>{`
+        @page{size:A4;margin:0}
+        @media print{body *{visibility:hidden}#hall-ticket-print-2,#hall-ticket-print-2 *{visibility:visible}.no-print{display:none!important}}
+        #hall-ticket-print-2 table{border-collapse:collapse}
+        #hall-ticket-print-2 th,#hall-ticket-print-2 td{color:#000}
+      `}</style>
+      <Box sx={{ display: "grid", gridTemplateColumns: "105px 1fr 92px", alignItems: "start", columnGap: 2, mb: 1.2 }}>
+        <Box>{logo && <Box component="img" src={logo} alt="Logo" sx={{ width: 78, maxHeight: 82, objectFit: "contain" }} />}</Box>
+        <Box sx={{ textAlign: "center", pt: 0.5 }}>
+          <Typography sx={{ fontSize: 24, color: "#000", fontWeight: 500, letterSpacing: 0, mb: 2.6 }}>ADMIT CARD</Typography>
+          <Typography sx={{ fontSize: 16, color: "#000", textAlign: "left", pl: 1 }}>
+            <Box component="span" sx={{ mr: 1.5 }}>Exam Name:</Box>
+            <Box component="span">{examName}{examCode && examName !== examCode ? `, ${examCode}` : ""}</Box>
+          </Typography>
+        </Box>
+        <Box sx={{ textAlign: "right" }}>
+          {photo ? (
+            <Box component="img" src={photo} alt="Student" sx={{ width: 68, height: 84, objectFit: "cover" }} />
+          ) : (
+            <Box sx={{ width: 68, height: 84, ml: "auto", border: "1px solid #000", display: "grid", placeItems: "center", fontSize: 10 }}>Photo</Box>
+          )}
+        </Box>
+      </Box>
+
+      <Box sx={{ borderTop: "2px solid #000", borderBottom: "1px solid #000", py: 0.8, mb: 1.4 }}>
+        <Typography sx={{ fontSize: 16, color: "#000" }}>
+          <Box component="span" sx={{ mr: 2 }}>Examination Centre:</Box>
+          <Box component="span">{centre}</Box>
+        </Typography>
+      </Box>
+
+      <Box sx={{ borderBottom: "1px solid #000", pb: 1.2, mb: 1 }}>
+        <Box sx={{ display: "grid", gridTemplateColumns: "1.15fr 1fr 1.2fr 0.8fr 1.1fr 1.15fr", rowGap: 1, textAlign: "center" }}>
+          {["Enrollment No:", "Course", "Specialization", "Year", "Main/Suppl.", "Academic Batch"].map((item) => (
+            <Typography key={item} sx={{ fontSize: 14, color: "#000" }}>{item}</Typography>
+          ))}
+          {[valueText(student.regno, first.regno), valueText(exam.programcode, first.programcode, exam.program, first.program), valueText(student.specialization1, student.specialization, first.subject, "-"), romanSemester(first.semester || student.semester), mainSupp, batch].map((item, index) => (
+            <Typography key={`${item}-${index}`} sx={{ fontSize: 14, color: "#000" }}>{item}</Typography>
+          ))}
+        </Box>
+      </Box>
+
+      <Box sx={{ borderBottom: "2px solid #000", pb: 0.8, mb: 0.8 }}>
+        {[
+          ["Examinee Name:", valueText(student.name, first.student)],
+          ["Father's Name:", valueText(student.fathername, student.guardianname)],
+          ["Institute :", institute]
+        ].map(([label, value]) => (
+          <Box key={label} sx={{ display: "grid", gridTemplateColumns: "155px 1fr", mb: 0.8 }}>
+            <Typography sx={{ fontSize: 14, color: "#000" }}>{label}</Typography>
+            <Typography sx={{ fontSize: 14, color: "#000" }}>{value}</Typography>
+          </Box>
+        ))}
+      </Box>
+
+      <Typography sx={{ textAlign: "center", fontSize: 14, color: "#000", mb: 0.5 }}>
+        The above examinee appear in following Paper (s)
+      </Typography>
+      <table style={{ width: "100%", border: "1px solid #000", fontSize: 13, marginBottom: 0 }}>
+        <thead>
+          <tr>
+            <th style={{ border: "1px solid #000", padding: "3px 7px", fontSize: 15, fontWeight: 500 }}>DOTE</th>
+            <th style={{ border: "1px solid #000", padding: "3px 7px", fontSize: 15, fontWeight: 500 }}>TIME</th>
+            <th style={{ border: "1px solid #000", padding: "3px 7px", fontSize: 15, fontWeight: 500 }}>Subject Code</th>
+            <th style={{ border: "1px solid #000", padding: "3px 7px", fontSize: 15, fontWeight: 500 }}>Subject Name</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row._id || `${row.coursecode}-${row.examdate}`}>
+              <td style={{ border: "1px solid #000", padding: "3px 8px", textAlign: "center" }}>{formatAdmitDate(row.examdate)}</td>
+              <td style={{ border: "1px solid #000", padding: "3px 8px", textAlign: "center" }}>{valueText(row.examtime, row.examslot)}</td>
+              <td style={{ border: "1px solid #000", padding: "3px 8px", textAlign: "center" }}>{valueText(row.coursecode)}</td>
+              <td style={{ border: "1px solid #000", padding: "3px 8px" }}>{valueText(row.course)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {qr && (
+        <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1, mt: 1 }}>
+          <Typography sx={{ fontSize: 10, color: "#000" }}>Blockchain verification</Typography>
+          <Box component="img" src={qr} alt="Blockchain QR" sx={{ width: 58, height: 58 }} />
+        </Box>
+      )}
+
+      <Box sx={{ mt: 2 }}>
+        <Typography sx={{ fontSize: 13, color: "#000", textDecoration: "underline", mb: 1 }}>Instructions for Examinee</Typography>
+        {[
+          "Examinee has to report 15 minutes before, in the Examination room of the given schedule time.",
+          "Examinee can leave the Examination room with due permission of the Invigilator.",
+          "If Examinee is out of Examination room for more than 5 (Five) minutes for any specified reasons recorded by the Invigilator. After this period the answer book will be collected by the Invigilator.",
+          "No Examinee will be permitted to leave the Examination room in first hour and last half an hour of Examination.",
+          "For any type of copying, Examinee will be covered under Un-fair means (UFM).",
+          "Maintain discipline, decorum and peace in the Examination room.",
+          "Mobile / Calculator / Any electronic device is not permitted. Calculator will be permitted only as per requirement.",
+          "No provision of Supplementary sheet.[ only 40 pages & 20 pages Answer book where applicable]",
+          "Examinee must carry a valid PHOTO IDENTITY CARD.",
+          "If in case of any deficiency in Date Of Theory Exam (DOTE) then circulated examination Schedule DOTE will be final."
+        ].map((item, index) => (
+          <Typography key={item} sx={{ fontSize: 12.5, color: "#000", lineHeight: 1.18 }}>{index + 1}. {item}</Typography>
+        ))}
+      </Box>
+
+      <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", alignItems: "end", mt: 5, fontSize: 14, color: "#000" }}>
+        <Typography sx={{ fontSize: 14, color: "#000" }}>Signature of Examinee</Typography>
+        <Typography sx={{ fontSize: 14, color: "#000", textAlign: "center" }}>Signature of COE with Seal</Typography>
+        <Typography sx={{ fontSize: 14, color: "#000", textAlign: "right" }}>Signature of VFS with Seal</Typography>
+      </Box>
     </Box>
   );
 }
@@ -197,6 +361,110 @@ export default function ConductExamHallTicketPage() {
           </Stack>
         )}
         <HallTicketPrint ticket={common.ticket} qr={common.qr} />
+      </Box>
+    </MenuPageShell>
+  );
+}
+
+export function ConductExamHallTicket2Page() {
+  const [options, setOptions] = useState({});
+  const [filters, setFilters] = useState({});
+  const [students, setStudents] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [storing, setStoring] = useState(false);
+  const common = useHallTicketCommon();
+
+  useEffect(() => { loadOptions(); loadStudents(); }, []);
+
+  const params = (source = filters) => {
+    const next = { colid: global1.colid };
+    filterFields.forEach((field) => { if (source[field]) next[field] = source[field]; });
+    return next;
+  };
+  const loadOptions = async () => {
+    const res = await ep1.get("/api/v2/conductexam/hallticket-options", { params: { colid: global1.colid } });
+    setOptions(res.data?.options || {});
+  };
+  const loadStudents = async (nextFilters = filters) => {
+    try {
+      setLoading(true);
+      common.setError("");
+      const res = await ep1.get("/api/v2/conductexam/hallticket-eligible-students", { params: params(nextFilters) });
+      setStudents(res.data?.data || []);
+    } catch (err) {
+      common.setError(err.response?.data?.message || "Unable to load eligible students");
+    } finally {
+      setLoading(false);
+    }
+  };
+  const loadTicket = async (row) => {
+    setSelected(row);
+    common.setBlock(null);
+    common.setQr("");
+    const res = await ep1.get("/api/v2/conductexam/hallticket", { params: { colid: global1.colid, academicyear: row.academicyear, examcode: row.examcode, regno: row.regno } });
+    common.setTicket(res.data?.data || null);
+  };
+  const storeBlockchain = async () => {
+    if (!selected) return;
+    try {
+      setStoring(true);
+      const res = await ep1.post("/api/v2/conductexam/hallticket-blockchain-store", { colid: global1.colid, academicyear: selected.academicyear, examcode: selected.examcode, regno: selected.regno, user: global1.user });
+      common.setBlock(res.data?.data || null);
+      const url = await common.generateQr(res.data?.data, selected.regno);
+      common.setMessage(`Stored in blockchain. Verification: ${url}`);
+    } catch (err) {
+      common.setError(err.response?.data?.message || "Unable to store hall ticket in blockchain");
+    } finally {
+      setStoring(false);
+    }
+  };
+  const columns = [
+    { field: "student", headerName: "Student", width: 180 },
+    { field: "regno", headerName: "Reg No", width: 130 },
+    { field: "academicyear", headerName: "Academic Year", width: 130 },
+    { field: "exam", headerName: "Exam", width: 180 },
+    { field: "examcode", headerName: "Exam Code", width: 130 },
+    { field: "program", headerName: "Program", width: 190 },
+    { field: "programcode", headerName: "Program Code", width: 130 },
+    { field: "semester", headerName: "Semester", width: 110 },
+    { field: "coursecount", headerName: "Courses", width: 100 }
+  ];
+  return (
+    <MenuPageShell title="Generate hall ticket 2">
+      <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
+        <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
+          <Typography variant="h5" fontWeight={900}>Generate Hall Ticket 2</Typography>
+          <Typography color="text.secondary">Select an eligible student and generate admit card in the attached format.</Typography>
+        </Paper>
+        {common.message && <Alert severity="success" sx={{ mb: 2 }}>{common.message}</Alert>}
+        {common.error && <Alert severity="error" sx={{ mb: 2 }}>{common.error}</Alert>}
+        <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
+          <Grid container spacing={2}>
+            {filterFields.slice(0, 8).map((field) => (
+              <Grid item xs={12} sm={6} md={2} key={field}>
+                <FormControl fullWidth>
+                  <InputLabel>{labels[field]}</InputLabel>
+                  <Select label={labels[field]} value={filters[field] || ""} onChange={(e) => setFilters((prev) => ({ ...prev, [field]: e.target.value }))}>
+                    <MenuItem value="">All</MenuItem>
+                    {(options[field] || []).map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
+                  </Select>
+                </FormControl>
+              </Grid>
+            ))}
+            <Grid item xs={12} md={2}><Button fullWidth variant="contained" onClick={() => loadStudents()} disabled={loading} sx={{ height: 56 }}>{loading ? "Loading..." : "Apply"}</Button></Grid>
+          </Grid>
+        </Paper>
+        <Paper elevation={0} sx={{ p: 1.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2, overflowX: "auto" }}>
+          <DataGrid rows={students.map((row) => ({ ...row, id: `${row.regno}-${row.academicyear}-${row.examcode}` }))} columns={columns} loading={loading} autoHeight slots={{ toolbar: GridToolbar }} pageSizeOptions={[10, 25, 50, 100]} onRowClick={(params) => loadTicket(params.row)} sx={{ minWidth: 1200 }} />
+        </Paper>
+        {common.ticket && (
+          <Stack direction="row" spacing={1} sx={{ mb: 2 }} className="no-print">
+            <Button variant="contained" startIcon={<PrintIcon />} onClick={common.print}>Print</Button>
+            <Button variant="outlined" startIcon={storing ? <CircularProgress size={18} /> : <VerifiedIcon />} disabled={storing} onClick={storeBlockchain}>{storing ? "Storing..." : "Store in Blockchain"}</Button>
+          </Stack>
+        )}
+        <HallTicketPrint2 ticket={common.ticket} qr={common.qr} />
       </Box>
     </MenuPageShell>
   );

@@ -30,7 +30,7 @@ import ep1 from "../api/ep1";
 import global1 from "./global1";
 
 const preferredFields = [
-  "email", "name", "phone", "password", "role", "regno", "regulation", "program", "programcode",
+  "email", "googleemail", "name", "phone", "password", "role", "regno", "regulation", "program", "programcode",
   "academicyear", "admissionyear", "birthdate", "joiningdate", "semester", "section", "gender",
   "department", "category", "address", "status", "Major", "Minor", "AEC", "SEC", "VAC", "IDC"
 ];
