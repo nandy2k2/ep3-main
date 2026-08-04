@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   FormControl,
@@ -29,7 +30,6 @@ const configs = {
   departmentindentds: {
     title: "Department indent",
     fields: [
-      ...commonFields,
       { field: "departmentname", label: "Department", required: true },
       { field: "creatorname", label: "Creator Name" },
       { field: "creatoruserid", label: "Creator User ID" },
@@ -44,14 +44,38 @@ const configs = {
       { field: "remarks", label: "Remarks" }
     ]
   },
+  itemunitds2: {
+    title: "Item unit",
+    fields: [
+      { field: "unitname", label: "Unit Name", required: true },
+      { field: "unitcode", label: "Unit Code", required: true },
+      { field: "description", label: "Description" },
+      { field: "status", label: "Status", required: true }
+    ]
+  },
+  itemtypeds2: {
+    title: "Item type",
+    fields: [
+      { field: "itemtype", label: "Item Type", required: true },
+      { field: "description", label: "Description" },
+      { field: "status", label: "Status", required: true }
+    ]
+  },
+  itemcategoryds2: {
+    title: "Item category",
+    fields: [
+      { field: "categoryname", label: "Category", required: true },
+      { field: "description", label: "Description" },
+      { field: "status", label: "Status", required: true }
+    ]
+  },
   itemmasterds2: {
     title: "Item master",
     fields: [
-      ...commonFields,
       { field: "itemcode", label: "Item Code" },
       { field: "itemname", label: "Item Name" },
       { field: "category", label: "Category" },
-      { field: "type", label: "Type" },
+      { field: "itemtype", label: "Type" },
       { field: "unit", label: "Unit" },
       { field: "description", label: "Description" },
       { field: "approxprice", label: "Approx Price", type: "number" },
@@ -220,9 +244,9 @@ const configs = {
     fields: [
       ...commonFields,
       { field: "storeuser", label: "Store User" },
+      { field: "userid", label: "User ID" },
       { field: "storeid", label: "Store ID" },
       { field: "store", label: "Store" },
-      { field: "userid", label: "User ID" },
       { field: "level", label: "Level" }
     ]
   },
@@ -231,9 +255,9 @@ const configs = {
     fields: [
       ...commonFields,
       { field: "storeuser", label: "Store User" },
+      { field: "userid", label: "User ID" },
       { field: "storeid", label: "Store ID" },
       { field: "store", label: "Store" },
-      { field: "userid", label: "User ID" },
       { field: "level", label: "Level" }
     ]
   },
@@ -579,6 +603,7 @@ const configs = {
 
 const systemColumns = ["_id", "__v", "id", "colid", "createdAt", "updatedAt"];
 configs.departmentindentds2 = configs.departmentindentds;
+const globalManagedModels = ["departmentindentds", "departmentindentds2", "itemunitds2", "itemmasterds2", "itemtypeds2", "itemcategoryds2"];
 
 const formatDateForInput = (value) => {
   if (!value) return "";
@@ -633,6 +658,10 @@ export default function Purchase2CrudPage() {
   const [filterDraft, setFilterDraft] = useState({ field: fields[0]?.field || "", value: "" });
   const [selectedRows, setSelectedRows] = useState([]);
   const [bulkEdit, setBulkEdit] = useState({ field: fields[0]?.field || "", value: "" });
+  const [lookupUsers, setLookupUsers] = useState([]);
+  const [lookupStores, setLookupStores] = useState([]);
+  const [lookupItemTypes, setLookupItemTypes] = useState([]);
+  const [lookupItemCategories, setLookupItemCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -665,21 +694,54 @@ export default function Purchase2CrudPage() {
     if (colid && modelKey) loadRows([]);
   }, [colid, modelKey]);
 
+  const isStoreUsers = ["storeuserds2", "storeusersds2"].includes(modelKey);
+  const isGlobalManaged = globalManagedModels.includes(modelKey);
+
+  useEffect(() => {
+    if (!isStoreUsers && !["departmentindentds", "departmentindentds2"].includes(modelKey) && modelKey !== "itemmasterds2") return;
+    const loadLookups = async () => {
+      try {
+        if (isStoreUsers) {
+          const [usersRes, storesRes] = await Promise.all([
+            ep1.get("/api/v2/hrattendance/options", { params: { colid } }),
+            ep1.get("/api/v2/purchase2/storemasterds2", { params: { colid, filters: JSON.stringify([]) } })
+          ]);
+          setLookupUsers((usersRes.data?.users || []).filter((user) => String(user.role || "").toLowerCase() !== "student"));
+          setLookupStores(storesRes.data?.data || []);
+        } else {
+          const requests = [ep1.get("/api/v2/hrattendance/options", { params: { colid } })];
+          if (modelKey === "itemmasterds2") {
+            requests.push(ep1.get("/api/v2/purchase2/itemtypeds2", { params: { colid, filters: JSON.stringify([]) } }));
+            requests.push(ep1.get("/api/v2/purchase2/itemcategoryds2", { params: { colid, filters: JSON.stringify([]) } }));
+          }
+          const [usersRes, typesRes, categoriesRes] = await Promise.all(requests);
+          setLookupUsers((usersRes.data?.users || []).filter((user) => String(user.role || "").toLowerCase() !== "student"));
+          if (typesRes) setLookupItemTypes(typesRes.data?.data || []);
+          if (categoriesRes) setLookupItemCategories(categoriesRes.data?.data || []);
+        }
+      } catch (err) {
+        setError(err.response?.data?.message || err.message || "Unable to load dropdown data");
+      }
+    };
+    loadLookups();
+  }, [colid, isStoreUsers, modelKey]);
+
   const saveRow = async () => {
     setSaving(true);
     setError("");
     setMessage("");
     try {
-      if (["itemmasterds2", "departmentindentds", "departmentindentds2"].includes(modelKey)) {
-        const requiredFields = modelKey === "itemmasterds2" ? ["itemname", "itemcode", "category", "unit", "status"] : ["departmentname"];
+      if (["itemmasterds2", "itemunitds2", "itemtypeds2", "itemcategoryds2", "departmentindentds", "departmentindentds2"].includes(modelKey)) {
+        const requiredFields = modelKey === "itemmasterds2" ? ["itemname", "itemcode", "category", "itemtype", "unit", "status"] : modelKey === "itemunitds2" ? ["unitname", "unitcode", "status"] : modelKey === "itemtypeds2" ? ["itemtype", "status"] : modelKey === "itemcategoryds2" ? ["categoryname", "status"] : ["departmentname"];
         const missing = requiredFields.filter((field) => !String(form[field] || "").trim());
         if (missing.length) throw new Error(`Required fields missing: ${missing.join(", ")}`);
-        const duplicate = rows.find((row) => row._id !== form.id && (
-          modelKey === "itemmasterds2"
-            ? String(row.itemcode || "").trim().toLowerCase() === String(form.itemcode || "").trim().toLowerCase()
-            : String(row.departmentname || "").trim().toLowerCase() === String(form.departmentname || "").trim().toLowerCase()
-        ));
-        if (duplicate) throw new Error(modelKey === "itemmasterds2" ? "Duplicate item code is not allowed" : "Duplicate department name is not allowed");
+        const duplicateField = modelKey === "itemmasterds2" ? "itemcode"
+          : modelKey === "itemunitds2" ? "unitcode"
+            : modelKey === "itemtypeds2" ? "itemtype"
+              : modelKey === "itemcategoryds2" ? "categoryname"
+                : "departmentname";
+        const duplicate = rows.find((row) => row._id !== form.id && String(row[duplicateField] || "").trim().toLowerCase() === String(form[duplicateField] || "").trim().toLowerCase());
+        if (duplicate) throw new Error(modelKey === "itemmasterds2" ? "Duplicate item code is not allowed" : modelKey === "itemunitds2" ? "Duplicate unit code is not allowed" : modelKey === "itemtypeds2" ? "Duplicate item type is not allowed" : modelKey === "itemcategoryds2" ? "Duplicate item category is not allowed" : "Duplicate department name is not allowed");
       }
       await ep1.post(`/api/v2/purchase2/${modelKey}`, preparePayload(form, fields, colid, currentName, currentUser));
       setMessage(form.id ? "Record updated." : "Record saved.");
@@ -828,6 +890,7 @@ export default function Purchase2CrudPage() {
     })),
     ...Object.keys(rows[0] || {})
       .filter((key) => !systemColumns.includes(key) && !fields.some((field) => field.field === key))
+      .filter((key) => !(isGlobalManaged && ["name", "user"].includes(key)))
       .map((key) => ({ field: key, headerName: key, minWidth: 160, flex: 1 }))
   ];
 
@@ -846,21 +909,41 @@ export default function Purchase2CrudPage() {
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(4, minmax(0, 1fr))" }, gap: 2 }}>
-          {fields.map((field) => (
-            <TextField
-              key={field.field}
-              size="small"
-              label={field.label}
-              type={field.type === "date" ? "date" : field.type === "number" ? "number" : "text"}
-              value={form[field.field] || ""}
-              onChange={(event) => setForm({ ...form, [field.field]: event.target.value })}
-              required={field.required}
-              multiline={field.type === "json"}
-              minRows={field.type === "json" ? 2 : undefined}
-              InputLabelProps={field.type === "date" ? { shrink: true } : undefined}
-              sx={field.type === "json" ? { gridColumn: { xs: "1", md: "span 4" } } : undefined}
-            />
-          ))}
+          {fields.map((field) => {
+            if (isStoreUsers && ["name", "user"].includes(field.field)) return null;
+            if (isGlobalManaged && ["name", "user"].includes(field.field)) return null;
+            if (isStoreUsers && field.field === "storeuser") {
+              return <Autocomplete key={field.field} options={lookupUsers} getOptionLabel={(option) => `${option.name || ""} ${option.email || option.user || ""}`} onChange={(_, value) => setForm({ ...form, storeuser: value?.name || "", userid: value?.email || value?.user || "" })} renderInput={(params) => <TextField {...params} label="Select user" size="small" />} />;
+            }
+            if (isStoreUsers && field.field === "store") {
+              return <Autocomplete key={field.field} options={lookupStores} getOptionLabel={(option) => `${option.storename || option.store || option.name || ""}`} onChange={(_, value) => setForm({ ...form, store: value?.storename || value?.store || "", storeid: value?._id || value?.storeid || "" })} renderInput={(params) => <TextField {...params} label="Select store" size="small" />} />;
+            }
+            if (["departmentindentds", "departmentindentds2"].includes(modelKey) && field.field === "creatoruserid") {
+              return <Autocomplete key={field.field} options={lookupUsers} getOptionLabel={(option) => `${option.name || ""} ${option.email || option.user || ""}`} onChange={(_, value) => setForm({ ...form, creatorname: value?.name || "", creatoruserid: value?.email || value?.user || "" })} renderInput={(params) => <TextField {...params} label="Creator user" size="small" />} />;
+            }
+            if (modelKey === "itemmasterds2" && field.field === "itemtype") {
+              return <Autocomplete key={field.field} options={lookupItemTypes} value={lookupItemTypes.find((row) => row.itemtype === form.itemtype) || null} getOptionLabel={(option) => option.itemtype || ""} onChange={(_, value) => setForm({ ...form, itemtype: value?.itemtype || "" })} renderInput={(params) => <TextField {...params} label="Type" size="small" required={field.required} />} />;
+            }
+            if (modelKey === "itemmasterds2" && field.field === "category") {
+              return <Autocomplete key={field.field} options={lookupItemCategories} value={lookupItemCategories.find((row) => row.categoryname === form.category) || null} getOptionLabel={(option) => option.categoryname || ""} onChange={(_, value) => setForm({ ...form, category: value?.categoryname || "" })} renderInput={(params) => <TextField {...params} label="Category" size="small" required={field.required} />} />;
+            }
+            return (
+              <TextField
+                key={field.field}
+                size="small"
+                label={field.label}
+                type={field.type === "date" ? "date" : field.type === "number" ? "number" : "text"}
+                value={form[field.field] || ""}
+                onChange={(event) => setForm({ ...form, [field.field]: event.target.value })}
+                required={field.required}
+                disabled={isStoreUsers && field.field === "storeid"}
+                multiline={field.type === "json"}
+                minRows={field.type === "json" ? 2 : undefined}
+                InputLabelProps={field.type === "date" ? { shrink: true } : undefined}
+                sx={field.type === "json" ? { gridColumn: { xs: "1", md: "span 4" } } : undefined}
+              />
+            );
+          })}
         </Box>
         <Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: "wrap" }}>
           <Button variant="contained" startIcon={<Save />} disabled={saving} onClick={saveRow}>{form.id ? "Update" : "Save"}</Button>

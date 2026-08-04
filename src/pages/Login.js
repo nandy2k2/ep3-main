@@ -21,6 +21,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import Link from '@mui/material/Link';
 import ep1 from '../api/ep1';
 import global1 from './global1';
+import { continueAfterPrimaryLogin } from '../utils/twoFactorLogin';
 
 const theme = createTheme();
 const orthintelLogoUrl = "https://epaathsalagenai.s3.ap-southeast-2.amazonaws.com/orthintellogo.jpeg";
@@ -77,6 +78,8 @@ const username=email;
 
     // }
     if (response.data.status == "Success") {
+        await continueAfterPrimaryLogin(response.data, navigate, { isOrthintelDomain });
+        return;
         const user=response.data.user;
         const name=response.data.name;
         const colid=response.data.colid;

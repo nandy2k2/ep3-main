@@ -24,6 +24,15 @@ const blankParameter = { jobid: "", jobtitle: "", parameter: "", description: ""
 const text = (value) => Array.isArray(value) ? value.join(", ") : String(value ?? "");
 const safe = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char]));
 const photoOf = (candidate = {}) => candidate.photourl || (candidate.documents || []).find((doc) => /photo/i.test(doc.documenttype || doc.originalname || ""))?.url || "";
+const linkOf = (doc = {}) => doc.url || doc.link || doc.filelink || doc.documentlink || doc.resumelink || "";
+const resumeOf = (candidate = {}) => (
+  candidate.resumelink
+  || candidate.resume
+  || candidate.resumeLink
+  || (candidate.documents || []).find((doc) => /resume|cv/i.test(`${doc.documenttype || ""} ${doc.originalname || ""} ${doc.filename || ""} ${doc.documentname || ""}`))?.url
+  || (candidate.candidatedocuments || []).find((doc) => /resume|cv/i.test(`${doc.type || ""} ${doc.documenttype || ""} ${doc.documentname || ""} ${doc.originalname || ""}`))?.link
+  || ""
+);
 
 function useRecruitmentJobs() {
   const [jobs, setJobs] = useState([]);
@@ -70,8 +79,13 @@ function tableHtml(title, rows = [], columns = []) {
 function printProfile(bundle) {
   const { job = {}, candidate = {}, scores = [], summary = [], institution = {} } = bundle || {};
   const photo = photoOf(candidate);
+  const resumeLink = resumeOf(candidate);
   const customRows = Object.entries(candidate.customfields || {}).map(([field, value]) => ({ field, value: text(value) }));
-  const documents = [...(candidate.documents || []).map((doc) => ({ type: doc.documenttype, name: doc.originalname || doc.filename || doc.documenttype, link: doc.url || doc.link })), ...(candidate.candidatedocuments || []).map((doc) => ({ type: doc.type, name: doc.documentname, link: doc.link }))];
+  const documents = [
+    ...(resumeLink ? [{ type: "Resume", name: "Resume / CV", link: resumeLink }] : []),
+    ...(candidate.documents || []).map((doc) => ({ type: doc.documenttype, name: doc.originalname || doc.filename || doc.documentname || doc.documenttype, link: linkOf(doc) })),
+    ...(candidate.candidatedocuments || []).map((doc) => ({ type: doc.type || doc.documenttype, name: doc.documentname || doc.originalname || doc.filename, link: linkOf(doc) }))
+  ].filter((doc, index, rows) => !doc.link || rows.findIndex((item) => item.link === doc.link) === index);
   const html = `<!doctype html><html><head><title>Interview Profile</title><style>
     @page{size:A4;margin:10mm}*{box-sizing:border-box}body{margin:0;color:#111;font-family:Arial,sans-serif;font-size:10.5px}.sheet{width:190mm;margin:0 auto}.header{display:flex;justify-content:space-between;gap:12px;border-bottom:2px solid #111;padding-bottom:8px}.logo{width:58px;height:58px;object-fit:contain}.photo{width:74px;height:90px;object-fit:cover;border:1px solid #111}h1{margin:0;font-size:17px}h2{margin:2px 0 0;font-size:13px}h3{margin:8px 0 4px;font-size:12px;padding:3px 5px;background:#eef2f7;border-left:3px solid #111}.meta{display:grid;grid-template-columns:repeat(2,1fr);gap:3px 12px;margin-top:8px}.meta div{border-bottom:1px dotted #aaa;padding-bottom:2px}table{width:100%;border-collapse:collapse;margin-bottom:5px;table-layout:fixed}th,td{border:1px solid #999;padding:3px 4px;vertical-align:top;word-break:break-word}th{background:#f3f4f6;text-align:left}a{color:#111;text-decoration:underline}
   </style></head><body><div class="sheet">
@@ -81,6 +95,7 @@ function printProfile(bundle) {
       <div><b>Name:</b> ${safe(candidate.applicantname || "")}</div><div><b>Application:</b> ${safe(candidate.applicationno || "")}</div>
       <div><b>Email:</b> ${safe(candidate.email || "")}</div><div><b>Phone:</b> ${safe(candidate.phone || "")}</div>
       <div><b>Status:</b> ${safe(candidate.status || "")}</div><div><b>Total Experience:</b> ${safe(candidate.totalexperience || "")}</div>
+      <div><b>Resume:</b> ${resumeLink ? `<a href="${safe(resumeLink)}" target="_blank" rel="noreferrer">${safe(resumeLink)}</a>` : "-"}</div><div><b>Approval:</b> ${safe(candidate.approvalstatus || "")}</div>
     </div>
     ${tableHtml("Form details", customRows, [{ name: "field", label: "Field" }, { name: "value", label: "Value" }])}
     ${tableHtml("Educational qualification", candidate.educationalqualifications || [], [{ name: "qualification", label: "Qualification" }, { name: "specialization", label: "Specialization" }, { name: "universityboard", label: "University/Board" }, { name: "institute", label: "Institute" }, { name: "passingyear", label: "Year" }, { name: "percentagecgpa", label: "Marks/Grade" }, { name: "mediumofinstruction", label: "Medium" }])}
@@ -238,6 +253,7 @@ export function RecruitmentInterviewProfilePage() {
               <Box>
                 <Typography variant="h6" fontWeight={900}>{bundle.candidate?.applicantname}</Typography>
                 <Typography variant="body2">{bundle.job?.title} | {bundle.candidate?.email} | {bundle.candidate?.phone}</Typography>
+                {resumeOf(bundle.candidate) && <Typography variant="body2"><a href={resumeOf(bundle.candidate)} target="_blank" rel="noreferrer">Open resume</a></Typography>}
               </Box>
               <Button startIcon={<PrintIcon />} variant="outlined" onClick={() => printProfile(bundle)}>Print profile</Button>
             </Stack>

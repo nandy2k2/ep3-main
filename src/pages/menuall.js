@@ -143,6 +143,18 @@ export function menuitemsall() {
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Ticket reports" />}
           </ListItem>
+          <ListItem button component={RouterLink} to="/central-support-desk-all-institutions">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Global support desk" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/central-ticket-report-all-institutions">
+            <ListItemIcon>
+              <BarChartIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Global ticket reports" />}
+          </ListItem>
         </AccordionDetails>
       </Accordion>
 
@@ -1056,6 +1068,13 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Google email access" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/authenticator-management">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Authenticator management" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/usereditjoiningdate">
             <ListItemIcon>
               <PersonIcon />
@@ -1589,6 +1608,13 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Application management" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/admission-application-full">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Application full grid" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/admission-application-comments">
@@ -3609,8 +3635,9 @@ export function menuitemsall() {
         <AccordionDetails>
           {[
             ["/purchase2-indent-request", "Indent request"],
-            ["/purchase2-store-request-review", "Store request review"],
+            ["/purchase2-store-request-review", "Indent approval / allotment"],
             ["/purchase2-store-pr-request", "Store PR request"],
+            ["/purchase2-store-item-user", "Store item user"],
             ["/purchase2-po-assignment", "Assign PO creator"],
             ["/purchase2-local-po", "Local PO"],
             ["/purchase2-po-approval-workflow", "PO approval workflow"],
@@ -3620,6 +3647,9 @@ export function menuitemsall() {
             ["/purchase2-quality-check", "Quality check"],
             ["/purchase2-grn-creation", "GRN creation"],
             ["/purchase2/departmentindentds", "Department indent"],
+            ["/purchase2/itemunitds2", "Item unit"],
+            ["/purchase2/itemtypeds2", "Item type"],
+            ["/purchase2/itemcategoryds2", "Item category"],
             ["/purchase2/itemmasterds2", "Item master"],
             ["/purchase2/storemasterds2", "Store master"],
             ["/purchase2/storeitemsds2", "Store items"],

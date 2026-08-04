@@ -1049,7 +1049,7 @@ import {
   CrmTelecallerMappingPage,
   CrmTelecallerReportPage
 } from "./pages/CrmTelecallerPages";
-import { CentralSupportDeskPage, CentralTicketRaisePage, CentralTicketReportPage } from "./pages/CentralTicketingPages";
+import { CentralSupportDeskAllInstitutionsPage, CentralSupportDeskPage, CentralTicketRaisePage, CentralTicketReportAllInstitutionsPage, CentralTicketReportPage } from "./pages/CentralTicketingPages";
 import NepLmsMasterTimetableReportPage from "./pages/NepLmsMasterTimetableReportPage";
 import NepLmsTimetableManagerPage, { NepLmsClassGroupwiseTimetablePage, NepLmsSectionwiseTimetablePage } from "./pages/NepLmsTimetableManagerPage";
 import NepLmsOnlineClassRoomPage from "./pages/NepLmsOnlineClassRoomPage";
@@ -1166,6 +1166,8 @@ import EmployeeProfileEditPage from "./pages/EmployeeProfileEditPage";
 import StudentDataUploadPage from "./pages/StudentDataUploadPage";
 import StudentMenuManagementPage from "./pages/StudentMenuManagementPage";
 import { GoogleEmailManagementPage, GoogleRoleRegistrationPage } from "./pages/GoogleUserAccessPages";
+import AuthenticatorSetupPage from "./pages/AuthenticatorSetupPage";
+import AuthenticatorManagementPage from "./pages/AuthenticatorManagementPage";
 import SpecializationAssignmentPage from "./pages/SpecializationAssignmentPage";
 import CasNewEntryPage from "./pages/CasNewEntryPage";
 import CasNewSummaryPage from "./pages/CasNewSummaryPage";
@@ -1195,6 +1197,7 @@ import {
 } from "./pages/OnlineExaminationPages";
 import DynamicAdmissionApplicationsPage from "./pages/DynamicAdmissionApplicationsPage";
 import AdmissionApplicationManagementPage from "./pages/AdmissionApplicationManagementPage";
+import AdmissionApplicationFullPage from "./pages/AdmissionApplicationFullPage";
 import AdmissionApplicationCommentsPage from "./pages/AdmissionApplicationCommentsPage";
 import DynamicAdmissionProfilePage from "./pages/DynamicAdmissionProfilePage";
 import DynamicAdmissionProfile2Page from "./pages/DynamicAdmissionProfile2Page";
@@ -1624,6 +1627,7 @@ import {
   Purchase2PoApprovalWorkflowPage,
   Purchase2QualityCheckPage,
   Purchase2StorePrRequestPage,
+  Purchase2StoreItemUserPage,
   Purchase2StoreRequestReviewPage,
   UserSignatureUploadPage
 } from "./pages/Purchase2WorkflowPages";
@@ -2665,6 +2669,8 @@ function App() {
         <Route path="/userdataupload" element={<UserDataUploadPage />} />
         <Route path="/googleemailmanagement" element={<GoogleEmailManagementPage />} />
         <Route path="/google-role-registration/:token" element={<GoogleRoleRegistrationPage />} />
+        <Route path="/authenticator-setup" element={<AuthenticatorSetupPage />} />
+        <Route path="/authenticator-management" element={<AuthenticatorManagementPage />} />
         <Route path="/usereditjoiningdate" element={<UserEditJoiningDatePage />} />
         <Route path="/userdocumentrequirements" element={<UserDocumentRequirementPage />} />
         <Route path="/userdocumentupload" element={<UserDocumentUploadPage />} />
@@ -3242,6 +3248,7 @@ function App() {
         <Route path="/purchase2-indent-request" element={<Purchase2IndentRequestPage />} />
         <Route path="/purchase2-store-request-review" element={<Purchase2StoreRequestReviewPage />} />
         <Route path="/purchase2-store-pr-request" element={<Purchase2StorePrRequestPage />} />
+        <Route path="/purchase2-store-item-user" element={<Purchase2StoreItemUserPage />} />
         <Route path="/purchase2-po-assignment" element={<Purchase2PoAssignmentPage />} />
         <Route path="/purchase2-local-po" element={<Purchase2LocalPoPage />} />
         <Route path="/purchase2-po-approval-workflow" element={<Purchase2PoApprovalWorkflowPage />} />
@@ -3631,6 +3638,8 @@ function App() {
         <Route path="/central-ticket-raise" element={<CentralTicketRaisePage />} />
         <Route path="/central-support-desk" element={<CentralSupportDeskPage />} />
         <Route path="/central-ticket-report" element={<CentralTicketReportPage />} />
+        <Route path="/central-support-desk-all-institutions" element={<CentralSupportDeskAllInstitutionsPage />} />
+        <Route path="/central-ticket-report-all-institutions" element={<CentralTicketReportAllInstitutionsPage />} />
         <Route path="/hrleavehierarchy" element={<HrLeaveManagementPage defaultTab="hierarchy" />} />
         <Route path="/hrleavetypes" element={<HrLeaveManagementPage defaultTab="types" />} />
         <Route path="/hrleavecycle" element={<HrLeaveManagementPage defaultTab="cycle" />} />
@@ -3752,6 +3761,7 @@ function App() {
         <Route path="/admission-ai-agent-logs" element={<AdmissionAiAgentLogsPage />} />
         <Route path="/dynamic-admission-applications" element={withMenu("Admission Applications", <DynamicAdmissionApplicationsPage />)} />
         <Route path="/admission-application-management" element={<AdmissionApplicationManagementPage />} />
+        <Route path="/admission-application-full" element={<AdmissionApplicationFullPage />} />
         <Route path="/admission-application-comments" element={<AdmissionApplicationCommentsPage />} />
         <Route path="/subject-wise-admission" element={withMenu("Subject Wise Admission", <SubjectWiseAdmissionApplicationsPage />)} />
         <Route path="/dynamic-admission-profile/:id" element={withMenu("Admission Profile", <DynamicAdmissionProfilePage />)} />

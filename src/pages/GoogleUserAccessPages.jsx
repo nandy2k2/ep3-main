@@ -9,7 +9,7 @@ import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
 import GoogleCredentialButton from "../components/GoogleCredentialButton";
-import { applyLoginSession } from "../utils/loginSession";
+import { continueAfterPrimaryLogin } from "../utils/twoFactorLogin";
 
 const defaultFrontendBase = "https://campustechnology.me";
 
@@ -179,8 +179,7 @@ export function GoogleRoleRegistrationPage() {
       setError("");
       const res = await ep1.post("/api/v2/google-auth/public-register", { token, credential, phone });
       setMessage("Registration complete. Redirecting...");
-      const destination = await applyLoginSession(res.data);
-      navigate(destination);
+      await continueAfterPrimaryLogin(res.data, navigate);
     } catch (err) {
       setError(err.response?.data?.message || err.message || "Registration failed");
     }

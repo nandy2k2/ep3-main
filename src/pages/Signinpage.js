@@ -5,11 +5,10 @@ import FacebookIcon from '@mui/icons-material/Facebook';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useNavigate } from 'react-router-dom';
-import global1 from './global1';
 import ep1 from '../api/ep1';
 import { configureCountryTerminology } from '../utils/countryTerminology';
 import GoogleCredentialButton from '../components/GoogleCredentialButton';
-import { applyLoginSession } from '../utils/loginSession';
+import { continueAfterPrimaryLogin } from '../utils/twoFactorLogin';
 
 const orthintelLogoUrl = "https://epaathsalagenai.s3.ap-southeast-2.amazonaws.com/orthintellogo.jpeg";
 
@@ -47,193 +46,13 @@ const Signup = () => {
         console.log(response.data);
     
         if (response.data.status == "Success") {
-            const user=response.data.user;
-            const name=response.data.name;
-            const colid=response.data.colid;
-            const role=response.data.role;
-
             const statuslog=parseInt(response.data.statuslog);
 
             if(statuslog==0) {
               alert('Access is not yet activated. Please click on welcome email from reminder@epaathsala.com');
               return;
             }
-            // localStorage.setItem('user', user);
-            // localStorage.setItem('name', name);
-            // localStorage.setItem('colid', colid);
-            // localStorage.setItem('role', role);
-            const department=response.data.department;
-            // localStorage.setItem('department', department);
-            // localStorage.setItem('admincolid', colid);
-            global1.studid = response.data.user;
-            global1.user = response.data.user;
-            global1.name = response.data.name;
-            global1.name1 = response.data.name;
-            global1.colid = response.data.colid;
-            global1.admincolid = response.data.colid;
-            global1.token = response.data.token;
-            global1.department = response.data.department;
-            global1.programcode = response.data.programcode;
-
-            const lastlogin = new Date(response.data.lastlogin);
-            global1.lastlogin = lastlogin.toString();
-            if (!response.data.lastlogin || Number.isNaN(lastlogin.getTime()) || lastlogin.getTime() < Date.now()) {
-              alert('Login access is expired.');
-              return;
-            }
-
-            global1.regno = response.data.regno;
-
-            global1.semester = response.data.semester;
-            global1.section = response.data.section;
-            global1.role=response.data.role;
-
-            global1.aqaryear='2020-21';
-            global1.calendaryear='2020';
-            global1.assessment='2017-18,2018-19,2019-20,2020-21,2021-22';
-            
-    
-            const response1 = await ep1.get('/api/v1/getinstitutionname', {
-                params: {
-                    user: user,
-                    token: response.data.token,
-                    colid: colid
-                }
-            });
-    
-            global1.instype='';
-            global1.insname='';
-    
-            global1.bulkuploadurl='https://canvasapi5u.azurewebsites.net/';
-
-            var status1='Submitted';
-    
-            try {
-                status1=response1.data.data.classes[0].status;
-            } catch(err) {
-    
-            }
-            if(status1=='Blocked') {
-                // return <Navigate to="/noaccess" />;
-                alert('Access is suspended.')
-                return;
-    
-            }
-
-            if(status1=='Auto') {
-              // return <Navigate to="/noaccess" />;
-              global1.autorenew='Yes';
-  
-          }
-    
-            try {
-               
-                global1.instype=response1.data.data.classes[0].type;
-                //localStorage.setItem('instype', response1.data.data.classes[0].type);
-            } catch(err) {
-    
-            }
-            try {
-                
-                global1.insname=response1.data.data.classes[0].institutionname;
-                //localStorage.setItem('insname', response1.data.data.classes[0].institutionname);
-            } catch(err) {
-    
-            }
-
-            try {
-                
-                global1.logo=response1.data.data.classes[0].logo;
-                //localStorage.setItem('logo', response1.data.data.classes[0].logo);
-            } catch(err) {
-    
-            }
-    
-            try {
-             
-                global1.univid=response1.data.data.classes[0].admincolid;
-                //localStorage.setItem('univid', response1.data.data.classes[0].admincolid);
-            } catch(err) {
-    
-            }
-    
-            try {
-            
-                global1.collegecode=response1.data.data.classes[0].institutioncode;
-                //localStorage.setItem('collegecode', response1.data.data.classes[0].institutioncode);
-            } catch(err) {
-    
-            }
-            configureCountryTerminology(isOrthintelDomain ? "USA" : "");
-            try {
-                const countryRes = await ep1.get('/api/v2/country-configuration-default', {
-                    params: { colid }
-                });
-                if (countryRes.data?.country) {
-                    configureCountryTerminology(countryRes.data.country);
-                }
-            } catch (err) {
-
-            }
-            var name1=name;
-            try {
-                
-                name1=name1 + ' ' + response1.data.data.classes[0].institutionname;
-                //localStorage.setItem('name1', name1);
-                
-            } catch(err) {
-    
-            }
-    
-            const normalizedRole = String(response.data.role || '').trim().toLowerCase();
-            const showConfiguration = normalizedRole === 'all' || normalizedRole === 'admin';
-
-            if (normalizedRole === 'student') {
-                const response12 = await ep1.get('/api/v1/getcurrentyearbyprg', {
-                    params: {
-                        programcode: response.data.programcode,
-                        semester: response.data.semester,
-                        section: response.data.section,
-                        token: response.data.token,
-                        colid: colid
-                    }
-                });
-                var lmsyear='2022-23';
-                console.log(response12.data.data);
-    
-                
-                try {
-                    lmsyear= response12.data.data.classes[0].year;
-    
-                } catch (err) {
-    
-                }
-                global1.lmsyear=lmsyear;
-                navigate('/studentdashboard');
-                // return <Navigate to="/dashstud1" />;
-               
-            } else if (normalizedRole === 'faculty') {
-             
-                // navigate('/dashmmfaccourses')
-                navigate('/facultydashboard');
-                } else if (normalizedRole === 'adminold') {
-                
-                navigate(showConfiguration ? '/configuration' : '/dashmncas11admin')
-            } else if (normalizedRole === 'admin') {
-                
-                navigate('/configuration');
-            } else if (normalizedRole === 'super') {
-                navigate(showConfiguration ? '/configuration' : '/dashdashfacnew');
-                //history.replace('/dashmydetails');
-                // return <Navigate to="/viewcourse1" />;
-            } else if (normalizedRole === 'hod') {
-                navigate(showConfiguration ? '/configuration' : '/dashdashfacnew');
-                // return <Navigate to="/viewcourse1" />;
-            } else {
-               //navigate('/dashmmfaccourses');
-              navigate(showConfiguration ? '/configuration' : '/dashdashfacnew');
-
-            }
+            await continueAfterPrimaryLogin(response.data, navigate, { isOrthintelDomain });
         }
         else {
             alert('Invalid Username or Password. Please try again.');
@@ -246,8 +65,7 @@ const Signup = () => {
     const handleGoogleLogin = async (credential) => {
       try {
         const response = await ep1.post('/api/v2/google-auth/login', { credential });
-        const destination = await applyLoginSession(response.data, { isOrthintelDomain });
-        navigate(destination);
+        await continueAfterPrimaryLogin(response.data, navigate, { isOrthintelDomain });
       } catch (err) {
         alert(err.response?.data?.message || err.message || 'Google login failed');
       }

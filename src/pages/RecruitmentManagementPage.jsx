@@ -104,6 +104,7 @@ export default function RecruitmentManagementPage() {
   const [textSearch, setTextSearch] = useState("");
   const [aiInstruction, setAiInstruction] = useState("");
   const [selectedCandidate, setSelectedCandidate] = useState(null);
+  const [profileCandidate, setProfileCandidate] = useState(null);
   const [confirmationMail, setConfirmationMail] = useState({ subject: "Recruitment confirmation", body: "" });
   const [confirming, setConfirming] = useState(false);
   const [message, setMessage] = useState("");
@@ -363,6 +364,13 @@ ${global1.name || "Recruitment Team"}`;
     return "";
   };
   const candidateTotalExperience = (candidate) => candidate?.totalexperience || formatExperienceMonths((candidate?.pastemployments || []).reduce((sum, row) => sum + experienceMonthsBetween(row.dateofjoining, row.lastworkingdate), 0));
+  const candidatePhoto = (candidate) => candidate?.photourl || candidate?.documents?.find((doc) => /photo/i.test(doc.documenttype || doc.originalname || doc.filename || ""))?.url || "";
+  const candidateResume = (candidate) => candidate?.resumelink || candidate?.resume || candidate?.resumeLink || candidate?.documents?.find((doc) => /resume|cv/i.test(`${doc.documenttype || ""} ${doc.originalname || ""} ${doc.filename || ""}`))?.url || candidate?.candidatedocuments?.find((doc) => /resume|cv/i.test(`${doc.type || ""} ${doc.documentname || ""}`))?.link || "";
+  const candidateDocuments = (candidate) => [
+    ...(candidateResume(candidate) ? [{ type: "Resume", name: "Resume / CV", link: candidateResume(candidate) }] : []),
+    ...(candidate?.candidatedocuments || []).map((doc) => ({ type: doc.type || doc.documenttype || "Document", name: doc.documentname || doc.originalname || doc.filename || "Document", link: doc.link || doc.url || "" })),
+    ...(candidate?.documents || []).map((doc) => ({ type: doc.documenttype || "Document", name: doc.originalname || doc.filename || doc.documentname || doc.documenttype || "Document", link: doc.url || doc.link || "" }))
+  ].filter((doc, index, rows) => !doc.link || rows.findIndex((item) => item.link === doc.link) === index);
 
   const tableHtml = (title, rows = [], columns = []) => {
     const bodyRows = rows.length ? rows : [{}];
@@ -508,6 +516,12 @@ ${global1.name || "Recruitment Team"}`;
     });
   };
 
+  const viewCandidateProfile = (candidate) => {
+    selectCandidate(candidate);
+    setProfileCandidate(candidate);
+    setTimeout(() => document.getElementById("recruitment-profile-preview")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  };
+
   const runAiShortlist = async () => {
     if (!selectedJob || !aiInstruction.trim()) return setError("Select job and enter shortlisting instruction");
     const res = await ep1.post("/api/v2/recruitment/shortlist-ai", { colid, jobid: selectedJob, instruction: aiInstruction });
@@ -636,7 +650,7 @@ ${global1.name || "Recruitment Team"}`;
       field: "profile",
       headerName: "Profile",
       width: 120,
-      renderCell: ({ row }) => <Button size="small" startIcon={<PrintIcon />} onClick={() => printCandidateProfile(row)}>Profile</Button>
+      renderCell: ({ row }) => <Button size="small" onClick={(event) => { event.stopPropagation(); viewCandidateProfile(row); }}>Profile</Button>
     },
     {
       field: "changestatus",
@@ -932,6 +946,62 @@ ${global1.name || "Recruitment Team"}`;
               rowSelectionModel={selectedCandidate?._id ? [selectedCandidate._id] : []}
             />
           </Box>
+          {profileCandidate && (
+            <Paper id="recruitment-profile-preview" variant="outlined" sx={{ p: 2, mt: 2, borderRadius: 2, bgcolor: "#fff" }}>
+              <Stack direction={{ xs: "column", md: "row" }} spacing={2} justifyContent="space-between" alignItems={{ md: "flex-start" }}>
+                <Stack direction="row" spacing={2} alignItems="flex-start">
+                  {candidatePhoto(profileCandidate) && <Box component="img" src={candidatePhoto(profileCandidate)} alt="Candidate" sx={{ width: 96, height: 116, objectFit: "cover", borderRadius: 1, border: "1px solid #d1d5db" }} />}
+                  <Box>
+                    <Typography variant="h6" fontWeight={900}>{profileCandidate.applicantname || "Candidate profile"}</Typography>
+                    <Typography variant="body2">{profileCandidate.email || "-"} | {profileCandidate.phone || "-"}</Typography>
+                    <Typography variant="body2">Application: {profileCandidate.applicationno || "-"} | Status: {profileCandidate.status || "-"} | Approval: {profileCandidate.approvalstatus || "-"}</Typography>
+                    {candidateResume(profileCandidate) && <Typography variant="body2" sx={{ mt: 0.5 }}><a href={candidateResume(profileCandidate)} target="_blank" rel="noreferrer">Open resume</a></Typography>}
+                  </Box>
+                </Stack>
+                <Stack direction="row" spacing={1}>
+                  <Button startIcon={<PrintIcon />} variant="outlined" onClick={() => printCandidateProfile(profileCandidate)}>Print</Button>
+                  <Button variant="text" onClick={() => setProfileCandidate(null)}>Close</Button>
+                </Stack>
+              </Stack>
+              <Grid container spacing={2} sx={{ mt: 1 }}>
+                <Grid item xs={12} md={6}>
+                  <Typography fontWeight={900} sx={{ mb: 1 }}>Job Details</Typography>
+                  {[
+                    ["Job", selectedJobInfo?.title || profileCandidate.jobid],
+                    ["Job ID", profileCandidate.jobid],
+                    ["Total Experience", candidateTotalExperience(profileCandidate)],
+                    ["Submitted", profileCandidate.submittedat ? new Date(profileCandidate.submittedat).toLocaleString() : ""]
+                  ].map(([label, value]) => <Typography key={label} variant="body2"><b>{label}:</b> {value || "-"}</Typography>)}
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography fontWeight={900} sx={{ mb: 1 }}>Validation</Typography>
+                  <Typography variant="body2" whiteSpace="pre-wrap">{profileCandidate.validationcomments || profileCandidate.mandatoryvalidationcomments || "-"}</Typography>
+                </Grid>
+                {!!Object.keys(profileCandidate.customfields || {}).length && (
+                  <Grid item xs={12}>
+                    <Typography fontWeight={900} sx={{ mb: 1 }}>Form Fields</Typography>
+                    <DataGrid density="compact" autoHeight hideFooter rows={Object.entries(profileCandidate.customfields || {}).map(([field, value], index) => ({ id: index, field, value: asText(value) }))} columns={[{ field: "field", headerName: "Field", minWidth: 220, flex: 1 }, { field: "value", headerName: "Value", minWidth: 300, flex: 2 }]} />
+                  </Grid>
+                )}
+                {!!(profileCandidate.educationalqualifications || []).length && (
+                  <Grid item xs={12}>
+                    <Typography fontWeight={900} sx={{ mb: 1 }}>Educational Qualification</Typography>
+                    <DataGrid density="compact" autoHeight hideFooter rows={(profileCandidate.educationalqualifications || []).map((row, index) => ({ id: index, ...row }))} columns={["qualification", "specialization", "universityboard", "institute", "passingyear", "percentagecgpa", "mediumofinstruction"].map((field) => ({ field, headerName: field, minWidth: 140, flex: 1 }))} />
+                  </Grid>
+                )}
+                {!!(profileCandidate.pastemployments || []).length && (
+                  <Grid item xs={12}>
+                    <Typography fontWeight={900} sx={{ mb: 1 }}>Past Employment</Typography>
+                    <DataGrid density="compact" autoHeight hideFooter rows={(profileCandidate.pastemployments || []).map((row, index) => ({ id: index, ...row }))} columns={["organization", "designation", "employmenttype", "dateofjoining", "lastworkingdate", "totalexperience", "referencename"].map((field) => ({ field, headerName: field, minWidth: 140, flex: 1 }))} />
+                  </Grid>
+                )}
+                <Grid item xs={12}>
+                  <Typography fontWeight={900} sx={{ mb: 1 }}>Documents</Typography>
+                  <DataGrid density="compact" autoHeight hideFooter rows={candidateDocuments(profileCandidate).map((row, index) => ({ id: index, ...row }))} columns={[{ field: "type", headerName: "Type", minWidth: 160, flex: 1 }, { field: "name", headerName: "Document", minWidth: 220, flex: 1 }, { field: "link", headerName: "Link", minWidth: 300, flex: 2, renderCell: ({ value }) => value ? <a href={value} target="_blank" rel="noreferrer">{value}</a> : "-" }]} />
+                </Grid>
+              </Grid>
+            </Paper>
+          )}
           <Paper variant="outlined" sx={{ p: 2, mt: 2, borderRadius: 2, bgcolor: "#fbfdff" }}>
             {selectedCandidate && (
               <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ mb: 2 }} alignItems={{ md: "center" }}>

@@ -24,7 +24,7 @@ import MentoringLayout from "./MentoringLayout";
 
 const colors = ["#2563eb", "#16a34a", "#f97316", "#9333ea", "#0891b2", "#dc2626"];
 const supportPassword = "kumropatash";
-const emptyTicketForm = { title: "", details: "", startdate: "", starttime: "", priority: "Normal" };
+const emptyTicketForm = { title: "", details: "", startdate: "", starttime: "", priority: "Normal", category: "" };
 const safeDate = (value) => value ? String(value).slice(0, 10) : "";
 const safeDateTime = (value) => value ? String(value).replace("T", " ").slice(0, 16) : "";
 
@@ -88,16 +88,24 @@ const ticketColumns = [
   { field: "closedat", headerName: "Closed", width: 140, valueGetter: ({ row }) => safeDate(row.closedat) }
 ];
 
-function useTicketUsers() {
+const globalTicketColumns = [
+  { field: "colid", headerName: "Colid", width: 90 },
+  { field: "institutionname", headerName: "Institution", width: 220 },
+  { field: "category", headerName: "Category", width: 140 },
+  ...ticketColumns
+];
+
+function useTicketUsers(allInstitutions = false, colid = "") {
   const [users, setUsers] = useState([]);
   useEffect(() => {
-    ep1.get("/api/v2/central-tickets/users", { params: { colid: global1.colid } }).then((res) => setUsers(res.data?.data || [])).catch(() => setUsers([]));
-  }, []);
+    const endpoint = allInstitutions ? "/api/v2/central-tickets/all-institutions/users" : "/api/v2/central-tickets/users";
+    ep1.get(endpoint, { params: { colid: allInstitutions ? colid || undefined : global1.colid } }).then((res) => setUsers(res.data?.data || [])).catch(() => setUsers([]));
+  }, [allInstitutions, colid]);
   return users;
 }
 
-function TicketDetails({ selected, details, loadDetails, canRespond, onChanged }) {
-  const users = useTicketUsers();
+function TicketDetails({ selected, details, loadDetails, canRespond, onChanged, allInstitutions = false }) {
+  const users = useTicketUsers(allInstitutions, selected?.colid);
   const [assignee, setAssignee] = useState(null);
   const [form, setForm] = useState({ response: "", status: "Pending" });
   const [file, setFile] = useState(null);
@@ -115,7 +123,7 @@ function TicketDetails({ selected, details, loadDetails, canRespond, onChanged }
     try {
       setError("");
       if (!assignee?.email) return setError("Select user to assign");
-      await ep1.post("/api/v2/central-tickets/update", { id: selected._id, colid: global1.colid, assignedto: assignee.name, assignedtoemail: assignee.email });
+      await ep1.post("/api/v2/central-tickets/update", { id: selected._id, colid: allInstitutions ? selected.colid : global1.colid, assignedto: assignee.name, assignedtoemail: assignee.email });
       setMessage("Ticket assigned");
       onChanged();
       loadDetails(selected._id);
@@ -128,7 +136,7 @@ function TicketDetails({ selected, details, loadDetails, canRespond, onChanged }
       setError("");
       const payload = new FormData();
       payload.append("ticketid", selected._id);
-      payload.append("colid", global1.colid);
+      payload.append("colid", allInstitutions ? selected.colid : global1.colid);
       payload.append("response", form.response);
       payload.append("status", form.status);
       payload.append("respondedby", global1.name || global1.user);
@@ -234,6 +242,7 @@ export function CentralTicketRaisePage() {
         <Grid container spacing={2}>
           <Grid item xs={12} md={6}><TextField fullWidth size="small" label="Title" value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} /></Grid>
           <Grid item xs={12} md={2}><TextField select fullWidth size="small" label="Priority" value={form.priority} onChange={(e) => setForm((p) => ({ ...p, priority: e.target.value }))}><MenuItem value="Low">Low</MenuItem><MenuItem value="Normal">Normal</MenuItem><MenuItem value="High">High</MenuItem><MenuItem value="Urgent">Urgent</MenuItem></TextField></Grid>
+          <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Category" value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))} /></Grid>
           <Grid item xs={12} md={2}><TextField fullWidth size="small" type="date" label="Start date" InputLabelProps={{ shrink: true }} value={form.startdate} onChange={(e) => setForm((p) => ({ ...p, startdate: e.target.value }))} /></Grid>
           <Grid item xs={12} md={2}><TextField fullWidth size="small" type="time" label="Start time" InputLabelProps={{ shrink: true }} value={form.starttime} onChange={(e) => setForm((p) => ({ ...p, starttime: e.target.value }))} /></Grid>
           <Grid item xs={12}><TextField fullWidth multiline minRows={4} label="Details" value={form.details} onChange={(e) => setForm((p) => ({ ...p, details: e.target.value }))} /></Grid>
@@ -283,6 +292,57 @@ export function CentralSupportDeskPage() {
   );
 }
 
+export function CentralSupportDeskAllInstitutionsPage() {
+  const [tab, setTab] = useState("Pending");
+  const [rows, setRows] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [details, setDetails] = useState(null);
+  const [filters, setFilters] = useState({ colid: "", institution: "", category: "", search: "" });
+  const load = async () => {
+    const status = tab === "Completed" ? "Closed" : "All";
+    const res = await ep1.get("/api/v2/central-tickets/all-institutions", { params: { ...filters, status } });
+    const data = res.data?.data || [];
+    setRows(tab === "Pending" ? data.filter((row) => !/^closed$/i.test(row.status || "")) : data);
+  };
+  const loadDetails = async (id) => {
+    const res = await ep1.get("/api/v2/central-tickets/all-institutions/details", { params: { id } });
+    setDetails({ ...(res.data?.data || {}), responses: res.data?.responses || [] });
+  };
+  useEffect(() => { load(); }, [tab]);
+  return (
+    <PasswordGate>
+      <Shell title="Central support desk - all institutions">
+        <Alert severity="info" sx={{ mb: 2 }}>
+          This page is the only central ticket desk that can see tickets from all institutions.
+        </Alert>
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={4}><Tabs value={tab} onChange={(_, v) => setTab(v)}><Tab value="Pending" label="Pending" /><Tab value="Completed" label="Completed" /></Tabs></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Colid" value={filters.colid} onChange={(e) => setFilters((p) => ({ ...p, colid: e.target.value }))} /></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Institution" value={filters.institution} onChange={(e) => setFilters((p) => ({ ...p, institution: e.target.value }))} /></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Category" value={filters.category} onChange={(e) => setFilters((p) => ({ ...p, category: e.target.value }))} /></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Search" value={filters.search} onChange={(e) => setFilters((p) => ({ ...p, search: e.target.value }))} /></Grid>
+            <Grid item xs={12} md={2}><Button fullWidth variant="contained" onClick={load}>Apply</Button></Grid>
+          </Grid>
+        </Paper>
+        <Paper sx={{ p: 1, mb: 2, width: "100%" }}>
+          <DataGrid
+            rows={rows}
+            getRowId={(r) => r._id}
+            autoHeight
+            slots={{ toolbar: GridToolbar }}
+            columns={globalTicketColumns}
+            onRowClick={({ row }) => { setSelected(row); loadDetails(row._id); }}
+          />
+        </Paper>
+        <Box sx={{ width: "100%" }}>
+          <TicketDetails selected={selected} details={details} loadDetails={loadDetails} canRespond onChanged={load} allInstitutions />
+        </Box>
+      </Shell>
+    </PasswordGate>
+  );
+}
+
 export function CentralTicketReportPage() {
   const [filters, setFilters] = useState({ fromDate: "", toDate: "" });
   const [data, setData] = useState({ summary: {}, daywise: [], weekwise: [], monthwise: [], avgCloseTime: [], byStatus: [], details: [] });
@@ -321,6 +381,57 @@ export function CentralTicketReportPage() {
             <Grid item xs={12} md={6}><Paper sx={{ p: 2, height: 320 }}><Typography fontWeight={900}>Status mix</Typography><ResponsiveContainer><PieChart><Pie data={data.byStatus || []} dataKey="count" nameKey="status" outerRadius={110}>{(data.byStatus || []).map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer></Paper></Grid>
           </Grid>
           <Paper sx={{ p: 1 }}><Typography fontWeight={900}>Ticket details</Typography><DataGrid rows={data.details || []} getRowId={(r) => r._id} autoHeight slots={{ toolbar: GridToolbar }} columns={ticketColumns} /></Paper>
+        </Box>
+      </Shell>
+    </PasswordGate>
+  );
+}
+
+export function CentralTicketReportAllInstitutionsPage() {
+  const [filters, setFilters] = useState({ fromDate: "", toDate: "", colid: "", institution: "", category: "", search: "" });
+  const [data, setData] = useState({ summary: {}, daywise: [], weekwise: [], monthwise: [], avgCloseTime: [], byStatus: [], byInstitution: [], details: [] });
+  const printRef = useRef(null);
+  const load = async () => {
+    const res = await ep1.get("/api/v2/central-tickets/all-institutions/report", { params: filters });
+    setData(res.data || {});
+  };
+  useEffect(() => { load(); }, []);
+  const print = () => {
+    const w = window.open("", "_blank");
+    w.document.write(`<html><head><title>Global Ticket Report</title><style>@page{size:A4;margin:12mm}body{font-family:Arial;color:#111}table{width:100%;border-collapse:collapse;font-size:11px}td,th{border:1px solid #ddd;padding:5px}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.card{border:1px solid #ddd;padding:8px}button{display:none}</style></head><body>${printRef.current?.innerHTML || ""}</body></html>`);
+    w.document.close();
+    w.print();
+  };
+  const cards = [["Total", data.summary?.total || 0], ["Open", data.summary?.open || 0], ["Pending", data.summary?.pending || 0], ["Closed", data.summary?.closed || 0]];
+  return (
+    <PasswordGate>
+      <Shell title="Ticket reports - all institutions">
+        <Alert severity="info" sx={{ mb: 2 }}>
+          This page is the only ticket report that can include all institutions and arbitrary colid filters.
+        </Alert>
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={2}><TextField fullWidth size="small" type="date" label="From date" InputLabelProps={{ shrink: true }} value={filters.fromDate} onChange={(e) => setFilters((p) => ({ ...p, fromDate: e.target.value }))} /></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth size="small" type="date" label="To date" InputLabelProps={{ shrink: true }} value={filters.toDate} onChange={(e) => setFilters((p) => ({ ...p, toDate: e.target.value }))} /></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Colid / All" value={filters.colid} onChange={(e) => setFilters((p) => ({ ...p, colid: e.target.value }))} /></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Institution" value={filters.institution} onChange={(e) => setFilters((p) => ({ ...p, institution: e.target.value }))} /></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Category" value={filters.category} onChange={(e) => setFilters((p) => ({ ...p, category: e.target.value }))} /></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Search" value={filters.search} onChange={(e) => setFilters((p) => ({ ...p, search: e.target.value }))} /></Grid>
+            <Grid item xs={12} md={2}><Button fullWidth variant="contained" onClick={load}>Apply</Button></Grid>
+            <Grid item xs={12} md={2}><Button fullWidth variant="outlined" onClick={print}>Print</Button></Grid>
+          </Grid>
+        </Paper>
+        <Box ref={printRef}>
+          <Grid container spacing={2} sx={{ mb: 2 }}>
+            {cards.map(([label, value]) => <Grid item xs={12} md={3} key={label}><Card><CardContent><Typography color="text.secondary">{label}</Typography><Typography variant="h4" fontWeight={900}>{value}</Typography></CardContent></Card></Grid>)}
+          </Grid>
+          <Grid container spacing={2} sx={{ mb: 2 }}>
+            <Grid item xs={12} md={6}><Paper sx={{ p: 2, height: 320 }}><Typography fontWeight={900}>Daywise raised vs solved</Typography><ResponsiveContainer><BarChart data={data.daywise || []}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="period" /><YAxis /><Tooltip /><Bar dataKey="raised" fill="#2563eb" /><Bar dataKey="solved" fill="#16a34a" /></BarChart></ResponsiveContainer></Paper></Grid>
+            <Grid item xs={12} md={6}><Paper sx={{ p: 2, height: 320 }}><Typography fontWeight={900}>Weekly average close time</Typography><ResponsiveContainer><LineChart data={data.avgCloseTime || []}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="period" /><YAxis /><Tooltip /><Line dataKey="averageHoursToClose" stroke="#f97316" strokeWidth={3} /></LineChart></ResponsiveContainer></Paper></Grid>
+            <Grid item xs={12} md={6}><Paper sx={{ p: 2, height: 320 }}><Typography fontWeight={900}>Institutionwise tickets</Typography><ResponsiveContainer><BarChart data={data.byInstitution || []}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="institution" hide /><YAxis /><Tooltip /><Bar dataKey="count" fill="#9333ea" /></BarChart></ResponsiveContainer></Paper></Grid>
+            <Grid item xs={12} md={6}><Paper sx={{ p: 2, height: 320 }}><Typography fontWeight={900}>Status mix</Typography><ResponsiveContainer><PieChart><Pie data={data.byStatus || []} dataKey="count" nameKey="status" outerRadius={110}>{(data.byStatus || []).map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer></Paper></Grid>
+          </Grid>
+          <Paper sx={{ p: 1 }}><Typography fontWeight={900}>Ticket details</Typography><DataGrid rows={data.details || []} getRowId={(r) => r._id} autoHeight slots={{ toolbar: GridToolbar }} columns={globalTicketColumns} /></Paper>
         </Box>
       </Shell>
     </PasswordGate>

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Chip,
@@ -252,18 +253,26 @@ export default function CounterFee2PaymentPage() {
           <Stack spacing={1.5}>
             {filters.map((filter, index) => (
               <Stack key={`${index}-${filter.field}`} direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ md: "center" }}>
-                <FormControl size="small" sx={{ minWidth: 220 }}>
-                  <InputLabel>Filter By</InputLabel>
-                  <Select label="Filter By" value={filter.field} onChange={(event) => updateFilter(index, "field", event.target.value)}>
-                    {filterFields.map((item) => <MenuItem key={item.field} value={item.field}>{item.label}</MenuItem>)}
-                  </Select>
-                </FormControl>
-                <FormControl size="small" sx={{ minWidth: 280 }} disabled={!filter.field}>
-                  <InputLabel>Value</InputLabel>
-                  <Select label="Value" value={filter.value} onChange={(event) => updateFilter(index, "value", event.target.value)}>
-                    {uniqueValues(rows, filter.field, options).map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
-                  </Select>
-                </FormControl>
+                <Autocomplete
+                  size="small"
+                  sx={{ minWidth: 220 }}
+                  options={filterFields}
+                  getOptionLabel={(option) => option?.label || option?.field || ""}
+                  value={filterFields.find((item) => item.field === filter.field) || null}
+                  onChange={(_, value) => updateFilter(index, "field", value?.field || "")}
+                  renderInput={(params) => <TextField {...params} label="Filter By" />}
+                />
+                <Autocomplete
+                  freeSolo
+                  size="small"
+                  sx={{ minWidth: 280 }}
+                  options={uniqueValues(rows, filter.field, options)}
+                  value={filter.value || ""}
+                  onInputChange={(_, value) => updateFilter(index, "value", value)}
+                  onChange={(_, value) => updateFilter(index, "value", value || "")}
+                  renderInput={(params) => <TextField {...params} label="Value" />}
+                  disabled={!filter.field}
+                />
                 <Tooltip title="Remove filter">
                   <span>
                     <IconButton color="error" onClick={() => removeFilter(index)} disabled={filters.length === 1 && !filter.field && !filter.value}>

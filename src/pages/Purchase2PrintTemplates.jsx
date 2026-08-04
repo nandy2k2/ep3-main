@@ -61,9 +61,9 @@ const amountInWords = (amount) => {
 
 const defaultInstitution = (config = {}) => ({
   institutionname: config.institutionname || config.nameofinstitution || global1.insname || global1.collegename || global1.institution || "Institution",
-  address: config.address || global1.address || "",
-  phone: config.phone || global1.phone || "",
-  email: config.email || global1.email || "",
+  address: config.address || config.address1 || global1.address || "",
+  phone: config.phone || config.mobile || config.contact || config.contactusdetails || global1.phone || "",
+  email: config.email || config.emailid || global1.email || "",
   gst: config.gst || config.gstin || "",
   website: config.website || "",
   logolink: config.logolink || config.logo || global1.logo || ""
