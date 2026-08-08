@@ -310,6 +310,10 @@ export function StudentMentoringReadonlyPage() {
         <Paper sx={{ height: 320 }}><DataGrid rows={(data.homeVisits || []).map((row) => ({ ...row, id: row._id }))} columns={columns} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} /></Paper>
         <Typography variant="h6">Mentoring sessions</Typography>
         <Paper sx={{ height: 320 }}><DataGrid rows={(data.sessions || []).map((row) => ({ ...row, id: row._id }))} columns={columns} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} /></Paper>
+        <Typography variant="h6">Cultural activities</Typography>
+        <Paper sx={{ height: 320 }}><DataGrid rows={(data.cultural || []).map((row) => ({ ...row, id: row._id }))} columns={["academicyear", "program", "programcode", "activitytype", "activitydate", "activityname", "venue", "location", "prizewon"].map((field) => ({ field, headerName: formatLabel(field), minWidth: 140, flex: ["activityname", "venue", "location"].includes(field) ? 1 : 0 }))} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} /></Paper>
+        <Typography variant="h6">Sports activities</Typography>
+        <Paper sx={{ height: 320 }}><DataGrid rows={(data.sports || []).map((row) => ({ ...row, id: row._id }))} columns={["academicyear", "program", "programcode", "activitytype", "activitydate", "activityname", "venue", "location", "prizewon"].map((field) => ({ field, headerName: formatLabel(field), minWidth: 140, flex: ["activityname", "venue", "location"].includes(field) ? 1 : 0 }))} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} /></Paper>
       </Stack>
     </MenuPageShell>
   );
@@ -469,6 +473,8 @@ export function MentoringStudentProfilePage() {
             <DataTable title="Exam model 2 marks" rows={profile.examModel2 || []} columns={["academicyear", "examcode", "semester", "coursecode", "course", "overallgrade", "overallpercentage", "status"]} />
             <DataTable title="Home visits" rows={profile.homeVisits || []} columns={["academicyear", "faculty", "activity", "activitydate", "description"]} />
             <DataTable title="Mentoring sessions" rows={profile.sessions || []} columns={["academicyear", "faculty", "activity", "activitydate", "description"]} />
+            <DataTable title="Cultural activities" rows={profile.cultural || []} columns={["academicyear", "program", "programcode", "activitytype", "activitydate", "activityname", "venue", "location", "prizewon"]} />
+            <DataTable title="Sports activities" rows={profile.sports || []} columns={["academicyear", "program", "programcode", "activitytype", "activitydate", "activityname", "venue", "location", "prizewon"]} />
           </Paper>
         )}
         {profile && <Button startIcon={<PrintIcon />} variant="outlined" onClick={() => window.print()}>Print</Button>}

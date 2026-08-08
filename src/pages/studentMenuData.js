@@ -19,6 +19,7 @@ export const studentDefaultMenuGroups = [
   { group: "NEP LMS", items: [
     { path: "/studentneplmsworkspace", title: "My NEP LMS" },
     { path: "/studentsequentialcontent", title: "Sequential Content" },
+    { path: "/studentsequentialcontentviewer", title: "Sequential Content Viewer" },
     { path: "/studentmyattendancesummary", title: "My Attendance Summary" },
     { path: "/studentneplmsotpattendance", title: "OTP Attendance" },
     { path: "/studentneplmslivequiz", title: "Live quiz" },

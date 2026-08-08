@@ -31,6 +31,19 @@ const text = (value) => String(value || "").trim();
 const uniqueSorted = (values = []) => [...new Set(values.map(text).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 const basePayload = () => ({ colid: global1.colid, user: global1.user });
 const providerDefaults = { provider: "Gemini", geminiModel: "gemini-2.5-flash", ollamaConfigId: "", language: "English", prompt: "" };
+const gridWrapSx = {
+  "& .MuiDataGrid-cell": {
+    alignItems: "flex-start",
+    lineHeight: 1.35,
+    py: 1,
+    whiteSpace: "normal",
+    wordBreak: "break-word"
+  },
+  "& .MuiDataGrid-columnHeaderTitle": {
+    whiteSpace: "normal",
+    lineHeight: 1.2
+  }
+};
 
 function Shell({ title, children, student = false }) {
   return (
@@ -82,6 +95,12 @@ function CrudPage({ kind, title, blank, columns, renderForm, templateRows = [{}]
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [filterField, setFilterField] = useState("");
+  const [filterValue, setFilterValue] = useState("");
+  const [dynamicFilters, setDynamicFilters] = useState([]);
+  const filteredRows = useMemo(() => rows.filter((row) => dynamicFilters.every((filter) => text(row[filter.field]).toLowerCase() === text(filter.value).toLowerCase())), [rows, dynamicFilters]);
+  const filterableColumns = useMemo(() => columns.filter((column) => column.field && column.field !== "actions"), [columns]);
+  const filterValues = useMemo(() => uniqueSorted(rows.map((row) => row[filterField])), [rows, filterField]);
   const loadRows = async () => {
     try {
       setLoading(true);
@@ -148,9 +167,31 @@ function CrudPage({ kind, title, blank, columns, renderForm, templateRows = [{}]
         <Button component="label" startIcon={<UploadFile />} variant="outlined">Bulk upload<input hidden type="file" accept=".xlsx,.xls" onChange={upload} /></Button>
         <Button startIcon={<Delete />} color="error" variant="outlined" disabled={!selectedRows.length} onClick={bulkDelete}>Bulk delete</Button>
       </Stack>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} md={3}>
+            <Autocomplete options={filterableColumns} value={filterableColumns.find((item) => item.field === filterField) || null} getOptionLabel={(option) => option.headerName || option.field || ""} onChange={(_, value) => { setFilterField(value?.field || ""); setFilterValue(""); }} renderInput={(params) => <TextField {...params} size="small" label="Filter field" />} />
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Autocomplete freeSolo options={filterValues} value={filterValue || ""} onInputChange={(_, value) => setFilterValue(value || "")} renderInput={(params) => <TextField {...params} size="small" label="Filter value" />} />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <Button fullWidth variant="contained" onClick={() => {
+              if (!filterField || !filterValue) return;
+              setDynamicFilters((current) => [...current.filter((item) => item.field !== filterField), { field: filterField, value: filterValue }]);
+            }}>Add filter</Button>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              {dynamicFilters.map((item) => <Chip key={item.field} label={`${item.field}: ${item.value}`} onDelete={() => setDynamicFilters((current) => current.filter((filter) => filter.field !== item.field))} />)}
+              {!!dynamicFilters.length && <Button size="small" onClick={() => setDynamicFilters([])}>Clear</Button>}
+            </Stack>
+          </Grid>
+        </Grid>
+      </Paper>
       <Paper sx={{ p: 1 }}>
         <DataGrid
-          rows={rows}
+          rows={filteredRows}
           getRowId={(row) => row._id}
           columns={[...columns, { field: "actions", type: "actions", width: 110, getActions: ({ row }) => [
             <GridActionsCellItem icon={<Edit />} label="Edit" onClick={() => { setEditingId(row._id); setForm({ ...blank, ...row }); }} />,
@@ -161,6 +202,8 @@ function CrudPage({ kind, title, blank, columns, renderForm, templateRows = [{}]
           rowSelectionModel={selectedRows}
           onRowSelectionModelChange={(model) => setSelectedRows(model)}
           autoHeight
+          getRowHeight={() => "auto"}
+          sx={gridWrapSx}
           slots={{ toolbar: GridToolbar }}
           slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: kind } } }}
         />
@@ -743,6 +786,156 @@ export function PlacementReportsPage() {
 
 function ReportHeader({ institution, title }) {
   return <Box sx={{ textAlign: "center", mb: 2 }}>{institution?.logolink && <img alt="logo" src={institution.logolink} style={{ height: 58 }} />}<Typography variant="h5" fontWeight={900}>{institution?.institutionname || "Institution"}</Typography><Typography>{institution?.address}</Typography><Typography variant="h6" fontWeight={800} sx={{ mt: 1 }}>{title}</Typography></Box>;
+}
+
+export function PlacementRecordsPage() {
+  const blank = { academicyear: "", program: "", programcode: "", student: "", regno: "", industry: "", sector: "", role: "", company: "", address: "", companymail: "", companyemail: "", salary: 0, department: "", status: "Placed" };
+  const columns = [
+    { field: "academicyear", headerName: "Academic year", width: 130 },
+    { field: "program", headerName: "Program", width: 180 },
+    { field: "programcode", headerName: "Program code", width: 130 },
+    { field: "student", headerName: "Student", width: 190 },
+    { field: "regno", headerName: "Reg no", width: 130 },
+    { field: "industry", headerName: "Industry", width: 150 },
+    { field: "sector", headerName: "Sector", width: 150 },
+    { field: "role", headerName: "Role", width: 170 },
+    { field: "company", headerName: "Company", width: 190 },
+    { field: "address", headerName: "Address", width: 220 },
+    { field: "companymail", headerName: "Company mail", width: 190 },
+    { field: "companyemail", headerName: "Company email", width: 190 },
+    { field: "salary", headerName: "Salary", width: 120 },
+    { field: "department", headerName: "Department", width: 150 },
+    { field: "status", headerName: "Status", width: 120 }
+  ];
+  return <CrudPage kind="record" title="Placement records" blank={blank} templateRows={[blank]} columns={columns} renderForm={({ form, setForm, options, save, editingId }) => {
+    const programOptions = options.programs || [];
+    const studentOptions = options.students || [];
+    const companyOptions = options.companies || [];
+    return (
+      <Grid container spacing={2}>
+        <Grid item xs={12} md={2}><Autocomplete freeSolo options={options.academicyears || []} value={form.academicyear || ""} onInputChange={(_, value) => setForm((p) => ({ ...p, academicyear: value || "" }))} renderInput={(params) => <TextField {...params} size="small" label="Academic year" />} /></Grid>
+        <Grid item xs={12} md={3}><Autocomplete options={programOptions} value={programOptions.find((item) => item.programcode === form.programcode) || null} getOptionLabel={(option) => `${option.program || option.name || ""} - ${option.programcode || ""}`} onChange={(_, value) => setForm((p) => ({ ...p, program: value?.program || value?.name || "", programcode: value?.programcode || "" }))} renderInput={(params) => <TextField {...params} size="small" label="Program" />} /></Grid>
+        <Grid item xs={12} md={3}><Autocomplete options={studentOptions} value={studentOptions.find((item) => item.regno === form.regno) || null} getOptionLabel={(option) => `${option.name || ""} - ${option.regno || ""}`} onChange={(_, value) => setForm((p) => ({ ...p, student: value?.name || "", regno: value?.regno || "", academicyear: p.academicyear || value?.academicyear || "", program: value?.program || p.program || "", programcode: value?.programcode || p.programcode || "", department: value?.department || p.department || "" }))} renderInput={(params) => <TextField {...params} size="small" label="Student" />} /></Grid>
+        <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Reg no" value={form.regno || ""} onChange={(e) => setForm((p) => ({ ...p, regno: e.target.value }))} /></Grid>
+        <Grid item xs={12} md={2}><Autocomplete freeSolo options={options.recordIndustries || options.industries || []} value={form.industry || ""} onInputChange={(_, value) => setForm((p) => ({ ...p, industry: value || "" }))} renderInput={(params) => <TextField {...params} size="small" label="Industry" />} /></Grid>
+        <Grid item xs={12} md={2}><Autocomplete freeSolo options={options.sectors || []} value={form.sector || ""} onInputChange={(_, value) => setForm((p) => ({ ...p, sector: value || "" }))} renderInput={(params) => <TextField {...params} size="small" label="Sector" />} /></Grid>
+        <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Role" value={form.role || ""} onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))} /></Grid>
+        <Grid item xs={12} md={3}><Autocomplete freeSolo options={companyOptions.map((item) => item.company).filter(Boolean)} value={form.company || ""} onInputChange={(_, value) => setForm((p) => ({ ...p, company: value || "" }))} onChange={(_, value) => { const company = companyOptions.find((item) => item.company === value); if (company) setForm((p) => ({ ...p, company: company.company || "", companyemail: company.companyemail || p.companyemail || "", industry: company.industry || p.industry || "", address: company.address || p.address || "" })); }} renderInput={(params) => <TextField {...params} size="small" label="Company" />} /></Grid>
+        <Grid item xs={12} md={3}><TextField fullWidth size="small" label="Address" value={form.address || ""} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} /></Grid>
+        <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Company mail" value={form.companymail || ""} onChange={(e) => setForm((p) => ({ ...p, companymail: e.target.value }))} /></Grid>
+        <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Company email" value={form.companyemail || ""} onChange={(e) => setForm((p) => ({ ...p, companyemail: e.target.value }))} /></Grid>
+        <Grid item xs={12} md={2}><TextField fullWidth size="small" type="number" label="Salary" value={form.salary || ""} onChange={(e) => setForm((p) => ({ ...p, salary: e.target.value }))} /></Grid>
+        <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Department" value={form.department || ""} onChange={(e) => setForm((p) => ({ ...p, department: e.target.value }))} /></Grid>
+        <Grid item xs={12} md={2}><TextField select fullWidth size="small" label="Status" value={form.status || "Placed"} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}><MenuItem value="Placed">Placed</MenuItem><MenuItem value="Offer Accepted">Offer Accepted</MenuItem><MenuItem value="Joined">Joined</MenuItem><MenuItem value="Inactive">Inactive</MenuItem></TextField></Grid>
+        <Grid item xs={12} md={2}><Button fullWidth variant="contained" startIcon={<Save />} onClick={save}>{editingId ? "Update" : "Save"}</Button></Grid>
+      </Grid>
+    );
+  }} />;
+}
+
+export function PlacementDashboardPage() {
+  const [academicyear, setAcademicyear] = useState("");
+  const [data, setData] = useState({ records: [], students: [], academicyears: [], sectorwise: [], industrywise: [], programwise: [], summary: {}, institution: null });
+  const [loading, setLoading] = useState(false);
+  const printRef = useRef(null);
+  const load = async (year = academicyear) => {
+    setLoading(true);
+    try {
+      const res = await ep1.get("/api/v2/placement-new/placement-dashboard", { params: { colid: global1.colid, academicyear: year } });
+      setData(res.data || {});
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { load(""); }, []);
+  const cards = [
+    ["Placement records", data.summary?.placementRecords || 0],
+    ["Placed students", data.summary?.placedStudents || 0],
+    ["Eligible students", data.summary?.eligibleStudents || 0],
+    ["Placement %", `${data.summary?.placementPercentage || 0}%`],
+    ["Average salary", data.summary?.averageSalary || 0],
+    ["Highest salary", data.summary?.highestSalary || 0]
+  ];
+  const print = () => {
+    const w = window.open("", "_blank");
+    w.document.write(`<html><head><title>Placement dashboard</title><style>@page{size:A4 landscape;margin:10mm}body{font-family:Arial;color:#000;background:#fff}.no-print{display:none}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}.card{border:1px solid #999;padding:8px}table{width:100%;border-collapse:collapse;font-size:10px}th,td{border:1px solid #999;padding:4px;vertical-align:top}tr{break-inside:avoid}h2,h3{text-align:center;margin:4px 0}</style></head><body>${printRef.current?.innerHTML || ""}</body></html>`);
+    w.document.close();
+    w.print();
+  };
+  return (
+    <Shell title="Placement dashboard">
+      <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", md: "center" }} sx={{ mb: 2 }} spacing={2}>
+        <Typography variant="h5" fontWeight={900}>Placement dashboard</Typography>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+          <Autocomplete sx={{ minWidth: 230 }} options={data.academicyears || []} value={academicyear || ""} onInputChange={(_, value) => setAcademicyear(value || "")} renderInput={(params) => <TextField {...params} size="small" label="Academic year" />} />
+          <Button variant="contained" onClick={() => load()}>Apply</Button>
+          <Button startIcon={<Print />} variant="outlined" onClick={print}>Print</Button>
+        </Stack>
+      </Stack>
+      <Box ref={printRef}>
+        <ReportHeader institution={data.institution} title="Placement dashboard" />
+        <Grid container spacing={2} sx={{ mb: 2 }} className="cards">
+          {cards.map(([label, value]) => (
+            <Grid item xs={12} sm={6} md={2} key={label} className="card">
+              <Card sx={{ height: "100%" }}>
+                <CardContent>
+                  <Typography color="text.secondary">{label}</Typography>
+                  <Typography variant="h5" fontWeight={900}>{value}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid item xs={12} md={4}>
+            <Paper sx={{ p: 2, height: 320 }}>
+              <Typography fontWeight={800}>Sector wise placement</Typography>
+              <ResponsiveContainer><PieChart><Pie data={data.sectorwise || []} dataKey="count" nameKey="name" outerRadius={105}>{(data.sectorwise || []).map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer>
+            </Paper>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Paper sx={{ p: 2, height: 320 }}>
+              <Typography fontWeight={800}>Industry wise placement</Typography>
+              <ResponsiveContainer><BarChart data={data.industrywise || []}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="count" fill="#16a34a" /></BarChart></ResponsiveContainer>
+            </Paper>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Paper sx={{ p: 2, height: 320 }}>
+              <Typography fontWeight={800}>Program wise placement %</Typography>
+              <ResponsiveContainer><BarChart data={data.programwise || []}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip /><Bar dataKey="percentage" fill="#2563eb" /></BarChart></ResponsiveContainer>
+            </Paper>
+          </Grid>
+        </Grid>
+        <Paper sx={{ p: 1, mb: 2 }}>
+          <Typography variant="h6" fontWeight={900} sx={{ px: 1, py: 1 }}>Programwise placement</Typography>
+          <DataGrid rows={data.programwise || []} getRowId={(row) => row.name} loading={loading} autoHeight getRowHeight={() => "auto"} sx={gridWrapSx} slots={{ toolbar: GridToolbar }} columns={[
+            { field: "program", headerName: "Program", width: 220 },
+            { field: "programcode", headerName: "Program code", width: 140 },
+            { field: "eligible", headerName: "Students", width: 120 },
+            { field: "placed", headerName: "Placed", width: 120 },
+            { field: "percentage", headerName: "Placement %", width: 140 }
+          ]} />
+        </Paper>
+        <Paper sx={{ p: 1 }}>
+          <Typography variant="h6" fontWeight={900} sx={{ px: 1, py: 1 }}>Placement details</Typography>
+          <DataGrid rows={data.records || []} getRowId={(row) => row._id} loading={loading} autoHeight getRowHeight={() => "auto"} sx={gridWrapSx} slots={{ toolbar: GridToolbar }} columns={[
+            { field: "academicyear", headerName: "Academic year", width: 130 },
+            { field: "program", headerName: "Program", width: 180 },
+            { field: "programcode", headerName: "Program code", width: 130 },
+            { field: "student", headerName: "Student", width: 190 },
+            { field: "regno", headerName: "Reg no", width: 130 },
+            { field: "sector", headerName: "Sector", width: 140 },
+            { field: "industry", headerName: "Industry", width: 150 },
+            { field: "role", headerName: "Role", width: 170 },
+            { field: "company", headerName: "Company", width: 190 },
+            { field: "salary", headerName: "Salary", width: 120 },
+            { field: "department", headerName: "Department", width: 150 },
+            { field: "status", headerName: "Status", width: 120 }
+          ]} />
+        </Paper>
+      </Box>
+    </Shell>
+  );
 }
 
 function PlacementReportShell({ title, mode }) {

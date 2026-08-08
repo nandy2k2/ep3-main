@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Autocomplete,
   Box,
@@ -15,7 +18,7 @@ import {
   TextField,
   Typography
 } from "@mui/material";
-import { Dashboard, Logout, PlayArrow, QuestionAnswer, Refresh } from "@mui/icons-material";
+import { Dashboard, ExpandMore, Logout, PlayArrow, QuestionAnswer, Refresh } from "@mui/icons-material";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 
@@ -132,6 +135,7 @@ export default function NepLmsStudentCourseMaterialViewerPage({ facultyMode = fa
   const [progress, setProgress] = useState({});
   const [qa, setQa] = useState([]);
   const [selectedId, setSelectedId] = useState("");
+  const [expandedSection, setExpandedSection] = useState("");
   const [sideTab, setSideTab] = useState(0);
   const [question, setQuestion] = useState("");
   const [answerDrafts, setAnswerDrafts] = useState({});
@@ -146,20 +150,49 @@ export default function NepLmsStudentCourseMaterialViewerPage({ facultyMode = fa
   const materialQa = useMemo(() => qa.filter((item) => String(item.materialid) === String(selectedId)), [qa, selectedId]);
   const isFacultyView = facultyMode || String(global1.role || "").toLowerCase() !== "student";
   const sortedMaterials = useMemo(() => sortMaterials(materials), [materials]);
-  const filterOptions = useMemo(() => ({
-    academicyears: uniqueSorted(courses.map((item) => item.academicyear)),
-    regulations: uniqueSorted(courses.map((item) => item.regulation)),
-    programs: uniqueSorted(courses.map((item) => item.program)),
-    programcodes: uniqueSorted(courses.map((item) => item.programcode)),
-    semesters: uniqueSorted(courses.map((item) => item.semester)),
-    courses: courses.filter((item) => (
-      (!filters.academicyear || item.academicyear === filters.academicyear)
-      && (!filters.regulation || item.regulation === filters.regulation)
-      && (!filters.program || item.program === filters.program)
-      && (!filters.programcode || item.programcode === filters.programcode)
-      && (!filters.semester || item.semester === filters.semester)
-    ))
-  }), [courses, filters]);
+  const materialSections = useMemo(() => {
+    const map = new Map();
+    sortedMaterials.forEach((item) => {
+      const key = String(item.section || "General").trim() || "General";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(item);
+    });
+    return [...map.entries()].map(([section, rows]) => ({ section, rows }));
+  }, [sortedMaterials]);
+  const filterOptions = useMemo(() => {
+    const programMap = new Map();
+    courses
+      .filter((item) => (
+        (!filters.academicyear || item.academicyear === filters.academicyear)
+        && (!filters.regulation || item.regulation === filters.regulation)
+      ))
+      .forEach((item) => {
+        const key = `${item.program || ""}__${item.programcode || ""}`;
+        if ((item.program || item.programcode) && !programMap.has(key)) {
+          programMap.set(key, { program: item.program || "", programcode: item.programcode || "" });
+        }
+      });
+    return {
+      academicyears: uniqueSorted(courses.map((item) => item.academicyear)),
+      regulations: uniqueSorted(courses.map((item) => item.regulation)),
+      programs: [...programMap.values()].sort((a, b) => `${a.program} ${a.programcode}`.localeCompare(`${b.program} ${b.programcode}`)),
+      semesters: uniqueSorted(courses
+        .filter((item) => (
+          (!filters.academicyear || item.academicyear === filters.academicyear)
+          && (!filters.regulation || item.regulation === filters.regulation)
+          && (!filters.program || item.program === filters.program)
+          && (!filters.programcode || item.programcode === filters.programcode)
+        ))
+        .map((item) => item.semester)),
+      courses: courses.filter((item) => (
+        (!filters.academicyear || item.academicyear === filters.academicyear)
+        && (!filters.regulation || item.regulation === filters.regulation)
+        && (!filters.program || item.program === filters.program)
+        && (!filters.programcode || item.programcode === filters.programcode)
+        && (!filters.semester || item.semester === filters.semester)
+      ))
+    };
+  }, [courses, filters]);
 
   const baseParams = (extra = {}) => ({
     colid: global1.colid,
@@ -214,7 +247,9 @@ export default function NepLmsStudentCourseMaterialViewerPage({ facultyMode = fa
       setMaterials(nextMaterials);
       setQa(res.data?.qa || []);
       setProgress(Object.fromEntries((res.data?.progress || []).map((item) => [String(item.materialid), item])));
-      setSelectedId((prev) => nextMaterials.some((item) => item._id === prev) ? prev : (nextMaterials[0]?._id || ""));
+      const nextSelected = nextMaterials.find((item) => item._id === selectedId) || nextMaterials[0] || null;
+      setSelectedId(nextSelected?._id || "");
+      setExpandedSection(nextSelected ? (String(nextSelected.section || "General").trim() || "General") : "");
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load course materials.");
     } finally {
@@ -224,6 +259,9 @@ export default function NepLmsStudentCourseMaterialViewerPage({ facultyMode = fa
 
   useEffect(() => { loadCourses(); }, []);
   useEffect(() => { if (course) loadMaterials(course); }, [course?._id]);
+  useEffect(() => {
+    if (selectedMaterial) setExpandedSection(String(selectedMaterial.section || "General").trim() || "General");
+  }, [selectedMaterial?._id]);
 
   const selectCourseFromFilters = () => {
     const next = courses.find((item) => (
@@ -350,21 +388,30 @@ export default function NepLmsStudentCourseMaterialViewerPage({ facultyMode = fa
   };
 
   const renderFilters = () => (
-    <Stack spacing={1.25}>
-      <Autocomplete size="small" options={filterOptions.academicyears} value={filters.academicyear || null} onChange={(_, value) => setFilters((prev) => ({ ...prev, academicyear: value || "", coursecode: "" }))} renderInput={(params) => <TextField {...params} label="Academic year" />} />
-      <Autocomplete size="small" options={filterOptions.regulations} value={filters.regulation || null} onChange={(_, value) => setFilters((prev) => ({ ...prev, regulation: value || "", coursecode: "" }))} renderInput={(params) => <TextField {...params} label="Regulation" />} />
-      <Autocomplete size="small" options={filterOptions.programs} value={filters.program || null} onChange={(_, value) => setFilters((prev) => ({ ...prev, program: value || "", coursecode: "" }))} renderInput={(params) => <TextField {...params} label="Program" />} />
-      <Autocomplete size="small" options={filterOptions.programcodes} value={filters.programcode || null} onChange={(_, value) => setFilters((prev) => ({ ...prev, programcode: value || "", coursecode: "" }))} renderInput={(params) => <TextField {...params} label="Program code" />} />
-      <Autocomplete size="small" options={filterOptions.semesters} value={filters.semester || null} onChange={(_, value) => setFilters((prev) => ({ ...prev, semester: value || "", coursecode: "" }))} renderInput={(params) => <TextField {...params} label="Semester" />} />
+    <Stack direction={{ xs: "column", md: "row" }} spacing={1.25} alignItems={{ xs: "stretch", md: "center" }}>
+      <Autocomplete size="small" sx={{ minWidth: 150 }} options={filterOptions.academicyears} value={filters.academicyear || null} onChange={(_, value) => setFilters((prev) => ({ ...prev, academicyear: value || "", program: "", programcode: "", semester: "", coursecode: "" }))} renderInput={(params) => <TextField {...params} label="Academic year" />} />
+      <Autocomplete size="small" sx={{ minWidth: 150 }} options={filterOptions.regulations} value={filters.regulation || null} onChange={(_, value) => setFilters((prev) => ({ ...prev, regulation: value || "", program: "", programcode: "", semester: "", coursecode: "" }))} renderInput={(params) => <TextField {...params} label="Regulation" />} />
       <Autocomplete
         size="small"
+        sx={{ minWidth: 240 }}
+        options={filterOptions.programs}
+        value={filterOptions.programs.find((item) => item.program === filters.program && item.programcode === filters.programcode) || null}
+        getOptionLabel={(option) => option ? `${option.program || ""}${option.programcode ? ` (${option.programcode})` : ""}` : ""}
+        isOptionEqualToValue={(option, value) => option.program === value.program && option.programcode === value.programcode}
+        onChange={(_, value) => setFilters((prev) => ({ ...prev, program: value?.program || "", programcode: value?.programcode || "", semester: "", coursecode: "" }))}
+        renderInput={(params) => <TextField {...params} label="Program" />}
+      />
+      <Autocomplete size="small" sx={{ minWidth: 130 }} options={filterOptions.semesters} value={filters.semester || null} onChange={(_, value) => setFilters((prev) => ({ ...prev, semester: value || "", coursecode: "" }))} renderInput={(params) => <TextField {...params} label="Semester" />} />
+      <Autocomplete
+        size="small"
+        sx={{ minWidth: 260, flex: 1 }}
         options={filterOptions.courses}
         value={filterOptions.courses.find((item) => item.coursecode === filters.coursecode) || null}
         getOptionLabel={(option) => option ? `${option.course || ""} (${option.coursecode || ""})` : ""}
         onChange={(_, value) => setFilters((prev) => ({ ...prev, coursecode: value?.coursecode || "" }))}
         renderInput={(params) => <TextField {...params} label="Course" />}
       />
-      <Button variant="contained" startIcon={<Refresh />} onClick={selectCourseFromFilters}>Load materials</Button>
+      <Button variant="contained" startIcon={<Refresh />} onClick={selectCourseFromFilters} sx={{ minWidth: 150 }}>Load materials</Button>
     </Stack>
   );
 
@@ -383,7 +430,10 @@ export default function NepLmsStudentCourseMaterialViewerPage({ facultyMode = fa
         </Stack>
       </Paper>
       {loading && <LinearProgress />}
-      <Box sx={{ height: "calc(100vh - 58px)", display: "flex", gap: 1.5, p: 1.5 }}>
+      <Paper elevation={0} square sx={{ px: 1.5, py: 1.25, borderBottom: "1px solid", borderColor: "divider" }}>
+        {renderFilters()}
+      </Paper>
+      <Box sx={{ height: "calc(100vh - 122px)", display: "flex", gap: 1.5, p: 1.5 }}>
         <Paper sx={{ width: "80%", minWidth: 0, overflow: "hidden", borderRadius: 2, display: "flex", flexDirection: "column" }}>
           <Box sx={{ px: 2, py: 1.25, borderBottom: "1px solid", borderColor: "divider" }}>
             <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
@@ -414,41 +464,57 @@ export default function NepLmsStudentCourseMaterialViewerPage({ facultyMode = fa
           <Box sx={{ p: 1.5, overflow: "auto", flex: 1 }}>
             {sideTab === 0 && (
               <Stack spacing={1.5}>
-                {renderFilters()}
-                <Divider />
-                <Typography variant="subtitle2" fontWeight={950}>Course materials in order</Typography>
+                <Typography variant="subtitle2" fontWeight={950}>Course materials by section</Typography>
                 <Stack spacing={1}>
-                  {sortedMaterials.map((item) => {
-                    const itemProgress = progress[String(item._id)] || {};
-                    const active = item._id === selectedId;
-                    return (
-                      <Paper
-                        key={item._id}
-                        variant="outlined"
-                        onClick={() => setSelectedId(item._id)}
-                        sx={{
-                          p: 1,
-                          cursor: "pointer",
-                          borderColor: active ? "primary.main" : "divider",
-                          bgcolor: active ? "#eff6ff" : "#fff"
-                        }}
-                      >
-                        <Stack direction="row" spacing={1} alignItems="flex-start">
-                          <PlayArrow color={active ? "primary" : "disabled"} fontSize="small" />
-                          <Box sx={{ minWidth: 0, flex: 1 }}>
-                            <Typography variant="body2" fontWeight={900}>{item.order ? `${item.order}. ` : ""}{item.title || item.originalname || "Course material"}</Typography>
-                            <Typography variant="caption" color="text.secondary">{item.module || "Module"} {item.topic ? `| ${item.topic}` : ""}</Typography>
-                            {!facultyMode && (
-                              <>
-                                <LinearProgress variant="determinate" value={Number(itemProgress.watchedpercent || 0)} sx={{ mt: 0.75, height: 5, borderRadius: 1 }} />
-                                <Typography variant="caption" color="text.secondary">{itemProgress.watchedpercent || 0}% watched</Typography>
-                              </>
-                            )}
-                          </Box>
+                  {materialSections.map((group) => (
+                    <Accordion
+                      key={group.section}
+                      disableGutters
+                      expanded={expandedSection === group.section}
+                      onChange={(_, expanded) => setExpandedSection(expanded ? group.section : "")}
+                      sx={{ border: "1px solid", borderColor: "divider", boxShadow: "none", "&:before": { display: "none" } }}
+                    >
+                      <AccordionSummary expandIcon={<ExpandMore />}>
+                        <Typography variant="body2" fontWeight={950} sx={{ wordBreak: "break-word" }}>{group.section}</Typography>
+                        <Chip size="small" label={group.rows.length} sx={{ ml: 1 }} />
+                      </AccordionSummary>
+                      <AccordionDetails sx={{ p: 1, pt: 0 }}>
+                        <Stack spacing={1}>
+                          {group.rows.map((item) => {
+                            const itemProgress = progress[String(item._id)] || {};
+                            const active = item._id === selectedId;
+                            return (
+                              <Paper
+                                key={item._id}
+                                variant="outlined"
+                                onClick={() => setSelectedId(item._id)}
+                                sx={{
+                                  p: 1,
+                                  cursor: "pointer",
+                                  borderColor: active ? "primary.main" : "divider",
+                                  bgcolor: active ? "#eff6ff" : "#fff"
+                                }}
+                              >
+                                <Stack direction="row" spacing={1} alignItems="flex-start">
+                                  <PlayArrow color={active ? "primary" : "disabled"} fontSize="small" />
+                                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                                    <Typography variant="body2" fontWeight={900}>{item.order ? `${item.order}. ` : ""}{item.title || item.originalname || "Course material"}</Typography>
+                                    <Typography variant="caption" color="text.secondary">{item.module || "Module"} {item.topic ? `| ${item.topic}` : ""}</Typography>
+                                    {!facultyMode && (
+                                      <>
+                                        <LinearProgress variant="determinate" value={Number(itemProgress.watchedpercent || 0)} sx={{ mt: 0.75, height: 5, borderRadius: 1 }} />
+                                        <Typography variant="caption" color="text.secondary">{itemProgress.watchedpercent || 0}% watched</Typography>
+                                      </>
+                                    )}
+                                  </Box>
+                                </Stack>
+                              </Paper>
+                            );
+                          })}
                         </Stack>
-                      </Paper>
-                    );
-                  })}
+                      </AccordionDetails>
+                    </Accordion>
+                  ))}
                   {!sortedMaterials.length && <Alert severity="info">No course material uploaded for this course.</Alert>}
                 </Stack>
               </Stack>

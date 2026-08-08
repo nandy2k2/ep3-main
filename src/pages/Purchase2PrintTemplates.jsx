@@ -188,7 +188,7 @@ export function Purchase2IndentPrint({ header = {}, items = [], institution = {}
         { key: "issuedquantity", label: "Approved/Issued Qty", render: (row) => formatQty(pick(row, ["issuedquantity", "approvedquantity"], "")) },
         { key: "remarks", label: "Remarks" }
       ]} rows={items} />
-      <Remarks>{pick(header, ["remarks", "comment", "description"], "")}</Remarks>
+      <Remarks>{pick(header, ["remarks", "comment", "comments", "note", "description"], "")}</Remarks>
       <Signatures labels={["Requester Signature", "HOD/HOI Approval", "Store In-charge"]} />
     </PrintShell>
   );
@@ -220,7 +220,7 @@ export function Purchase2PrPrint({ header = {}, items = [], institution = {} }) 
         { key: "budgethead", label: "Budget Head" },
         { key: "remarks", label: "Remarks" }
       ]} rows={items} />
-      <Remarks>{pick(header, ["remarks", "description"], "")}</Remarks>
+      <Remarks>{pick(header, ["remarks", "comment", "comments", "note", "description"], "")}</Remarks>
       <Signatures labels={["Store In-charge", "Purchase Cell", "Approval Authority"]} />
     </PrintShell>
   );
@@ -265,7 +265,7 @@ function PoLikePrint({ header = {}, items = [], institution = {}, title }) {
         { key: "total", label: "Amount", render: (row) => formatCurrency(row.total || Number(pick(row, ["price", "rate", "estimatedprice"], 0)) * Number(row.quantity || 0)) }
       ]} rows={items} />
       <Totals items={items} />
-      <Remarks>{pick(header, ["terms", "generalterms", "paymentterms", "description"], "No additional terms.")}</Remarks>
+      <Remarks>{pick(header, ["remarks", "terms", "generalterms", "paymentterms", "description"], "No additional terms.")}</Remarks>
       <Signatures labels={[
         { label: "Prepared By", name: pick(header, ["creatorName", "preparedby"], ""), image: pick(header, ["creatorSignature"], "") },
         ...((header.approvalhistory || []).map((item) => ({ label: `Approved L${item.level || ""}`, name: item.approvername, image: item.signaturelink }))),
@@ -312,7 +312,7 @@ export function Purchase2GatePassPrint({ header = {}, items = [], institution = 
         { key: "package", label: "Package/Box" },
         { key: "remarks", label: "Remarks" }
       ]} rows={items} />
-      <Remarks>{pick(header, ["remarks"], "")}</Remarks>
+      <Remarks>{pick(header, ["remarks", "comment", "comments", "note"], "")}</Remarks>
       <Signatures labels={["Security Signature", "Store In-charge", "Receiver Signature"]} />
     </PrintShell>
   );
@@ -345,7 +345,7 @@ export function Purchase2QualityCheckPrint({ header = {}, items = [], institutio
         { key: "status", label: "QC Status" },
         { key: "remarks", label: "Remarks" }
       ]} rows={items} />
-      <Remarks>{pick(header, ["remarks", "reason"], "")}</Remarks>
+      <Remarks>{pick(header, ["remarks", "reason", "comment", "comments", "note"], "")}</Remarks>
       <Signatures labels={["QC Done By", "Store In-charge", "Approval Authority"]} />
     </PrintShell>
   );

@@ -3,7 +3,9 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
+  FormControlLabel,
   Paper,
   Stack,
   TextField,
@@ -15,7 +17,9 @@ import ep1 from "../api/ep1";
 import { applyLoginSession } from "../utils/loginSession";
 import {
   clearPendingAuthenticatorLogin,
-  readPendingAuthenticatorLogin
+  getAuthenticatorDeviceId,
+  readPendingAuthenticatorLogin,
+  saveTrustedAuthenticatorDevice
 } from "../utils/twoFactorLogin";
 
 const formatDate = (value) => {
@@ -36,6 +40,7 @@ export default function AuthenticatorSetupPage() {
   const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [trustDevice, setTrustDevice] = useState(true);
 
   const finishLogin = async () => {
     const destination = await applyLoginSession(responseData, options);
@@ -72,9 +77,14 @@ export default function AuthenticatorSetupPage() {
       const res = await ep1.post("/api/v2/authenticator/verify", {
         colid: responseData.colid,
         email: responseData.user || responseData.email,
-        code
+        code,
+        trustDevice,
+        deviceId: getAuthenticatorDeviceId()
       });
       setTwofa(res.data?.twofa || {});
+      if (res.data?.trustToken) {
+        saveTrustedAuthenticatorDevice(responseData, res.data.trustToken, res.data.trustedUntil);
+      }
       setMessage("Authenticator verified.");
       await finishLogin();
     } catch (err) {
@@ -140,6 +150,15 @@ export default function AuthenticatorSetupPage() {
             inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
             fullWidth
           />
+          <Box>
+            <FormControlLabel
+              control={<Checkbox checked={trustDevice} onChange={(e) => setTrustDevice(e.target.checked)} />}
+              label="Trust this device for 3 days"
+            />
+            <Typography variant="caption" color="text.secondary" display="block">
+              Only this browser on this device will skip the authenticator prompt.
+            </Typography>
+          </Box>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
             <Button variant="contained" onClick={verify} disabled={code.length !== 6}>Verify and continue</Button>
             {skipAllowed && <Button variant="outlined" onClick={skip}>Skip for now</Button>}

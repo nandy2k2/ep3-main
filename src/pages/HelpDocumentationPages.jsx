@@ -1040,6 +1040,243 @@ const libraryHelpSections = [
   }
 ];
 
+const purchase2HelpSections = [
+  {
+    title: "Business Purpose And Operating Model",
+    summary: "Purchase 2 separates store indents, store PR, PO creation, approval, gate pass, quality check, GRN, stock update and print evidence into a controlled procurement workflow.",
+    business: [
+      "Departments can request items from assigned stores without manually tracking stock by email or paper.",
+      "Store managers can issue available stock immediately and raise PR only for items that need procurement.",
+      "Purchase cell can assign PRs to PO creators, ensure one PO belongs to one vendor, route PO approval, and retain printable audit evidence.",
+      "Stores can control inward material through gate pass, quality check and GRN before stock is updated."
+    ],
+    workflow: [
+      "Create core masters: department, item unit, item type, item category, item master, store master and store users.",
+      "User raises an indent request for a store assigned to them.",
+      "Store manager reviews the indent, checks stock and allots full or partial quantity.",
+      "If items are unavailable or need purchase, store manager raises Store PR request.",
+      "Authorized user assigns PR to PO creator.",
+      "PO creator creates PO from assigned PR or creates a Local PO directly from item master.",
+      "PO is submitted and passes through PO approval workflow.",
+      "Approved PO moves through gate pass, quality check and GRN.",
+      "Approved QC/GRN quantities update store stock and become available for future allotment."
+    ],
+    controls: [
+      "Store dropdowns are based on store-user assignment.",
+      "Department indent uses creatoruserid so the creator sees their own department mapping.",
+      "Item issue validates available quantity from store items.",
+      "PO creation from PR should keep one vendor per PO.",
+      "Print documents should include institution details and user signatures where configured."
+    ],
+    links: [
+      ["/purchase2-dashboard", "Purchase 2 dashboard"],
+      ["/purchase2/departmentindentds", "Department indent"],
+      ["/purchase2/itemunitds2", "Item unit"],
+      ["/purchase2/itemtypeds2", "Item type"],
+      ["/purchase2/itemcategoryds2", "Item category"],
+      ["/purchase2/itemmasterds2", "Item master"],
+      ["/purchase2/storemasterds2", "Store master"],
+      ["/purchase2/storeusersds2", "Store users"]
+    ]
+  },
+  {
+    title: "Master Data Setup",
+    summary: "Masters define what can be requested, who can request from which store, and which vendor/rate data can be used for purchase orders.",
+    business: [
+      "Clean master data prevents wrong departments, duplicate item codes, unclear units and uncontrolled stores.",
+      "Vendor item mapping supports automatic vendor selection and PO pricing when the PR item matches vendor item data."
+    ],
+    workflow: [
+      "Create department list in Department indent.",
+      "Create Item unit records such as Nos, Box, Kg or Litre.",
+      "Create Item type and Item category records.",
+      "Create Item master with item code, item name, type, category, unit and status.",
+      "Create stores in Store master and map users to stores in Store users.",
+      "Create Store items to represent available stock and quantity.",
+      "Create Vendors and Vendor items with rate, warranty and terms where available."
+    ],
+    controls: [
+      "Use searchable dropdowns for type, category, unit and store.",
+      "Use bulk upload for first-time master migration.",
+      "Use bulk delete carefully only for setup errors before live transactions begin."
+    ],
+    links: [
+      ["/purchase2/storeitemsds2", "Store items"],
+      ["/purchase2/vendorsds2", "Vendors"],
+      ["/purchase2/vendoritemsds2", "Vendor items"],
+      ["/purchase2-store-item-user", "Store item user"]
+    ]
+  },
+  {
+    title: "Indent Request And Store Allotment",
+    summary: "This is the day-to-day store issue process where the requester asks for items and the store manager issues available quantity.",
+    business: [
+      "Departments get visibility into what they requested and what was actually allotted.",
+      "Store managers can partially allot if available stock is lower than requested quantity.",
+      "Allotment print acts as an issue or assignment document."
+    ],
+    workflow: [
+      "Requester opens Indent request.",
+      "Select department, assigned store and items from item master.",
+      "Submit request with item quantity and remarks.",
+      "Store manager opens Indent approval / allotment.",
+      "System filters requests by stores assigned to logged-in store manager.",
+      "Manager opens a request, checks available quantity and enters allotted quantity.",
+      "If allotted quantity is less than requested, the shortfall remains visible.",
+      "Print the indent or allotment document for signatures and records."
+    ],
+    controls: [
+      "Quantity allotted cannot exceed requested quantity.",
+      "Allotment checks storeitemsds2 before issuing.",
+      "Available stock must reduce after issue.",
+      "Requester should see only requests related to their creatoruserid where applicable."
+    ],
+    links: [
+      ["/purchase2-indent-request", "Indent request"],
+      ["/purchase2-store-request-review", "Indent approval / allotment"],
+      ["/purchase2/storerequisitionds2", "Store requisition"],
+      ["/purchase2/storerequisitionitemsds2", "Store requisition items"]
+    ]
+  },
+  {
+    title: "Store PR And PO Assignment",
+    summary: "When store stock is insufficient or purchase is needed, store managers raise PR and purchase administrators assign PRs to PO creators.",
+    business: [
+      "Store PR consolidates demand before purchase action.",
+      "PO assignment gives accountability to a specific PO creator with date, status and remarks."
+    ],
+    workflow: [
+      "Store manager opens Store PR request.",
+      "Select assigned store and items through dynamic item filters.",
+      "Enter make, quantity, remarks and submit PR.",
+      "Open Assign PO creator.",
+      "Select PR from table and select user from searchable dropdown.",
+      "Save assignment so the selected PO creator can view the PR in their workbench.",
+      "Print PR by PR number for purchase file."
+    ],
+    controls: [
+      "PR history should show only logged-in user's PRs where required.",
+      "Store selection follows store access.",
+      "Assigned PR should become available only to the selected PO creator."
+    ],
+    links: [
+      ["/purchase2-store-pr-request", "Store PR request"],
+      ["/purchase2-po-assignment", "Assign PO creator"],
+      ["/purchase2/storeprrequestds2", "Store PR request model"],
+      ["/purchase2/storepoassignmentds2", "Store PO assignment"]
+    ]
+  },
+  {
+    title: "PO Creation, Local PO And Approval",
+    summary: "Purchase 2 supports PO creation from assigned PR and direct Local PO creation from item master.",
+    business: [
+      "Standard PO follows approved PR demand.",
+      "Local PO handles direct purchase where PR assignment is not required.",
+      "Approval workflow ensures financial and administrative review before material movement."
+    ],
+    workflow: [
+      "Configure PO approval levels in PO approval workflow.",
+      "PO creator opens Manage PO creator and sees PRs assigned to them.",
+      "Select a PR and create PO; vendor is selected from vendor item mapping when PR item matches vendor item.",
+      "Add terms, warranty and any editable PO details.",
+      "Save PO as Draft.",
+      "Submit PO from Manage PO; it moves to approval workflow.",
+      "Approvers open Manage PO admin and approve as per configured levels.",
+      "For Local PO, open Local PO, select items from item master, select unit and vendor, enter make, terms and create PO."
+    ],
+    controls: [
+      "One PO should not contain items from multiple vendors.",
+      "Creator signature populates when creator submits if signature upload exists.",
+      "Approver name and signature populate in print after approval.",
+      "Submitted PO should not bypass configured approval levels."
+    ],
+    links: [
+      ["/purchase2-local-po", "Local PO"],
+      ["/purchase2-po-approval-workflow", "PO approval workflow"],
+      ["/purchase2-manage-po-admin", "Manage PO admin"],
+      ["/purchase2-manage-po-creator", "Manage PO creator"],
+      ["/user-signature-upload", "User signature upload"]
+    ]
+  },
+  {
+    title: "Gate Pass, Quality Check And GRN",
+    summary: "The post-approval receipt process controls material entry, inspection, accepted quantities and stock posting.",
+    business: [
+      "Gate pass records material movement at entry or exit.",
+      "Quality check separates received, approved, rejected and returned quantity.",
+      "GRN becomes the formal goods receipt evidence for stores, purchase and accounts."
+    ],
+    workflow: [
+      "After PO approval, open PO gate pass and create gate pass for selected PO items.",
+      "When material is received, open Quality check.",
+      "Enter received, approved, rejected and returned quantities with remarks.",
+      "Approved quantity updates store stock.",
+      "Open GRN creation and create GRN against approved QC.",
+      "Print gate pass, QC report and GRN for file and audit."
+    ],
+    controls: [
+      "Rejected and returned quantities should remain visible against the QC record.",
+      "Approved QC quantity should match what is posted into storeitemsds2.",
+      "GRN should link PO, vendor, store, gate pass and QC."
+    ],
+    links: [
+      ["/purchase2-gate-pass", "PO gate pass"],
+      ["/purchase2-quality-check", "Quality check"],
+      ["/purchase2-grn-creation", "GRN creation"],
+      ["/purchase2/storegatepassds2", "Store gate pass"],
+      ["/purchase2/storequalitycheckds2", "Store quality check"],
+      ["/purchase2/storegrnds2", "Store GRN"]
+    ]
+  },
+  {
+    title: "Reports, Prints And Audit Evidence",
+    summary: "Purchase 2 print and dashboard pages are designed to produce clean evidence for purchase files and management monitoring.",
+    business: [
+      "Printable documents reduce manual formatting and standardize files across departments and stores.",
+      "Dashboard helps management monitor PR, PO, local purchase, process status and category-level spend."
+    ],
+    workflow: [
+      "Use print buttons on Indent, PR, PO, Gate Pass, Quality Check, GRN and Local PO pages.",
+      "Confirm institution name, logo and address are updated in Institution details under Settings.",
+      "Upload user signatures before expecting signatures in PO print.",
+      "Use Purchase 2 dashboard for monthly PR/PO, department indent and category spend review."
+    ],
+    controls: [
+      "Prints should use black text, A4 layout, hidden app menu and signature blocks.",
+      "Institution details should come from insdetails, not hardcoded text.",
+      "Use dynamic filters and export grids before month-end audit meetings."
+    ],
+    links: [
+      ["/purchase2-dashboard", "Purchase 2 dashboard"],
+      ["/insdetails", "Institution details"],
+      ["/user-signature-upload", "User signature upload"]
+    ]
+  },
+  {
+    title: "Common Issues And Checks",
+    summary: "Use these checks when users report missing departments, stores, PRs, POs or print fields.",
+    workflow: [
+      "If department is not visible, check Department indent and creatoruserid mapping.",
+      "If store is not visible, check Store users mapping for the logged-in user.",
+      "If item is missing, check Item master status and item type/category setup.",
+      "If PO creator cannot see PR, check Store PO assignment and assigned user email.",
+      "If vendor does not auto select, check vendoritemsds2 item mapping and rate data.",
+      "If signature is missing, check User signature upload for creator or approver email.",
+      "If institution header is wrong, update Institution details in Settings."
+    ],
+    controls: [
+      "Do not manually edit child item rows unless the header status is understood.",
+      "Avoid deleting live PR/PO/QC/GRN records after approval; use status fields and remarks where possible."
+    ],
+    links: [
+      ["/purchase2/itemmasterds2", "Item master"],
+      ["/purchase2/storeusersds2", "Store users"],
+      ["/purchase2/vendoritemsds2", "Vendor items"],
+      ["/purchase2/storepoassignmentds2", "Store PO assignment"]
+    ]
+  }
+];
+
 const admissionSections = [
   {
     title: "Admission Form Design",
@@ -1386,6 +1623,22 @@ export function LibraryNewHelpPage() {
       studentLinks={[
         ["/student-library-opac", "Student OPAC"],
         ["/student-library-issued", "My issued books"]
+      ]}
+    />
+  );
+}
+
+export function Purchase2HelpPage() {
+  return (
+    <HelpDocPage
+      title="Purchase 2 Help"
+      subtitle="Detailed operating manual for Purchase 2: master setup, store indent, allotment, PR, PO assignment, local PO, approval, gate pass, quality check, GRN, print evidence and troubleshooting."
+      icon={<CurrencyRupeeIcon fontSize="large" />}
+      sections={purchase2HelpSections}
+      metrics={[
+        { title: "Primary Users", text: "Requesters, store managers, purchase officers, PO creators, approvers, accounts and audit teams." },
+        { title: "Daily Outcome", text: "Requests move from store demand to stock issue or purchase without losing quantity, approval or print evidence." },
+        { title: "Audit Value", text: "Indent, PR, PO, gate pass, QC and GRN documents provide a traceable procurement file." }
       ]}
     />
   );

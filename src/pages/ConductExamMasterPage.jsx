@@ -74,7 +74,8 @@ export default function ConductExamMasterPage() {
 
   const downloadTemplate = () => {
     const worksheet = XLSX.utils.json_to_sheet([
-      { academicyear: "2026-27", examname: "Semester End Examination", examcode: "SEE-2026-ODD", session: "Odd", type: "Regular" }
+      { academicyear: "2026-27", examname: "Semester End Examination", examcode: "SEE-2026-ODD", session: "Odd", type: "Regular" },
+      { academicyear: "2026-27", examname: "Supplementary Examination", examcode: "SUP-2026-ODD", session: "Odd", type: "Supplementary" }
     ]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Exams");
@@ -110,7 +111,7 @@ export default function ConductExamMasterPage() {
     { field: "examname", headerName: "Exam Name", minWidth: 220, flex: 1 },
     { field: "examcode", headerName: "Exam Code", minWidth: 160, flex: 1 },
     { field: "session", headerName: "Session", width: 120 },
-    { field: "type", headerName: "Type", width: 160 },
+    { field: "type", headerName: "Type of Exam", width: 160 },
     {
       field: "actions",
       headerName: "Actions",
@@ -151,7 +152,7 @@ export default function ConductExamMasterPage() {
           <Grid item xs={12} md={3}><TextField fullWidth label="Exam Name" value={form.examname} onChange={(e) => setForm({ ...form, examname: e.target.value })} /></Grid>
           <Grid item xs={12} md={2.2}><TextField fullWidth label="Exam Code" value={form.examcode} onChange={(e) => setForm({ ...form, examcode: e.target.value })} /></Grid>
           <Grid item xs={12} md={1.6}><TextField select fullWidth label="Session" value={form.session} onChange={(e) => setForm({ ...form, session: e.target.value })}>{sessions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
-          <Grid item xs={12} md={2}><TextField select fullWidth label="Type" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>{examTypes.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+          <Grid item xs={12} md={2}><TextField select fullWidth label="Type of Exam" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>{examTypes.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
           <Grid item xs={12} md={1}><Button fullWidth variant="contained" onClick={saveRow} sx={{ height: 56 }}>{editId ? "Update" : "Save"}</Button></Grid>
         </Grid>
       </Paper>

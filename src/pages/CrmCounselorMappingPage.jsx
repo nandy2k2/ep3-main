@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
+  Checkbox,
   Grid,
   MenuItem,
   Paper,
@@ -22,6 +24,7 @@ const blankForm = {
   programcode: "",
   counselorname: "",
   counseloremail: "",
+  counselors: [],
   status: "Active"
 };
 
@@ -88,24 +91,26 @@ export default function CrmCounselorMappingPage() {
     });
   };
 
-  const selectCounselor = (email) => {
-    const selected = counselors.find((item) => item.email === email);
+  const selectCounselors = (selectedRows) => {
+    const selected = selectedRows || [];
     setForm({
       ...form,
-      counseloremail: selected?.email || "",
-      counselorname: selected?.name || selected?.email || ""
+      counselors: selected,
+      counseloremail: selected[0]?.email || "",
+      counselorname: selected[0]?.name || selected[0]?.email || ""
     });
   };
 
   const saveMapping = async () => {
     try {
       setError("");
-      if (!form.academicyear || !form.regulation || !form.program || !form.programcode || !form.counseloremail) {
+      if (!form.academicyear || !form.regulation || !form.program || !form.programcode || (!form.counseloremail && !form.counselors.length)) {
         setError("Academic year, regulation, program and counselor are required.");
         return;
       }
       await ep1.post("/api/v2/crm-counselor-mapping", {
         ...form,
+        counselors: form.counselors.map((item) => ({ name: item.name || item.email, email: item.email })),
         id: editingId,
         colid: global1.colid,
         user: global1.user || global1.email || ""
@@ -128,6 +133,7 @@ export default function CrmCounselorMappingPage() {
       programcode: row.programcode || "",
       counselorname: row.counselorname || "",
       counseloremail: row.counseloremail || "",
+      counselors: counselors.filter((item) => item.email === row.counseloremail),
       status: row.status || "Active"
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -211,13 +217,22 @@ export default function CrmCounselorMappingPage() {
             </TextField>
           </Grid>
           <Grid item xs={12} md={3}>
-            <TextField select fullWidth label="Counselor" value={form.counseloremail} onChange={(e) => selectCounselor(e.target.value)} required>
-              {counselors.map((item) => (
-                <MenuItem key={item._id || item.email} value={item.email}>
-                  {item.name || item.email} {item.email ? `(${item.email})` : ""}
-                </MenuItem>
-              ))}
-            </TextField>
+            <Autocomplete
+              multiple
+              disableCloseOnSelect
+              options={counselors}
+              value={form.counselors || []}
+              onChange={(_, value) => selectCounselors(value)}
+              isOptionEqualToValue={(option, value) => option.email === value.email}
+              getOptionLabel={(item) => `${item.name || item.email || ""}${item.email ? ` (${item.email})` : ""}`}
+              renderOption={(props, option, { selected }) => (
+                <li {...props}>
+                  <Checkbox checked={selected} sx={{ mr: 1 }} />
+                  {option.name || option.email} {option.email ? `(${option.email})` : ""}
+                </li>
+              )}
+              renderInput={(params) => <TextField {...params} label="Counselors" required placeholder="Select one or more" />}
+            />
           </Grid>
           <Grid item xs={12} md={1}>
             <TextField select fullWidth label="Status" value={form.status} onChange={(e) => updateForm("status", e.target.value)}>

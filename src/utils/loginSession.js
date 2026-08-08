@@ -83,6 +83,7 @@ export const applyLoginSession = async (responseData, options = {}) => {
     return "/studentdashboard";
   }
   if (normalizedRole === "faculty") return "/facultydashboard";
+  if (normalizedRole === "alumni") return "/alumni-new-dashboard";
   if (normalizedRole === "admin" || normalizedRole === "all") return "/configuration";
   return "/dashdashfacnew";
 };

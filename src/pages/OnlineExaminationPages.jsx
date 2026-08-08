@@ -26,13 +26,14 @@ import {
   Typography
 } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
-import { Add, AutoFixHigh, CloudUpload, Delete, Refresh, Save } from "@mui/icons-material";
+import { Add, AutoFixHigh, CloudUpload, Delete, Edit, Refresh, Save } from "@mui/icons-material";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 
 const initialExam = { academicyear: "", program: "", programcode: "", course: "", coursecode: "", examname: "", examcode: "", durationminutes: 60, starttime: "", endtime: "", timezone: "Asia/Kolkata", instructions: "", status: "Draft" };
+const initialQuestionForm = { sectionid: "", questionid: "", questiontext: "", questiontype: "MCQ", marks: 1, modules: [], topics: [], cos: [], bloomlevels: [], options: [{ optiontext: "", iscorrect: true }, { optiontext: "", iscorrect: false }], imageurl: "", fileurl: "", linkurl: "" };
 const languages = ["English", "Hindi", "Bengali", "Tamil", "Telugu", "Marathi", "Gujarati", "Kannada", "Malayalam", "Punjabi", "Urdu", "French", "Spanish"];
 const geminiModels = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
 const fmt = (value) => value ? new Date(value).toLocaleString() : "";
@@ -85,6 +86,26 @@ function DynamicFilters({ fields, filters, setFilters, onApply, loading, valueOp
   );
 }
 
+function MultiCheckAutocomplete({ label, options = [], value = [], onChange }) {
+  return (
+    <Autocomplete
+      multiple
+      disableCloseOnSelect
+      options={options}
+      value={Array.isArray(value) ? value : []}
+      onChange={(_, next) => onChange(next)}
+      renderOption={(props, option, { selected }) => (
+        <li {...props}>
+          <Checkbox checked={selected} sx={{ mr: 1 }} />
+          <Box sx={{ whiteSpace: "normal" }}>{option}</Box>
+        </li>
+      )}
+      renderTags={(selected, getTagProps) => selected.map((option, index) => <Chip size="small" label={option} {...getTagProps({ index })} />)}
+      renderInput={(params) => <TextField {...params} label={label} />}
+    />
+  );
+}
+
 export function OnlineExamManagementPage() {
   const [options, setOptions] = useState({ programs: [], ollama: [] });
   const [exams, setExams] = useState([]);
@@ -92,8 +113,9 @@ export function OnlineExamManagementPage() {
   const [editingId, setEditingId] = useState("");
   const [selectedExam, setSelectedExam] = useState(null);
   const [sectionForm, setSectionForm] = useState({ sectionname: "", sectiontype: "MCQ", instructions: "", order: 0 });
-  const [questionForm, setQuestionForm] = useState({ sectionid: "", questiontext: "", questiontype: "MCQ", marks: 1, options: [{ optiontext: "", iscorrect: true }, { optiontext: "", iscorrect: false }], imageurl: "", fileurl: "", linkurl: "" });
-  const [ai, setAi] = useState({ provider: "Gemini", geminiModel: "gemini-2.5-flash", ollamaConfigId: "", language: "English", difficulty: "Medium", count: 5, topic: "" });
+  const [questionForm, setQuestionForm] = useState(initialQuestionForm);
+  const [questionOptions, setQuestionOptions] = useState({ modules: [], topics: [], cos: [], bloomlevels: [] });
+  const [ai, setAi] = useState({ provider: "Gemini", geminiModel: "gemini-2.5-flash", ollamaConfigId: "", language: "English", difficulty: "Medium", count: 5, topic: "", mapWithAi: true });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -117,6 +139,20 @@ export function OnlineExamManagementPage() {
     }
   };
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (!selectedExam?._id) return;
+    ep1.get("/api/v2/online-exam/question-options", {
+      params: {
+        colid: global1.colid,
+        academicyear: selectedExam.academicyear,
+        program: selectedExam.program,
+        programcode: selectedExam.programcode,
+        course: selectedExam.course,
+        coursecode: selectedExam.coursecode
+      }
+    }).then((res) => setQuestionOptions(res.data || { modules: [], topics: [], cos: [], bloomlevels: [] }))
+      .catch(() => setQuestionOptions({ modules: [], topics: [], cos: [], bloomlevels: ["Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"] }));
+  }, [selectedExam]);
 
   const courseMaps = options.programs || [];
   const yearOptions = useMemo(() => uniqueValues(courseMaps, "academicyear"), [courseMaps]);
@@ -179,16 +215,52 @@ export function OnlineExamManagementPage() {
   const saveQuestion = async (payload = questionForm) => {
     if (!selectedExam?._id || !payload.sectionid) return setMessage("Select exam and section.");
     await ep1.post("/api/v2/online-exam/questions", { ...payload, colid: global1.colid, examid: selectedExam._id });
-    setQuestionForm({ sectionid: payload.sectionid, questiontext: "", questiontype: payload.questiontype, marks: 1, options: [{ optiontext: "", iscorrect: true }, { optiontext: "", iscorrect: false }], imageurl: "", fileurl: "", linkurl: "" });
+    setQuestionForm({ ...initialQuestionForm, sectionid: payload.sectionid, questiontype: payload.questiontype });
+    setMessage(payload.questionid ? "Question updated." : "Question added.");
     await load();
+  };
+  const editQuestion = (section, question) => {
+    setQuestionForm({
+      ...initialQuestionForm,
+      ...question,
+      sectionid: section._id,
+      questionid: question._id,
+      modules: question.modules || [],
+      topics: question.topics || [],
+      cos: question.cos || [],
+      bloomlevels: question.bloomlevels || [],
+      options: question.options?.length ? question.options : initialQuestionForm.options
+    });
+    window.scrollTo({ top: 520, behavior: "smooth" });
   };
   const generate = async () => {
     if (!selectedExam?._id || !questionForm.sectionid) return setMessage("Select exam and section.");
     setLoading(true);
     try {
-      const res = await ep1.post("/api/v2/online-exam/generate-questions", { ...ai, provider: ai.provider, colid: global1.colid, questiontype: questionForm.questiontype, course: selectedExam.course, coursecode: selectedExam.coursecode });
+      const res = await ep1.post("/api/v2/online-exam/generate-questions", {
+        ...ai,
+        provider: ai.provider,
+        colid: global1.colid,
+        questiontype: questionForm.questiontype,
+        course: selectedExam.course,
+        coursecode: selectedExam.coursecode,
+        modules: questionForm.modules,
+        topics: questionForm.topics,
+        cos: questionForm.cos,
+        bloomlevels: questionForm.bloomlevels
+      });
       for (const q of (res.data?.data || [])) {
-        await saveQuestion({ ...questionForm, questiontext: q.questiontext, marks: q.marks || questionForm.marks, options: q.options || [] });
+        await saveQuestion({
+          ...questionForm,
+          questionid: "",
+          questiontext: q.questiontext,
+          marks: q.marks || questionForm.marks,
+          options: q.options || [],
+          modules: q.modules || questionForm.modules,
+          topics: q.topics || questionForm.topics,
+          cos: q.cos || questionForm.cos,
+          bloomlevels: q.bloomlevels || questionForm.bloomlevels
+        });
       }
       setMessage("AI generated questions added.");
     } catch (error) {
@@ -251,6 +323,10 @@ export function OnlineExamManagementPage() {
                 <Grid item xs={12} md={2}><TextField select fullWidth label="Question type" value={questionForm.questiontype} onChange={(e) => setQuestionForm((p) => ({ ...p, questiontype: e.target.value }))}><MenuItem value="MCQ">MCQ</MenuItem><MenuItem value="Descriptive">Descriptive</MenuItem></TextField></Grid>
                 <Grid item xs={12} md={2}><TextField fullWidth type="number" label="Marks" value={questionForm.marks} onChange={(e) => setQuestionForm((p) => ({ ...p, marks: e.target.value }))} /></Grid>
                 <Grid item xs={12} md={5}><TextField fullWidth label="Link attachment" value={questionForm.linkurl} onChange={(e) => setQuestionForm((p) => ({ ...p, linkurl: e.target.value }))} /></Grid>
+                <Grid item xs={12} md={3}><MultiCheckAutocomplete label="Module" options={questionOptions.modules || []} value={questionForm.modules} onChange={(value) => setQuestionForm((p) => ({ ...p, modules: value }))} /></Grid>
+                <Grid item xs={12} md={3}><MultiCheckAutocomplete label="Topic" options={questionOptions.topics || []} value={questionForm.topics} onChange={(value) => setQuestionForm((p) => ({ ...p, topics: value }))} /></Grid>
+                <Grid item xs={12} md={3}><MultiCheckAutocomplete label="CO" options={questionOptions.cos || []} value={questionForm.cos} onChange={(value) => setQuestionForm((p) => ({ ...p, cos: value }))} /></Grid>
+                <Grid item xs={12} md={3}><MultiCheckAutocomplete label="Bloom taxonomy levels" options={questionOptions.bloomlevels || []} value={questionForm.bloomlevels} onChange={(value) => setQuestionForm((p) => ({ ...p, bloomlevels: value }))} /></Grid>
                 <Grid item xs={12}><TextField fullWidth multiline minRows={3} label="Question" value={questionForm.questiontext} onChange={(e) => setQuestionForm((p) => ({ ...p, questiontext: e.target.value }))} /></Grid>
                 {questionForm.questiontype === "MCQ" && questionForm.options.map((o, i) => (
                   <Grid item xs={12} md={3} key={`opt-${i}`}>
@@ -262,7 +338,8 @@ export function OnlineExamManagementPage() {
                   <Stack direction="row" spacing={1} flexWrap="wrap">
                     <Button component="label" startIcon={<CloudUpload />}>Upload image<input hidden type="file" onChange={(e) => upload(e.target.files?.[0], "imageurl")} /></Button>
                     <Button component="label" startIcon={<CloudUpload />}>Upload file<input hidden type="file" onChange={(e) => upload(e.target.files?.[0], "fileurl")} /></Button>
-                    <Button variant="contained" onClick={() => saveQuestion()}>Add Question</Button>
+                    <Button variant="contained" onClick={() => saveQuestion()}>{questionForm.questionid ? "Update Question" : "Add Question"}</Button>
+                    {questionForm.questionid && <Button variant="outlined" onClick={() => setQuestionForm({ ...initialQuestionForm, sectionid: questionForm.sectionid, questiontype: questionForm.questiontype })}>Cancel Edit</Button>}
                     <Button variant="outlined" onClick={() => setQuestionForm((p) => ({ ...p, options: [...p.options, { optiontext: "", iscorrect: false }] }))}>Add Option</Button>
                   </Stack>
                 </Grid>
@@ -276,12 +353,34 @@ export function OnlineExamManagementPage() {
                   <Grid item xs={12} md={2}><TextField select fullWidth label="Language" value={ai.language} onChange={(e) => setAi((p) => ({ ...p, language: e.target.value }))}>{languages.map((l) => <MenuItem key={l} value={l}>{l}</MenuItem>)}</TextField></Grid>
                   <Grid item xs={12} md={2}><TextField fullWidth label="Difficulty" value={ai.difficulty} onChange={(e) => setAi((p) => ({ ...p, difficulty: e.target.value }))} /></Grid>
                   <Grid item xs={12} md={2}><TextField fullWidth type="number" label="No. questions" value={ai.count} onChange={(e) => setAi((p) => ({ ...p, count: e.target.value }))} /></Grid>
+                  <Grid item xs={12} md={3}><FormControlLabel control={<Checkbox checked={!!ai.mapWithAi} onChange={(e) => setAi((p) => ({ ...p, mapWithAi: e.target.checked }))} />} label="Use AI agent for CO/Bloom mapping" /></Grid>
                   <Grid item xs={12} md={10}><TextField fullWidth label="Prompt / topic" value={ai.topic} onChange={(e) => setAi((p) => ({ ...p, topic: e.target.value }))} /></Grid>
                   <Grid item xs={12} md={2}><Button fullWidth sx={{ height: 56 }} startIcon={<AutoFixHigh />} variant="contained" onClick={generate}>Generate</Button></Grid>
                 </Grid>
               </Paper>
               <Stack spacing={1.5} sx={{ mt: 2 }}>
-                {(selectedExam.sections || []).map((s) => <Paper key={s._id} variant="outlined" sx={{ p: 1.5 }}><Typography fontWeight={900}>{s.sectionname} ({s.sectiontype})</Typography>{(s.questions || []).map((q, i) => <Typography key={q._id} sx={{ mt: 1 }}>{i + 1}. {q.questiontext} <Chip size="small" label={`${q.marks} marks`} /> {q.imageurl && <AttachmentLink url={q.imageurl} label="Image" />} {q.fileurl && <> | <AttachmentLink url={q.fileurl} label="File" /></>}</Typography>)}</Paper>)}
+                {(selectedExam.sections || []).map((s) => (
+                  <Paper key={s._id} variant="outlined" sx={{ p: 1.5 }}>
+                    <Typography fontWeight={900}>{s.sectionname} ({s.sectiontype})</Typography>
+                    {(s.questions || []).map((q, i) => (
+                      <Box key={q._id} sx={{ mt: 1.2, p: 1, border: "1px solid #e5e7eb", borderRadius: 1 }}>
+                        <Stack direction="row" spacing={1} alignItems="flex-start">
+                          <Typography sx={{ flex: 1 }}>{i + 1}. {q.questiontext}</Typography>
+                          <Chip size="small" label={`${q.marks} marks`} />
+                          <Button size="small" startIcon={<Edit />} onClick={() => editQuestion(s, q)}>Edit</Button>
+                        </Stack>
+                        <Stack direction="row" spacing={0.6} flexWrap="wrap" sx={{ mt: 0.8 }}>
+                          {(q.modules || []).map((item) => <Chip key={`m-${q._id}-${item}`} size="small" label={`Module: ${item}`} />)}
+                          {(q.topics || []).map((item) => <Chip key={`t-${q._id}-${item}`} size="small" label={`Topic: ${item}`} />)}
+                          {(q.cos || []).map((item) => <Chip key={`co-${q._id}-${item}`} size="small" label={`CO: ${item}`} />)}
+                          {(q.bloomlevels || []).map((item) => <Chip key={`b-${q._id}-${item}`} size="small" label={`Bloom: ${item}`} />)}
+                          {q.imageurl && <Chip size="small" label={<AttachmentLink url={q.imageurl} label="Image" />} />}
+                          {q.fileurl && <Chip size="small" label={<AttachmentLink url={q.fileurl} label="File" />} />}
+                        </Stack>
+                      </Box>
+                    ))}
+                  </Paper>
+                ))}
               </Stack>
             </Paper>
           )}

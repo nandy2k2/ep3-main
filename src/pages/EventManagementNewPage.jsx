@@ -35,6 +35,7 @@ import PrintIcon from "@mui/icons-material/Print";
 import QrCodeIcon from "@mui/icons-material/QrCode";
 import SaveIcon from "@mui/icons-material/Save";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
+import VerifiedIcon from "@mui/icons-material/Verified";
 import {
   Bar,
   BarChart,
@@ -55,6 +56,10 @@ const colors = ["#2563eb", "#16a34a", "#f97316", "#dc2626", "#7c3aed", "#0891b2"
 const today = () => new Date().toISOString().slice(0, 10);
 const dateOnly = (value) => (value ? new Date(value).toISOString().slice(0, 10) : "");
 const titleCase = (value) => String(value || "").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
+const institutionName = (institution = {}) => institution.institutionname || institution.insname || institution.name || global1.insname || "Institution";
+const institutionLogo = (institution = {}) => institution.logolink || institution.logo || institution.inslogo || global1.logo || "";
+const institutionAddress = (institution = {}) => institution.address || institution.address1 || institution.insaddress || global1.address || "";
+const eventCertificateBlockchainUrl = ({ colid, recordid, hash }) => `${window.location.origin}/event-new-certificate-blockchain-verify?colid=${encodeURIComponent(colid || "")}&recordid=${encodeURIComponent(recordid || "")}&hash=${encodeURIComponent(hash || "")}`;
 const eventTypes = ["Conference", "Offline Event", "Online", "Placement Fair", "Workshop", "Seminar", "Webinar", "Cultural", "Sports", "Other"];
 const genderOptions = ["Male", "Female", "Other"];
 const yesNo = ["Yes", "No"];
@@ -201,6 +206,11 @@ function CrudPage({ mode }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [qr, setQr] = useState("");
+  const [institution, setInstitution] = useState(null);
+  const [certificate, setCertificate] = useState(null);
+  const [certificateAttendee, setCertificateAttendee] = useState(null);
+  const [blockchainRecords, setBlockchainRecords] = useState([]);
+  const [blockchainBusy, setBlockchainBusy] = useState(false);
 
   const valueOptions = useMemo(() => {
     const map = {};
@@ -214,6 +224,16 @@ function CrudPage({ mode }) {
   const loadOptions = async () => {
     const res = await ep1.get("/api/v2/event-management-new/options", { params: { colid: global1.colid } });
     setOptions(res.data || {});
+  };
+
+  const loadInstitution = async () => {
+    try {
+      const res = await ep1.get("/api/institution", { params: { colid: global1.colid } });
+      const data = Array.isArray(res.data) ? res.data[0] : (Array.isArray(res.data?.data) ? res.data.data[0] : res.data?.data || res.data);
+      setInstitution(data || null);
+    } catch (err) {
+      setInstitution(null);
+    }
   };
 
   const loadRows = async () => {
@@ -233,8 +253,12 @@ function CrudPage({ mode }) {
     setForm(emptyFor(mode));
     setSelected([]);
     setQr("");
+    setCertificate(null);
+    setCertificateAttendee(null);
+    setBlockchainRecords([]);
     loadOptions();
     loadRows();
+    loadInstitution();
   }, [mode]);
 
   const setValue = (field, value) => {
@@ -336,12 +360,101 @@ function CrudPage({ mode }) {
     }
   };
 
+  const generateCertificate = async (row) => {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    setBlockchainRecords([]);
+    try {
+      const res = await ep1.post("/api/v2/event-management-new/attendees/certificate", {
+        colid: global1.colid,
+        attendeeid: row._id,
+        user: global1.user,
+        name: global1.name
+      });
+      const cert = res.data?.data || null;
+      setCertificate(cert);
+      setCertificateAttendee(row);
+      setMessage("Certificate generated. Use the preview below to print, store, or retrieve blockchain.");
+      if (cert?._id) await retrieveCertificateBlockchain(cert._id, false);
+      setTimeout(() => document.getElementById("event-attendee-certificate-preview")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to generate certificate");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const certificatePayload = () => ({
+    certificate,
+    attendee: certificateAttendee,
+    institution: {
+      institutionname: institutionName(institution),
+      address: institutionAddress(institution),
+      logolink: institutionLogo(institution)
+    },
+    generatedat: new Date().toISOString()
+  });
+
+  const storeCertificateBlockchain = async () => {
+    if (!certificate?._id) return;
+    setBlockchainBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await ep1.post("/api/v2/blockchain/append", {
+        colid: global1.colid,
+        modelname: "eventnewcertificate",
+        collectionname: "eventnewcertificateds",
+        recordid: String(certificate._id),
+        action: "STORE_EVENT_CERTIFICATE",
+        payload: certificatePayload(),
+        metadata: {
+          certificateno: certificate.certificateno || "",
+          eventcode: certificate.eventcode || "",
+          attendee: certificate.attendee || "",
+          email: certificate.email || ""
+        },
+        user: global1.user || global1.email || global1.name || ""
+      });
+      setMessage(`Certificate stored in blockchain. Hash: ${res.data?.data?.hash || ""}`);
+      await retrieveCertificateBlockchain(certificate._id, false);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to store certificate in blockchain");
+    } finally {
+      setBlockchainBusy(false);
+    }
+  };
+
+  const retrieveCertificateBlockchain = async (certificateId = certificate?._id, showEmpty = true) => {
+    if (!certificateId) return;
+    setBlockchainBusy(true);
+    setError("");
+    try {
+      const res = await ep1.get("/api/v2/blockchain/blocks", {
+        params: {
+          colid: global1.colid,
+          modelname: "eventnewcertificate",
+          recordid: String(certificateId)
+        }
+      });
+      const records = res.data?.data || [];
+      setBlockchainRecords(records);
+      if (showEmpty && !records.length) setMessage("No blockchain record found for this certificate yet.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to retrieve certificate from blockchain");
+    } finally {
+      setBlockchainBusy(false);
+    }
+  };
+
   const columns = [
-    { field: "actions", headerName: "Actions", width: mode === "events" ? 220 : 150, sortable: false, renderCell: ({ row }) => (
+    { field: "actions", headerName: "Actions", width: mode === "events" ? 220 : mode === "attendees" ? 280 : 150, sortable: false, renderCell: ({ row }) => (
       <Stack direction="row" spacing={1}>
         <Button size="small" onClick={() => edit(row)}>Edit</Button>
         <Button size="small" color="error" onClick={() => remove([row._id])}>Delete</Button>
         {mode === "events" && <Button size="small" startIcon={<QrCodeIcon />} onClick={() => makeQr(row)}>QR</Button>}
+        {mode === "attendees" && <Button size="small" startIcon={<PrintIcon />} onClick={() => generateCertificate(row)}>Certificate</Button>}
       </Stack>
     ) },
     ...cfg.fields.filter((field) => field !== "eventid").map((field) => ({ field, headerName: titleCase(field), minWidth: 150, flex: 1, valueGetter: (params) => String(field).includes("date") ? dateOnly(params.row[field]) : params.row[field] }))
@@ -350,6 +463,15 @@ function CrudPage({ mode }) {
   return (
     <MenuPageShell title={cfg.title}>
       <Container maxWidth="xl" sx={{ py: 3 }}>
+        <style>{`
+          @media print {
+            @page { size: A4 landscape; margin: 10mm; }
+            body * { visibility: hidden; }
+            #event-attendee-certificate-print, #event-attendee-certificate-print * { visibility: visible; color: #000 !important; }
+            #event-attendee-certificate-print { position: absolute; left: 0; top: 0; width: 277mm !important; max-width: 277mm !important; min-height: 190mm !important; box-shadow: none !important; }
+            .event-cert-no-print { display: none !important; }
+          }
+        `}</style>
         <Breadcrumbs sx={{ mb: 2 }}><Link component={RouterLink} to="/">Home</Link><Typography>{cfg.group}</Typography><Typography>{cfg.title}</Typography></Breadcrumbs>
         {message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -374,6 +496,34 @@ function CrudPage({ mode }) {
           </Grid>
         </Paper>
         {qr && <Paper sx={{ p: 2, mb: 2 }}><Typography variant="h6">Public Registration QR</Typography><img src={qr} alt="Registration QR" width={180} /><Box><Button startIcon={<PrintIcon />} onClick={() => window.print()}>Print QR</Button></Box></Paper>}
+        {mode === "attendees" && certificate && (
+          <Paper id="event-attendee-certificate-preview" sx={{ p: 2, mb: 2 }}>
+            <Stack className="event-cert-no-print" direction="row" spacing={1} sx={{ mb: 2, flexWrap: "wrap" }}>
+              <Button variant="contained" startIcon={<PrintIcon />} onClick={() => window.print()}>Print certificate</Button>
+              <Button variant="contained" color="success" startIcon={blockchainBusy ? <CircularProgress size={18} /> : <VerifiedIcon />} disabled={blockchainBusy} onClick={storeCertificateBlockchain}>Store in blockchain</Button>
+              <Button variant="outlined" startIcon={blockchainBusy ? <CircularProgress size={18} /> : <VerifiedIcon />} disabled={blockchainBusy} onClick={() => retrieveCertificateBlockchain()}>Retrieve blockchain</Button>
+            </Stack>
+            <CertificateView
+              cert={certificate}
+              institution={institution}
+              printId="event-attendee-certificate-print"
+              hidePrintButton
+              blockchainRecord={blockchainRecords[blockchainRecords.length - 1]}
+            />
+            {!!blockchainRecords.length && (
+              <Paper className="event-cert-no-print" sx={{ p: 1.5, mt: 2, bgcolor: "#f0fdf4", border: "1px solid #bbf7d0" }}>
+                <Typography fontWeight={900} sx={{ mb: 1 }}>Blockchain records</Typography>
+                <Stack spacing={0.5}>
+                  {blockchainRecords.map((record) => (
+                    <Typography key={record._id} variant="body2" sx={{ wordBreak: "break-all" }}>
+                      Block #{record.blockindex} | {new Date(record.timestamp).toLocaleString()} | Hash: {record.hash}
+                    </Typography>
+                  ))}
+                </Stack>
+              </Paper>
+            )}
+          </Paper>
+        )}
         <Paper sx={{ p: 1 }}>
           {loading && <CircularProgress size={22} />}
           <DataGrid rows={rows} columns={columns} checkboxSelection onRowSelectionModelChange={(ids) => setSelected(ids)} rowSelectionModel={selected} autoHeight pageSizeOptions={[25, 50, 100]} initialState={{ pagination: { paginationModel: { pageSize: 25 } } }} slots={{ toolbar: GridToolbar }} />
@@ -547,31 +697,120 @@ function PublicFeedbackPage({ attendeeid: propAttendeeId, colid: propColid }) {
   );
 }
 
-function CertificateView({ cert }) {
+function CertificateView({ cert, institution, printId = "", hidePrintButton = false, blockchainRecord = null }) {
+  const [qr, setQr] = useState("");
+  const logo = institutionLogo(institution);
+  const name = institutionName(institution);
+  const address = institutionAddress(institution);
+  const verificationLink = blockchainRecord?.hash ? eventCertificateBlockchainUrl({ colid: cert.colid, recordid: cert._id, hash: blockchainRecord.hash }) : "";
+  useEffect(() => {
+    if (!verificationLink) {
+      setQr("");
+      return;
+    }
+    QRCode.toDataURL(verificationLink, { margin: 1, width: 130 }).then(setQr).catch(() => setQr(""));
+  }, [verificationLink]);
   return (
-    <Paper sx={{ p: 5, textAlign: "center", border: "8px double #1d4ed8" }}>
-      <Typography variant="overline">Certificate No: {cert.certificateno}</Typography>
-      <Typography variant="h3" sx={{ my: 3 }}>Certificate of Participation</Typography>
-      <Typography variant="h6">This is to certify that</Typography>
-      <Typography variant="h4" sx={{ my: 2 }}>{cert.attendee}</Typography>
-      <Typography variant="h6">participated in</Typography>
-      <Typography variant="h4" sx={{ my: 2 }}>{cert.eventname}</Typography>
-      <Typography>Issued on {dateOnly(cert.issuedate)}</Typography>
-      <Button sx={{ mt: 4 }} startIcon={<PrintIcon />} variant="contained" onClick={() => window.print()}>Print / Download</Button>
+    <Paper
+      id={printId || undefined}
+      sx={{
+        p: { xs: 3, md: 5 },
+        textAlign: "center",
+        border: "10px double #111827",
+        bgcolor: "#fff",
+        color: "#000",
+        minHeight: 520,
+        position: "relative",
+        overflow: "hidden"
+      }}
+    >
+      <Box sx={{ position: "absolute", inset: 18, border: "1px solid #9ca3af", pointerEvents: "none" }} />
+      <Stack direction="row" spacing={2} alignItems="center" justifyContent="center" sx={{ mb: 2 }}>
+        {logo && <Box component="img" src={logo} alt="Institution logo" sx={{ width: 78, height: 78, objectFit: "contain" }} />}
+        <Box>
+          <Typography variant="h5" fontWeight={950} sx={{ letterSpacing: 0, color: "#000" }}>{name}</Typography>
+          {address && <Typography variant="body2" sx={{ color: "#000" }}>{address}</Typography>}
+        </Box>
+      </Stack>
+      <Typography variant="overline" sx={{ color: "#000", fontWeight: 800 }}>Certificate No: {cert.certificateno}</Typography>
+      <Typography variant="h3" fontWeight={950} sx={{ my: 2, color: "#000", letterSpacing: 0 }}>Certificate of Participation</Typography>
+      <Typography variant="h6" sx={{ color: "#000" }}>This is to certify that</Typography>
+      <Typography variant="h4" fontWeight={950} sx={{ my: 2, color: "#000", letterSpacing: 0 }}>{cert.attendee}</Typography>
+      <Typography variant="h6" sx={{ color: "#000" }}>has participated in</Typography>
+      <Typography variant="h4" fontWeight={900} sx={{ my: 2, color: "#000", letterSpacing: 0 }}>{cert.eventname}</Typography>
+      <Typography sx={{ color: "#000" }}>Event Code: {cert.eventcode || "-"} | Issued on {dateOnly(cert.issuedate)}</Typography>
+      <Grid container spacing={4} sx={{ mt: 5 }}>
+        <Grid item xs={4}><Box sx={{ borderTop: "1px solid #000", pt: 1, color: "#000" }}>Coordinator</Box></Grid>
+        <Grid item xs={4}><Box sx={{ borderTop: "1px solid #000", pt: 1, color: "#000" }}>Event Chair</Box></Grid>
+        <Grid item xs={4}><Box sx={{ borderTop: "1px solid #000", pt: 1, color: "#000" }}>Authorized Signatory</Box></Grid>
+      </Grid>
+      {qr && (
+        <Box sx={{ position: "absolute", right: 34, bottom: 26, width: 118, textAlign: "center", bgcolor: "#fff", p: 0.5 }}>
+          <Box component="img" src={qr} alt="Blockchain verification QR" sx={{ width: 96, height: 96 }} />
+          <Typography sx={{ fontSize: 9, color: "#000", lineHeight: 1.1 }}>Blockchain verification</Typography>
+        </Box>
+      )}
+      {verificationLink && <Typography sx={{ mt: 2, fontSize: 10, color: "#000", wordBreak: "break-all" }}>Blockchain verification: {verificationLink}</Typography>}
+      {!hidePrintButton && <Button className="event-cert-no-print" sx={{ mt: 4 }} startIcon={<PrintIcon />} variant="contained" onClick={() => window.print()}>Print / Download</Button>}
     </Paper>
+  );
+}
+
+function EventCertificateBlockchainVerifyPage() {
+  const [params] = useSearchParams();
+  const [record, setRecord] = useState(null);
+  const [institution, setInstitution] = useState(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const colid = params.get("colid");
+    const recordid = params.get("recordid");
+    const hash = params.get("hash");
+    ep1.get("/api/v2/blockchain/blocks", { params: { colid, modelname: "eventnewcertificate", recordid } })
+      .then((res) => {
+        const block = (res.data?.data || []).find((item) => !hash || item.hash === hash);
+        if (!block) throw new Error("Certificate blockchain record not found");
+        setRecord(block);
+        return ep1.get("/vins", { params: { colid } });
+      })
+      .then((res) => setInstitution(res.data || null))
+      .catch((err) => setError(err.response?.data?.message || err.message || "Unable to verify certificate"));
+  }, [params]);
+  const payload = record?.payload || {};
+  const cert = payload.certificate || {};
+  return (
+    <Container maxWidth="md" sx={{ py: 4 }}>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {record && <Alert severity="success" sx={{ mb: 2 }}>Certificate verified from blockchain. Block #{record.blockindex}</Alert>}
+      {record && <CertificateView cert={cert} institution={institution || payload.institution} blockchainRecord={record} />}
+      {record && (
+        <Paper sx={{ p: 2, mt: 2 }}>
+          <Typography fontWeight={900}>Blockchain Details</Typography>
+          <Typography variant="body2" sx={{ wordBreak: "break-all" }}>Hash: {record.hash}</Typography>
+          <Typography variant="body2">Timestamp: {new Date(record.timestamp).toLocaleString()}</Typography>
+        </Paper>
+      )}
+    </Container>
   );
 }
 
 function PublicCertificatePage() {
   const [params] = useSearchParams();
   const [cert, setCert] = useState(null);
+  const [institution, setInstitution] = useState(null);
   const [error, setError] = useState("");
   useEffect(() => {
     ep1.get("/api/v2/event-management-new/public/certificate", { params: { id: params.get("id"), colid: params.get("colid") } })
-      .then((res) => setCert(res.data.data))
+      .then((res) => {
+        setCert(res.data.data);
+        return ep1.get("/api/institution", { params: { colid: params.get("colid") } });
+      })
+      .then((res) => {
+        const data = Array.isArray(res.data) ? res.data[0] : (Array.isArray(res.data?.data) ? res.data.data[0] : res.data?.data || res.data);
+        setInstitution(data || null);
+      })
       .catch((err) => setError(err.response?.data?.message || "Certificate not found"));
   }, [params]);
-  return <Container maxWidth="md" sx={{ py: 4 }}>{error && <Alert severity="error">{error}</Alert>}{cert && <CertificateView cert={cert} />}</Container>;
+  return <Container maxWidth="md" sx={{ py: 4 }}>{error && <Alert severity="error">{error}</Alert>}{cert && <CertificateView cert={cert} institution={institution} />}</Container>;
 }
 
 function EventPaperSubmissionInnerPage() {
@@ -902,6 +1141,7 @@ export function EventNewTransportReportsPage() { return <ReportsPage area="trans
 export function EventNewPublicRegisterPage() { return <PublicRegisterPage />; }
 export function EventNewPublicFeedbackPage() { return <PublicFeedbackPage />; }
 export function EventNewPublicCertificatePage() { return <PublicCertificatePage />; }
+export function EventNewCertificateBlockchainVerifyPage() { return <EventCertificateBlockchainVerifyPage />; }
 export function EventPaperSubmissionPage() { return <EventPaperSubmissionInnerPage />; }
 export function EventPaperSubmissionReportPage() { return <EventPaperSubmissionReportInnerPage />; }
 export function EventChecklistDetailsPage() { return <EventChecklistDetailsInnerPage />; }

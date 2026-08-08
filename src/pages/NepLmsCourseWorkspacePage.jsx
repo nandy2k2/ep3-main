@@ -35,13 +35,14 @@ import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
 
-const blankResource = { title: "", module: "", topic: "", description: "", url: "", order: "", employabilityrelated: "No", duedate: "", fullmarks: "", file: null };
+const blankResource = { title: "", section: "", module: "", topic: "", description: "", url: "", order: "", employabilityrelated: "No", duedate: "", fullmarks: "", file: null };
 const blankQuiz = { title: "", module: "", topic: "", startdatetime: "", enddatetime: "", status: "Active" };
 const blankLessonContent = {
   lessonresourceid: "",
   sequence: "1",
   contenttype: "Text",
   title: "",
+  section: "",
   description: "",
   topics: "",
   filelink: "",
@@ -136,6 +137,8 @@ const uniqueSorted = (values = []) => [...new Set(values.map((item) => String(it
 const normalizeHeader = (value) => String(value || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
 const resourceBulkHeaderMap = {
   title: "title",
+  section: "section",
+  contentsection: "section",
   module: "module",
   topic: "topic",
   description: "description",
@@ -602,6 +605,7 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
       sequence: String(row.sequence || 1),
       contenttype: row.contenttype || "Text",
       title: row.title || "",
+      section: row.section || "",
       description: row.description || "",
       topics: row.topics || "",
       filelink: row.filelink || "",
@@ -746,6 +750,7 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
           id: editingResourceId,
           resourcetype,
           title: form.title,
+          section: form.section,
           module: valueFromList(form.module),
           topic: valueFromList(form.topic),
           description: form.description,
@@ -768,6 +773,7 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
         ...coursePayload(),
         resourcetype,
         title: form.title,
+        section: form.section,
         module: valueFromList(form.module),
         topic: valueFromList(form.topic),
         description: form.description,
@@ -807,6 +813,7 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
         ...coursePayload(),
         resourcetype,
         title: form.title || `AI ${resourcetype} - ${selectedCourse.course}`,
+        section: form.section,
         module: valueFromList(form.module),
         topic: valueFromList(form.topic),
         modules: listFromValue(form.module),
@@ -837,6 +844,7 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
     const firstSyllabus = syllabusRows[0] || {};
     const row = {
       Title: `${resourcetype} - ${selectedCourse?.course || ""}`,
+      Section: "",
       Module: firstSyllabus.module || "",
       Topic: firstSyllabus.syllabus || "",
       Description: `${resourcetype} for ${selectedCourse?.course || ""}`,
@@ -901,6 +909,7 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
           ...coursePayload(),
           resourcetype,
           title: row.title || `${resourcetype} - ${selectedCourse.course}`,
+          section: row.section || "",
           module: row.module || "",
           topic: row.topic || "",
           description: row.description || "",
@@ -927,6 +936,7 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
   const editResource = (row) => {
     const nextForm = {
       title: row.title || "",
+      section: row.section || "",
       module: row.module || "",
       topic: row.topic || "",
       description: row.description || "",
@@ -1477,6 +1487,7 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
 
   const resourceColumns = [
     { field: "title", headerName: "Title", width: 190 },
+    { field: "section", headerName: "Section", width: 150 },
     { field: "module", headerName: "Module", width: 140 },
     { field: "topic", headerName: "Topic", width: 180 },
     { field: "description", headerName: "Description", width: 260 },
@@ -1508,6 +1519,7 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
     { field: "sequence", headerName: "Seq", width: 80 },
     { field: "contenttype", headerName: "Type", width: 140 },
     { field: "title", headerName: "Title", width: 220 },
+    { field: "section", headerName: "Section", width: 150 },
     { field: "topics", headerName: "Topics", width: 220 },
     { field: "description", headerName: "Description", width: 260 },
     { field: "quiztitle", headerName: "Quiz", width: 180 },
@@ -1676,6 +1688,7 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
       <Paper sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={2}>
           <Grid item xs={12} md={3}><TextField fullWidth label="Title" value={form.title} onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))} /></Grid>
+          <Grid item xs={12} md={2}><TextField fullWidth label="Section" value={form.section} onChange={(e) => setForm((prev) => ({ ...prev, section: e.target.value }))} /></Grid>
           {["Assignment", "Course Material", "Lesson Plan"].includes(type) ? (
             <>
               <Grid item xs={12} md={2}>
@@ -1732,7 +1745,7 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
               <Grid item xs={12} md={3}><TextField fullWidth label="Topic" value={form.topic} onChange={(e) => setForm((prev) => ({ ...prev, topic: e.target.value }))} /></Grid>
             </>
           )}
-          <Grid item xs={12} md={4}><TextField fullWidth label="Description" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} /></Grid>
+          <Grid item xs={12} md={2}><TextField fullWidth label="Description" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} /></Grid>
           {type === "Course Material" && (
             <>
               <Grid item xs={12} md={2}>
@@ -1807,7 +1820,7 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
             </Button>
           </Stack>
           <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-            Excel columns: Title, Module, Topic, Description, Order, Employability Related Content, File Link, Filename, Original Name, Status.
+            Excel columns: Title, Section, Module, Topic, Description, Order, Employability Related Content, File Link, Filename, Original Name, Status.
           </Typography>
         </Paper>
       )}
@@ -1986,8 +1999,9 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} md={4}><TextField fullWidth label="Title" value={lessonContentForm.title} onChange={(e) => setLessonContentForm((prev) => ({ ...prev, title: e.target.value }))} /></Grid>
-              <Grid item xs={12} md={4}><TextField fullWidth label="Topics" value={lessonContentForm.topics} onChange={(e) => setLessonContentForm((prev) => ({ ...prev, topics: e.target.value }))} /></Grid>
+              <Grid item xs={12} md={3}><TextField fullWidth label="Title" value={lessonContentForm.title} onChange={(e) => setLessonContentForm((prev) => ({ ...prev, title: e.target.value }))} /></Grid>
+              <Grid item xs={12} md={2}><TextField fullWidth label="Section" value={lessonContentForm.section} onChange={(e) => setLessonContentForm((prev) => ({ ...prev, section: e.target.value }))} /></Grid>
+              <Grid item xs={12} md={3}><TextField fullWidth label="Topics" value={lessonContentForm.topics} onChange={(e) => setLessonContentForm((prev) => ({ ...prev, topics: e.target.value }))} /></Grid>
               <Grid item xs={12}><TextField fullWidth multiline minRows={2} label="Description" value={lessonContentForm.description} onChange={(e) => setLessonContentForm((prev) => ({ ...prev, description: e.target.value }))} /></Grid>
 
               {["Text", "File Link", "Infographics"].includes(lessonContentForm.contenttype) && (

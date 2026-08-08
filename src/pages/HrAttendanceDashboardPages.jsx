@@ -42,6 +42,9 @@ const gridSx = {
   "& .MuiDataGrid-cell": { whiteSpace: "normal", overflowWrap: "anywhere", lineHeight: 1.3, py: 1 },
   "& .MuiDataGrid-columnHeaderTitle": { whiteSpace: "normal", lineHeight: 1.2 }
 };
+const institutionName = (institution = {}) => institution.institutionname || institution.insname || institution.name || global1.insname || "Institution";
+const institutionLogo = (institution = {}) => institution.logolink || institution.logo || global1.logo || "";
+const institutionAddress = (institution = {}) => institution.address || institution.address1 || global1.address || "";
 
 function Header({ title, subtitle, actions }) {
   return (
@@ -57,12 +60,12 @@ function Header({ title, subtitle, actions }) {
   );
 }
 
-function PrintHeader({ title, fromdate, todate }) {
+function PrintHeader({ title, fromdate, todate, institution = {} }) {
   return (
     <Paper elevation={0} sx={{ p: 2, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2, textAlign: "center" }}>
-      {global1.logo && <Box component="img" src={global1.logo} alt="logo" sx={{ height: 58, objectFit: "contain", mb: 1 }} />}
-      <Typography variant="h5" fontWeight={950}>{global1.insname || "Institution"}</Typography>
-      <Typography variant="body2">{global1.address || ""}</Typography>
+      {institutionLogo(institution) && <Box component="img" src={institutionLogo(institution)} alt="logo" sx={{ height: 58, objectFit: "contain", mb: 1 }} />}
+      <Typography variant="h5" fontWeight={950}>{institutionName(institution)}</Typography>
+      <Typography variant="body2">{institutionAddress(institution)}</Typography>
       <Typography variant="h6" fontWeight={950} sx={{ mt: 1 }}>{title}</Typography>
       <Typography variant="caption">Date range: {fromdate || "-"} to {todate || "-"}</Typography>
     </Paper>
@@ -215,7 +218,7 @@ export function HrAttendanceDashboardPage() {
         </Paper>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Box className="print-area">
-          <PrintHeader title="HR Attendance Dashboard" fromdate={filters.fromdate} todate={filters.todate} />
+          <PrintHeader title="HR Attendance Dashboard" fromdate={filters.fromdate} todate={filters.todate} institution={dashboard?.institution || {}} />
           <Cards cards={dashboard?.cards || []} />
           <Grid container spacing={2} sx={{ mb: 2 }}>
             <Grid item xs={12} md={8}><ChartCard title="Departmentwise Attendance %"><PercentBar data={dashboard?.charts?.departmentwise || []} /></ChartCard></Grid>
@@ -269,7 +272,7 @@ export function TeamAttendanceReportPage() {
         </Paper>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Box className="print-area">
-          <PrintHeader title="Team Attendance Report" fromdate={filters.fromdate} todate={filters.todate} />
+          <PrintHeader title="Team Attendance Report" fromdate={filters.fromdate} todate={filters.todate} institution={dashboard?.institution || {}} />
           <Cards cards={dashboard?.cards || []} />
           <Grid container spacing={2} sx={{ mb: 2 }}>
             <Grid item xs={12} md={8}><ChartCard title="Userwise Attendance %"><PercentBar data={dashboard?.charts?.userwise || []} /></ChartCard></Grid>

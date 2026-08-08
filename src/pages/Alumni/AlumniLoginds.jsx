@@ -22,7 +22,7 @@ const AlumniLoginds = () => {
       global1.role = 'Alumni';
 
       console.log('Alumni logged in:', global1);
-      navigate('/alumni/dashboard');
+      navigate('/alumni-new-dashboard');
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed. Please try again.');
     }

@@ -52,6 +52,9 @@ const gridSx = {
   "& .MuiDataGrid-cell": { whiteSpace: "normal", overflowWrap: "anywhere", lineHeight: 1.3, py: 1 },
   "& .MuiDataGrid-columnHeaderTitle": { whiteSpace: "normal", lineHeight: 1.2 }
 };
+const institutionName = (institution = {}) => institution.institutionname || institution.insname || institution.name || global1.insname || "Institution";
+const institutionLogo = (institution = {}) => institution.logolink || institution.logo || global1.logo || "";
+const institutionAddress = (institution = {}) => institution.address || institution.address1 || global1.address || "";
 
 function MultiFilter({ label, value, options, onChange }) {
   const choices = ["All", ...(options || [])];
@@ -216,6 +219,7 @@ function ExamDashboardPage({ studentwise = false }) {
 
   const cards = dashboard?.cards || [];
   const charts = dashboard?.charts || {};
+  const institution = dashboard?.institution || {};
 
   return (
     <MenuPageShell title={pageTitle}>
@@ -267,9 +271,9 @@ function ExamDashboardPage({ studentwise = false }) {
 
         <Box className="print-area">
           <Paper elevation={0} sx={{ p: 2, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2, textAlign: "center" }}>
-            {global1.logo && <Box component="img" src={global1.logo} alt="logo" sx={{ height: 58, objectFit: "contain", mb: 1 }} />}
-            <Typography variant="h5" fontWeight={950}>{global1.insname || "Institution"}</Typography>
-            <Typography variant="body2">{global1.address || ""}</Typography>
+            {institutionLogo(institution) && <Box component="img" src={institutionLogo(institution)} alt="logo" sx={{ height: 58, objectFit: "contain", mb: 1 }} />}
+            <Typography variant="h5" fontWeight={950}>{institutionName(institution)}</Typography>
+            <Typography variant="body2">{institutionAddress(institution)}</Typography>
             <Typography variant="h6" fontWeight={950} sx={{ mt: 1 }}>{pageTitle}</Typography>
             <Typography variant="caption">Academic year: {(selectedFilters.academicyear || []).join(", ") || "All"}</Typography>
             {studentwise && <Typography variant="caption" display="block">Fail rule: {failRule === "all" ? "Fail only if failed in all subjects" : "Fail if failed in single subject"}</Typography>}

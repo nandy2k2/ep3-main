@@ -1890,6 +1890,214 @@ export function ExaminationModel2AprMarksheetPage() {
   );
 }
 
+const trCell = { border: "1px solid #111", padding: "3px 4px", verticalAlign: "top", lineHeight: 1.15 };
+const trHead = { ...trCell, fontWeight: 900, textAlign: "center", background: "#f3f4f6" };
+const fmt = (value) => (value === null || value === undefined || value === "" ? "" : value);
+const numFmt = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed.toString() : "";
+};
+
+function ExamModel2TrPrint({ report }) {
+  const institution = report?.institution || {};
+  const filters = report?.filters || {};
+  const students = report?.students || [];
+  const summary = report?.summary || {};
+  const title = [
+    filters.program,
+    filters.semester ? `${filters.semester}` : "",
+    filters.exam,
+    filters.academicyear
+  ].filter(Boolean).join(", ");
+  const total = summary.total || {};
+
+  return (
+    <Paper id="exam-model2-tr-print" elevation={0} sx={{ bgcolor: "#fff", color: "#000", p: 1.5, border: "1px solid #111", borderRadius: 0, minWidth: 1280, "& *": { color: "#000 !important" } }}>
+      <Stack alignItems="center" spacing={0.25} sx={{ mb: 1 }}>
+        {institution.logolink && <Box component="img" src={institution.logolink} alt="" sx={{ height: 42, objectFit: "contain" }} />}
+        <Typography sx={{ fontSize: 15, fontWeight: 950 }}>{institution.institutionname || institution.insname || institution.name || ""}</Typography>
+        <Typography sx={{ fontSize: 10, fontWeight: 700 }}>{institution.address || ""}</Typography>
+        <Typography sx={{ fontSize: 16, fontWeight: 950, mt: 0.5 }}>TABULATION REGISTER</Typography>
+        <Typography sx={{ fontSize: 12, fontWeight: 900 }}>{title}</Typography>
+        <Typography sx={{ fontSize: 11, fontWeight: 800 }}>
+          Regulation: {fmt(filters.regulation)} | Program Code: {fmt(filters.programcode)} | Exam Code: {fmt(filters.examcode)} | Source: {fmt(report?.source)}
+        </Typography>
+      </Stack>
+
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 9.5 }}>
+        <thead>
+          <tr>
+            {["S.No", "Enrolment No", "Name of Examinee", "Father's Name", "Mother's Name", "Gender", "Status", "Batch", "Branch Name", "Paper Code", "Paper Name", "TH Max", "TH MO", "TH %", "TH Grade", "PR Max", "PR MO", "PR %", "PR Grade", "VV Max", "VV MO", "VV %", "VV Grade", "Total Max", "Total MO", "Total %", "Grade", "Result", "Attempt", "Section", "Remarks"].map((head) => (
+              <th key={head} style={trHead}>{head}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {students.map((student) => (
+            <React.Fragment key={student.regno}>
+              {(student.courses || []).map((course, index) => (
+                <tr key={`${student.regno}-${course.coursecode}`}>
+                  {index === 0 && (
+                    <>
+                      <td rowSpan={student.courses.length} style={{ ...trCell, textAlign: "center", fontWeight: 900 }}>{student.srno}</td>
+                      <td rowSpan={student.courses.length} style={trCell}>{fmt(student.enrolmentno)}</td>
+                      <td rowSpan={student.courses.length} style={{ ...trCell, fontWeight: 900 }}>{fmt(student.name)}</td>
+                      <td rowSpan={student.courses.length} style={trCell}>{fmt(student.fathername)}</td>
+                      <td rowSpan={student.courses.length} style={trCell}>{fmt(student.mothername)}</td>
+                      <td rowSpan={student.courses.length} style={{ ...trCell, textAlign: "center" }}>{fmt(student.gender)}</td>
+                      <td rowSpan={student.courses.length} style={{ ...trCell, textAlign: "center" }}>{fmt(student.studentstatus)}</td>
+                      <td rowSpan={student.courses.length} style={{ ...trCell, textAlign: "center" }}>{fmt(student.batch)}</td>
+                      <td rowSpan={student.courses.length} style={trCell}>{fmt(student.branchname)}</td>
+                    </>
+                  )}
+                  <td style={trCell}>{fmt(course.coursecode)}</td>
+                  <td style={{ ...trCell, minWidth: 150 }}>{fmt(course.course)}</td>
+                  <td style={{ ...trCell, textAlign: "right" }}>{numFmt(course.theorymax)}</td>
+                  <td style={{ ...trCell, textAlign: "right" }}>{numFmt(course.theoryobtained)}</td>
+                  <td style={{ ...trCell, textAlign: "right" }}>{numFmt(course.theorypercentage)}</td>
+                  <td style={{ ...trCell, textAlign: "center" }}>{fmt(course.theorygrade)}</td>
+                  <td style={{ ...trCell, textAlign: "right" }}>{numFmt(course.practicalmax)}</td>
+                  <td style={{ ...trCell, textAlign: "right" }}>{numFmt(course.practicalobtained)}</td>
+                  <td style={{ ...trCell, textAlign: "right" }}>{numFmt(course.practicalpercentage)}</td>
+                  <td style={{ ...trCell, textAlign: "center" }}>{fmt(course.practicalgrade)}</td>
+                  <td style={{ ...trCell, textAlign: "right" }}>{numFmt(course.vivamax)}</td>
+                  <td style={{ ...trCell, textAlign: "right" }}>{numFmt(course.vivaobtained)}</td>
+                  <td style={{ ...trCell, textAlign: "right" }}>{numFmt(course.vivapercentage)}</td>
+                  <td style={{ ...trCell, textAlign: "center" }}>{fmt(course.vivagrade)}</td>
+                  <td style={{ ...trCell, textAlign: "right", fontWeight: 900 }}>{numFmt(course.overallmax)}</td>
+                  <td style={{ ...trCell, textAlign: "right", fontWeight: 900 }}>{numFmt(course.overallobtained)}</td>
+                  <td style={{ ...trCell, textAlign: "right" }}>{numFmt(course.overallpercentage)}</td>
+                  <td style={{ ...trCell, textAlign: "center", fontWeight: 900 }}>{fmt(course.overallgrade)}</td>
+                  <td style={{ ...trCell, textAlign: "center", fontWeight: 900 }}>{fmt(course.status)}</td>
+                  <td style={{ ...trCell, textAlign: "center" }}>{fmt(course.attempt)}</td>
+                  <td style={{ ...trCell, textAlign: "center" }}>{fmt(course.examsection)}</td>
+                  <td style={trCell}>{fmt(course.remarks)}</td>
+                </tr>
+              ))}
+              <tr>
+                <td colSpan={23} style={{ ...trCell, textAlign: "right", fontWeight: 950 }}>Aggregate Result</td>
+                <td style={{ ...trCell, textAlign: "right", fontWeight: 950 }}>{numFmt(student.aggregate?.max)}</td>
+                <td style={{ ...trCell, textAlign: "right", fontWeight: 950 }}>{numFmt(student.aggregate?.obtained)}</td>
+                <td style={{ ...trCell, textAlign: "right", fontWeight: 950 }}>{numFmt(student.aggregate?.percentage)}</td>
+                <td style={{ ...trCell, textAlign: "center", fontWeight: 950 }}>{fmt(student.aggregate?.result)}</td>
+                <td style={{ ...trCell, textAlign: "center", fontWeight: 950 }}>{fmt(student.aggregate?.result)}</td>
+                <td style={{ ...trCell, textAlign: "center" }}>{fmt(student.aggregate?.attempt)}</td>
+                <td style={trCell}></td>
+                <td style={trCell}>{fmt(student.aggregate?.remarks)}</td>
+              </tr>
+            </React.Fragment>
+          ))}
+        </tbody>
+      </table>
+
+      <Box sx={{ mt: 1.25, display: "flex", gap: 2, alignItems: "flex-start" }}>
+        <table style={{ width: 360, borderCollapse: "collapse", fontSize: 10 }}>
+          <thead><tr><th colSpan={4} style={trHead}>GenderWise Summary Count</th></tr><tr>{["", "M", "F", "Total"].map((h) => <th key={h} style={trHead}>{h}</th>)}</tr></thead>
+          <tbody>
+            {["appeared", "passed", "failed"].map((key) => {
+              const male = (summary.genderwise || []).find((row) => row.gender === "M")?.[key] || 0;
+              const female = (summary.genderwise || []).find((row) => row.gender === "F")?.[key] || 0;
+              return <tr key={key}><td style={{ ...trCell, fontWeight: 900, textTransform: "capitalize" }}>{key}</td><td style={trCell}>{male}</td><td style={trCell}>{female}</td><td style={trCell}>{total[key] || 0}</td></tr>;
+            })}
+          </tbody>
+        </table>
+        <Box sx={{ flex: 1 }} />
+        <Stack spacing={3} sx={{ minWidth: 520, mt: 4 }}>
+          <Stack direction="row" justifyContent="space-between">
+            <Typography sx={{ fontSize: 11, fontWeight: 900 }}>Signature of Tablulator:</Typography>
+            <Typography sx={{ fontSize: 11, fontWeight: 900 }}>Signature of Checker:</Typography>
+            <Typography sx={{ fontSize: 11, fontWeight: 900 }}>Deputy Registrar</Typography>
+          </Stack>
+          <Stack direction="row" justifyContent="space-between">
+            <Typography sx={{ fontSize: 11, fontWeight: 900 }}>Name of Tablulator:</Typography>
+            <Typography sx={{ fontSize: 11, fontWeight: 900 }}>Name of Checker:</Typography>
+            <Typography sx={{ fontSize: 11, fontWeight: 900 }}>Date:</Typography>
+          </Stack>
+          <Stack direction="row" justifyContent="space-between">
+            <Typography sx={{ fontSize: 11, fontWeight: 900 }}>Designation & Institute:</Typography>
+            <Typography sx={{ fontSize: 11, fontWeight: 900 }}>Designation & Institute:</Typography>
+          </Stack>
+        </Stack>
+      </Box>
+    </Paper>
+  );
+}
+
+export function ExaminationModel2TrPage() {
+  const { options } = useExamOptions();
+  const [filters, setFilters] = useState({ academicyear: "", regulation: "", exam: "", examcode: "", program: "", programcode: "", semester: "", type: "", model: "viva" });
+  const [report, setReport] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const loadReport = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      setReport(null);
+      const res = await ep1.get("/api/v2/examination-model2/tr-report", { params: { colid: global1.colid, ...filters } });
+      setReport(res.data);
+    } catch (err) {
+      setError(msg(err, "Unable to generate TR"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const setField = (field, value) => {
+    setFilters((prev) => ({ ...prev, [field]: value || "" }));
+  };
+
+  return (
+    <MenuPageShell title="TR">
+      <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
+        <Stack spacing={2}>
+          <Paper elevation={0} className="screen-only" sx={{ p: 2.5, borderRadius: 3, border: "1px solid #e5e7eb" }}>
+            <Typography variant="h4" fontWeight={950}>Tabulation Register</Typography>
+            <Typography color="text.secondary">Generates TR from Result Processing 2 marks, student profile, exam roll and institution data.</Typography>
+            <Grid container spacing={1.5} sx={{ mt: 1 }}>
+              {["academicyear", "regulation", "exam", "examcode", "program", "programcode", "semester", "type"].map((field) => (
+                <Grid item xs={12} md={3} key={field}>
+                  <Autocomplete
+                    options={options[field] || []}
+                    value={filters[field] || null}
+                    onChange={(_, value) => setField(field, value)}
+                    renderInput={(params) => <TextField {...params} label={labels[field] || field} />}
+                  />
+                </Grid>
+              ))}
+              <Grid item xs={12} md={3}>
+                <TextField select fullWidth label="Marks source" value={filters.model} onChange={(e) => setField("model", e.target.value)}>
+                  <MenuItem value="viva">Result processing 2 Viva model</MenuItem>
+                  <MenuItem value="marks">Result processing 2 Marks model</MenuItem>
+                </TextField>
+              </Grid>
+              <Grid item xs={12}>
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  <Button variant="contained" disabled={loading} onClick={loadReport}>{loading ? <><CircularProgress size={18} sx={{ mr: 1 }} />Generating...</> : "Generate TR"}</Button>
+                  <Button variant="outlined" startIcon={<PrintIcon />} disabled={!report} onClick={() => window.print()}>Print</Button>
+                </Stack>
+              </Grid>
+            </Grid>
+          </Paper>
+          {error && <Alert severity="error" className="screen-only" onClose={() => setError("")}>{error}</Alert>}
+          {report?.missingMappings?.length > 0 && (
+            <Alert severity="warning" className="screen-only">
+              Missing source mappings: {report.missingMappings.join(" ")}
+            </Alert>
+          )}
+          {report && (
+            <Box sx={{ overflow: "auto", pb: 2 }}>
+              <ExamModel2TrPrint report={report} />
+            </Box>
+          )}
+        </Stack>
+      </Box>
+      <style>{`#exam-model2-tr-print, #exam-model2-tr-print * { color: #000 !important; } @media print { @page { size: A4 landscape; margin: 6mm; } body * { visibility: hidden; } #exam-model2-tr-print, #exam-model2-tr-print * { visibility: visible; color: #000 !important; } #exam-model2-tr-print { position: absolute; left: 0; top: 0; width: 285mm !important; min-width: 285mm !important; border: none !important; box-shadow: none !important; padding: 0 !important; } #exam-model2-tr-print table { page-break-inside: auto; } #exam-model2-tr-print tr { page-break-inside: avoid; break-inside: avoid; } #exam-model2-tr-print thead { display: table-header-group; } .screen-only { display: none !important; } }`}</style>
+    </MenuPageShell>
+  );
+}
+
 export function ExaminationModel2BulkAprMarksheetPage() {
   const { options } = useExamOptions();
   const [filters, setFilters] = useState({ academicyear: "2026-27", examcode: "", programcode: "" });

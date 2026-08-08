@@ -53,6 +53,21 @@ const bookLabels = {
 };
 const studentFields = ["academicyear", "programcode", "semester", "section", "name", "email", "phone", "regno"];
 const issueTypes = ["Regular", "Reference", "Reading Room", "Faculty Issue", "Special"];
+const wrapGridSx = {
+  "& .MuiDataGrid-cell": { whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.35, py: 1, alignItems: "flex-start" },
+  "& .MuiDataGrid-columnHeaderTitle": { whiteSpace: "normal", lineHeight: 1.2 }
+};
+
+function PrintHeader({ institution, title }) {
+  return (
+    <Box sx={{ textAlign: "center", mb: 2 }}>
+      {institution?.logolink && <Box component="img" src={institution.logolink} alt="logo" sx={{ height: 62, objectFit: "contain", mb: 0.5 }} />}
+      <Typography variant="h5" fontWeight={900}>{institution?.institutionname || institution?.name || "Institution"}</Typography>
+      <Typography color="text.secondary">{institution?.address || ""}</Typography>
+      <Typography variant="h6" fontWeight={900} sx={{ mt: 1 }}>{title}</Typography>
+    </Box>
+  );
+}
 
 function useLibraryList(all = false) {
   const [libraries, setLibraries] = useState([]);
@@ -598,6 +613,7 @@ export function LibraryCounterPage() {
   const [bookCode, setBookCode] = useState("");
   const [bookData, setBookData] = useState(null);
   const [tab, setTab] = useState(0);
+  const [renewSelection, setRenewSelection] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -610,6 +626,7 @@ export function LibraryCounterPage() {
       setProfile(res.data?.profile || null);
       setActive(res.data?.active || []);
       setHistory(res.data?.history || []);
+      setRenewSelection([]);
     } catch (err) {
       setProfile(null); setActive([]); setHistory([]);
       setError(err.response?.data?.message || "Unable to load user profile");
@@ -659,6 +676,22 @@ export function LibraryCounterPage() {
     }
   };
 
+  const renewBooks = async (ids) => {
+    const selectedIds = ids?.length ? ids : renewSelection;
+    if (!selectedIds.length) return setError("Select at least one active issue to renew.");
+    setLoading(true); setError(""); setMessage("");
+    try {
+      const res = await ep1.post("/api/v2/librarynew/counter/renew", { colid: global1.colid, ids: selectedIds, user: global1.user });
+      setMessage(`${res.data?.count || selectedIds.length} book(s) renewed as per role/category max-days rule.`);
+      setRenewSelection([]);
+      await loadUser();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to renew book");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const issueColumns = [
     { field: "accessionno", headerName: "Accession", minWidth: 130 },
     { field: "title", headerName: "Title", minWidth: 260, flex: 1 },
@@ -668,6 +701,16 @@ export function LibraryCounterPage() {
     { field: "overdue", headerName: "Overdue", minWidth: 140, valueGetter: (p) => overdueInfo(p.row).label },
     { field: "actions", type: "actions", width: 100, getActions: (p) => [<GridActionsCellItem icon={<Save />} label="Return" disabled={loading} onClick={() => returnBook(p.row)} />] }
   ];
+  const renewalColumns = [
+    { field: "accessionno", headerName: "Accession", minWidth: 130 },
+    { field: "title", headerName: "Title", minWidth: 260, flex: 1 },
+    { field: "category", headerName: "Category", minWidth: 140 },
+    { field: "issuedate", headerName: "Issue Date", minWidth: 120, valueGetter: (p) => shortDate(p.row.issuedate) },
+    { field: "duedate", headerName: "Current Due Date", minWidth: 150, valueGetter: (p) => shortDate(p.row.duedate) },
+    { field: "renewalcount", headerName: "Renewals", minWidth: 110, valueGetter: (p) => p.row.renewalcount || 0 },
+    { field: "lastrenewaldate", headerName: "Last Renewal", minWidth: 140, valueGetter: (p) => shortDate(p.row.lastrenewaldate) },
+    { field: "actions", type: "actions", width: 110, getActions: (p) => [<GridActionsCellItem icon={<Refresh />} label="Renew" disabled={loading} onClick={() => renewBooks([p.row._id])} />] }
+  ];
   const historyColumns = [
     { field: "issuedate", headerName: "Issue Date", minWidth: 120, valueGetter: (p) => shortDate(p.row.issuedate) },
     { field: "returndate", headerName: "Return Date", minWidth: 120, valueGetter: (p) => shortDate(p.row.returndate) },
@@ -675,6 +718,7 @@ export function LibraryCounterPage() {
     { field: "title", headerName: "Title", minWidth: 260, flex: 1 },
     { field: "category", headerName: "Category", minWidth: 140 },
     { field: "status", headerName: "Status", minWidth: 120 },
+    { field: "renewalcount", headerName: "Renewals", minWidth: 110, valueGetter: (p) => p.row.renewalcount || 0 },
     { field: "fineamount", headerName: "Fine", minWidth: 100, valueGetter: (p) => money(p.row.fineamount) }
   ];
 
@@ -708,6 +752,7 @@ export function LibraryCounterPage() {
               <Tabs value={tab} onChange={(_, value) => setTab(value)} variant="scrollable" scrollButtons="auto">
                 <Tab label="Issue" />
                 <Tab label="Return" />
+                <Tab label="Renewal" />
                 <Tab label="History" />
               </Tabs>
               {tab === 0 && (
@@ -742,7 +787,31 @@ export function LibraryCounterPage() {
                 </Stack>
               )}
               {tab === 1 && <Box sx={{ height: 520, mt: 2 }}><DataGrid rows={active} columns={issueColumns} getRowId={(row) => row._id} loading={loading} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} /></Box>}
-              {tab === 2 && <Box sx={{ height: 520, mt: 2 }}><DataGrid rows={history} columns={historyColumns} getRowId={(row) => row._id} loading={loading} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} /></Box>}
+              {tab === 2 && (
+                <Stack spacing={1.5} sx={{ mt: 2 }}>
+                  <Alert severity="info">
+                    Renewal recalculates the due date automatically from the rolewise max no. of days for the member role and book category.
+                  </Alert>
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    <Button variant="contained" startIcon={<Refresh />} disabled={loading || !renewSelection.length} onClick={() => renewBooks()}>Renew Selected</Button>
+                    <Button variant="outlined" startIcon={<Refresh />} disabled={loading || !active.length} onClick={() => renewBooks(active.map((row) => row._id))}>Renew All Active</Button>
+                  </Stack>
+                  <Box sx={{ height: 520 }}>
+                    <DataGrid
+                      rows={active}
+                      columns={renewalColumns}
+                      getRowId={(row) => row._id}
+                      loading={loading}
+                      checkboxSelection
+                      rowSelectionModel={renewSelection}
+                      onRowSelectionModelChange={setRenewSelection}
+                      slots={{ toolbar: GridToolbar }}
+                      pageSizeOptions={[25, 50, 100]}
+                    />
+                  </Box>
+                </Stack>
+              )}
+              {tab === 3 && <Box sx={{ height: 520, mt: 2 }}><DataGrid rows={history} columns={historyColumns} getRowId={(row) => row._id} loading={loading} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} /></Box>}
             </Paper>
           </>
         )}
@@ -908,6 +977,154 @@ export function LibraryReportsPage() {
           </Grid>
           <Box sx={{ height: 520, mt: 2 }}><DataGrid rows={rows} columns={columns} getRowId={(r) => r._id} slots={{ toolbar: GridToolbar }} /></Box>
         </Box>
+      </Stack>
+    </MenuPageShell>
+  );
+}
+
+export function LibraryDashboardPage() {
+  const { libraries } = useLibraryList(/^All$/i.test(global1.role || ""));
+  const [filters, setFilters] = useState({ fromdate: "", todate: "", libraryid: "" });
+  const [data, setData] = useState({ cards: {}, charts: {}, details: {}, institution: null, libraries: [] });
+  const [loading, setLoading] = useState(false);
+  const printRef = useRef(null);
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await ep1.get("/api/v2/librarynew/dashboard", { params: { colid: global1.colid, user: global1.user, role: global1.role, ...filters } });
+      setData(res.data || {});
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { load(); }, []);
+  const print = () => {
+    const html = printRef.current?.innerHTML || "";
+    const win = window.open("", "_blank");
+    win.document.write(`<html><head><title>Library Dashboard</title><style>@page{size:A4 landscape;margin:10mm}body{font-family:Arial;color:#000;background:#fff}.MuiDataGrid-root{border:0!important}.MuiDataGrid-footerContainer,.MuiDataGrid-toolbarContainer{display:none!important}.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.card{border:1px solid #999;padding:8px}table{width:100%;border-collapse:collapse;font-size:10px}th,td{border:1px solid #999;padding:4px;vertical-align:top}tr{break-inside:avoid}</style></head><body>${html}</body></html>`);
+    win.document.close();
+    win.print();
+  };
+  const cardEntries = [
+    ["Total books", data.cards?.totalBooks || 0],
+    ["Available", data.cards?.availableBooks || 0],
+    ["Active issued", data.cards?.activeIssued || 0],
+    ["Issued", data.cards?.issuedInRange || 0],
+    ["Returned", data.cards?.returnedInRange || 0],
+    ["Pending requests", data.cards?.pendingBookRequests || 0],
+    ["Photocopy requests", data.cards?.photocopyRequests || 0],
+    ["Pending photocopy", data.cards?.pendingPhotocopy || 0],
+    ["New additions", data.cards?.newAdditions || 0],
+    ["Fine amount", money(data.cards?.fineAmount || 0)]
+  ];
+  const issueColumns = [
+    { field: "libraryname", headerName: "Library", width: 160 },
+    { field: "issuedate", headerName: "Issue date", width: 120, valueGetter: (p) => shortDate(p.row.issuedate) },
+    { field: "returndate", headerName: "Return date", width: 120, valueGetter: (p) => shortDate(p.row.returndate) },
+    { field: "accessionno", headerName: "Accession", width: 130 },
+    { field: "title", headerName: "Title", minWidth: 230, flex: 1 },
+    { field: "category", headerName: "Category", width: 140 },
+    { field: "student", headerName: "User", width: 180 },
+    { field: "usertype", headerName: "User type", width: 130 },
+    { field: "programcode", headerName: "Program", width: 120 },
+    { field: "status", headerName: "Status", width: 110 }
+  ];
+  const bookColumns = [
+    { field: "libraryname", headerName: "Library", width: 160 },
+    { field: "accessionno", headerName: "Accession", width: 130 },
+    { field: "title", headerName: "Title", minWidth: 230, flex: 1 },
+    { field: "category", headerName: "Category", width: 140 },
+    { field: "author", headerName: "Author", width: 170 },
+    { field: "publisher", headerName: "Publisher", width: 170 },
+    { field: "purchasedate", headerName: "Purchase date", width: 130, valueGetter: (p) => shortDate(p.row.purchasedate) },
+    { field: "status", headerName: "Status", width: 110 }
+  ];
+  return (
+    <MenuPageShell title="Library Dashboard">
+      <Stack spacing={2}>
+        <Paper sx={{ p: 2 }}>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ xs: "stretch", md: "center" }}>
+            <Box sx={{ minWidth: 280 }}><LibrarySelect libraries={libraries} value={filters.libraryid} onChange={(libraryid) => setFilters({ ...filters, libraryid })} allowAll /></Box>
+            <TextField type="date" size="small" label="From date" InputLabelProps={{ shrink: true }} value={filters.fromdate} onChange={(e) => setFilters({ ...filters, fromdate: e.target.value })} />
+            <TextField type="date" size="small" label="To date" InputLabelProps={{ shrink: true }} value={filters.todate} onChange={(e) => setFilters({ ...filters, todate: e.target.value })} />
+            <Button variant="contained" onClick={load} disabled={loading}>{loading ? "Loading..." : "Apply"}</Button>
+            <Button variant="outlined" startIcon={<Print />} onClick={print}>Print preview</Button>
+          </Stack>
+        </Paper>
+        <Box ref={printRef}>
+          <PrintHeader institution={data.institution} title="Library Dashboard" />
+          <Grid container spacing={2} className="cards">
+            {cardEntries.map(([label, value]) => (
+              <Grid item xs={6} md={2.4} key={label} className="card">
+                <Card sx={{ height: "100%", borderRadius: 2 }}>
+                  <CardContent>
+                    <Typography variant="caption" color="text.secondary">{label}</Typography>
+                    <Typography variant="h5" fontWeight={900}>{value}</Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            <Grid item xs={12} md={4}><Paper sx={{ p: 2, height: 320 }}><Typography fontWeight={900}>Issue / Return</Typography><ResponsiveContainer width="100%" height="90%"><BarChart data={data.charts?.issueReturn || []}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" /><YAxis allowDecimals={false} /><ChartTooltip /><Bar dataKey="count" fill="#2563eb" /></BarChart></ResponsiveContainer></Paper></Grid>
+            <Grid item xs={12} md={4}><Paper sx={{ p: 2, height: 320 }}><Typography fontWeight={900}>Categorywise interests</Typography><ResponsiveContainer width="100%" height="90%"><BarChart data={data.charts?.categoryInterests || []}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" interval={0} angle={-20} textAnchor="end" height={70} /><YAxis allowDecimals={false} /><ChartTooltip /><Bar dataKey="count" fill="#16a34a" /></BarChart></ResponsiveContainer></Paper></Grid>
+            <Grid item xs={12} md={4}><Paper sx={{ p: 2, height: 320 }}><Typography fontWeight={900}>User type circulation</Typography><ResponsiveContainer width="100%" height="90%"><PieChart><Pie data={data.charts?.userTypeCirculation || []} dataKey="count" nameKey="label" label>{(data.charts?.userTypeCirculation || []).map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}</Pie><ChartTooltip /><Legend /></PieChart></ResponsiveContainer></Paper></Grid>
+            <Grid item xs={12} md={6}><Paper sx={{ p: 2, height: 320 }}><Typography fontWeight={900}>Photocopy request trend</Typography><ResponsiveContainer width="100%" height="90%"><BarChart data={data.charts?.photocopyTrend || []}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" /><YAxis allowDecimals={false} /><ChartTooltip /><Bar dataKey="count" fill="#7c3aed" /></BarChart></ResponsiveContainer></Paper></Grid>
+            <Grid item xs={12} md={6}><Paper sx={{ p: 2, height: 320 }}><Typography fontWeight={900}>New additions monthwise</Typography><ResponsiveContainer width="100%" height="90%"><BarChart data={data.charts?.newAdditionsMonthwise || []}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" /><YAxis allowDecimals={false} /><ChartTooltip /><Bar dataKey="count" fill="#f59e0b" /></BarChart></ResponsiveContainer></Paper></Grid>
+            <Grid item xs={12} md={6}><Paper sx={{ p: 2, height: 320 }}><Typography fontWeight={900}>Categorywise books</Typography><ResponsiveContainer width="100%" height="90%"><BarChart data={data.charts?.categorywiseBooks || []}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" interval={0} angle={-20} textAnchor="end" height={70} /><YAxis allowDecimals={false} /><ChartTooltip /><Bar dataKey="count" fill="#0891b2" /></BarChart></ResponsiveContainer></Paper></Grid>
+            <Grid item xs={12} md={6}><Paper sx={{ p: 2, height: 320 }}><Typography fontWeight={900}>Programwise circulation</Typography><ResponsiveContainer width="100%" height="90%"><BarChart data={data.charts?.programwiseCirculation || []}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="label" /><YAxis allowDecimals={false} /><ChartTooltip /><Bar dataKey="count" fill="#dc2626" /></BarChart></ResponsiveContainer></Paper></Grid>
+          </Grid>
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            <Grid item xs={12} lg={6}><Paper sx={{ p: 1 }}><Typography variant="h6" fontWeight={900} sx={{ px: 1 }}>Circulation details</Typography><DataGrid rows={data.details?.issues || []} columns={issueColumns} getRowId={(r) => r._id} loading={loading} autoHeight getRowHeight={() => "auto"} sx={wrapGridSx} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} /></Paper></Grid>
+            <Grid item xs={12} lg={6}><Paper sx={{ p: 1 }}><Typography variant="h6" fontWeight={900} sx={{ px: 1 }}>Book details</Typography><DataGrid rows={data.details?.books || []} columns={bookColumns} getRowId={(r) => r._id} loading={loading} autoHeight getRowHeight={() => "auto"} sx={wrapGridSx} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} /></Paper></Grid>
+          </Grid>
+        </Box>
+      </Stack>
+    </MenuPageShell>
+  );
+}
+
+export function LibraryDummyDataPage() {
+  const [count, setCount] = useState(50);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+  const generate = async () => {
+    if (!window.confirm("Generate dummy library data from existing users?")) return;
+    setLoading(true);
+    setError("");
+    setResult(null);
+    try {
+      const res = await ep1.post("/api/v2/librarynew/dummy-data", { colid: global1.colid, user: global1.user, count });
+      setResult(res.data);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to generate dummy data");
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <MenuPageShell title="Library Dummy Data">
+      <Stack spacing={2}>
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h5" fontWeight={900}>Generate dummy library data</Typography>
+          <Typography color="text.secondary" sx={{ mb: 2 }}>Creates libraries, books, circulation rows, book requests, and photocopy requests using existing users in this institution.</Typography>
+          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+          {result && <Alert severity="success" sx={{ mb: 2 }}>{result.message}</Alert>}
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={3}><TextField fullWidth type="number" label="Number of books" value={count} onChange={(e) => setCount(e.target.value)} inputProps={{ min: 1, max: 500 }} /></Grid>
+            <Grid item xs={12} md={3}><Button fullWidth variant="contained" disabled={loading} onClick={generate}>{loading ? "Generating..." : "Generate dummy data"}</Button></Grid>
+          </Grid>
+        </Paper>
+        {result?.summary && (
+          <Grid container spacing={2}>
+            {Object.entries(result.summary).map(([key, value]) => (
+              <Grid item xs={12} sm={6} md={2.4} key={key}>
+                <Card><CardContent><Typography variant="caption" color="text.secondary">{key}</Typography><Typography variant="h5" fontWeight={900}>{value}</Typography></CardContent></Card>
+              </Grid>
+            ))}
+          </Grid>
+        )}
       </Stack>
     </MenuPageShell>
   );

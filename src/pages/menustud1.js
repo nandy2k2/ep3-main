@@ -378,6 +378,13 @@ function DefaultStudentListItems({ open }) {
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Sequential Content" />}
 </ListItem>
 
+           <ListItem button component={RouterLink} to="/studentsequentialcontentviewer">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Sequential Content Viewer" />}
+</ListItem>
+
            <ListItem button component={RouterLink} to="/studentneplmsmindmaps">
 <ListItemIcon>
 <PersonIcon />
@@ -493,6 +500,30 @@ function DefaultStudentListItems({ open }) {
         </Accordion>
 
         <Accordion>
+        <AccordionSummary aria-controls="panel-student-sports-cultural-content" id="panel-student-sports-cultural-header">
+          <BusinessIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{fontSize: 14}}>Sports and Cultural</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+
+           <ListItem button component={RouterLink} to="/studentculturalactivity">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Cultural activity" />}
+</ListItem>
+
+           <ListItem button component={RouterLink} to="/studentsportsactivity">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Sports activity" />}
+</ListItem>
+
+        </AccordionDetails>
+        </Accordion>
+
+        <Accordion>
                 <AccordionSummary aria-controls="panel2-content" id="panel2-header">
                   <SettingsIcon sx={{ marginRight: 1 }} />
                   {open && <Typography sx={{ fontSize: 14 }}>Alumni interaction</Typography>}
@@ -511,6 +542,13 @@ function DefaultStudentListItems({ open }) {
                       <PersonIcon />
                     </ListItemIcon>
                     {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Study material" />}
+                  </ListItem>
+
+                  <ListItem button component={RouterLink} to="/student-alumni-connect">
+                    <ListItemIcon>
+                      <PersonIcon />
+                    </ListItemIcon>
+                    {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Alumni connect" />}
                   </ListItem>
         
         
