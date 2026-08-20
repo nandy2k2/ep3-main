@@ -25,14 +25,14 @@ import {
 import { CheckCircle, Dashboard, ExpandMore, Lock, Logout, PlayArrow, Refresh } from "@mui/icons-material";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import {
+  completeStudentSequentialContent,
+  groupSequentialContent,
+  loadStudentSequentialContent
+} from "../utils/nepLmsSequentialContentTools";
 
 const uniqueSorted = (values = []) => [...new Set(values.map((item) => String(item || "").trim()).filter(Boolean))]
   .sort((a, b) => a.localeCompare(b));
-
-const contentRank = (row) => {
-  const parsed = Number(row.sequence);
-  return Number.isFinite(parsed) ? parsed : 999999;
-};
 
 const getYouTubeId = (url = "") => {
   const value = String(url || "");
@@ -56,14 +56,6 @@ const mediaKind = (url = "", mimetype = "") => {
   if (mime.includes("video") || /\.(mp4|webm|ogg|mov)(\?|$)/i.test(value)) return "video";
   if (mime.includes("image") || /\.(png|jpe?g|gif|webp|svg)(\?|$)/i.test(value)) return "image";
   return "frame";
-};
-
-const sequenceStatus = (sequence) => {
-  const total = sequence.rows.length;
-  const completed = sequence.rows.filter((row) => row.completed).length;
-  if (total && completed === total) return { key: "completed", label: "Completed", color: "success" };
-  if (completed > 0) return { key: "pending", label: "In progress", color: "primary" };
-  return { key: "notopened", label: "Not opened", color: "default" };
 };
 
 export default function NepLmsStudentSequentialContentViewerPage() {
@@ -96,29 +88,7 @@ export default function NepLmsStudentSequentialContentViewerPage() {
   )), [courses, filters]);
 
   const sequences = useMemo(() => {
-    const map = new Map();
-    [...lessonContent].sort((a, b) => contentRank(a) - contentRank(b)).forEach((item) => {
-      const key = String(item.lessonresourceid || "general");
-      if (!map.has(key)) {
-        map.set(key, {
-          id: key,
-          title: item.lessonplantitle || "Lesson sequence",
-          module: item.module || "",
-          topic: item.topics || "",
-          rows: []
-        });
-      }
-      map.get(key).rows.push(item);
-    });
-    return [...map.values()].map((sequence) => {
-      let previousComplete = true;
-      const rows = sequence.rows.map((row) => {
-        const locked = !previousComplete;
-        previousComplete = previousComplete && Boolean(row.completed);
-        return { ...row, locked };
-      });
-      return { ...sequence, rows, status: sequenceStatus({ ...sequence, rows }) };
-    });
+    return groupSequentialContent(lessonContent);
   }, [lessonContent]);
 
   const selectedContent = useMemo(
@@ -227,11 +197,10 @@ export default function NepLmsStudentSequentialContentViewerPage() {
         semester: course.semester,
         coursecode: course.coursecode
       });
-      const [contentRes, quizRes] = await Promise.all([
-        ep1.get("/api/v2/neplms/student-workspace/lesson-content", { params }),
+      const [contentRows, quizRes] = await Promise.all([
+        loadStudentSequentialContent(params),
         ep1.get("/api/v2/neplms/student-workspace/active-quizzes", { params })
       ]);
-      const contentRows = contentRes.data?.data || [];
       setLessonContent(contentRows);
       setActiveQuizzes(quizRes.data?.data || []);
       setQuizAttempts(quizRes.data?.attempts || []);
@@ -283,13 +252,13 @@ export default function NepLmsStudentSequentialContentViewerPage() {
       setSubmitting(true);
       setError("");
       setMessage("");
-      const res = await ep1.post("/api/v2/neplms/student-workspace/lesson-content-complete", {
+      const res = await completeStudentSequentialContent({
         colid: global1.colid,
         regno: global1.regno,
         user: global1.user,
         contentid: content._id
       });
-      const progress = res.data?.progress;
+      const progress = res?.progress;
       setMessage(progress
         ? `Step completed. Progress: ${progress.completedsteps}/${progress.totalsteps} (${progress.progresspercentage}%).`
         : "Content marked completed.");

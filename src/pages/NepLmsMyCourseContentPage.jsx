@@ -31,6 +31,14 @@ import { DataGrid, GridActionsCellItem, GridToolbar } from "@mui/x-data-grid";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import {
+  deleteSequentialContent,
+  generateSequentialContentFile,
+  generateSequentialFlashcards,
+  loadSequentialContent,
+  saveSequentialContent,
+  uploadSequentialContentFile
+} from "../utils/nepLmsSequentialContentTools";
 
 const blankContent = {
   sequence: "1",
@@ -46,7 +54,7 @@ const blankContent = {
   flashcards: [{ question: "", questionimage: "", answer: "" }]
 };
 
-const blankAi = { provider: "Gemini", geminiModel: "gemini-2.5-flash", ollamaConfigId: "", language: "English", flashcardcount: "6" };
+const blankAi = { provider: "Gemini", geminiModel: "gemini-2.5-flash", ollamaConfigId: "", language: "English", flashcardcount: "6", additionalprompt: "" };
 const blankLessonPlan = { title: "", description: "" };
 const contentTypes = ["Text", "File Link", "Infographics", "Video Link", "Quiz", "Mindmap", "Flash Card"];
 const geminiModels = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
@@ -325,18 +333,16 @@ export default function NepLmsMyCourseContentPage() {
     }
     try {
       const payload = coursePayload();
-      const res = await ep1.get("/api/v2/neplms/lesson-content", {
-        params: {
-          colid: global1.colid,
-          lessonresourceid: lessonId,
-          academicyear: payload.academicyear,
-          semester: payload.semester,
-          coursecode: payload.coursecode,
-          facultyemail: global1.user
-        }
+      const rows = await loadSequentialContent({
+        colid: global1.colid,
+        lessonresourceid: lessonId,
+        academicyear: payload.academicyear,
+        semester: payload.semester,
+        coursecode: payload.coursecode,
+        facultyemail: global1.user
       });
-      setLessonContents(res.data?.data || []);
-      setContentForm((prev) => ({ ...prev, sequence: String((res.data?.data?.length || 0) + 1) }));
+      setLessonContents(rows);
+      setContentForm((prev) => ({ ...prev, sequence: String((rows.length || 0) + 1) }));
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load sequence content");
     }
@@ -349,7 +355,7 @@ export default function NepLmsMyCourseContentPage() {
       setMessage("");
       const lesson = await ensureLessonResource();
       if (!contentForm.title) throw new Error("Title is required");
-      await ep1.post("/api/v2/neplms/lesson-content", {
+      await saveSequentialContent({
         ...coursePayload(),
         ...contentForm,
         id: editingId,
@@ -391,7 +397,7 @@ export default function NepLmsMyCourseContentPage() {
     if (!window.confirm("Delete this content item?")) return;
     try {
       setError("");
-      await ep1.post("/api/v2/neplms/lesson-content/delete", { id: row._id, colid: global1.colid });
+      await deleteSequentialContent({ id: row._id, colid: global1.colid });
       setMessage("Content deleted");
       loadLessonContent(selectedLessonResourceId);
     } catch (err) {
@@ -403,12 +409,8 @@ export default function NepLmsMyCourseContentPage() {
     if (!file) return;
     try {
       setError("");
-      const data = new FormData();
-      data.append("colid", global1.colid || "");
-      data.append("coursecode", selectedCourse?.coursecode || "");
-      data.append("file", file);
-      const res = await ep1.post("/api/v2/neplms/lesson-content/upload", data, { headers: { "Content-Type": "multipart/form-data" } });
-      applyLink(res.data?.url || res.data?.data?.filelink || "");
+      const url = await uploadSequentialContentFile({ file, colid: global1.colid, coursecode: selectedCourse?.coursecode });
+      applyLink(url);
       setMessage("File uploaded to AWS");
     } catch (err) {
       setError(err.response?.data?.message || "Unable to upload file");
@@ -423,10 +425,10 @@ export default function NepLmsMyCourseContentPage() {
       if (contentForm.contenttype === "Mindmap") throw new Error("Select an existing mindmap instead of generating a file");
       const lesson = await ensureLessonResource();
       if (!contentForm.title) throw new Error("Enter a title before AI generation");
-      const endpoint = contentForm.contenttype === "Flash Card"
-        ? "/api/v2/neplms/lesson-content/generate-flashcards"
-        : "/api/v2/neplms/lesson-content/generate-file";
-      const res = await ep1.post(endpoint, {
+      const generator = contentForm.contenttype === "Flash Card"
+        ? generateSequentialFlashcards
+        : generateSequentialContentFile;
+      const res = await generator({
         ...coursePayload(),
         ...contentForm,
         lessonresourceid: lesson._id,
@@ -436,13 +438,14 @@ export default function NepLmsMyCourseContentPage() {
         model: aiForm.geminiModel,
         ollamaConfigId: aiForm.ollamaConfigId,
         language: aiForm.language,
-        flashcardcount: aiForm.flashcardcount
+        flashcardcount: aiForm.flashcardcount,
+        additionalprompt: aiForm.additionalprompt
       });
       if (contentForm.contenttype === "Flash Card") {
-        setContentForm((prev) => ({ ...prev, flashcards: res.data?.data || prev.flashcards }));
+        setContentForm((prev) => ({ ...prev, flashcards: res?.data || prev.flashcards }));
         setMessage("AI flashcards created. Review and save.");
       } else {
-        setContentForm((prev) => ({ ...prev, contenttype: prev.contenttype === "Infographics" ? "Infographics" : "Text", filelink: res.data?.url || "" }));
+        setContentForm((prev) => ({ ...prev, contenttype: prev.contenttype === "Infographics" ? "Infographics" : "Text", filelink: res?.url || "" }));
         setMessage("AI content created and uploaded to AWS. Save this content item to publish it.");
       }
     } catch (err) {
@@ -833,6 +836,17 @@ export default function NepLmsMyCourseContentPage() {
             {contentForm.contenttype === "Flash Card" && (
               <Grid item xs={12} md={2}><TextField fullWidth type="number" label="No. of cards" value={aiForm.flashcardcount} onChange={(e) => setAiForm((prev) => ({ ...prev, flashcardcount: e.target.value }))} /></Grid>
             )}
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                multiline
+                minRows={3}
+                label="Additional AI prompt / instructions"
+                value={aiForm.additionalprompt}
+                onChange={(e) => setAiForm((prev) => ({ ...prev, additionalprompt: e.target.value }))}
+                placeholder="Add special context, style, examples, clinical scenario, local requirements, or assessment focus."
+              />
+            </Grid>
             <Grid item xs={12} md={2}>
               <Button fullWidth variant="outlined" startIcon={generating ? <CircularProgress size={18} /> : <AutoAwesome />} disabled={generating || !selectedLessonResourceId || (aiForm.provider === "Ollama" && !aiForm.ollamaConfigId)} sx={{ height: 56 }} onClick={generateAiContent}>
                 {generating ? "Generating" : "Generate"}

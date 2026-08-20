@@ -34,6 +34,9 @@ const blankForm = {
   coursecode: "",
   moderatorname: "",
   moderatoremail: "",
+  startdate: "",
+  enddate: "",
+  admindocuments: [],
   status: "assigned"
 };
 
@@ -54,12 +57,14 @@ export default function ConductExamModeratorRegistrationPage() {
   const [institution, setInstitution] = useState(null);
   const [form, setForm] = useState(blankForm);
   const [selectedUsers, setSelectedUsers] = useState([]);
+  const [adminDocTitle, setAdminDocTitle] = useState("");
   const [selectedRowIds, setSelectedRowIds] = useState([]);
   const [editId, setEditId] = useState("");
   const [filters, setFilters] = useState({ academicyear: "", examcode: "", regulation: "", programcode: "", coursecode: "" });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
   const [printingOrders, setPrintingOrders] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -168,6 +173,7 @@ export default function ConductExamModeratorRegistrationPage() {
         setMessage(editId ? "Moderator updated." : "Moderator saved.");
       }
       setForm(blankForm);
+      setAdminDocTitle("");
       setSelectedUsers([]);
       setEditId("");
       await loadRows();
@@ -180,9 +186,29 @@ export default function ConductExamModeratorRegistrationPage() {
 
   const editRow = (row) => {
     setEditId(row._id);
-    setForm({ ...blankForm, ...row });
+    setForm({ ...blankForm, ...row, startdate: row.startdate ? String(row.startdate).slice(0, 10) : "", enddate: row.enddate ? String(row.enddate).slice(0, 10) : "", admindocuments: row.admindocuments || [] });
     setSelectedUsers([]);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const uploadAdminDocument = async (file) => {
+    if (!file) return;
+    try {
+      setUploadingDoc(true);
+      setError("");
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("colid", global1.colid);
+      const res = await ep1.post("/api/v2/conductexam/question-paper-upload", formData, { headers: { "Content-Type": "multipart/form-data" } });
+      const data = res.data?.data || {};
+      setForm((prev) => ({ ...prev, admindocuments: [...(prev.admindocuments || []), { title: adminDocTitle || file.name, filename: data.filename || file.name, url: data.url || "", uploadedby: global1.user, uploadeddate: new Date().toISOString() }] }));
+      setAdminDocTitle("");
+      setMessage("Document uploaded.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to upload document.");
+    } finally {
+      setUploadingDoc(false);
+    }
   };
 
   const deleteRow = async (id) => {
@@ -208,6 +234,8 @@ export default function ConductExamModeratorRegistrationPage() {
       coursecode: first.coursecode || "BCOM101",
       moderatorname: "Moderator Name",
       moderatoremail: "moderator@example.com",
+      startdate: "",
+      enddate: "",
       status: "assigned"
     }]);
     const wb = XLSX.utils.book_new();
@@ -311,6 +339,8 @@ export default function ConductExamModeratorRegistrationPage() {
     { field: "coursecode", headerName: "Course Code", width: 140 },
     { field: "moderatorname", headerName: "Moderator", width: 180 },
     { field: "moderatoremail", headerName: "Moderator Email", width: 220 },
+    { field: "startdate", headerName: "Start Date", width: 130, valueGetter: (params) => params.row.startdate ? String(params.row.startdate).slice(0, 10) : "" },
+    { field: "enddate", headerName: "End Date", width: 130, valueGetter: (params) => params.row.enddate ? String(params.row.enddate).slice(0, 10) : "" },
     { field: "status", headerName: "Status", width: 150 },
     { field: "actions", headerName: "Actions", width: 170, sortable: false, renderCell: (params) => <Stack direction="row" spacing={1}><Button size="small" onClick={() => editRow(params.row)}>Edit</Button><Button size="small" color="error" onClick={() => deleteRow(params.row._id)}>Delete</Button></Stack> }
   ];
@@ -366,8 +396,13 @@ export default function ConductExamModeratorRegistrationPage() {
             </Grid>
             <Grid item xs={12} md={2}><TextField fullWidth label="Moderator Name" value={form.moderatorname} onChange={(e) => setForm({ ...form, moderatorname: e.target.value })} /></Grid>
             <Grid item xs={12} md={3}><TextField fullWidth label="Moderator Email" value={form.moderatoremail} onChange={(e) => setForm({ ...form, moderatoremail: e.target.value })} /></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth type="date" label="Start Date" InputLabelProps={{ shrink: true }} value={form.startdate} onChange={(e) => setForm({ ...form, startdate: e.target.value })} /></Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth type="date" label="End Date" InputLabelProps={{ shrink: true }} value={form.enddate} onChange={(e) => setForm({ ...form, enddate: e.target.value })} /></Grid>
             <Grid item xs={12} md={1.5}><TextField select fullWidth label="Status" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}><MenuItem value="assigned">assigned</MenuItem><MenuItem value="Inactive">Inactive</MenuItem></TextField></Grid>
             <Grid item xs={12} md={1.5}><Button fullWidth variant="contained" onClick={saveModerator} disabled={saving} sx={{ height: 56 }}>{saving ? "Saving..." : editId ? "Update" : "Save"}</Button></Grid>
+            <Grid item xs={12} md={4}><TextField fullWidth label="Document Title" value={adminDocTitle} onChange={(e) => setAdminDocTitle(e.target.value)} /></Grid>
+            <Grid item xs={12} md={3}><Button fullWidth component="label" variant="outlined" startIcon={<UploadFileIcon />} disabled={uploadingDoc} sx={{ height: 56 }}>{uploadingDoc ? "Uploading..." : "Upload Syllabus/Scheme/Other"}<input hidden type="file" onChange={(e) => uploadAdminDocument(e.target.files?.[0])} /></Button></Grid>
+            <Grid item xs={12} md={5}><Stack direction="row" spacing={1} flexWrap="wrap">{(form.admindocuments || []).map((doc, index) => <Button key={`${doc.url}-${index}`} size="small" href={doc.url} target="_blank" rel="noreferrer">{doc.title || doc.filename || `Document ${index + 1}`}</Button>)}</Stack></Grid>
           </Grid>
         </Paper>
 

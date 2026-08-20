@@ -9,6 +9,9 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   FormControlLabel,
   Grid,
   LinearProgress,
@@ -16,6 +19,8 @@ import {
   Paper,
   Stack,
   Switch,
+  Tab,
+  Tabs,
   TextField,
   Typography
 } from "@mui/material";
@@ -84,6 +89,11 @@ export default function ConductExamSubmitQuestionPaperPage() {
   const [filters, setFilters] = useState({ academicyear: "", examcode: "" });
   const [sections, setSections] = useState([]);
   const [paperAttachment, setPaperAttachment] = useState({ url: "", filename: "" });
+  const [paperDocuments, setPaperDocuments] = useState([]);
+  const [supportDocTitle, setSupportDocTitle] = useState("");
+  const [documentDialog, setDocumentDialog] = useState(null);
+  const [syllabusDialog, setSyllabusDialog] = useState(null);
+  const [paperTab, setPaperTab] = useState("Active");
   const [status, setStatus] = useState("Draft");
   const [generateForm, setGenerateForm] = useState(emptyGenerate);
   const [syllabusContext, setSyllabusContext] = useState({ complete: [], covered: [] });
@@ -98,6 +108,32 @@ export default function ConductExamSubmitQuestionPaperPage() {
 
   const selectedPaper = useMemo(() => papers.find((row) => row._id === selectedPaperId) || null, [papers, selectedPaperId]);
   const paperSubmitted = /^(InvigilatorSubmitted|Moderation In Progress|Moderation Submitted|Accepted)$/i.test(status || "");
+  const isActivePaper = (row) => {
+    const now = new Date();
+    const start = row?.startdate ? new Date(row.startdate) : null;
+    const end = row?.enddate ? new Date(row.enddate) : null;
+    if (start && now < start) return false;
+    if (end) {
+      end.setHours(23, 59, 59, 999);
+      if (now > end) return false;
+    }
+    return true;
+  };
+  const tabPapers = useMemo(() => papers.filter((row) => {
+    const submitted = /^(InvigilatorSubmitted|Moderation In Progress|Moderation Submitted|Accepted)$/i.test(row.status || "");
+    if (paperTab === "Submitted") return submitted;
+    if (submitted) return false;
+    const now = new Date();
+    const start = row.startdate ? new Date(row.startdate) : null;
+    const end = row.enddate ? new Date(row.enddate) : null;
+    if (paperTab === "Pending") return !!start && now < start;
+    if (paperTab === "Past due") {
+      if (!end) return false;
+      end.setHours(23, 59, 59, 999);
+      return now > end;
+    }
+    return isActivePaper(row);
+  }), [papers, paperTab]);
   const filterOptions = useMemo(() => ({
     academicyear: uniq(papers.map((row) => row.academicyear)),
     examcode: uniq(papers.map((row) => row.examcode))
@@ -145,6 +181,7 @@ export default function ConductExamSubmitQuestionPaperPage() {
       setCos(res.data?.cos || []);
       setSections(doc?.sections?.length ? doc.sections : [{ title: "Section A", instructions: "", marks: 0, questions: [] }]);
       setPaperAttachment({ url: doc?.paperattachmenturl || "", filename: doc?.paperattachmentfilename || "" });
+      setPaperDocuments(doc?.paperdocuments || []);
       setStatus(doc?.status || "Draft");
       setGenerateForm(emptyGenerate);
       const setter = res.data?.setter || {};
@@ -163,11 +200,13 @@ export default function ConductExamSubmitQuestionPaperPage() {
           papersetteremail: global1.user
         }
       });
-      setSyllabusContext({
+      const nextContext = {
         complete: contextRes.data?.complete || [],
         covered: contextRes.data?.covered || [],
-        coveredWorkCompleted: contextRes.data?.coveredWorkCompleted || []
-      });
+        coveredWorkCompleted: contextRes.data?.coveredWorkCompleted || [],
+        completeRows: contextRes.data?.completeRows || []
+      };
+      setSyllabusContext(nextContext);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load question paper.");
     } finally {
@@ -195,7 +234,9 @@ export default function ConductExamSubmitQuestionPaperPage() {
       const res = await ep1.post("/api/v2/conductexam/question-paper-upload", formData, { headers: { "Content-Type": "multipart/form-data" } });
       const data = res.data?.data || {};
       if (kind === "paper") setPaperAttachment({ url: data.url || "", filename: data.filename || file.name });
+      else if (kind === "support") setPaperDocuments((prev) => [...prev, { title: supportDocTitle || file.name, filename: data.filename || file.name, url: data.url || "", uploadedby: global1.user, uploadeddate: new Date().toISOString() }]);
       else updateQuestion(sectionIndex, questionIndex, { attachmenturl: data.url || "", attachmentfilename: data.filename || file.name });
+      setSupportDocTitle("");
       setMessage("Attachment uploaded.");
     } catch (err) {
       setError(err.response?.data?.message || "Unable to upload attachment.");
@@ -213,6 +254,10 @@ export default function ConductExamSubmitQuestionPaperPage() {
       setError("Question paper is already submitted for moderation and cannot be edited.");
       return;
     }
+    if (!isActivePaper(selectedPaper)) {
+      setError("Question paper submission is not active for this date range.");
+      return;
+    }
     try {
       setSaving(true);
       setError("");
@@ -224,6 +269,7 @@ export default function ConductExamSubmitQuestionPaperPage() {
         status,
         paperattachmenturl: paperAttachment.url,
         paperattachmentfilename: paperAttachment.filename,
+        paperdocuments: paperDocuments,
         sections
       });
       setMessage("Question paper saved.");
@@ -238,6 +284,10 @@ export default function ConductExamSubmitQuestionPaperPage() {
   const submitQuestionPaper = async () => {
     if (!selectedPaper) {
       setError("Select an assigned paper.");
+      return;
+    }
+    if (!isActivePaper(selectedPaper)) {
+      setError("Question paper submission is not active for this date range.");
       return;
     }
     try {
@@ -320,6 +370,10 @@ export default function ConductExamSubmitQuestionPaperPage() {
     { field: "program", headerName: "Program", width: 160 },
     { field: "course", headerName: "Course", minWidth: 220, flex: 1 },
     { field: "coursecode", headerName: "Course Code", width: 140 },
+    { field: "startdate", headerName: "Start Date", width: 130, valueGetter: (params) => params.row.startdate ? String(params.row.startdate).slice(0, 10) : "" },
+    { field: "enddate", headerName: "End Date", width: 130, valueGetter: (params) => params.row.enddate ? String(params.row.enddate).slice(0, 10) : "" },
+    { field: "syllabus", headerName: "Syllabus", width: 110, sortable: false, renderCell: (params) => <Button size="small" onClick={(event) => { event.stopPropagation(); setSyllabusDialog(params.row); }}>View</Button> },
+    { field: "documents", headerName: "Documents", width: 120, sortable: false, renderCell: (params) => <Button size="small" onClick={(event) => { event.stopPropagation(); setDocumentDialog(params.row); }}>Documents</Button> },
     { field: "status", headerName: "Status", width: 120 }
   ];
 
@@ -333,12 +387,12 @@ export default function ConductExamSubmitQuestionPaperPage() {
               <Typography color="text.secondary">Select an assigned paper, create sections and questions, upload attachments, and save.</Typography>
             </Box>
             <Stack direction="row" spacing={1}>
-              <Button variant="outlined" component="label" startIcon={<UploadFileIcon />} disabled={!selectedPaper || paperSubmitted || uploadingKey === "paper-0-0"}>
+              <Button variant="outlined" component="label" startIcon={<UploadFileIcon />} disabled={!selectedPaper || paperSubmitted || !isActivePaper(selectedPaper) || uploadingKey === "paper-0-0"}>
                 {uploadingKey === "paper-0-0" ? "Uploading..." : "Upload Full Paper"}
                 <input hidden type="file" onChange={(e) => uploadAttachment(e.target.files?.[0], "paper", 0, 0)} />
               </Button>
-              <Button variant="contained" startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />} disabled={saving || !selectedPaper || paperSubmitted} onClick={saveQuestionPaper}>{saving ? "Saving..." : "Save Paper"}</Button>
-              <Button variant="contained" color="success" startIcon={submitting ? <CircularProgress size={18} color="inherit" /> : <FactCheckIcon />} disabled={submitting || saving || !selectedPaper || paperSubmitted} onClick={submitQuestionPaper}>{submitting ? "Submitting..." : "Submit Paper"}</Button>
+              <Button variant="contained" startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />} disabled={saving || !selectedPaper || paperSubmitted || !isActivePaper(selectedPaper)} onClick={saveQuestionPaper}>{saving ? "Saving..." : "Save Paper"}</Button>
+              <Button variant="contained" color="success" startIcon={submitting ? <CircularProgress size={18} color="inherit" /> : <FactCheckIcon />} disabled={submitting || saving || !selectedPaper || paperSubmitted || !isActivePaper(selectedPaper)} onClick={submitQuestionPaper}>{submitting ? "Submitting..." : "Submit Paper"}</Button>
             </Stack>
           </Stack>
           {(loading || saving || submitting || generating || mapping) && <LinearProgress sx={{ mt: 2 }} />}
@@ -358,8 +412,11 @@ export default function ConductExamSubmitQuestionPaperPage() {
         </Paper>
 
         <Paper elevation={0} sx={{ p: 2, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
-          <Box sx={{ height: 280 }}>
-            <DataGrid rows={papers} getRowId={(row) => row._id} columns={paperColumns} loading={loading} slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true } }} onRowClick={(params) => { setSelectedPaperId(params.row._id); loadQuestionPaper(params.row._id); }} pageSizeOptions={[5, 10, 25]} />
+          <Tabs value={paperTab} onChange={(event, value) => setPaperTab(value)} sx={{ mb: 1 }}>
+            {["Active", "Pending", "Past due", "Submitted"].map((tab) => <Tab key={tab} value={tab} label={tab} />)}
+          </Tabs>
+          <Box sx={{ height: 520 }}>
+            <DataGrid rows={tabPapers} getRowId={(row) => row._id} columns={paperColumns} loading={loading} slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true } }} onRowClick={(params) => { setSelectedPaperId(params.row._id); loadQuestionPaper(params.row._id); }} pageSizeOptions={[10, 25, 50]} />
           </Box>
         </Paper>
 
@@ -375,8 +432,12 @@ export default function ConductExamSubmitQuestionPaperPage() {
                   ["Semester", selectedPaper.semester],
                   ["Paper Setter", `${selectedPaper.papersettername} (${selectedPaper.papersetteremail})`]
                 ].map(([label, value]) => <Grid item xs={12} md={4} key={label}><Typography variant="caption" color="text.secondary">{label}</Typography><Typography fontWeight={800}>{value || "-"}</Typography></Grid>)}
+                <Grid item xs={12} md={4}><Typography variant="caption" color="text.secondary">Submission Window</Typography><Typography fontWeight={800}>{selectedPaper.startdate ? String(selectedPaper.startdate).slice(0, 10) : "-"} to {selectedPaper.enddate ? String(selectedPaper.enddate).slice(0, 10) : "-"}</Typography></Grid>
                 <Grid item xs={12} md={3}><TextField select fullWidth label="Status" value={status} disabled={paperSubmitted} onChange={(e) => setStatus(e.target.value)}><MenuItem value="Draft">Draft</MenuItem><MenuItem value="Submitted">Submitted</MenuItem><MenuItem value="InvigilatorSubmitted">InvigilatorSubmitted</MenuItem><MenuItem value="Moderation In Progress">Moderation In Progress</MenuItem><MenuItem value="Moderation Submitted">Moderation Submitted</MenuItem><MenuItem value="Accepted">Accepted</MenuItem></TextField></Grid>
                 <Grid item xs={12} md={9}><TextField fullWidth label="Full question paper attachment link" value={paperAttachment.url} disabled={paperSubmitted} onChange={(e) => setPaperAttachment({ ...paperAttachment, url: e.target.value })} /></Grid>
+                <Grid item xs={12} md={4}><TextField fullWidth label="Supporting Document Title" value={supportDocTitle} disabled={paperSubmitted} onChange={(e) => setSupportDocTitle(e.target.value)} /></Grid>
+                <Grid item xs={12} md={3}><Button fullWidth component="label" variant="outlined" startIcon={<UploadFileIcon />} disabled={paperSubmitted || uploadingKey === "support-0-0"} sx={{ height: 56 }}>{uploadingKey === "support-0-0" ? "Uploading..." : "Upload Supporting Document"}<input hidden type="file" onChange={(e) => uploadAttachment(e.target.files?.[0], "support", 0, 0)} /></Button></Grid>
+                <Grid item xs={12} md={5}><Stack direction="row" spacing={1} flexWrap="wrap">{paperDocuments.map((doc, index) => <Button key={`${doc.url}-${index}`} size="small" href={doc.url} target="_blank" rel="noreferrer">{doc.title || doc.filename || `Document ${index + 1}`}</Button>)}</Stack></Grid>
               </Grid>
             </Paper>
 
@@ -486,6 +547,24 @@ export default function ConductExamSubmitQuestionPaperPage() {
             </Stack>
           </>
         )}
+        <Dialog open={!!documentDialog} onClose={() => setDocumentDialog(null)} maxWidth="md" fullWidth>
+          <DialogTitle>Documents</DialogTitle>
+          <DialogContent>
+            <Stack spacing={1} sx={{ pt: 1 }}>
+              {[...(documentDialog?.admindocuments || []), ...(paperDocuments || [])].map((doc, index) => <Button key={`${doc.url}-${index}`} href={doc.url} target="_blank" rel="noreferrer" variant="outlined">{doc.title || doc.filename || `Document ${index + 1}`}</Button>)}
+              {!documentDialog?.admindocuments?.length && !paperDocuments.length && <Typography color="text.secondary">No documents uploaded.</Typography>}
+            </Stack>
+          </DialogContent>
+        </Dialog>
+        <Dialog open={!!syllabusDialog} onClose={() => setSyllabusDialog(null)} maxWidth="md" fullWidth>
+          <DialogTitle>Syllabus</DialogTitle>
+          <DialogContent>
+            <Stack spacing={1} sx={{ pt: 1 }}>
+              {(syllabusContext.completeRows || []).map((row, index) => <Paper key={row._id || index} variant="outlined" sx={{ p: 1.5 }}><Typography fontWeight={800}>{row.module}</Typography><Typography sx={{ whiteSpace: "pre-wrap" }}>{row.syllabus}</Typography>{row.sourcefilelink && <Button size="small" href={row.sourcefilelink} target="_blank" rel="noreferrer">Source File</Button>}</Paper>)}
+              {!syllabusContext.completeRows?.length && <Typography color="text.secondary">Select a paper first to load syllabus details.</Typography>}
+            </Stack>
+          </DialogContent>
+        </Dialog>
       </Box>
     </MenuPageShell>
   );

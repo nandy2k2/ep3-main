@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
   Box, Button, Dialog, DialogTitle, DialogContent,
-  DialogActions, Stack, TextField, Autocomplete, Checkbox, FormControlLabel
+  DialogActions, Stack, TextField, Autocomplete, Checkbox, FormControlLabel, MenuItem
 } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -25,6 +25,7 @@ const emptyForm = {
   phone: "",
   password: "",
   googleemail: "",
+  excluded: "No",
   role: "",
   institution: "",
   department: "",
@@ -80,6 +81,7 @@ const openEditDialog = (row) => {
     phone: row.phone || "",
     password: row.password || "",
     googleemail: row.googleemail || "",
+    excluded: row.excluded || "No",
     role: row.role || "",
     institution: row.institution || "",
     department: row.department || "",
@@ -142,6 +144,7 @@ const downloadTemplate = () => {
     phone: "9999999999",
     password: "Password@123",
     googleemail: "google.user@gmail.com",
+    excluded: "No",
     role: "Faculty",
     institution: "Institution",
     department: "Department",
@@ -223,13 +226,14 @@ const handleFileUpload = async (e) => {
     phone: row[2],
     password: row[3],
     googleemail: row[4],
-    role: row[5],
-    institution: row[6],
-    department: row[7],
-    designation: row[8],
-    dateofjoining: row[9],
-    joiningdate: row[9],
-    joiningyear: row[10],
+    excluded: row[5] || "No",
+    role: row[6],
+    institution: row[7],
+    department: row[8],
+    designation: row[9],
+    dateofjoining: row[10],
+    joiningdate: row[10],
+    joiningyear: row[11],
 
     // 🔑 inject here
     user: global1.user,
@@ -262,6 +266,7 @@ const handleBulkDelete = async () => {
     { field: "password", headerName: "Password", flex: 1 },
     { field: "phone", headerName: "Phone", flex: 1 },
     { field: "googleemail", headerName: "Google Email", flex: 1 },
+    { field: "excluded", headerName: "Excluded", flex: 1 },
     { field: "role", headerName: "Role", flex: 1 },
     { field: "designation", headerName: "Designation", flex: 1 },
     { field: "joiningdate", headerName: "Date of joining", flex: 1, valueFormatter: ({ value }) => value ? String(value).slice(0, 10) : "" },
@@ -320,7 +325,7 @@ const handleBulkDelete = async () => {
 
       <Box mb={2} display="flex" gap={2}>
         <p>
-            Format of excel file - name, email, phone, password, googleemail, role, institution, department, designation, dateofjoining, joiningyear
+            Format of excel file - name, email, phone, password, googleemail, excluded, role, institution, department, designation, dateofjoining, joiningyear
         </p>
       </Box>
 
@@ -364,6 +369,14 @@ const handleBulkDelete = async () => {
             value={form.googleemail}
             onChange={(e) => setForm({ ...form, googleemail: e.target.value })}
           />
+
+          <TextField select label="Excluded" fullWidth margin="dense"
+            value={form.excluded || "No"}
+            onChange={(e) => setForm({ ...form, excluded: e.target.value })}
+          >
+            <MenuItem value="No">No</MenuItem>
+            <MenuItem value="Yes">Yes</MenuItem>
+          </TextField>
 
           <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ xs: "stretch", sm: "center" }}>
             <FormControlLabel

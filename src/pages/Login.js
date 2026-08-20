@@ -21,6 +21,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import Link from '@mui/material/Link';
 import ep1 from '../api/ep1';
 import global1 from './global1';
+import GoogleCredentialButton from '../components/GoogleCredentialButton';
 import { continueAfterPrimaryLogin } from '../utils/twoFactorLogin';
 
 const theme = createTheme();
@@ -49,7 +50,8 @@ function Login() {
     console.log('Password:', password);
   };
 
-  const searchapi = async () => {
+  const searchapi = async (event) => {
+    event?.preventDefault?.();
     // const username=usernameref.current.value;
     // const password=passwordref.current.value;
 
@@ -61,15 +63,16 @@ const username=email;
         return;
     }
     
-    const response = await ep1.get('/api/v1/loginapi', {
-        params: {
-            email: username.toLowerCase(),
-            password: password
-            
+    try {
+      const response = await ep1.get('/api/v1/loginapi', {
+          params: {
+              email: username.toLowerCase(),
+              password: password
+              
 
-        }
-    });
-    console.log(response.data);
+          }
+      });
+      console.log(response.data);
     //console.log('hello ' + response.data.status);
     // if(response.data.statuslog == "0") {
 
@@ -77,7 +80,7 @@ const username=email;
     //     return;
 
     // }
-    if (response.data.status == "Success") {
+      if (response.data.status == "Success") {
         await continueAfterPrimaryLogin(response.data, navigate, { isOrthintelDomain });
         return;
         const user=response.data.user;
@@ -278,13 +281,25 @@ const username=email;
         //setTerm2('Thank you');  
         //navigation.navigate('Nland1');  
     }
-    else {
-        alert('Invalid Username or Password. Please try again.');
-        //setTerm2('Invalid Username or Password. Please try again.');
+      else {
+          alert(response.data?.message || 'Invalid Username or Password. Please try again.');
+          //setTerm2('Invalid Username or Password. Please try again.');
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Login failed. Please check backend connection and try again.');
     }
     //history.replace('/viewtasks');
    
 };
+
+  const handleGoogleLogin = async (credential) => {
+    try {
+      const response = await ep1.post('/api/v2/google-auth/login', { credential });
+      await continueAfterPrimaryLogin(response.data, navigate, { isOrthintelDomain });
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Google login failed');
+    }
+  };
 
   return (
     <ThemeProvider theme={theme}>
@@ -349,7 +364,7 @@ const username=email;
               }}
             />
             <Button
-              // type="submit"
+              type="button"
               fullWidth
               variant="contained"
               sx={{ mt: 3, mb: 2 }}
@@ -357,6 +372,7 @@ const username=email;
             >
               Login
             </Button>
+            <GoogleCredentialButton onCredential={handleGoogleLogin} text="Login with Google" />
             <Grid container justifyContent="flex-end">
               <Grid item>
                 {/* <Link component={RouterLink} to="/signup" variant="body1">

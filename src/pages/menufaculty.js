@@ -97,6 +97,45 @@ export function menuitems () {
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{fontSize: '14px'}} primary="Faculty Dashboard" />}
           </ListItem>
+          <ListItem button component={RouterLink} to="/facultyacademicwizard">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{fontSize: '14px'}} primary="Faculty Wizard" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/mysyllabus">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{fontSize: '14px'}} primary="My Syllabus" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/myco">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{fontSize: '14px'}} primary="My CO" />}
+          </ListItem>
+        </AccordionDetails>
+      </Accordion>
+
+      <Accordion>
+        <AccordionSummary aria-controls="panel-ai-chatbot-content" id="panel-ai-chatbot-header">
+          <SettingsIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{fontSize: 14}}>AI chatbot</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          <ListItem button component={RouterLink} to="/facultychatwizard">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{fontSize: '14px'}} primary="Faculty chatbot" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/ai-chatbot-help">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{fontSize: '14px', whiteSpace: 'normal'}} primary="AI chatbot help" />}
+          </ListItem>
         </AccordionDetails>
       </Accordion>
 
@@ -2322,4 +2361,3 @@ export function menuitems () {
     </div>
   );
 }
-

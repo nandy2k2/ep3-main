@@ -20,6 +20,8 @@ import { Add, ArrowBack, Delete, Refresh, Save } from "@mui/icons-material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import AttendanceDiagnosticHelp from "./AttendanceDiagnosticHelp";
+import MenuPageShell from "./MenuPageShell";
 
 const assignmentFilterFields = [
   { field: "academicyear", label: "Academic Year" },
@@ -457,6 +459,7 @@ export default function NepLmsAttendancePage({ sectionMode = false, pageTitle = 
   );
 
   return (
+    <MenuPageShell title={pageTitle}>
     <Box p={3}>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
         <Box>
@@ -471,6 +474,14 @@ export default function NepLmsAttendancePage({ sectionMode = false, pageTitle = 
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
       {message && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setMessage("")}>{message}</Alert>}
+
+      <AttendanceDiagnosticHelp
+        selectedClass={selectedClass}
+        filters={{
+          ...classFilters.reduce((acc, item) => ({ ...acc, [item.field]: item.value }), {}),
+          section: sectionMode ? selectedSection : ""
+        }}
+      />
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -738,6 +749,7 @@ export default function NepLmsAttendancePage({ sectionMode = false, pageTitle = 
         </>
       )}
     </Box>
+    </MenuPageShell>
   );
 }
 

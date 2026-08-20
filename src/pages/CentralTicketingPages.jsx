@@ -24,9 +24,12 @@ import MentoringLayout from "./MentoringLayout";
 
 const colors = ["#2563eb", "#16a34a", "#f97316", "#9333ea", "#0891b2", "#dc2626"];
 const supportPassword = "kumropatash";
+const supportSessionKey = "centralTicketSupportPassword";
+const globalSupportSessionKey = "centralTicketGlobalSupportPassword";
 const emptyTicketForm = { title: "", details: "", startdate: "", starttime: "", priority: "Normal", category: "" };
 const safeDate = (value) => value ? String(value).slice(0, 10) : "";
 const safeDateTime = (value) => value ? String(value).replace("T", " ").slice(0, 16) : "";
+const globalSupportPasswordParam = () => ({ supportpassword: sessionStorage.getItem(globalSupportSessionKey) || "" });
 
 function Shell({ title, children }) {
   return (
@@ -39,23 +42,23 @@ function Shell({ title, children }) {
   );
 }
 
-function PasswordGate({ children }) {
-  const [password, setPassword] = useState(sessionStorage.getItem("centralTicketSupportPassword") || "");
+function PasswordGate({ children, storageKey = supportSessionKey, title = "Central support access", description = "Enter support password to view centralized tickets." }) {
+  const [password, setPassword] = useState(sessionStorage.getItem(storageKey) || "");
   const [unlocked, setUnlocked] = useState(password === supportPassword);
   const [error, setError] = useState("");
   const unlock = () => {
     if (password !== supportPassword) return setError("Invalid password");
-    sessionStorage.setItem("centralTicketSupportPassword", password);
+    sessionStorage.setItem(storageKey, password);
     setUnlocked(true);
     setError("");
   };
   if (unlocked) return children;
   return (
-    <Shell title="Central support access">
+    <Shell title={title}>
       <Paper sx={{ p: 3, maxWidth: 520 }}>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Stack spacing={2}>
-          <Typography color="text.secondary">Enter support password to view centralized tickets.</Typography>
+          <Typography color="text.secondary">{description}</Typography>
           <TextField type="password" label="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
           <Button variant="contained" onClick={unlock}>Unlock support desk</Button>
         </Stack>
@@ -99,7 +102,7 @@ function useTicketUsers(allInstitutions = false, colid = "") {
   const [users, setUsers] = useState([]);
   useEffect(() => {
     const endpoint = allInstitutions ? "/api/v2/central-tickets/all-institutions/users" : "/api/v2/central-tickets/users";
-    ep1.get(endpoint, { params: { colid: allInstitutions ? colid || undefined : global1.colid } }).then((res) => setUsers(res.data?.data || [])).catch(() => setUsers([]));
+    ep1.get(endpoint, { params: { colid: allInstitutions ? colid || undefined : global1.colid, ...(allInstitutions ? globalSupportPasswordParam() : {}) } }).then((res) => setUsers(res.data?.data || [])).catch(() => setUsers([]));
   }, [allInstitutions, colid]);
   return users;
 }
@@ -142,6 +145,7 @@ function TicketDetails({ selected, details, loadDetails, canRespond, onChanged, 
       payload.append("respondedby", global1.name || global1.user);
       payload.append("respondedbyemail", global1.user);
       payload.append("user", global1.user);
+      if (allInstitutions) payload.append("supportpassword", sessionStorage.getItem(globalSupportSessionKey) || "");
       if (assignee?.email) {
         payload.append("assignedto", assignee.name || assignee.email);
         payload.append("assignedtoemail", assignee.email);
@@ -292,7 +296,7 @@ export function CentralSupportDeskPage() {
   );
 }
 
-export function CentralSupportDeskAllInstitutionsPage() {
+function CentralSupportDeskAllInstitutionsInner() {
   const [tab, setTab] = useState("Pending");
   const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -300,45 +304,55 @@ export function CentralSupportDeskAllInstitutionsPage() {
   const [filters, setFilters] = useState({ colid: "", institution: "", category: "", search: "" });
   const load = async () => {
     const status = tab === "Completed" ? "Closed" : "All";
-    const res = await ep1.get("/api/v2/central-tickets/all-institutions", { params: { ...filters, status } });
+    const res = await ep1.get("/api/v2/central-tickets/all-institutions", { params: { ...filters, status, ...globalSupportPasswordParam() } });
     const data = res.data?.data || [];
     setRows(tab === "Pending" ? data.filter((row) => !/^closed$/i.test(row.status || "")) : data);
   };
   const loadDetails = async (id) => {
-    const res = await ep1.get("/api/v2/central-tickets/all-institutions/details", { params: { id } });
+    const res = await ep1.get("/api/v2/central-tickets/all-institutions/details", { params: { id, ...globalSupportPasswordParam() } });
     setDetails({ ...(res.data?.data || {}), responses: res.data?.responses || [] });
   };
   useEffect(() => { load(); }, [tab]);
   return (
-    <PasswordGate>
-      <Shell title="Central support desk - all institutions">
-        <Alert severity="info" sx={{ mb: 2 }}>
-          This page is the only central ticket desk that can see tickets from all institutions.
-        </Alert>
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={4}><Tabs value={tab} onChange={(_, v) => setTab(v)}><Tab value="Pending" label="Pending" /><Tab value="Completed" label="Completed" /></Tabs></Grid>
-            <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Colid" value={filters.colid} onChange={(e) => setFilters((p) => ({ ...p, colid: e.target.value }))} /></Grid>
-            <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Institution" value={filters.institution} onChange={(e) => setFilters((p) => ({ ...p, institution: e.target.value }))} /></Grid>
-            <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Category" value={filters.category} onChange={(e) => setFilters((p) => ({ ...p, category: e.target.value }))} /></Grid>
-            <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Search" value={filters.search} onChange={(e) => setFilters((p) => ({ ...p, search: e.target.value }))} /></Grid>
-            <Grid item xs={12} md={2}><Button fullWidth variant="contained" onClick={load}>Apply</Button></Grid>
-          </Grid>
-        </Paper>
-        <Paper sx={{ p: 1, mb: 2, width: "100%" }}>
-          <DataGrid
-            rows={rows}
-            getRowId={(r) => r._id}
-            autoHeight
-            slots={{ toolbar: GridToolbar }}
-            columns={globalTicketColumns}
-            onRowClick={({ row }) => { setSelected(row); loadDetails(row._id); }}
-          />
-        </Paper>
-        <Box sx={{ width: "100%" }}>
-          <TicketDetails selected={selected} details={details} loadDetails={loadDetails} canRespond onChanged={load} allInstitutions />
-        </Box>
-      </Shell>
+    <Shell title="Central support desk - all institutions">
+      <Alert severity="info" sx={{ mb: 2 }}>
+        This page is the only central ticket desk that can see tickets from all institutions.
+      </Alert>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} md={4}><Tabs value={tab} onChange={(_, v) => setTab(v)}><Tab value="Pending" label="Pending" /><Tab value="Completed" label="Completed" /></Tabs></Grid>
+          <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Colid" value={filters.colid} onChange={(e) => setFilters((p) => ({ ...p, colid: e.target.value }))} /></Grid>
+          <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Institution" value={filters.institution} onChange={(e) => setFilters((p) => ({ ...p, institution: e.target.value }))} /></Grid>
+          <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Category" value={filters.category} onChange={(e) => setFilters((p) => ({ ...p, category: e.target.value }))} /></Grid>
+          <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Search" value={filters.search} onChange={(e) => setFilters((p) => ({ ...p, search: e.target.value }))} /></Grid>
+          <Grid item xs={12} md={2}><Button fullWidth variant="contained" onClick={load}>Apply</Button></Grid>
+        </Grid>
+      </Paper>
+      <Paper sx={{ p: 1, mb: 2, width: "100%" }}>
+        <DataGrid
+          rows={rows}
+          getRowId={(r) => r._id}
+          autoHeight
+          slots={{ toolbar: GridToolbar }}
+          columns={globalTicketColumns}
+          onRowClick={({ row }) => { setSelected(row); loadDetails(row._id); }}
+        />
+      </Paper>
+      <Box sx={{ width: "100%" }}>
+        <TicketDetails selected={selected} details={details} loadDetails={loadDetails} canRespond onChanged={load} allInstitutions />
+      </Box>
+    </Shell>
+  );
+}
+
+export function CentralSupportDeskAllInstitutionsPage() {
+  return (
+    <PasswordGate
+      storageKey={globalSupportSessionKey}
+      title="Global support access"
+      description="Enter the global support password to view tickets from all institutions."
+    >
+      <CentralSupportDeskAllInstitutionsInner />
     </PasswordGate>
   );
 }
@@ -387,12 +401,12 @@ export function CentralTicketReportPage() {
   );
 }
 
-export function CentralTicketReportAllInstitutionsPage() {
+function CentralTicketReportAllInstitutionsInner() {
   const [filters, setFilters] = useState({ fromDate: "", toDate: "", colid: "", institution: "", category: "", search: "" });
   const [data, setData] = useState({ summary: {}, daywise: [], weekwise: [], monthwise: [], avgCloseTime: [], byStatus: [], byInstitution: [], details: [] });
   const printRef = useRef(null);
   const load = async () => {
-    const res = await ep1.get("/api/v2/central-tickets/all-institutions/report", { params: filters });
+    const res = await ep1.get("/api/v2/central-tickets/all-institutions/report", { params: { ...filters, ...globalSupportPasswordParam() } });
     setData(res.data || {});
   };
   useEffect(() => { load(); }, []);
@@ -404,8 +418,7 @@ export function CentralTicketReportAllInstitutionsPage() {
   };
   const cards = [["Total", data.summary?.total || 0], ["Open", data.summary?.open || 0], ["Pending", data.summary?.pending || 0], ["Closed", data.summary?.closed || 0]];
   return (
-    <PasswordGate>
-      <Shell title="Ticket reports - all institutions">
+    <Shell title="Ticket reports - all institutions">
         <Alert severity="info" sx={{ mb: 2 }}>
           This page is the only ticket report that can include all institutions and arbitrary colid filters.
         </Alert>
@@ -434,6 +447,17 @@ export function CentralTicketReportAllInstitutionsPage() {
           <Paper sx={{ p: 1 }}><Typography fontWeight={900}>Ticket details</Typography><DataGrid rows={data.details || []} getRowId={(r) => r._id} autoHeight slots={{ toolbar: GridToolbar }} columns={globalTicketColumns} /></Paper>
         </Box>
       </Shell>
+  );
+}
+
+export function CentralTicketReportAllInstitutionsPage() {
+  return (
+    <PasswordGate
+      storageKey={globalSupportSessionKey}
+      title="Global ticket report access"
+      description="Enter the global support password to view reports across all institutions."
+    >
+      <CentralTicketReportAllInstitutionsInner />
     </PasswordGate>
   );
 }

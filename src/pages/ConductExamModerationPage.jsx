@@ -8,6 +8,9 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Grid,
   LinearProgress,
   MenuItem,
@@ -20,6 +23,7 @@ import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import SaveIcon from "@mui/icons-material/Save";
 import SendIcon from "@mui/icons-material/Send";
+import UploadFileIcon from "@mui/icons-material/UploadFile";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
@@ -36,6 +40,9 @@ export default function ConductExamModerationPage() {
   const [paper, setPaper] = useState(null);
   const [sections, setSections] = useState([]);
   const [audit, setAudit] = useState([]);
+  const [moderationDocuments, setModerationDocuments] = useState([]);
+  const [supportDocTitle, setSupportDocTitle] = useState("");
+  const [documentDialog, setDocumentDialog] = useState(false);
   const [selectedQuestionKeys, setSelectedQuestionKeys] = useState([]);
   const [filters, setFilters] = useState({ academicyear: "", examcode: "" });
   const [geminiModel, setGeminiModel] = useState("gemini-2.5-flash");
@@ -45,6 +52,7 @@ export default function ConductExamModerationPage() {
   const [saving, setSaving] = useState(false);
   const [moderating, setModerating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -84,6 +92,7 @@ export default function ConductExamModerationPage() {
       setModerator(res.data?.moderator || null);
       setPaper(res.data?.paper || null);
       setSections(res.data?.paper?.sections || []);
+      setModerationDocuments(res.data?.paper?.moderationdocuments || []);
       setAudit(res.data?.audit || []);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load moderation paper.");
@@ -93,6 +102,26 @@ export default function ConductExamModerationPage() {
       setAudit([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const uploadDocument = async (file) => {
+    if (!file) return;
+    try {
+      setUploadingDoc(true);
+      setError("");
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("colid", global1.colid);
+      const res = await ep1.post("/api/v2/conductexam/question-paper-upload", formData, { headers: { "Content-Type": "multipart/form-data" } });
+      const data = res.data?.data || {};
+      setModerationDocuments((prev) => [...prev, { title: supportDocTitle || file.name, filename: data.filename || file.name, url: data.url || "", uploadedby: global1.user, uploadeddate: new Date().toISOString() }]);
+      setSupportDocTitle("");
+      setMessage("Document uploaded. Click Save to persist with moderation.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to upload document.");
+    } finally {
+      setUploadingDoc(false);
     }
   };
 
@@ -139,6 +168,7 @@ export default function ConductExamModerationPage() {
         colid: global1.colid,
         moderatorid: selectedModeratorId,
         sections,
+        moderationdocuments: moderationDocuments,
         status: "Moderation In Progress",
         comments,
         actorname: global1.name,
@@ -216,6 +246,9 @@ export default function ConductExamModerationPage() {
     { field: "program", headerName: "Program", width: 160 },
     { field: "course", headerName: "Course", minWidth: 220, flex: 1 },
     { field: "coursecode", headerName: "Course Code", width: 140 },
+    { field: "startdate", headerName: "Start Date", width: 130, valueGetter: (params) => params.row.startdate ? String(params.row.startdate).slice(0, 10) : "" },
+    { field: "enddate", headerName: "End Date", width: 130, valueGetter: (params) => params.row.enddate ? String(params.row.enddate).slice(0, 10) : "" },
+    { field: "documents", headerName: "Documents", width: 120, sortable: false, renderCell: () => <Button size="small" onClick={(event) => { event.stopPropagation(); setDocumentDialog(true); }}>Documents</Button> },
     { field: "paperstatus", headerName: "Paper Status", width: 160 },
     { field: "status", headerName: "Moderator Status", width: 170 }
   ];
@@ -241,6 +274,7 @@ export default function ConductExamModerationPage() {
               <Typography color="text.secondary">Review assigned papers, edit questions and answers, and keep the moderation audit trail.</Typography>
             </Box>
             <Stack direction="row" spacing={1}>
+              <Button variant="outlined" component="label" startIcon={<UploadFileIcon />} disabled={uploadingDoc || locked || !paper}>{uploadingDoc ? "Uploading..." : "Upload Document"}<input hidden type="file" onChange={(e) => uploadDocument(e.target.files?.[0])} /></Button>
               <Button variant="contained" startIcon={saving ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />} disabled={saving || locked || !paper} onClick={saveModeration}>{saving ? "Saving..." : "Save"}</Button>
               <Button variant="contained" color="success" startIcon={submitting ? <CircularProgress size={18} color="inherit" /> : <SendIcon />} disabled={submitting || locked || !paper} onClick={submitModeration}>{submitting ? "Submitting..." : "Final Submit"}</Button>
             </Stack>
@@ -278,8 +312,11 @@ export default function ConductExamModerationPage() {
                   ["Semester", paper.semester],
                   ["Paper Setter", `${paper.papersettername} (${paper.papersetteremail})`],
                   ["Moderator", `${moderator?.moderatorname || ""} (${moderator?.moderatoremail || ""})`],
+                  ["Moderator Window", `${moderator?.startdate ? String(moderator.startdate).slice(0, 10) : "-"} to ${moderator?.enddate ? String(moderator.enddate).slice(0, 10) : "-"}`],
                   ["Status", paper.status]
                 ].map(([label, value]) => <Grid item xs={12} md={3} key={label}><Typography variant="caption" color="text.secondary">{label}</Typography><Typography fontWeight={800}>{value || "-"}</Typography></Grid>)}
+                <Grid item xs={12} md={4}><TextField fullWidth label="Document Title" value={supportDocTitle} disabled={locked} onChange={(e) => setSupportDocTitle(e.target.value)} /></Grid>
+                <Grid item xs={12} md={8}><Stack direction="row" spacing={1} flexWrap="wrap">{moderationDocuments.map((doc, index) => <Button key={`${doc.url}-${index}`} size="small" href={doc.url} target="_blank" rel="noreferrer">{doc.title || doc.filename || `Document ${index + 1}`}</Button>)}</Stack></Grid>
                 {locked && <Grid item xs={12}><Alert severity="info">Moderation is submitted. This paper is locked for editing.</Alert></Grid>}
               </Grid>
             </Paper>
@@ -351,6 +388,15 @@ export default function ConductExamModerationPage() {
             </Paper>
           </>
         )}
+        <Dialog open={documentDialog} onClose={() => setDocumentDialog(false)} maxWidth="md" fullWidth>
+          <DialogTitle>Paper Documents</DialogTitle>
+          <DialogContent>
+            <Stack spacing={1} sx={{ pt: 1 }}>
+              {[...(moderator?.admindocuments || []), ...(paper?.paperdocuments || []), ...(paper?.moderationdocuments || [])].map((doc, index) => <Button key={`${doc.url}-${index}`} href={doc.url} target="_blank" rel="noreferrer" variant="outlined">{doc.title || doc.filename || `Document ${index + 1}`}</Button>)}
+              {!moderator?.admindocuments?.length && !paper?.paperdocuments?.length && !paper?.moderationdocuments?.length && <Typography color="text.secondary">No documents uploaded.</Typography>}
+            </Stack>
+          </DialogContent>
+        </Dialog>
       </Box>
     </MenuPageShell>
   );

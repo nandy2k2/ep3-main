@@ -18,14 +18,16 @@ import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 
-const filterFields = ["academicyear", "exam", "examcode", "regulation", "program", "programcode", "course", "coursecode", "student", "regno"];
+const filterFields = ["academicyear", "exam", "examcode", "regulation", "program", "programcode", "semester", "course", "coursecode", "scoretype", "student", "regno"];
 const labels = {
   academicyear: "Academic Year",
   examcode: "Exam Code",
   programcode: "Program Code",
+  semester: "Semester",
   coursecode: "Course Code",
   regno: "Reg No",
   componenttype: "Component",
+  scoretype: "Score Type (Internal/External)",
   assessmentcomponent: "Assessment Component",
   maxmarks: "Max Marks",
   marksobtained: "Marks Obtained"
@@ -44,6 +46,7 @@ export default function ExamModel2InterimMarksTransferPage() {
   const [processing, setProcessing] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [scoreTypeUpdate, setScoreTypeUpdate] = useState({ coursecode: "", assessmentcomponent: "", scoretype: "Internal" });
 
   useEffect(() => { loadRows(); }, []);
 
@@ -74,6 +77,15 @@ export default function ExamModel2InterimMarksTransferPage() {
 
   const selectedRows = useMemo(() => rows.filter((row) => selection.includes(row._id)), [rows, selection]);
   const selectedRegnos = useMemo(() => [...new Set(selectedRows.map((row) => row.regno).filter(Boolean))], [selectedRows]);
+  const courseComponentOptions = useMemo(() => {
+    const courses = [...new Set(rows.map((row) => row.coursecode).map(text).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    const components = [...new Set(rows
+      .filter((row) => !scoreTypeUpdate.coursecode || row.coursecode === scoreTypeUpdate.coursecode)
+      .map((row) => row.assessmentcomponent)
+      .map(text)
+      .filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    return { courses, components };
+  }, [rows, scoreTypeUpdate.coursecode]);
 
   const process = async () => {
     if (!selection.length) {
@@ -104,6 +116,33 @@ export default function ExamModel2InterimMarksTransferPage() {
     }
   };
 
+  const updateComponentScoreType = async () => {
+    if (!scoreTypeUpdate.coursecode || !scoreTypeUpdate.assessmentcomponent || !scoreTypeUpdate.scoretype) {
+      setError("Select course, assessment component and Internal/External.");
+      return;
+    }
+    try {
+      setProcessing(true);
+      setError("");
+      setMessage("");
+      const payload = {
+        ...filters,
+        colid: global1.colid,
+        user: global1.user,
+        coursecode: scoreTypeUpdate.coursecode,
+        assessmentcomponent: scoreTypeUpdate.assessmentcomponent,
+        scoretype: scoreTypeUpdate.scoretype
+      };
+      const res = await ep1.post("/api/v2/examination-model2/interim-component-scoretype-update", payload);
+      setMessage(`Score type updated to ${scoreTypeUpdate.scoretype}. Matched: ${res.data?.matched || 0}, Modified: ${res.data?.modified || 0}`);
+      await loadRows(filters);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to update score type.");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const columns = [
     { field: "academicyear", headerName: "Academic Year", width: 140 },
     { field: "exam", headerName: "Exam", width: 150 },
@@ -111,11 +150,13 @@ export default function ExamModel2InterimMarksTransferPage() {
     { field: "regulation", headerName: "Regulation", width: 130 },
     { field: "program", headerName: "Program", width: 170 },
     { field: "programcode", headerName: "Program Code", width: 140 },
+    { field: "semester", headerName: "Semester", width: 110 },
     { field: "course", headerName: "Course", width: 190 },
     { field: "coursecode", headerName: "Course Code", width: 140 },
     { field: "student", headerName: "Student", width: 180 },
     { field: "regno", headerName: "Reg No", width: 130 },
     { field: "componenttype", headerName: "Component", width: 120 },
+    { field: "scoretype", headerName: "Score Type (Internal/External)", width: 220 },
     { field: "assessmentcomponent", headerName: "Assessment Component", width: 190 },
     { field: "maxmarks", headerName: "Max Marks", width: 120, type: "number" },
     { field: "marksobtained", headerName: "Marks Obtained", width: 140, type: "number" },
@@ -148,8 +189,8 @@ export default function ExamModel2InterimMarksTransferPage() {
           </Paper>
           {error && <Alert severity="error" onClose={() => setError("")}>{error}</Alert>}
           {message && <Alert severity="success" onClose={() => setMessage("")}>{message}</Alert>}
-          <Paper elevation={0} sx={{ p: 2, borderRadius: 3, border: "1px solid #e5e7eb" }}>
-            <Grid container spacing={1.5}>
+	          <Paper elevation={0} sx={{ p: 2, borderRadius: 3, border: "1px solid #e5e7eb" }}>
+	            <Grid container spacing={1.5}>
               {filterFields.map((field) => (
                 <Grid item xs={12} sm={6} md={2.4} key={field}>
                   <TextField select fullWidth size="small" label={labels[field] || field} value={filters[field]} onChange={(e) => setFilters((prev) => ({ ...prev, [field]: e.target.value }))}>
@@ -158,9 +199,36 @@ export default function ExamModel2InterimMarksTransferPage() {
                   </TextField>
                 </Grid>
               ))}
-              <Grid item xs={12} md={2}><Button fullWidth variant="outlined" onClick={() => loadRows()} disabled={loading} sx={{ height: 40 }}>Apply</Button></Grid>
-            </Grid>
-          </Paper>
+	              <Grid item xs={12} md={2}><Button fullWidth variant="outlined" onClick={() => loadRows()} disabled={loading} sx={{ height: 40 }}>Apply</Button></Grid>
+	            </Grid>
+	          </Paper>
+	          <Paper elevation={0} sx={{ p: 2, borderRadius: 3, border: "1px solid #e5e7eb" }}>
+	            <Typography fontWeight={900} sx={{ mb: 1 }}>Update Score Type for Course Component</Typography>
+	            <Grid container spacing={1.5} alignItems="center">
+	              <Grid item xs={12} md={3}>
+	                <TextField select fullWidth size="small" label="Course" value={scoreTypeUpdate.coursecode} onChange={(e) => setScoreTypeUpdate((prev) => ({ ...prev, coursecode: e.target.value, assessmentcomponent: "" }))}>
+	                  <MenuItem value="">Select</MenuItem>
+	                  {courseComponentOptions.courses.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+	                </TextField>
+	              </Grid>
+	              <Grid item xs={12} md={4}>
+	                <TextField select fullWidth size="small" label="Assessment Component" value={scoreTypeUpdate.assessmentcomponent} onChange={(e) => setScoreTypeUpdate((prev) => ({ ...prev, assessmentcomponent: e.target.value }))}>
+	                  <MenuItem value="">Select</MenuItem>
+	                  {courseComponentOptions.components.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+	                </TextField>
+	              </Grid>
+	              <Grid item xs={12} md={3}>
+	                <TextField select fullWidth size="small" label="Score Type (Internal/External)" value={scoreTypeUpdate.scoretype} onChange={(e) => setScoreTypeUpdate((prev) => ({ ...prev, scoretype: e.target.value }))}>
+	                  <MenuItem value="Internal">Internal</MenuItem>
+	                  <MenuItem value="External">External</MenuItem>
+	                </TextField>
+	              </Grid>
+	              <Grid item xs={12} md={2}>
+	                <Button fullWidth variant="contained" onClick={updateComponentScoreType} disabled={processing || !scoreTypeUpdate.coursecode || !scoreTypeUpdate.assessmentcomponent} sx={{ height: 40 }}>Update</Button>
+	              </Grid>
+	            </Grid>
+	            <Typography variant="caption" color="text.secondary">This updates all component marks rows for the selected course and assessment component under the current filters.</Typography>
+	          </Paper>
           <Paper elevation={0} sx={{ p: 2, borderRadius: 3, border: "1px solid #e5e7eb" }}>
             <Typography fontWeight={900} sx={{ mb: 1 }}>Component Marks</Typography>
             <Box sx={{ height: 560 }}>

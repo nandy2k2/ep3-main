@@ -118,7 +118,7 @@ export default function AuthenticatorSetupPage() {
         </Stack>
 
         <Alert severity={required ? "error" : "info"} sx={{ mb: 2 }}>
-          Authenticator is mandatory after August 15, 2026. New accounts can skip for 5 days.
+          {twofa?.message || "Authenticator verification may be required based on account policy."}
           {twofa?.mandatoryDate ? ` Mandatory date for this account: ${formatDate(twofa.mandatoryDate)}.` : ""}
           {twofa?.newAccountGraceUntil ? ` New account skip valid until: ${formatDate(twofa.newAccountGraceUntil)}.` : ""}
         </Alert>

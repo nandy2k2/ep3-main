@@ -360,6 +360,7 @@ export function AssetNewInventoryPage() {
     return filteredAssets.filter((asset) => selected.has(asset.id || asset._id));
   }, [filteredAssets, selectedAssetIds]);
   const selectedAssignedRows = useMemo(() => selectedAssetRows.filter((asset) => asset.status === "Assigned"), [selectedAssetRows]);
+  const selectedAvailableRows = useMemo(() => selectedAssetRows.filter((asset) => asset.status === "Available"), [selectedAssetRows]);
   const selectedAssignmentGroups = useMemo(() => groupAssetsByAssignee(selectedAssignedRows), [selectedAssignedRows]);
   const assetFilterValues = (field) => Array.from(new Set(assets.map((asset) => asset[field]).filter(Boolean))).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
   const generate = async () => {
@@ -374,14 +375,27 @@ export function AssetNewInventoryPage() {
     }
   };
   const assignAsset = async () => {
-    if (!selectedAsset) return setError("Select an asset from the register first");
-    if (selectedAsset.status === "Assigned") return setError("This asset is already assigned. Use Asset reissue to reassign it.");
+    const assetsToAssign = selectedAvailableRows.length
+      ? selectedAvailableRows
+      : selectedAsset?.status === "Available"
+        ? [selectedAsset]
+        : [];
+    if (!assetsToAssign.length) return setError("Select one or more available asset rows from the register first");
+    if (!assignForm.toname && !assignForm.toemail) return setError("Select the user for assignment");
     clear();
     try {
-      const res = await ep1.post("/api/v2/assetsnew/reassign", { ...assignForm, action: "Assignment", colid: global1.colid, assetid: selectedAsset._id, user: global1.user, username: global1.name });
-      setMessage("Asset assigned and movement recorded.");
-      if (res.data?.data?._id) setSelectedAssetIds([res.data.data._id]);
-      setSelectedAsset(res.data?.data ? { ...res.data.data, id: res.data.data._id } : null);
+      const res = await ep1.post("/api/v2/assetsnew/reassign", {
+        ...assignForm,
+        action: "Assignment",
+        colid: global1.colid,
+        assetids: assetsToAssign.map((asset) => asset._id),
+        user: global1.user,
+        username: global1.name
+      });
+      const assignedRows = res.data?.dataList || (res.data?.data ? [res.data.data] : []);
+      setMessage(`${res.data?.updated || assignedRows.length || assetsToAssign.length} asset(s) assigned and movement recorded.`);
+      if (assignedRows.length) setSelectedAssetIds(assignedRows.map((asset) => asset._id));
+      setSelectedAsset(assignedRows[0] ? { ...assignedRows[0], id: assignedRows[0]._id } : null);
       await load();
     } catch (err) {
       setError(err.response?.data?.message || "Unable to assign asset");
@@ -453,8 +467,12 @@ export function AssetNewInventoryPage() {
           />
         </Paper>
         <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="h6" fontWeight={900}>Assign selected asset from register</Typography>
-          <Typography color="text.secondary" sx={{ mb: 1 }}>Selected asset: {selectedAsset?.assetid || "None"}</Typography>
+          <Typography variant="h6" fontWeight={900}>Assign selected assets from register</Typography>
+          <Typography color="text.secondary" sx={{ mb: 1 }}>
+            {selectedAvailableRows.length
+              ? `${selectedAvailableRows.length} available asset(s) selected for assignment`
+              : `Selected asset: ${selectedAsset?.assetid || "None"}`}
+          </Typography>
           <Grid container spacing={2}>
             <Grid item xs={12} md={4}><Autocomplete options={users} getOptionLabel={(u) => `${u.name || ""} - ${u.email || u.user || ""}`} onInputChange={loadUsers} onChange={(_, user) => setAssignForm({ ...assignForm, toname: user?.name || "", toemail: user?.email || user?.user || "", department: user?.department || "" })} renderInput={(params) => <TextField {...params} label="Assign to user" />} /></Grid>
             <Grid item xs={12} md={2}><TextField fullWidth type="date" label="Assignment date" InputLabelProps={{ shrink: true }} value={assignForm.assignmentdate} onChange={(e) => setAssignForm({ ...assignForm, assignmentdate: e.target.value })} /></Grid>
@@ -463,7 +481,7 @@ export function AssetNewInventoryPage() {
             <Grid item xs={12}><TextField fullWidth label="Remarks" value={assignForm.remarks} onChange={(e) => setAssignForm({ ...assignForm, remarks: e.target.value })} /></Grid>
             <Grid item xs={12}>
               <Stack direction="row" spacing={1} flexWrap="wrap">
-                <Button variant="contained" onClick={assignAsset}>Assign asset</Button>
+                <Button variant="contained" onClick={assignAsset}>Assign selected assets</Button>
               </Stack>
             </Grid>
           </Grid>
@@ -534,6 +552,254 @@ export function AssetNewTrackingPage() {
         <Header title="Asset tracking" subtitle="Complete asset issue, reissue, handover and retirement history." />
         <Status error={error} message={message} />
         <Paper sx={{ height: 660 }}><DataGrid rows={rows} columns={columns} loading={loading} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} /></Paper>
+      </Box>
+    </MenuPageShell>
+  );
+}
+
+const assetSearchFields = ["assetid", "store", "category", "item", "status", "condition", "department", "assignedto", "assignedtoemail"];
+const trackingSearchFields = ["assetid", "store", "category", "item", "action", "toname", "toemail", "department", "returncondition"];
+
+const valuesFor = (rows, field) => Array.from(new Set((rows || []).map((row) => row[field]).filter(Boolean))).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }));
+
+const matchesFilters = (row, filters) => Object.entries(filters).every(([field, value]) => {
+  if (!value) return true;
+  return String(row[field] || "") === String(value);
+});
+
+function DynamicFilterBar({ rows, fields, filters, setFilters }) {
+  return (
+    <Paper sx={{ p: 2, mb: 2 }}>
+      <Typography fontWeight={900} sx={{ mb: 1 }}>Dynamic filters</Typography>
+      <Grid container spacing={2}>
+        {fields.map((field) => (
+          <Grid item xs={12} md={3} key={field}>
+            <Autocomplete
+              options={valuesFor(rows, field)}
+              value={filters[field] || null}
+              onChange={(_, value) => setFilters({ ...filters, [field]: value || "" })}
+              renderInput={(params) => <TextField {...params} label={field} />}
+            />
+          </Grid>
+        ))}
+        <Grid item xs={12}>
+          <Button variant="outlined" onClick={() => setFilters({})}>Clear filters</Button>
+        </Grid>
+      </Grid>
+    </Paper>
+  );
+}
+
+function AssetLifecyclePrint({ id, institution, asset, history = [] }) {
+  if (!asset) return null;
+  return (
+    <Box id={id} sx={{ bgcolor: "#fff", color: "#111827", maxWidth: "190mm", mx: "auto", p: 3, border: "1px solid #d1d5db" }}>
+      <InstitutionHeader institution={institution} title="Asset Issue History Report" />
+      <DetailGrid rows={[
+        ["Asset ID", asset.assetid],
+        ["Store", asset.store],
+        ["Category", asset.category],
+        ["Item", asset.item],
+        ["Description", asset.description],
+        ["Current status", asset.status],
+        ["Current condition", asset.condition],
+        ["Assigned to", asset.assignedto],
+        ["Assigned email", asset.assignedtoemail],
+        ["Department", asset.department]
+      ]} />
+      <Typography variant="h6" fontWeight={900} sx={{ mt: 2, mb: 1 }}>Lifecycle history</Typography>
+      <Box component="table" sx={{ width: "100%", borderCollapse: "collapse", "& th, & td": { border: "1px solid #d1d5db", p: 0.75, fontSize: 12, verticalAlign: "top" } }}>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Action</th>
+            <th>From</th>
+            <th>To</th>
+            <th>Department</th>
+            <th>Condition</th>
+            <th>Remarks</th>
+          </tr>
+        </thead>
+        <tbody>
+          {history.length ? history.map((row) => (
+            <tr key={row._id}>
+              <td>{dt(row.assignmentdate)}</td>
+              <td>{row.action}</td>
+              <td>{[row.fromname, row.fromemail].filter(Boolean).join(" / ")}</td>
+              <td>{[row.toname, row.toemail].filter(Boolean).join(" / ")}</td>
+              <td>{row.department}</td>
+              <td>{row.returncondition}</td>
+              <td>{row.remarks}</td>
+            </tr>
+          )) : <tr><td colSpan={7}>No lifecycle history available.</td></tr>}
+        </tbody>
+      </Box>
+      <Stack direction="row" justifyContent="space-between" sx={{ mt: 5 }}>
+        <Typography>Prepared By</Typography>
+        <Typography>Asset In-charge</Typography>
+        <Typography>Authorized Signature</Typography>
+      </Stack>
+    </Box>
+  );
+}
+
+export function AssetNewReturnPage() {
+  const { error, message, setError, setMessage, clear } = useStatus();
+  const [assets, setAssets] = useState([]);
+  const [filters, setFilters] = useState({});
+  const [selected, setSelected] = useState(null);
+  const [form, setForm] = useState({ returndate: today(), returncondition: "Good", remarks: "" });
+  const [loading, setLoading] = useState(false);
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await ep1.get("/api/v2/assetsnew/assets", { params: { colid: global1.colid } });
+      setAssets((res.data.data || []).map((row) => ({ ...row, id: row._id })));
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load asset inventory");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { load(); }, []);
+  const filteredAssets = useMemo(() => assets.filter((row) => matchesFilters(row, filters)), [assets, filters]);
+  const returnAsset = async () => {
+    if (!selected) return setError("Select an assigned asset to return");
+    if (selected.status !== "Assigned") return setError("Only assigned assets can be returned");
+    clear();
+    try {
+      await ep1.post("/api/v2/assetsnew/return", { ...form, colid: global1.colid, assetid: selected._id, user: global1.user, username: global1.name });
+      setMessage("Asset returned and marked available.");
+      setSelected(null);
+      setForm({ returndate: today(), returncondition: "Good", remarks: "" });
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to return asset");
+    }
+  };
+  return (
+    <MenuPageShell title="Asset return">
+      <Box p={3}>
+        <Header title="Asset return" subtitle="Search by asset or assigned user, select an assigned asset, and record return condition and date." />
+        <Status error={error} message={message} />
+        <DynamicFilterBar rows={assets} fields={assetSearchFields} filters={filters} setFilters={setFilters} />
+        <Paper sx={{ height: 440, mb: 2 }}>
+          <DataGrid
+            rows={filteredAssets}
+            columns={assetColumns(() => {})}
+            loading={loading}
+            slots={{ toolbar: GridToolbar }}
+            pageSizeOptions={[10, 25, 50, 100]}
+            onRowClick={(params) => setSelected(params.row)}
+            getRowClassName={(params) => params.row.status === "Assigned" ? "asset-row-assigned" : ""}
+          />
+        </Paper>
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6" fontWeight={900}>Return selected asset</Typography>
+          <Typography color="text.secondary" sx={{ mb: 2 }}>
+            Selected: {selected ? `${selected.assetid} - ${selected.item} (${selected.assignedto || "Unassigned"})` : "None"}
+          </Typography>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={3}>
+              <TextField fullWidth type="date" label="Return date" InputLabelProps={{ shrink: true }} value={form.returndate} onChange={(e) => setForm({ ...form, returndate: e.target.value })} />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <Autocomplete
+                freeSolo
+                options={["Good", "Working", "Needs repair", "Damaged", "Lost", "Scrap"]}
+                value={form.returncondition || ""}
+                onChange={(_, value) => setForm({ ...form, returncondition: value || "" })}
+                onInputChange={(_, value) => setForm({ ...form, returncondition: value || "" })}
+                renderInput={(params) => <TextField {...params} label="Return condition" />}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField fullWidth label="Remarks" value={form.remarks} onChange={(e) => setForm({ ...form, remarks: e.target.value })} />
+            </Grid>
+            <Grid item xs={12}>
+              <Button variant="contained" onClick={returnAsset}>Return asset</Button>
+            </Grid>
+          </Grid>
+        </Paper>
+      </Box>
+    </MenuPageShell>
+  );
+}
+
+export function AssetNewIssueReportPage() {
+  const { error, message, setError } = useStatus();
+  const [assets, setAssets] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [filters, setFilters] = useState({});
+  const [historyFilters, setHistoryFilters] = useState({});
+  const [selected, setSelected] = useState(null);
+  const [institution, setInstitution] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await ep1.get("/api/v2/assetsnew/assets", { params: { colid: global1.colid } });
+      setAssets((res.data.data || []).map((row) => ({ ...row, id: row._id })));
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load assets");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { load(); loadInstitutionDetails().then(setInstitution); }, []);
+  const filteredAssets = useMemo(() => assets.filter((row) => matchesFilters(row, filters)), [assets, filters]);
+  const filteredHistory = useMemo(() => history.filter((row) => matchesFilters(row, historyFilters)), [history, historyFilters]);
+  const selectAsset = async (row) => {
+    setSelected(row);
+    setHistoryFilters({});
+    try {
+      const res = await ep1.get("/api/v2/assetsnew/tracking", { params: { colid: global1.colid, asset: row._id } });
+      setHistory((res.data.data || []).map((item) => ({ ...item, id: item._id })));
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load asset history");
+    }
+  };
+  const historyColumns = [
+    { field: "assignmentdate", headerName: "Date", minWidth: 170, valueFormatter: (p) => dt(p.value) },
+    { field: "assetid", headerName: "Asset ID", minWidth: 160 },
+    { field: "action", headerName: "Action", minWidth: 130 },
+    { field: "fromname", headerName: "From", minWidth: 160 },
+    { field: "fromemail", headerName: "From email", minWidth: 180 },
+    { field: "toname", headerName: "To", minWidth: 160 },
+    { field: "toemail", headerName: "To email", minWidth: 180 },
+    { field: "department", headerName: "Department", minWidth: 140 },
+    { field: "returncondition", headerName: "Condition", minWidth: 150 },
+    { field: "remarks", headerName: "Remarks", minWidth: 240, flex: 1 }
+  ];
+  return (
+    <MenuPageShell title="Asset issue report">
+      <Box p={3}>
+        <Header title="Asset issue report" subtitle="Select an asset and print the complete lifecycle: issue, return, reissue and retirement." />
+        <Status error={error} message={message} />
+        <DynamicFilterBar rows={assets} fields={assetSearchFields} filters={filters} setFilters={setFilters} />
+        <Paper sx={{ height: 360, mb: 2 }}>
+          <DataGrid rows={filteredAssets} columns={assetColumns(() => {})} loading={loading} slots={{ toolbar: GridToolbar }} pageSizeOptions={[10, 25, 50, 100]} onRowClick={(params) => selectAsset(params.row)} />
+        </Paper>
+        {selected && (
+          <>
+            <Paper sx={{ p: 2, mb: 2 }}>
+              <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} justifyContent="space-between" alignItems={{ xs: "stretch", md: "center" }}>
+                <Box>
+                  <Typography variant="h6" fontWeight={900}>{selected.assetid} - {selected.item}</Typography>
+                  <Typography color="text.secondary">{history.length} lifecycle record(s) found.</Typography>
+                </Box>
+                <Button variant="outlined" startIcon={<Print />} onClick={() => printSection("asset-issue-history-print", "Asset Issue History")}>Print preview</Button>
+              </Stack>
+            </Paper>
+            <DynamicFilterBar rows={history} fields={trackingSearchFields} filters={historyFilters} setFilters={setHistoryFilters} />
+            <Paper sx={{ height: 420, mb: 2 }}>
+              <DataGrid rows={filteredHistory} columns={historyColumns} slots={{ toolbar: GridToolbar }} pageSizeOptions={[10, 25, 50]} />
+            </Paper>
+            <Paper sx={{ p: 2 }}>
+              <AssetLifecyclePrint id="asset-issue-history-print" institution={institution} asset={selected} history={filteredHistory} />
+            </Paper>
+          </>
+        )}
       </Box>
     </MenuPageShell>
   );

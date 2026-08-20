@@ -465,15 +465,29 @@ function DefaultStudentListItems({ open }) {
         </AccordionSummary>
         <AccordionDetails>
 
-           <ListItem button component={RouterLink} to="/student-online-exam">
-<ListItemIcon>
-<PersonIcon />
-</ListItemIcon>
-{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Online examination" />}
-</ListItem>
+	           <ListItem button component={RouterLink} to="/student-online-exam">
+	<ListItemIcon>
+	<PersonIcon />
+	</ListItemIcon>
+	{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Online examination" />}
+	</ListItem>
 
-        </AccordionDetails>
-        </Accordion>
+	           <ListItem button component={RouterLink} to="/student-online-exam-2">
+	<ListItemIcon>
+	<PersonIcon />
+	</ListItemIcon>
+	{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Online exam 2" />}
+	</ListItem>
+
+	           <ListItem button component={RouterLink} to="/student-course-group-exam">
+	<ListItemIcon>
+	<PersonIcon />
+	</ListItemIcon>
+	{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Course group exam" />}
+	</ListItem>
+
+	        </AccordionDetails>
+	        </Accordion>
 
         <Accordion>
         <AccordionSummary aria-controls="panel-student-mentoring-content" id="panel-student-mentoring-header">
@@ -816,6 +830,12 @@ function DefaultStudentListItems({ open }) {
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Admission letter" />}
 </ListItem>
+<ListItem button component={RouterLink} to="/student-mooc-value-added-courses">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Add on course certificates" />}
+</ListItem>
 
         </AccordionDetails>
         </Accordion>
@@ -871,6 +891,45 @@ function DefaultStudentListItems({ open }) {
         </AccordionDetails>
         </Accordion>
 
+
+         <Accordion>
+        <AccordionSummary aria-controls="panel-student-phd-content" id="panel-student-phd-header">
+          <BusinessIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{fontSize: 14}}>PhD</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          <ListItem button component={RouterLink} to="/student-phd-thesis-assignment">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Thesis assignment application" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/student-phd-thesis">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Thesis submission" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/student-phd-progress-report">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Progress report" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/student-phd-guide-messaging">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Guide messaging" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/student-phd-noc">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Download NoC" />}
+          </ListItem>
+        </AccordionDetails>
+      </Accordion>
 
          <Accordion>
         <AccordionSummary aria-controls="panel3-content" id="panel3-header">

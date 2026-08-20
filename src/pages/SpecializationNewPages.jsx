@@ -20,6 +20,7 @@ import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import AttendanceDiagnosticHelp from "./AttendanceDiagnosticHelp";
 
 const norm = (value) => String(value || "").trim().toLowerCase();
 const unique = (rows, field) => [...new Set(rows.map((row) => String(row[field] || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
@@ -514,6 +515,7 @@ export function SpecializationAttendancePage() {
           <Autocomplete sx={{ mt: 1 }} options={specs} value={selectedSpec} onChange={(_, row) => { setSelectedSpec(row); setRows([]); setSelectedClass(null); }} getOptionLabel={(row) => row ? `${row.specialization} | ${row.programcode} | Sem ${row.semester} | ${row.academicyear}` : ""} renderInput={(params) => <TextField {...params} label="Specialization" />} />
           <Button sx={{ mt: 1 }} variant="contained" startIcon={<Refresh />} disabled={!selectedSpec} onClick={load}>Load classes</Button>
         </Paper>
+        <AttendanceDiagnosticHelp selectedClass={selectedClass} filters={selectedSpec || {}} />
         <CalendarView rows={rows} view={view} setView={setView} activeDate={activeDate} setActiveDate={setActiveDate} onSelect={setSelectedClass} selectedId={selectedClass?._id} />
         <Paper sx={{ p: 2, mt: 2 }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>

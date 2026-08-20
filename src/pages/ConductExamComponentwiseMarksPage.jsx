@@ -22,7 +22,7 @@ import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 
-const paperLabel = (row) => `${row.coursecode || ""} - ${row.course || ""} | ${row.examcode || ""} | ${row.programcode || ""}`;
+const paperLabel = (row) => `${row.coursecode || ""} - ${row.course || ""} | ${row.examcode || ""} | ${row.programcode || ""}${row.semester ? ` | Sem ${row.semester}` : ""}`;
 const todayText = () => new Date().toISOString().slice(0, 10);
 const isEntryOpen = (row) => {
   const today = todayText();
@@ -108,6 +108,7 @@ export default function ConductExamComponentwiseMarksPage() {
         examcode: paper.examcode,
         regulation: paper.regulation,
         programcode: paper.programcode,
+        semester: paper.semester,
         coursecode: paper.coursecode
       };
       Object.entries(nextFilters).forEach(([key, value]) => { if (value) params[key] = value; });
@@ -215,12 +216,14 @@ export default function ConductExamComponentwiseMarksPage() {
 
   const rollColumns = [
     { field: "examrollno", headerName: "Exam Roll No", flex: 1, minWidth: 220 },
+    { field: "semester", headerName: "Semester", width: 110, valueGetter: (params) => params.row.rows?.[0]?.semester || "" },
     { field: "progress", headerName: "Progress", width: 120, renderCell: (params) => `${params.row.entered}/${params.row.total}` },
     { field: "submissionstatus", headerName: "Status", width: 130, renderCell: (params) => params.row.completed ? "Submitted" : "Pending" }
   ];
 
   const columns = [
     { field: "examrollno", headerName: "Exam Roll No", width: 230, renderCell: (params) => params.row.examrollno || params.row.displayid || "" },
+    { field: "semester", headerName: "Semester", width: 110 },
     { field: "componenttype", headerName: "Component Type", width: 150 },
     { field: "scoretype", headerName: "Score Type", width: 130 },
     { field: "assessmentgroup", headerName: "Assessment Group", width: 170 },
@@ -315,6 +318,7 @@ export default function ConductExamComponentwiseMarksPage() {
                 <Chip label={`Exam: ${selectedPaper.examcode}`} />
                 <Chip label={`Regulation: ${selectedPaper.regulation}`} />
                 <Chip label={`Program: ${selectedPaper.programcode}`} />
+                <Chip label={`Semester: ${selectedPaper.semester || "-"}`} />
                 <Chip label={`Course: ${selectedPaper.coursecode}`} />
                 <Chip label={`Start: ${selectedPaper.startdate || "-"}`} />
                 <Chip label={`End: ${selectedPaper.enddate || "-"}`} />

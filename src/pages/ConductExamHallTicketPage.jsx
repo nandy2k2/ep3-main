@@ -97,7 +97,7 @@ function HallTicketPrint({ ticket, qr }) {
   );
 }
 
-function HallTicketPrint2({ ticket, qr }) {
+function HallTicketPrint2({ ticket, qr, printId = "hall-ticket-print-2", bulk = false }) {
   if (!ticket) return null;
   const institution = ticket.institution || {};
   const student = ticket.student || {};
@@ -113,7 +113,7 @@ function HallTicketPrint2({ ticket, qr }) {
   const batch = valueText(student.admissionyear, first.admissionyear, student.academicyear, first.academicyear);
   const mainSupp = /supp/i.test(valueText(first.examtype, first.type, exam.exam, "")) ? "Suppl." : "Main";
   return (
-    <Box id="hall-ticket-print-2" sx={{
+    <Box id={printId} className={bulk ? "hall-ticket-print-2-page" : ""} sx={{
       bgcolor: "#fff",
       color: "#000",
       width: "210mm",
@@ -137,9 +137,9 @@ function HallTicketPrint2({ ticket, qr }) {
     }}>
       <style>{`
         @page{size:A4;margin:0}
-        @media print{body *{visibility:hidden}#hall-ticket-print-2,#hall-ticket-print-2 *{visibility:visible}.no-print{display:none!important}}
-        #hall-ticket-print-2 table{border-collapse:collapse}
-        #hall-ticket-print-2 th,#hall-ticket-print-2 td{color:#000}
+        @media print{body *{visibility:hidden}#${printId},#${printId} *{visibility:visible}.no-print{display:none!important}}
+        #${printId} table{border-collapse:collapse}
+        #${printId} th,#${printId} td{color:#000}
       `}</style>
       <Box sx={{ display: "grid", gridTemplateColumns: "105px 1fr 92px", alignItems: "start", columnGap: 2, mb: 1.2 }}>
         <Box>{logo && <Box component="img" src={logo} alt="Logo" sx={{ width: 78, maxHeight: 82, objectFit: "contain" }} />}</Box>
@@ -244,6 +244,28 @@ function HallTicketPrint2({ ticket, qr }) {
         <Typography sx={{ fontSize: 14, color: "#000", textAlign: "center" }}>Signature of COE with Seal</Typography>
         <Typography sx={{ fontSize: 14, color: "#000", textAlign: "right" }}>Signature of VFS with Seal</Typography>
       </Box>
+    </Box>
+  );
+}
+
+function HallTicketBulkPrint2({ tickets }) {
+  if (!tickets.length) return null;
+  return (
+    <Box id="hall-ticket-print-2-bulk" sx={{ bgcolor: "#fff" }}>
+      <style>{`
+        @page{size:A4 portrait;margin:0}
+        @media print{
+          body *{visibility:hidden}
+          #hall-ticket-print-2-bulk,#hall-ticket-print-2-bulk *{visibility:visible}
+          #hall-ticket-print-2-bulk{position:absolute;left:0;top:0;width:210mm;background:#fff}
+          .no-print{display:none!important}
+          .hall-ticket-print-2-page{page-break-after:always;break-after:page;box-shadow:none!important}
+          .hall-ticket-print-2-page:last-child{page-break-after:auto;break-after:auto}
+        }
+      `}</style>
+      {tickets.map((item, index) => (
+        <HallTicketPrint2 key={`${item.ticket?.student?.regno || index}-${item.ticket?.exam?.examcode || index}`} ticket={item.ticket} qr={item.qr} printId={`hall-ticket-print-2-bulk-${index}`} bulk />
+      ))}
     </Box>
   );
 }
@@ -371,7 +393,10 @@ export function ConductExamHallTicket2Page() {
   const [filters, setFilters] = useState({});
   const [students, setStudents] = useState([]);
   const [selected, setSelected] = useState(null);
+  const [selectedRows, setSelectedRows] = useState([]);
+  const [bulkTickets, setBulkTickets] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
   const [storing, setStoring] = useState(false);
   const common = useHallTicketCommon();
 
@@ -404,6 +429,34 @@ export function ConductExamHallTicket2Page() {
     common.setQr("");
     const res = await ep1.get("/api/v2/conductexam/hallticket", { params: { colid: global1.colid, academicyear: row.academicyear, examcode: row.examcode, regno: row.regno } });
     common.setTicket(res.data?.data || null);
+    setBulkTickets([]);
+  };
+  const loadBulkTickets = async () => {
+    try {
+      setBulkLoading(true);
+      common.setError("");
+      common.setMessage("");
+      common.setTicket(null);
+      const selectedSet = new Set(selectedRows);
+      const rows = students
+        .map((row) => ({ ...row, id: `${row.regno}-${row.academicyear}-${row.examcode}` }))
+        .filter((row) => selectedSet.has(row.id));
+      if (!rows.length) {
+        common.setError("Please select at least one student");
+        return;
+      }
+      const payloads = [];
+      for (const row of rows) {
+        const res = await ep1.get("/api/v2/conductexam/hallticket", { params: { colid: global1.colid, academicyear: row.academicyear, examcode: row.examcode, regno: row.regno } });
+        payloads.push({ ticket: res.data?.data || null, qr: "" });
+      }
+      setBulkTickets(payloads.filter((item) => item.ticket));
+      common.setMessage(`${payloads.filter((item) => item.ticket).length} admit card(s) generated for print.`);
+    } catch (err) {
+      common.setError(err.response?.data?.message || "Unable to generate selected admit cards");
+    } finally {
+      setBulkLoading(false);
+    }
   };
   const storeBlockchain = async () => {
     if (!selected) return;
@@ -434,8 +487,8 @@ export function ConductExamHallTicket2Page() {
     <MenuPageShell title="Generate hall ticket 2">
       <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
         <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
-          <Typography variant="h5" fontWeight={900}>Generate Hall Ticket 2</Typography>
-          <Typography color="text.secondary">Select an eligible student and generate admit card in the attached format.</Typography>
+          <Typography variant="h5" fontWeight={900}>Generate Admit Card 2</Typography>
+          <Typography color="text.secondary">Select one or many eligible students and generate admit cards one after another in A4 format.</Typography>
         </Paper>
         {common.message && <Alert severity="success" sx={{ mb: 2 }}>{common.message}</Alert>}
         {common.error && <Alert severity="error" sx={{ mb: 2 }}>{common.error}</Alert>}
@@ -456,15 +509,31 @@ export function ConductExamHallTicket2Page() {
           </Grid>
         </Paper>
         <Paper elevation={0} sx={{ p: 1.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2, overflowX: "auto" }}>
-          <DataGrid rows={students.map((row) => ({ ...row, id: `${row.regno}-${row.academicyear}-${row.examcode}` }))} columns={columns} loading={loading} autoHeight slots={{ toolbar: GridToolbar }} pageSizeOptions={[10, 25, 50, 100]} onRowClick={(params) => loadTicket(params.row)} sx={{ minWidth: 1200 }} />
+          <DataGrid
+            rows={students.map((row) => ({ ...row, id: `${row.regno}-${row.academicyear}-${row.examcode}` }))}
+            columns={columns}
+            loading={loading}
+            checkboxSelection
+            rowSelectionModel={selectedRows}
+            onRowSelectionModelChange={(model) => setSelectedRows(model)}
+            autoHeight
+            slots={{ toolbar: GridToolbar }}
+            pageSizeOptions={[10, 25, 50, 100]}
+            onRowClick={(params) => loadTicket(params.row)}
+            sx={{ minWidth: 1200 }}
+          />
         </Paper>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mb: 2 }} className="no-print">
+          <Button variant="contained" disabled={bulkLoading || !selectedRows.length} onClick={loadBulkTickets}>{bulkLoading ? "Generating..." : "Generate selected admit cards"}</Button>
+          <Button variant="outlined" startIcon={<PrintIcon />} disabled={!bulkTickets.length} onClick={() => window.print()}>Print selected</Button>
+        </Stack>
         {common.ticket && (
           <Stack direction="row" spacing={1} sx={{ mb: 2 }} className="no-print">
             <Button variant="contained" startIcon={<PrintIcon />} onClick={common.print}>Print</Button>
             <Button variant="outlined" startIcon={storing ? <CircularProgress size={18} /> : <VerifiedIcon />} disabled={storing} onClick={storeBlockchain}>{storing ? "Storing..." : "Store in Blockchain"}</Button>
           </Stack>
         )}
-        <HallTicketPrint2 ticket={common.ticket} qr={common.qr} />
+        {bulkTickets.length ? <HallTicketBulkPrint2 tickets={bulkTickets} /> : <HallTicketPrint2 ticket={common.ticket} qr={common.qr} />}
       </Box>
     </MenuPageShell>
   );

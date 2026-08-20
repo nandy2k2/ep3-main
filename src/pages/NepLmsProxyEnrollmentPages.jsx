@@ -22,6 +22,7 @@ import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import AttendanceDiagnosticHelp from "./AttendanceDiagnosticHelp";
 
 const classFields = [
   "academicyear", "regulation", "program", "programcode", "course", "coursecode", "semester", "section", "faculty", "facultyemail", "classdate", "status"
@@ -293,6 +294,7 @@ export function NepLmsProxyAttendancePage() {
       <Box sx={{ p: 2 }}>
         <Paper sx={{ p: 2, mb: 2 }}><Typography variant="h5" fontWeight={900}>Proxy attendance</Typography><DynamicFilters fields={classFields} rows={rows} filters={filters} setFilters={setFilters} /></Paper>
         {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
+        <AttendanceDiagnosticHelp selectedClass={selectedClass} filters={filters.reduce((acc, item) => ({ ...acc, [item.field]: item.value }), {})} />
         <CalendarView rows={filtered} view={view} setView={setView} activeDate={activeDate} setActiveDate={setActiveDate} onSelect={setSelectedClass} selectedId={selectedClass?._id} />
         {selectedClass && <AttendancePanel selectedClass={selectedClass} />}
       </Box>
@@ -448,5 +450,5 @@ export function NepLmsEnrollmentAttendancePage() {
   const [activeDate, setActiveDate] = useState(today());
   useEffect(() => { ep1.get("/api/v2/neplms/enrollment-groups/assigned", { params: { colid: global1.colid, user: global1.user } }).then((res) => setGroups(res.data?.data || [])).catch(() => setGroups([])); }, []);
   useEffect(() => { if (group) ep1.get("/api/v2/neplms/timetable", { params: { colid: global1.colid, enrollmentgroupid: group.groupid } }).then((res) => setRows(res.data?.data || [])).catch(() => setRows([])); }, [group?.groupid]);
-  return <MenuPageShell title="Enrollment attendance"><Box sx={{ p: 2 }}><Paper sx={{ p: 2, mb: 2 }}><Typography variant="h5" fontWeight={900}>Enrollment attendance</Typography><Autocomplete sx={{ mt: 1 }} options={groups} value={group} onChange={(_, v) => setGroup(v)} getOptionLabel={(o) => o.groupname || ""} renderInput={(p) => <TextField {...p} label="Assigned enrollment group" />} /></Paper><CalendarView rows={rows} view={view} setView={setView} activeDate={activeDate} setActiveDate={setActiveDate} onSelect={setSelectedClass} selectedId={selectedClass?._id} />{selectedClass && <AttendancePanel selectedClass={selectedClass} enrollment />}</Box></MenuPageShell>;
+  return <MenuPageShell title="Enrollment attendance"><Box sx={{ p: 2 }}><Paper sx={{ p: 2, mb: 2 }}><Typography variant="h5" fontWeight={900}>Enrollment attendance</Typography><Autocomplete sx={{ mt: 1 }} options={groups} value={group} onChange={(_, v) => setGroup(v)} getOptionLabel={(o) => o.groupname || ""} renderInput={(p) => <TextField {...p} label="Assigned enrollment group" />} /></Paper><AttendanceDiagnosticHelp selectedClass={selectedClass} filters={group || {}} /><CalendarView rows={rows} view={view} setView={setView} activeDate={activeDate} setActiveDate={setActiveDate} onSelect={setSelectedClass} selectedId={selectedClass?._id} />{selectedClass && <AttendancePanel selectedClass={selectedClass} enrollment />}</Box></MenuPageShell>;
 }

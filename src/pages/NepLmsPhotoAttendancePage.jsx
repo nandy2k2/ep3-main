@@ -20,6 +20,7 @@ import { AutoAwesome, Refresh, Save, UploadFile } from "@mui/icons-material";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import AttendanceDiagnosticHelp from "./AttendanceDiagnosticHelp";
 
 const cleanText = (value) => String(value || "").trim().toLowerCase();
 const fieldsMatch = (left, right) => cleanText(left) === cleanText(right);
@@ -377,6 +378,8 @@ export default function NepLmsPhotoAttendancePage() {
       <Stack spacing={2}>
         {message && <Alert severity="success" onClose={() => setMessage("")}>{message}</Alert>}
         {error && <Alert severity="error" onClose={() => setError("")}>{error}</Alert>}
+
+        <AttendanceDiagnosticHelp selectedClass={selectedClass} filters={filters} />
 
         <Paper sx={{ p: 2 }}>
           <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} sx={{ mb: 2 }}>

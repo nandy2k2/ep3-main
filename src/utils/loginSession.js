@@ -2,6 +2,28 @@ import ep1 from "../api/ep1";
 import global1 from "../pages/global1";
 import { configureCountryTerminology } from "./countryTerminology";
 
+const defaultDashboardForRole = (role) => {
+  const normalizedRole = String(role || "").trim().toLowerCase();
+  if (normalizedRole === "student") return "/studentdashboard";
+  if (normalizedRole === "faculty") return "/facultydashboard";
+  if (normalizedRole === "alumni") return "/alumni-new-dashboard";
+  if (normalizedRole === "admin" || normalizedRole === "all") return "/configuration";
+  return "/dashdashfacnew";
+};
+
+const hasRoleChatbotDefinition = async ({ colid, role }) => {
+  const normalizedRole = String(role || "").trim().toLowerCase();
+  if (!colid || !role || normalizedRole === "student") return false;
+  try {
+    const res = await ep1.get("/api/v2/ai-chatbot-definition-role", {
+      params: { colid, role }
+    });
+    return (res.data?.data || []).length > 0;
+  } catch {
+    return false;
+  }
+};
+
 export const applyLoginSession = async (responseData, options = {}) => {
   if (!responseData || responseData.status !== "Success") {
     throw new Error(responseData?.message || "Login failed");
@@ -34,7 +56,8 @@ export const applyLoginSession = async (responseData, options = {}) => {
   if (responseData.lastlogin) {
     const lastlogin = new Date(responseData.lastlogin);
     global1.lastlogin = lastlogin.toString();
-    if (!Number.isNaN(lastlogin.getTime()) && lastlogin.getTime() < Date.now()) {
+    const shouldEnforceExpiry = responseData.enforceLastLoginExpiry || responseData.loginexpired || responseData.loginExpired || responseData.accessExpired;
+    if (shouldEnforceExpiry && !Number.isNaN(lastlogin.getTime()) && lastlogin.getTime() < Date.now()) {
       throw new Error("Login access is expired.");
     }
   }
@@ -82,8 +105,10 @@ export const applyLoginSession = async (responseData, options = {}) => {
     }
     return "/studentdashboard";
   }
-  if (normalizedRole === "faculty") return "/facultydashboard";
-  if (normalizedRole === "alumni") return "/alumni-new-dashboard";
-  if (normalizedRole === "admin" || normalizedRole === "all") return "/configuration";
-  return "/dashdashfacnew";
+
+  if (await hasRoleChatbotDefinition({ colid, role: responseData.role })) {
+    return "/ai-chatbot-help";
+  }
+
+  return defaultDashboardForRole(responseData.role);
 };

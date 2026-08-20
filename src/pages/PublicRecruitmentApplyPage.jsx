@@ -391,8 +391,8 @@ export default function PublicRecruitmentApplyPage() {
               <Grid item xs={12} md={4}><TextField fullWidth label="Phone *" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></Grid>
               <Grid item xs={12} md={4}>
                 <Paper variant="outlined" sx={{ p: 2, height: "100%" }}>
-                  <Typography fontWeight={800}>Candidate Photo *</Typography>
-                  <Typography variant="body2" color="text.secondary">Upload JPG, JPEG or PNG.</Typography>
+                  <Typography fontWeight={800}>Candidate Photo</Typography>
+                  <Typography variant="body2" color="text.secondary">Optional. Upload JPG, JPEG or PNG.</Typography>
                   <Button sx={{ mt: 1 }} variant="outlined" component="label" startIcon={<UploadFileIcon />} disabled={loading}>
                     Upload Photo
                     <input hidden type="file" accept=".jpg,.jpeg,.png" onChange={(e) => uploadDocument("Candidate Photo", e.target.files?.[0], "Candidate Photo")} />

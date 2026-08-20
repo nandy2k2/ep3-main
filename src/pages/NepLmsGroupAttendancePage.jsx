@@ -22,6 +22,7 @@ import { Add, ArrowBack, Delete, Refresh, Save } from "@mui/icons-material";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import AttendanceDiagnosticHelp from "./AttendanceDiagnosticHelp";
 
 const assignmentFilterFields = [
   { field: "academicyear", label: "Academic Year" },
@@ -291,6 +292,14 @@ export default function NepLmsGroupAttendancePage({ classGroupMode = false, page
         </Stack>
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
         {message && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setMessage("")}>{message}</Alert>}
+
+        <AttendanceDiagnosticHelp
+          selectedClass={selectedClass}
+          filters={{
+            ...classFilters.reduce((acc, item) => ({ ...acc, [item.field]: item.value }), {}),
+            classgroup: classGroupMode ? selectedClassGroup : ""
+          }}
+        />
 
         <Paper sx={{ p: 2, mb: 2 }}>
           <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} sx={{ mb: 2 }}>

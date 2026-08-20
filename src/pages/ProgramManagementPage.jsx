@@ -25,10 +25,12 @@ const emptyForm = {
   type: "",
   program: "",
   programcode: "",
-  institution: global1.insname || "",
-  department: "",
+	  institution: global1.insname || "",
+	  department: "",
+	  faculty: "",
   durationinyear: "",
   totalcredits: "",
+  excluded: "No",
   typeofsession: "Semester",
   introductionyear: "",
   discontinueyear: "",
@@ -55,10 +57,13 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
     types: defaultTypes,
     levels: defaultLevels,
     statuses: defaultStatuses,
+    excluded: ["No", "Yes"],
     sessionTypes: defaultSessionTypes
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [selectedRows, setSelectedRows] = useState([]);
+  const [bulkMeta, setBulkMeta] = useState({ institution: "", faculty: "", excluded: "" });
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -71,6 +76,7 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
       types: merged(defaultTypes, res.data.types),
       levels: merged(defaultLevels, res.data.levels),
       statuses: merged(defaultStatuses, res.data.statuses),
+      excluded: merged(["No", "Yes"], res.data.excluded),
       sessionTypes: merged(defaultSessionTypes, res.data.sessionTypes)
     });
   };
@@ -149,10 +155,12 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
       type: row.type || "",
       program: row.program || row.name || "",
       programcode: row.programcode || "",
-      institution: row.institution || "",
-      department: row.department || "",
+	      institution: row.institution || "",
+	      department: row.department || "",
+      faculty: row.faculty || "",
       durationinyear: row.durationinyear ?? "",
       totalcredits: row.totalcredits ?? "",
+      excluded: row.excluded || "No",
       typeofsession: row.typeofsession || "Semester",
       introductionyear: row.introductionyear || "",
       discontinueyear: row.discontinueyear || "",
@@ -185,10 +193,12 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
       type: "Grant-in",
       program: "B.Com",
       programcode: "BCOM",
-      institution: global1.insname || "",
-      department: "Commerce",
+	      institution: global1.insname || "",
+	      department: "Commerce",
+	      faculty: "Commerce and Management",
       durationinyear: 3,
       totalcredits: 120,
+      excluded: "No",
       typeofsession: "Semester",
       introductionyear: "2026",
       discontinueyear: "",
@@ -231,6 +241,32 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
     reader.readAsArrayBuffer(file);
   };
 
+  const bulkUpdateMeta = async () => {
+    if (!selectedRows.length) {
+      setError("Select programs to update.");
+      return;
+    }
+    if (!bulkMeta.institution && !bulkMeta.faculty && !bulkMeta.excluded) {
+      setError("Enter institution, faculty or excluded value to update.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await ep1.post("/api/v2/mprograms-management-bulk-update-meta", { colid, ids: selectedRows, ...bulkMeta });
+      setMessage(`${res.data?.modified || 0} selected programs updated.`);
+      setSelectedRows([]);
+      setBulkMeta({ institution: "", faculty: "", excluded: "" });
+      await loadRows();
+      await loadOptions();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || "Unable to update selected programs");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const columns = [
     {
       field: "actions",
@@ -249,10 +285,12 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
     { field: "type", headerName: "Type", minWidth: 150 },
     { field: "program", headerName: "Program", minWidth: 260, flex: 1 },
     { field: "programcode", headerName: "Program code", minWidth: 150 },
-    { field: "institution", headerName: "Institution", minWidth: 220 },
-    { field: "department", headerName: "Department", minWidth: 180 },
+	    { field: "institution", headerName: "Institution", minWidth: 220 },
+	    { field: "department", headerName: "Department", minWidth: 180 },
+	    { field: "faculty", headerName: "Faculty", minWidth: 190 },
     { field: "durationinyear", headerName: "Duration in year", minWidth: 150, type: "number" },
     { field: "totalcredits", headerName: "Total Credits", minWidth: 140, type: "number" },
+    { field: "excluded", headerName: "Excluded", minWidth: 120 },
     { field: "typeofsession", headerName: "Type of session", minWidth: 160 },
     { field: "introductionyear", headerName: "Introduction year", minWidth: 160 },
     { field: "discontinueyear", headerName: "Discontinue year", minWidth: 160 },
@@ -290,10 +328,15 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
           </TextField>
           <TextField size="small" label="Program" value={form.program} onChange={(e) => updateForm("program", e.target.value)} sx={{ gridColumn: { xs: "1", md: "span 2" } }} />
           <TextField size="small" label="Program code" value={form.programcode} onChange={(e) => updateForm("programcode", e.target.value)} />
-          <TextField size="small" label="Institution" value={form.institution} onChange={(e) => updateForm("institution", e.target.value)} />
-          <TextField size="small" label="Department" value={form.department} onChange={(e) => updateForm("department", e.target.value)} />
+	          <TextField size="small" label="Institution" value={form.institution} onChange={(e) => updateForm("institution", e.target.value)} />
+	          <TextField size="small" label="Department" value={form.department} onChange={(e) => updateForm("department", e.target.value)} />
+	          <TextField size="small" label="Faculty" value={form.faculty} onChange={(e) => updateForm("faculty", e.target.value)} />
           <TextField size="small" type="number" label="Duration in year" value={form.durationinyear} onChange={(e) => updateForm("durationinyear", e.target.value)} />
           <TextField size="small" type="number" label="Total Credits" value={form.totalcredits} onChange={(e) => updateForm("totalcredits", e.target.value)} />
+          <TextField select size="small" label="Excluded" value={form.excluded || "No"} onChange={(e) => updateForm("excluded", e.target.value)}>
+            <MenuItem value="No">No</MenuItem>
+            <MenuItem value="Yes">Yes</MenuItem>
+          </TextField>
           <TextField select size="small" label="Type of session" value={form.typeofsession} onChange={(e) => updateForm("typeofsession", e.target.value)}>
             {options.sessionTypes.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
           </TextField>
@@ -317,10 +360,28 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
         </Stack>
       </Paper>
 
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ md: "center" }}>
+          <Typography variant="subtitle2" fontWeight={700}>Bulk update selected</Typography>
+          <TextField size="small" label="Institution" value={bulkMeta.institution} onChange={(e) => setBulkMeta((prev) => ({ ...prev, institution: e.target.value }))} sx={{ minWidth: 260 }} />
+          <TextField size="small" label="Faculty" value={bulkMeta.faculty} onChange={(e) => setBulkMeta((prev) => ({ ...prev, faculty: e.target.value }))} sx={{ minWidth: 240 }} />
+          <TextField select size="small" label="Excluded" value={bulkMeta.excluded} onChange={(e) => setBulkMeta((prev) => ({ ...prev, excluded: e.target.value }))} sx={{ minWidth: 150 }}>
+            <MenuItem value="">No change</MenuItem>
+            <MenuItem value="No">No</MenuItem>
+            <MenuItem value="Yes">Yes</MenuItem>
+          </TextField>
+          <Button variant="contained" disabled={saving || !selectedRows.length} onClick={bulkUpdateMeta}>Update {selectedRows.length || ""}</Button>
+        </Stack>
+      </Paper>
+
       <Paper sx={{ p: 2, overflowX: "auto" }}>
         <DataGrid
           rows={rows.map((row) => ({ ...row, id: row._id }))}
           columns={columns}
+          checkboxSelection
+          disableRowSelectionOnClick
+          rowSelectionModel={selectedRows}
+          onRowSelectionModelChange={(ids) => setSelectedRows(ids)}
           autoHeight
           loading={loading}
           density="compact"

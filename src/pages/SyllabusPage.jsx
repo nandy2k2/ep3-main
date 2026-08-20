@@ -20,7 +20,7 @@ import {
   Tooltip,
   Typography
 } from "@mui/material";
-import { Add, ArrowBack, Cancel, Delete, Edit, FileDownload, Refresh, Save, UploadFile } from "@mui/icons-material";
+import { Add, ArrowBack, AutoAwesome, Cancel, Delete, Edit, FileDownload, Refresh, Save, UploadFile } from "@mui/icons-material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
@@ -40,6 +40,17 @@ const filterFields = [
 ];
 
 const courseMapFields = ["academicyear", "regulation", "program", "programcode", "type", "subject", "semester", "course", "coursecode"];
+
+const geminiModelFallbacks = [
+  "gemini-2.5-pro",
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-lite",
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-lite",
+  "gemini-1.5-pro",
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-8b"
+];
 
 const blankForm = {
   academicyear: "",
@@ -102,6 +113,19 @@ export default function SyllabusPage() {
   const [newSyllabusChange, setNewSyllabusChange] = useState("");
   const [assessing, setAssessing] = useState(false);
   const [assessmentResult, setAssessmentResult] = useState(null);
+  const [aiOptions, setAiOptions] = useState({ geminiModels: geminiModelFallbacks, ollamaConfigs: [] });
+  const [aiForm, setAiForm] = useState({
+    provider: "Gemini",
+    geminiModel: "gemini-2.5-flash",
+    ollamaConfigId: "",
+    moduleCount: 5,
+    additionalprompt: ""
+  });
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiRows, setAiRows] = useState([]);
+  const [aiSourceFile, setAiSourceFile] = useState(null);
+  const [aiSourceLink, setAiSourceLink] = useState("");
+  const [aiSourceName, setAiSourceName] = useState("");
 
   const filterParams = useMemo(() => {
     const params = {};
@@ -114,6 +138,7 @@ export default function SyllabusPage() {
   useEffect(() => {
     loadOptions();
     loadFormOptions();
+    loadAiOptions();
     loadRows();
   }, []);
 
@@ -144,6 +169,18 @@ export default function SyllabusPage() {
       setFormOptions(res.data || { courses: [] });
     } catch (err) {
       setFormOptions({ courses: [] });
+    }
+  };
+
+  const loadAiOptions = async () => {
+    try {
+      const res = await ep1.get("/api/v2/syllabus/ai-options", { params: { colid } });
+      setAiOptions({
+        geminiModels: res.data?.geminiModels?.length ? res.data.geminiModels : geminiModelFallbacks,
+        ollamaConfigs: res.data?.ollamaConfigs || []
+      });
+    } catch (err) {
+      setAiOptions({ geminiModels: geminiModelFallbacks, ollamaConfigs: [] });
     }
   };
 
@@ -395,6 +432,87 @@ export default function SyllabusPage() {
     }
   };
 
+  const generateSyllabusAi = async () => {
+    const required = courseMapFields.find((field) => !form[field]);
+    if (required) {
+      setError(`Please select ${fieldLabels[required]} before AI generation`);
+      return;
+    }
+    if (aiForm.provider === "Ollama" && !aiForm.ollamaConfigId) {
+      setError("Please select an Ollama configuration");
+      return;
+    }
+    try {
+      setAiGenerating(true);
+      setError("");
+      setMessage("");
+      setAiRows([]);
+      let sourcefilelink = aiSourceLink;
+      let sourcefilename = aiSourceName;
+      if (aiSourceFile) {
+        const data = new FormData();
+        data.append("file", aiSourceFile);
+        data.append("colid", colid);
+        data.append("user", global1.user || "");
+        data.append("folder", `syllabus-source/${form.academicyear || "year"}/${form.coursecode || "course"}`);
+        data.append("description", `Syllabus AI source for ${form.course || ""} ${form.coursecode || ""}`);
+        const uploadRes = await ep1.post("/api/v2/aws-file-library/upload", data, {
+          headers: { "Content-Type": "multipart/form-data" }
+        });
+        sourcefilelink = uploadRes.data?.url || "";
+        sourcefilename = uploadRes.data?.originalname || uploadRes.data?.filename || aiSourceFile.name;
+        if (!sourcefilelink) throw new Error("AWS upload did not return a file link");
+        setAiSourceLink(sourcefilelink);
+        setAiSourceName(sourcefilename);
+      }
+      const payload = {
+        ...form,
+        colid,
+        user: global1.user,
+        provider: aiForm.provider,
+        geminiModel: aiForm.geminiModel,
+        model: aiForm.geminiModel,
+        ollamaConfigId: aiForm.ollamaConfigId,
+        moduleCount: aiForm.moduleCount,
+        additionalprompt: aiForm.additionalprompt,
+        sourcefilelink,
+        sourcefilename
+      };
+      const res = await ep1.post("/api/v2/syllabus/generate-ai", payload);
+      setAiRows(res.data?.data || []);
+      setMessage(`${res.data?.data?.length || 0} syllabus rows generated${sourcefilelink ? " from the AWS source document" : ""}. Review and save.`);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to generate syllabus with AI");
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  const saveAiRows = async () => {
+    if (!aiRows.length) {
+      setError("Generate syllabus rows first");
+      return;
+    }
+    try {
+      setLoading(true);
+      const res = await ep1.post("/api/v2/syllabus/bulkupload", {
+        colid,
+        user: global1.user,
+        items: aiRows
+      });
+      const errors = res.data?.errors || [];
+      setMessage(`Saved ${res.data?.inserted || 0} AI syllabus rows${errors.length ? `, ${errors.length} errors` : ""}`);
+      setAiRows([]);
+      await loadRows();
+      await loadOptions(filterParams);
+      await loadFormOptions();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to save AI generated syllabus");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const columns = [
     {
       field: "actions",
@@ -422,7 +540,15 @@ export default function SyllabusPage() {
     { field: "course", headerName: "Course", width: 220 },
     { field: "coursecode", headerName: "Course Code", width: 150 },
     { field: "module", headerName: "Module", width: 160 },
-    { field: "syllabus", headerName: "Syllabus", width: 420 }
+    { field: "syllabus", headerName: "Syllabus", width: 420 },
+    { field: "sourcefilelink", headerName: "Source File", width: 160, renderCell: (params) => params.value ? <Button size="small" href={params.value} target="_blank" rel="noreferrer">Open</Button> : "" }
+  ];
+
+  const aiPreviewColumns = [
+    { field: "module", headerName: "Module", flex: 0.7, minWidth: 220 },
+    { field: "syllabus", headerName: "Generated Syllabus", flex: 1.6, minWidth: 520 },
+    { field: "course", headerName: "Course", flex: 0.8, minWidth: 220 },
+    { field: "coursecode", headerName: "Course Code", width: 140 }
   ];
 
   const renderCourseMapSelect = (field, gridProps = { xs: 12, sm: 6, md: 3 }) => (
@@ -598,6 +724,13 @@ export default function SyllabusPage() {
       </Paper>
 
       <Paper component="form" onSubmit={saveRow} sx={{ p: 2, mb: 2 }}>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+          <AutoAwesome color="primary" />
+          <Box>
+            <Typography variant="subtitle1" fontWeight={900}>Generate syllabus using AI</Typography>
+            <Typography variant="body2" color="text.secondary">Select course details, optionally attach a PDF/Word source, then generate module-wise syllabus using Gemini or Ollama.</Typography>
+          </Box>
+        </Stack>
         <Grid container spacing={2}>
           {renderCourseMapSelect("academicyear")}
           {renderCourseMapSelect("regulation")}
@@ -614,10 +747,143 @@ export default function SyllabusPage() {
           <Grid item xs={12}>
             <TextField fullWidth required multiline minRows={2} label="Syllabus" value={form.syllabus} onChange={(e) => setForm((prev) => ({ ...prev, syllabus: e.target.value }))} />
           </Grid>
+          <Grid item xs={12}>
+            <Divider sx={{ my: 1 }} />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField
+              select
+              fullWidth
+              label="AI Provider"
+              value={aiForm.provider}
+              onChange={(e) => setAiForm((prev) => ({ ...prev, provider: e.target.value }))}
+            >
+              <MenuItem value="Gemini">Gemini</MenuItem>
+              <MenuItem value="Ollama">Ollama</MenuItem>
+            </TextField>
+          </Grid>
+          {aiForm.provider === "Gemini" ? (
+            <Grid item xs={12} md={3}>
+              <TextField
+                select
+                fullWidth
+                label="Gemini Model"
+                value={aiForm.geminiModel}
+                onChange={(e) => setAiForm((prev) => ({ ...prev, geminiModel: e.target.value }))}
+              >
+                {(aiOptions.geminiModels || geminiModelFallbacks).map((model) => <MenuItem key={model} value={model}>{model}</MenuItem>)}
+              </TextField>
+            </Grid>
+          ) : (
+            <Grid item xs={12} md={3}>
+              <TextField
+                select
+                fullWidth
+                label="Ollama"
+                value={aiForm.ollamaConfigId}
+                onChange={(e) => setAiForm((prev) => ({ ...prev, ollamaConfigId: e.target.value }))}
+              >
+                {(aiOptions.ollamaConfigs || []).map((item) => <MenuItem key={item._id} value={item._id}>{item.name || item.modelname} - {item.modelname}</MenuItem>)}
+              </TextField>
+            </Grid>
+          )}
+          <Grid item xs={12} md={2}>
+            <TextField
+              fullWidth
+              type="number"
+              label="No. of modules"
+              value={aiForm.moduleCount}
+              inputProps={{ min: 1, max: 30 }}
+              onChange={(e) => setAiForm((prev) => ({ ...prev, moduleCount: e.target.value }))}
+            />
+          </Grid>
+          <Grid item xs={12} md={5}>
+            <Button
+              type="button"
+              fullWidth
+              variant="contained"
+              startIcon={aiGenerating ? null : <AutoAwesome />}
+              disabled={aiGenerating}
+              onClick={generateSyllabusAi}
+              sx={{ height: 56 }}
+            >
+              {aiGenerating ? "Generating syllabus..." : "Generate syllabus"}
+            </Button>
+          </Grid>
+          <Grid item xs={12} md={5}>
+            <Button type="button" fullWidth variant="outlined" component="label" startIcon={<UploadFile />} sx={{ height: 56 }}>
+              {aiSourceFile ? "Change PDF/Word source" : "Upload PDF/Word source"}
+              <input
+                hidden
+                type="file"
+                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                onChange={(e) => {
+                  setAiSourceFile(e.target.files?.[0] || null);
+                  setAiSourceLink("");
+                  setAiSourceName("");
+                }}
+              />
+            </Button>
+          </Grid>
+          <Grid item xs={12} md={7}>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }} sx={{ minHeight: 56 }}>
+              <Chip
+                variant={aiSourceFile ? "filled" : "outlined"}
+                color={aiSourceFile ? "primary" : "default"}
+                label={aiSourceFile ? `${aiSourceFile.name} (${Math.round(aiSourceFile.size / 1024)} KB)` : "No source file attached. AI will use the prompt and module count."}
+              />
+              {aiSourceFile && (
+                <Button type="button" size="small" color="error" onClick={() => {
+                  setAiSourceFile(null);
+                  setAiSourceLink("");
+                  setAiSourceName("");
+                }}>Remove file</Button>
+              )}
+              {aiSourceLink && <Button size="small" href={aiSourceLink} target="_blank" rel="noreferrer">Open AWS file</Button>}
+            </Stack>
+          </Grid>
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              multiline
+              minRows={3}
+              label="Additional AI prompt"
+              value={aiForm.additionalprompt}
+              onChange={(e) => setAiForm((prev) => ({ ...prev, additionalprompt: e.target.value }))}
+              placeholder="Example: Include practical sessions, CO-linked topics, case studies, latest advances, employability focus, and module-wise outcomes."
+            />
+          </Grid>
+          {aiGenerating && (
+            <Grid item xs={12}>
+              <LinearProgress />
+            </Grid>
+          )}
+          {!!aiRows.length && (
+            <Grid item xs={12}>
+              <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "#f8fbff" }}>
+                <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1.5} sx={{ mb: 1 }}>
+                  <Box>
+                    <Typography fontWeight={900}>AI generated syllabus preview</Typography>
+                    <Typography variant="body2" color="text.secondary">Review the generated modules below. Saving will add them to the existing syllabus model.</Typography>
+                  </Box>
+                  <Button type="button" variant="contained" startIcon={<Save />} onClick={saveAiRows} disabled={loading}>Save generated syllabus</Button>
+                </Stack>
+                <DataGrid
+                  rows={aiRows.map((row, index) => ({ ...row, id: `${row.module}-${index}` }))}
+                  columns={aiPreviewColumns}
+                  autoHeight
+                  disableRowSelectionOnClick
+                  pageSizeOptions={[5, 10, 25]}
+                  initialState={{ pagination: { paginationModel: { pageSize: 5, page: 0 } } }}
+                  sx={{ bgcolor: "white", "& .MuiDataGrid-cell": { whiteSpace: "normal", alignItems: "flex-start", lineHeight: 1.35, py: 1 } }}
+                />
+              </Paper>
+            </Grid>
+          )}
         </Grid>
         <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
           <Button type="submit" variant="contained" startIcon={<Save />}>{editingId ? "Update" : "Save"}</Button>
-          <Button variant="outlined" startIcon={<Cancel />} onClick={resetForm}>Cancel</Button>
+          <Button type="button" variant="outlined" startIcon={<Cancel />} onClick={resetForm}>Cancel</Button>
         </Stack>
       </Paper>
 

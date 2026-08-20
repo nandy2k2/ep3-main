@@ -16,9 +16,11 @@ import {
 } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
+import PrintIcon from "@mui/icons-material/Print";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import { printExamSchedule } from "./ConductExamSchedulePrintUtils";
 
 const subjectTypes = ["Major", "Minor"];
 const geminiModels = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash"];
@@ -53,6 +55,7 @@ export default function ConductExamCourseSchedulerPage() {
   const [exams, setExams] = useState([]);
   const [courseMapRows, setCourseMapRows] = useState([]);
   const [rows, setRows] = useState([]);
+  const [institution, setInstitution] = useState({});
   const [form, setForm] = useState(blankForm);
   const [editId, setEditId] = useState("");
   const [filters, setFilters] = useState({ academicyear: "", regulation: "", examcode: "", examdate: "", examslot: "", programcode: "", type: "", subject: "", semester: "" });
@@ -70,7 +73,17 @@ export default function ConductExamCourseSchedulerPage() {
     loadExams();
     loadCourseMapRows();
     loadRows();
+    loadInstitution();
   }, []);
+
+  const loadInstitution = async () => {
+    try {
+      const res = await ep1.get("/vins", { params: { colid: global1.colid } });
+      setInstitution(res.data || {});
+    } catch {
+      setInstitution({});
+    }
+  };
 
   const loadExams = async () => {
     const res = await ep1.get("/api/v2/conductexam/exams", { params: { colid: global1.colid } });
@@ -336,13 +349,43 @@ export default function ConductExamCourseSchedulerPage() {
     { field: "actions", headerName: "Actions", width: 170, sortable: false, renderCell: (params) => <Stack direction="row" spacing={1}><Button size="small" onClick={() => editRow(params.row)}>Edit</Button><Button size="small" color="error" onClick={() => deleteRow(params.row._id)}>Delete</Button></Stack> }
   ], [exams]);
 
+  const printableColumns = useMemo(() => columns
+    .filter((column) => column.field !== "actions")
+    .map((column) => ({ field: column.field, headerName: column.headerName })), [columns]);
+
+  const printPreview = () => {
+    const printableRows = filteredCalendarRows.length ? filteredCalendarRows : rows;
+    printExamSchedule({
+      title: "Exam Course Schedule",
+      institution,
+      meta: {
+        "Academic Year": calendarFilters.academicyear || filters.academicyear || scheduleForm.academicyear || "All",
+        "Regulation": calendarFilters.regulation || filters.regulation || "All",
+        "Exam Code": calendarFilters.examcode || filters.examcode || scheduleForm.examcode || "All",
+        "Program Code": calendarFilters.programcode || filters.programcode || scheduleForm.programcode || "All",
+        "View Date": calendarTitle,
+        "Generated On": new Date().toLocaleString()
+      },
+      sections: [{
+        title: "Scheduled Courses",
+        rows: printableRows,
+        columns: printableColumns,
+        summary: [
+          { label: "Total Rows", value: printableRows.length },
+          { label: "Scheduled Rows", value: printableRows.filter((row) => row.examdate).length },
+          { label: "Unscheduled Rows", value: printableRows.filter((row) => !row.examdate).length }
+        ]
+      }]
+    });
+  };
+
   return (
     <MenuPageShell title="Exam Course Scheduler">
     <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
       <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2}>
           <Box><Typography variant="h5" fontWeight={900}>Exam Course Scheduler</Typography><Typography color="text.secondary">Upload papers first, then generate dates and slots without semester conflicts.</Typography></Box>
-          <Stack direction="row" spacing={1}><Button variant="outlined" onClick={downloadTemplate}>Template</Button><Button component="label" variant="contained" startIcon={<UploadFileIcon />}>Bulk Upload<input hidden type="file" accept=".xlsx,.xls,.csv" onChange={handleBulkUpload} /></Button></Stack>
+          <Stack direction="row" spacing={1}><Button variant="outlined" startIcon={<PrintIcon />} onClick={printPreview} disabled={!rows.length}>Print Preview</Button><Button variant="outlined" onClick={downloadTemplate}>Template</Button><Button component="label" variant="contained" startIcon={<UploadFileIcon />}>Bulk Upload<input hidden type="file" accept=".xlsx,.xls,.csv" onChange={handleBulkUpload} /></Button></Stack>
         </Stack>
       </Paper>
       {message && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setMessage("")}>{message}</Alert>}

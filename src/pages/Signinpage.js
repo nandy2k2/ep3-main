@@ -25,7 +25,8 @@ const Signup = () => {
         if (isOrthintelDomain) configureCountryTerminology("USA");
     }, [isOrthintelDomain]);
 
-    const searchapi = async () => {
+    const searchapi = async (event) => {
+        event?.preventDefault?.();
         //alert('checking ' + email + ' ' + password);
 
     const username=email;
@@ -34,29 +35,32 @@ const Signup = () => {
             alert('Please enter username and password');
             return;
         }
+        try {
+            const response = await ep1.get('/api/v1/loginapi', {
+                params: {
+                    email: username.toLowerCase(),
+                    password: password
+
+                }
+            });
+            //alert(response.data);
+            console.log(response.data);
         
-        const response = await ep1.get('/api/v1/loginapi', {
-            params: {
-                email: username.toLowerCase(),
-                password: password
+            if (response.data.status == "Success") {
+                const statuslog=parseInt(response.data.statuslog);
 
+                if(statuslog==0) {
+                  alert('Access is not yet activated. Please click on welcome email from reminder@epaathsala.com');
+                  return;
+                }
+                await continueAfterPrimaryLogin(response.data, navigate, { isOrthintelDomain });
             }
-        });
-        //alert(response.data);
-        console.log(response.data);
-    
-        if (response.data.status == "Success") {
-            const statuslog=parseInt(response.data.statuslog);
-
-            if(statuslog==0) {
-              alert('Access is not yet activated. Please click on welcome email from reminder@epaathsala.com');
-              return;
+            else {
+                alert(response.data?.message || 'Invalid Username or Password. Please try again.');
+                //setTerm2('Invalid Username or Password. Please try again.');
             }
-            await continueAfterPrimaryLogin(response.data, navigate, { isOrthintelDomain });
-        }
-        else {
-            alert('Invalid Username or Password. Please try again.');
-            //setTerm2('Invalid Username or Password. Please try again.');
+        } catch (err) {
+            alert(err.response?.data?.message || err.message || 'Login failed. Please check backend connection and try again.');
         }
         
        

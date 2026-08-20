@@ -18,6 +18,7 @@ import {
 import { Refresh } from "@mui/icons-material";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import AttendanceDiagnosticHelp from "./AttendanceDiagnosticHelp";
 
 const cleanText = (value) => String(value || "").trim().toLowerCase();
 const fieldsMatch = (left, right) => cleanText(left) === cleanText(right);
@@ -175,6 +176,7 @@ export default function NepLmsFacultyClassSelector({ selectedClassId, onSelectCl
         <Button variant="outlined" startIcon={<Refresh />} onClick={loadContext} disabled={loading}>Refresh</Button>
       </Stack>
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
+      <AttendanceDiagnosticHelp selectedClass={selectedClass} filters={filters} />
       <Grid container spacing={2}>
         {["academicyear", "programcode", "coursecode", "semester"].map((field) => (
           <Grid item xs={12} md={3} key={field}>

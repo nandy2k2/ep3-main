@@ -16,6 +16,7 @@ import {
 } from "@mui/material";
 import { Add, Print, Refresh, Save, UploadFile } from "@mui/icons-material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import PlacementCoordinatorShell from "./PlacementCoordinatorShell";
@@ -28,10 +29,16 @@ const num = (value) => Number(value || 0);
 const currentName = () => global1.name || global1.user || "NA";
 const currentUser = () => global1.user || "NA";
 const base = () => ({ colid: global1.colid, name: currentName(), user: currentUser() });
-const statusOptions = ["Draft", "Submitted", "Approved", "Issued", "Rejected"];
+const statusOptions = ["Draft", "Submitted", "Pending Approval", "Approved", "Issued", "Rejected"];
 const asArray = (model) => Array.from(model?.ids || model || []);
 const sameEmail = (a, b) => text(a).toLowerCase() === text(b).toLowerCase();
 const esc = (value) => text(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char]));
+const isIndentStoreReady = (row = {}) => {
+  const status = text(row.reqstatus || row.status).toLowerCase();
+  const approval = text(row.approvalStatus).toLowerCase();
+  if (!status || status === "draft" || status === "pending approval") return false;
+  return !["pending hoi approval", "pending approval"].includes(approval);
+};
 const getUserSignature = async (email = currentUser()) => {
   const rows = await getRows("usersignatureds", [{ field: "useremail", value: email }]);
   return rows.find((row) => text(row.status || "Active").toLowerCase() === "active") || rows[0] || {};
@@ -68,6 +75,22 @@ const loadPrintInstitution = async () => {
 const printPurchase2 = async (type, data) => {
   const institution = await loadPrintInstitution();
   openPurchase2PrintWindow(type, { ...(data || {}), institution });
+};
+const uploadPurchase2Attachment = async (file, folder = "purchase2") => {
+  if (!file) return "";
+  const cfgRes = await ep1.get("/api/v2/aws-file-library/configs", { params: { colid: global1.colid } });
+  const configs = cfgRes.data || [];
+  const config = configs[0];
+  if (!config?._id) throw new Error("AWS configuration is missing");
+  const data = new FormData();
+  data.append("file", file);
+  data.append("colid", global1.colid);
+  data.append("user", global1.user || "");
+  data.append("awsconfigid", config._id);
+  data.append("folder", folder);
+  data.append("description", "Purchase 2 attachment");
+  const res = await ep1.post("/api/v2/aws-file-library/upload", data, { headers: { "Content-Type": "multipart/form-data" } });
+  return res.data?.url || "";
 };
 const printStoreItems = async (rows = []) => {
   const institution = await loadPrintInstitution();
@@ -227,14 +250,14 @@ function usePurchase2Basics() {
 
 export function Purchase2IndentRequestPage() {
   const { departments, stores, basicsError } = usePurchase2Basics();
-  const [form, setForm] = useState({ year: "2026-27", departmentname: "", storeid: "", store: "", reqstatus: "Draft", reqdate: today(), remarks: "" });
+  const [form, setForm] = useState({ year: "2026-27", departmentname: "", storeid: "", store: "", reqstatus: "Draft", reqdate: today(), approvalOption: "Manual approval", remarks: "" });
   const [items, setItems] = useState([]);
   const [drafts, setDrafts] = useState([]);
   const [currentIndent, setCurrentIndent] = useState(null);
   const [printData, setPrintData] = useState(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const isSubmitted = text(currentIndent?.reqstatus).toLowerCase() === "submitted";
+  const isSubmitted = text(currentIndent?.reqstatus).toLowerCase() !== "" && text(currentIndent?.reqstatus).toLowerCase() !== "draft";
   const loadDrafts = async () => {
     const email = text(currentUser()).toLowerCase();
     const rows = await getRows("storerequisitionds2");
@@ -244,7 +267,7 @@ export function Purchase2IndentRequestPage() {
   const openIndent = async (row) => {
     if (!row) {
       setCurrentIndent(null);
-      setForm({ year: "2026-27", departmentname: "", storeid: "", store: "", reqstatus: "Draft", reqdate: today(), remarks: "" });
+      setForm({ year: "2026-27", departmentname: "", storeid: "", store: "", reqstatus: "Draft", reqdate: today(), approvalOption: "Manual approval", remarks: "" });
       setItems([]);
       setPrintData(null);
       return;
@@ -259,6 +282,7 @@ export function Purchase2IndentRequestPage() {
       store: row.store || row.storename || "",
       reqstatus: row.reqstatus || "Draft",
       reqdate: row.reqdate ? String(row.reqdate).slice(0, 10) : today(),
+      approvalOption: row.approvalOption || row.approvaltype || "Manual approval",
       remarks: row.remarks || ""
     });
     setItems(mappedItems);
@@ -269,16 +293,37 @@ export function Purchase2IndentRequestPage() {
       if (!form.departmentname || !form.storeid || !items.length) throw new Error("Select department, store and at least one item");
       if (isSubmitted) throw new Error("Submitted indent cannot be edited");
       const reqid = currentIndent?.reqid || currentIndent?.requestno || key("IND");
-      const headerPayload = { ...form, reqstatus: status, reqid, requestno: reqid, requestedby: currentIndent?.requestedby || currentName(), requestedbyemail: currentIndent?.requestedbyemail || currentUser(), creatoruserid: currentIndent?.creatoruserid || currentUser() };
+      const dept = departments.find((row) => text(row.departmentname).toLowerCase() === text(form.departmentname).toLowerCase()) || {};
+      const needsHoi = status === "Submitted" && text(form.approvalOption).toLowerCase() === "hoi approval";
+      const finalStatus = needsHoi ? "Pending Approval" : status;
+      const approvalStatus = status === "Draft" ? "Draft" : (needsHoi ? "Pending HOI Approval" : "Approved");
+      const approverSignature = needsHoi ? await getUserSignature(dept.hoiapproveruserid) : {};
+      const headerPayload = {
+        ...form,
+        reqstatus: finalStatus,
+        approvalStatus,
+        approvaltype: form.approvalOption,
+        reqid,
+        requestno: reqid,
+        requestedby: currentIndent?.requestedby || currentName(),
+        requestedbyemail: currentIndent?.requestedbyemail || currentUser(),
+        creatoruserid: currentIndent?.creatoruserid || currentUser(),
+        approvername: dept.hoiapprovername || "",
+        approveruserid: dept.hoiapproveruserid || "",
+        hoiapprovername: dept.hoiapprovername || "",
+        hoiapproveruserid: dept.hoiapproveruserid || "",
+        approversignature: needsHoi ? "" : currentIndent?.approversignature || "",
+        expectedapproversignature: approverSignature.signaturelink || ""
+      };
       const header = currentIndent ? await updateRow("storerequisitionds2", currentIndent, headerPayload) : await saveRow("storerequisitionds2", headerPayload);
       await Promise.all(items.map((item) => item._id
-        ? updateRow("storerequisitionitemsds2", item, { ...item, requisitionid: header._id, reqid, status })
-        : saveRow("storerequisitionitemsds2", { ...item, requisitionid: header._id, reqid, status })));
+        ? updateRow("storerequisitionitemsds2", item, { ...item, requisitionid: header._id, reqid, status: finalStatus })
+        : saveRow("storerequisitionitemsds2", { ...item, requisitionid: header._id, reqid, status: finalStatus })));
       const savedItems = await getRows("storerequisitionitemsds2", [{ field: "requisitionid", value: header._id }]);
       setCurrentIndent(header);
       setItems(savedItems);
-      setForm((prev) => ({ ...prev, reqstatus: status }));
-      setMessage(status === "Submitted" ? "Indent submitted. No more items can be added." : "Indent draft saved. You can add more items before submission.");
+      setForm((prev) => ({ ...prev, reqstatus: finalStatus }));
+      setMessage(status === "Submitted" ? (needsHoi ? "Indent submitted for HOI approval. Items are locked." : "Indent submitted to assigned store. Items are locked.") : "Indent draft saved. You can add more items before submission.");
       setPrintData({ header, items: savedItems });
       await loadDrafts();
     } catch (err) {
@@ -288,7 +333,7 @@ export function Purchase2IndentRequestPage() {
   const creatorDepartments = useMemo(() => {
     const email = text(currentUser()).toLowerCase();
     return departments.filter((dept) => {
-      const creators = [dept.creatoruserid, dept.creatoremail, dept.user].map((v) => text(v).toLowerCase()).filter(Boolean);
+      const creators = [dept.creatoruserid].map((v) => text(v).toLowerCase()).filter(Boolean);
       return creators.includes(email);
     });
   }, [departments]);
@@ -297,9 +342,10 @@ export function Purchase2IndentRequestPage() {
       <Paper sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={2}>
           <Grid item xs={12} md={4}><Autocomplete options={drafts} value={currentIndent} getOptionLabel={(o) => `${o.requestno || o.reqid || o._id || ""} - ${o.reqstatus || ""}`} onChange={(_, v) => openIndent(v)} renderInput={(params) => <TextField {...params} label="Open existing indent" size="small" />} /></Grid>
-          <Grid item xs={12} md={3}><Autocomplete options={creatorDepartments} getOptionLabel={(o) => o.departmentname || ""} onChange={(_, v) => setForm((p) => ({ ...p, departmentname: v?.departmentname || "" }))} renderInput={(params) => <TextField {...params} label="Department" size="small" helperText={!creatorDepartments.length ? "No department mapped to your creator user ID" : ""} />} /></Grid>
+          <Grid item xs={12} md={3}><Autocomplete options={creatorDepartments} getOptionLabel={(o) => o.departmentname || ""} onChange={(_, v) => setForm((p) => ({ ...p, departmentname: v?.departmentname || "", approvername: v?.hoiapprovername || "", approveruserid: v?.hoiapproveruserid || "" }))} renderInput={(params) => <TextField {...params} label="Department" size="small" helperText={!creatorDepartments.length ? "No department mapped to your creator user ID" : ""} />} /></Grid>
           <Grid item xs={12} md={3}><Autocomplete options={stores} getOptionLabel={(o) => o.storename || o.name || ""} onChange={(_, v) => setForm((p) => ({ ...p, storeid: v?._id || v?.storeid || "", store: v?.storename || "" }))} renderInput={(params) => <TextField {...params} label="Assigned store" size="small" />} /></Grid>
           <Grid item xs={12} md={2}><TextField size="small" type="date" label="Request date" value={form.reqdate} InputLabelProps={{ shrink: true }} onChange={(e) => setForm((p) => ({ ...p, reqdate: e.target.value }))} fullWidth /></Grid>
+          <Grid item xs={12} md={2}><TextField select size="small" label="Approval type" value={form.approvalOption} onChange={(e) => setForm((p) => ({ ...p, approvalOption: e.target.value }))} fullWidth>{["Manual approval", "HOI approval"].map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}</TextField></Grid>
           <Grid item xs={12} md={2}><TextField select size="small" label="Status" value={form.reqstatus} onChange={(e) => setForm((p) => ({ ...p, reqstatus: e.target.value }))} fullWidth>{statusOptions.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}</TextField></Grid>
           <Grid item xs={12} md={2}><TextField size="small" label="Remarks" value={form.remarks} onChange={(e) => setForm((p) => ({ ...p, remarks: e.target.value }))} fullWidth /></Grid>
         </Grid>
@@ -364,6 +410,88 @@ export function Purchase2IndentPrintPage() {
   );
 }
 
+export function Purchase2IndentApproverPage() {
+  const [rows, setRows] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [items, setItems] = useState([]);
+  const [remarks, setRemarks] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const load = async () => {
+    try {
+      const email = text(currentUser()).toLowerCase();
+      const requests = await getRows("storerequisitionds2");
+      setRows(requests.filter((row) => {
+        const isHoi = text(row.approvalOption || row.approvaltype).toLowerCase() === "hoi approval";
+        const pending = ["pending hoi approval", "pending approval"].includes(text(row.approvalStatus || row.reqstatus).toLowerCase());
+        const approver = [row.approveruserid, row.hoiapproveruserid].map((v) => text(v).toLowerCase()).includes(email);
+        return isHoi && pending && approver;
+      }).sort((a, b) => new Date(b.createdAt || b.reqdate || 0) - new Date(a.createdAt || a.reqdate || 0)));
+    } catch (err) {
+      setError(err.message || "Unable to load approval indents");
+    }
+  };
+  useEffect(() => { load(); }, []);
+  const open = async (row) => {
+    setSelected(row);
+    setRemarks(row?.approvalremarks || "");
+    setItems(row ? await getRows("storerequisitionitemsds2", [{ field: "requisitionid", value: row._id }]) : []);
+  };
+  const approve = async () => {
+    try {
+      if (!selected) throw new Error("Select an indent");
+      const sig = await getUserSignature(currentUser());
+      const updated = await updateRow("storerequisitionds2", selected, {
+        reqstatus: "Submitted",
+        approvalStatus: "Approved",
+        approvedby: currentName(),
+        approvedbyemail: currentUser(),
+        approveddate: today(),
+        approversignature: sig.signaturelink || "",
+        approvalremarks: remarks
+      });
+      setSelected(updated);
+      setMessage("Indent approved and moved to assigned store for allotment");
+      await load();
+    } catch (err) {
+      setError(err.message || "Unable to approve indent");
+    }
+  };
+  return (
+    <Page title="Indent Approver" subtitle="Approve HOI indents mapped to your department and print the indent with approver details." message={message} error={error}>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }}>
+          <Button startIcon={<Refresh />} onClick={load}>Refresh</Button>
+          <Button startIcon={<Print />} variant="outlined" disabled={!selected} onClick={() => printPurchase2("indent", { header: selected, items })}>Print indent</Button>
+          <Button variant="contained" color="success" disabled={!selected} onClick={approve}>Approve and send to store</Button>
+        </Stack>
+      </Paper>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <DataGrid autoHeight rows={rows.map((row) => ({ ...row, id: row._id }))} columns={[
+          { field: "requestno", headerName: "Indent No", width: 170 },
+          { field: "reqdate", headerName: "Date", width: 130 },
+          { field: "departmentname", headerName: "Department", width: 190 },
+          { field: "requestedby", headerName: "Requested By", width: 180 },
+          { field: "store", headerName: "Store", width: 180 },
+          { field: "approvalStatus", headerName: "Approval", width: 170 },
+          { field: "actions", headerName: "Open", width: 110, renderCell: (p) => <Button size="small" onClick={() => open(p.row)}>Open</Button> }
+        ]} slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true } }} />
+      </Paper>
+      {selected && <Paper sx={{ p: 2 }}>
+        <Typography variant="h6" fontWeight={800}>Indent {selected.requestno || selected.reqid}</Typography>
+        <TextField sx={{ my: 2 }} label="Approval remarks" value={remarks} onChange={(e) => setRemarks(e.target.value)} multiline minRows={3} fullWidth />
+        <DataGrid autoHeight rows={items.map((row, index) => ({ ...row, id: row._id || index }))} columns={[
+          { field: "itemcode", headerName: "Code", width: 130 },
+          { field: "itemname", headerName: "Item", flex: 1, minWidth: 220 },
+          { field: "unit", headerName: "Unit", width: 100 },
+          { field: "quantity", headerName: "Requested", width: 130 },
+          { field: "remarks", headerName: "Remarks", flex: 1, minWidth: 180 }
+        ]} slots={{ toolbar: GridToolbar }} />
+      </Paper>}
+    </Page>
+  );
+}
+
 export function Purchase2StoreRequestReviewPage() {
   const { stores, basicsError } = usePurchase2Basics();
   const [requests, setRequests] = useState([]);
@@ -371,18 +499,20 @@ export function Purchase2StoreRequestReviewPage() {
   const [items, setItems] = useState([]);
   const [stock, setStock] = useState([]);
   const [printData, setPrintData] = useState(null);
+  const [prPrintData, setPrPrintData] = useState(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const load = async () => {
     const storeIds = new Set(stores.map((s) => text(s._id || s.storeid)));
     const storeNames = new Set(stores.map((s) => text(s.storename)));
     const [reqRows, stockRows] = await Promise.all([getRows("storerequisitionds2"), getRows("storeitemsds2")]);
-    setRequests(reqRows.filter((r) => storeIds.has(text(r.storeid)) || storeNames.has(text(r.store))));
+    setRequests(reqRows.filter((r) => (storeIds.has(text(r.storeid)) || storeNames.has(text(r.store))) && isIndentStoreReady(r)));
     setStock(stockRows);
   };
   useEffect(() => { if (stores.length) load(); }, [stores.length]);
   const open = async (row) => {
     setSelected(row);
+    setPrPrintData(null);
     const child = await getRows("storerequisitionitemsds2", [{ field: "requisitionid", value: row._id }]);
     setItems(child.length ? child : [{ ...row, requisitionid: row._id, quantity: row.quantity }]);
   };
@@ -429,10 +559,47 @@ export function Purchase2StoreRequestReviewPage() {
       await load();
     } catch (err) { setError(err.message); }
   };
+  const createPrFromIndent = async () => {
+    try {
+      if (!selected) throw new Error("Open an indent request first");
+      const shortageItems = items.map((item) => {
+        const availableQty = num(stockFor(item)?.quantity);
+        const requested = num(item.quantity);
+        const allotted = item.assignedquantity === "" || item.assignedquantity === undefined ? Math.min(requested, Math.max(availableQty, 0)) : num(item.assignedquantity);
+        const shortage = Math.max(requested - Math.min(allotted, availableQty), 0);
+        return { ...item, quantity: shortage, estimatedtotal: shortage * num(item.estimatedprice), remarks: item.remarks || `Shortage from indent ${selected.requestno || selected.reqid || ""}` };
+      }).filter((item) => num(item.quantity) > 0);
+      if (!shortageItems.length) throw new Error("No shortage found for this indent");
+      const prnumber = key("PR");
+      const header = await saveRow("storeprrequestds2", {
+        prnumber,
+        storeid: selected.storeid,
+        storename: selected.store || selected.storename,
+        departmentname: selected.departmentname,
+        requestdate: today(),
+        requestedby: currentName(),
+        requestedbyemail: currentUser(),
+        priority: "Normal",
+        status: "Submitted",
+        sourceindentid: selected._id,
+        sourceindentno: selected.requestno || selected.reqid,
+        totalamount: shortageItems.reduce((sum, item) => sum + num(item.estimatedtotal), 0),
+        remarks: `Created from shortage in indent ${selected.requestno || selected.reqid || selected._id}`
+      });
+      await Promise.all(shortageItems.map((item) => saveRow("storeprrequestitemsds2", { ...item, prnumber, prrequestid: header._id, sourceindentid: selected._id, sourceindentno: selected.requestno || selected.reqid, estimatedtotal: num(item.quantity) * num(item.estimatedprice) })));
+      const updated = await updateRow("storerequisitionds2", selected, { prnumber, shortageprstatus: "PR Created" });
+      setSelected(updated);
+      setMessage(`PR ${prnumber} created for shortage items`);
+      setPrPrintData({ header, items: shortageItems });
+      await load();
+    } catch (err) {
+      setError(err.message || "Unable to create PR from indent");
+    }
+  };
   return (
     <Page title="Indent Approval and Item Allotment" subtitle="Approve indent requests for assigned stores, allot available quantities, and print the allotment document." message={message} error={error || basicsError}>
       <Paper sx={{ p: 2 }}><Button startIcon={<Refresh />} onClick={load}>Refresh</Button><DataGrid sx={{ mt: 1 }} autoHeight rows={requests.map((r) => ({ ...r, id: r._id }))} columns={[{ field: "reqdate", headerName: "Date", width: 130 }, { field: "requestno", headerName: "Indent No", width: 170 }, { field: "departmentname", headerName: "Department", width: 180 }, { field: "requestedby", headerName: "Requested By", width: 180 }, { field: "store", headerName: "Store", width: 180 }, { field: "reqstatus", headerName: "Status", width: 150 }, { field: "actions", headerName: "Allot Items", width: 150, renderCell: (p) => <Button size="small" variant="contained" onClick={() => open(p.row)}>Allot items</Button> }]} slots={{ toolbar: GridToolbar }} /></Paper>
-      {selected && <Paper sx={{ p: 2, mt: 2 }}><Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}><Box><Typography variant="h6">Allot items for {selected.requestno || selected.reqid || selected._id}</Typography><Typography variant="body2" color="text.secondary">Enter an allotted quantity equal to or less than requested quantity and available stock.</Typography></Box><Chip label={selected.reqstatus || selected.status || "Open"} /></Stack><DataGrid autoHeight rows={items.map((item, i) => { const available = stockFor(item); const availableQty = num(available?.quantity); const previousQty = item.assignedquantity || item.issuedquantity || item.approvedquantity; return { ...item, id: i, available: availableQty, assignedquantity: previousQty === undefined || previousQty === "" ? Math.min(num(item.quantity), availableQty) : previousQty }; })} columns={[{ field: "itemcode", headerName: "Code", width: 130 }, { field: "itemname", headerName: "Item", flex: 1, minWidth: 220 }, { field: "unit", headerName: "Unit", width: 90 }, { field: "quantity", headerName: "Requested", width: 120 }, { field: "available", headerName: "Available", width: 120 }, { field: "assignedquantity", headerName: "Allotted Qty", width: 150, editable: true, type: "number" }, { field: "remarks", headerName: "Remarks", flex: 1, editable: true }]} processRowUpdate={(row) => { setItems(items.map((it, idx) => idx === row.id ? { ...it, assignedquantity: num(row.assignedquantity), approvedquantity: num(row.assignedquantity), remarks: row.remarks || "" } : it)); return row; }} /><Stack direction="row" spacing={1} sx={{ mt: 2 }}><Button variant="contained" onClick={issue}>Approve and allot items</Button><Button startIcon={<Print />} variant="outlined" disabled={!printData} onClick={() => printPurchase2("indent", printData)}>Print allotment</Button></Stack></Paper>}
+      {selected && <Paper sx={{ p: 2, mt: 2 }}><Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}><Box><Typography variant="h6">Allot items for {selected.requestno || selected.reqid || selected._id}</Typography><Typography variant="body2" color="text.secondary">Enter an allotted quantity equal to or less than requested quantity and available stock.</Typography></Box><Chip label={selected.reqstatus || selected.status || "Open"} /></Stack><DataGrid autoHeight rows={items.map((item, i) => { const available = stockFor(item); const availableQty = num(available?.quantity); const previousQty = item.assignedquantity || item.issuedquantity || item.approvedquantity; return { ...item, id: i, available: availableQty, shortage: Math.max(num(item.quantity) - availableQty, 0), assignedquantity: previousQty === undefined || previousQty === "" ? Math.min(num(item.quantity), availableQty) : previousQty }; })} columns={[{ field: "itemcode", headerName: "Code", width: 130 }, { field: "itemname", headerName: "Item", flex: 1, minWidth: 220 }, { field: "unit", headerName: "Unit", width: 90 }, { field: "quantity", headerName: "Requested", width: 120 }, { field: "available", headerName: "Available", width: 120 }, { field: "shortage", headerName: "Shortage", width: 120 }, { field: "assignedquantity", headerName: "Allotted Qty", width: 150, editable: true, type: "number" }, { field: "remarks", headerName: "Remarks", flex: 1, editable: true }]} processRowUpdate={(row) => { setItems(items.map((it, idx) => idx === row.id ? { ...it, assignedquantity: num(row.assignedquantity), approvedquantity: num(row.assignedquantity), remarks: row.remarks || "" } : it)); return row; }} /><Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: "wrap" }}><Button variant="contained" onClick={issue}>Approve and allot items</Button><Button variant="outlined" color="warning" onClick={createPrFromIndent}>Create PR from shortage</Button><Button startIcon={<Print />} variant="outlined" disabled={!prPrintData} onClick={() => printPurchase2("pr", prPrintData)}>Print shortage PR</Button><Button startIcon={<Print />} variant="outlined" disabled={!printData} onClick={() => printPurchase2("indent", printData)}>Print allotment</Button></Stack></Paper>}
     </Page>
   );
 }
@@ -493,9 +660,22 @@ export function Purchase2PoAssignmentPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const load = async () => {
-    const [prRows, userRes] = await Promise.all([getRows("storeprrequestds2"), ep1.get("/api/v2/hrattendance/options", { params: { colid: global1.colid } })]);
+    const [prRows, hierarchyRes] = await Promise.all([
+      getRows("storeprrequestds2"),
+      ep1.get("/api/v2/hr-advanced/hierarchy", { params: { colid: global1.colid } })
+    ]);
     setPrs(prRows);
-    setUsers(userRes.data?.users || []);
+    const userMap = new Map();
+    (hierarchyRes.data?.data || []).forEach((row) => {
+      [
+        { name: row.employeename, email: row.employeeemail, department: row.department },
+        { name: row.managername, email: row.manageremail, department: row.managerdepartment || row.department }
+      ].forEach((user) => {
+        const email = text(user.email).toLowerCase();
+        if (email) userMap.set(email, { ...user, user: user.email });
+      });
+    });
+    setUsers([...userMap.values()].sort((a, b) => text(a.name).localeCompare(text(b.name))));
   };
   useEffect(() => { load(); }, []);
   const assign = async () => {
@@ -513,9 +693,14 @@ export function Purchase2PoAssignmentPage() {
 }
 
 export function Purchase2LocalPoPage() {
+  const { stores, basicsError } = usePurchase2Basics();
   const [vendors, setVendors] = useState([]);
   const [vendor, setVendor] = useState(null);
+  const [store, setStore] = useState(null);
   const [make, setMake] = useState("");
+  const [amount, setAmount] = useState("");
+  const [gst, setGst] = useState("");
+  const [discount, setDiscount] = useState("");
   const [terms, setTerms] = useState("");
   const [remarks, setRemarks] = useState("");
   const [items, setItems] = useState([]);
@@ -527,9 +712,11 @@ export function Purchase2LocalPoPage() {
     setVendors(ven);
   };
   useEffect(() => { load(); }, []);
+  useEffect(() => { if (!store && stores.length) setStore(stores[0]); }, [stores, store]);
   const createPo = async () => {
     try {
       if (!vendor || !items.length) throw new Error("Select vendor and add items");
+      if (!store) throw new Error("Select assigned store");
       const poid = key("PO");
       const priced = await Promise.all(items.map(async (item) => {
         const rates = await getRows("vendoritemsds2", [{ field: "vendorid", value: vendor._id }, { field: "itemid", value: item.itemid }]);
@@ -537,15 +724,20 @@ export function Purchase2LocalPoPage() {
         const detail = rates[0] || {};
         return { ...item, make: item.make || make, price: rate, gst: detail.gst || item.gst || 0, discount: detail.discount || 0, terms: detail.terms || "", warranty: detail.warranty || "", total: calcLineTotal({ ...item, price: rate, gst: detail.gst, discount: detail.discount }) };
       }));
-      const total = priced.reduce((sum, item) => sum + num(item.total), 0);
+      const itemTotal = priced.reduce((sum, item) => sum + num(item.total), 0);
+      const baseAmount = amount === "" ? itemTotal : num(amount);
+      const gstAmount = baseAmount * (num(gst) / 100);
+      const total = Number((baseAmount + gstAmount - num(discount)).toFixed(2));
       const signature = await getUserSignature();
-      const header = await saveRow("storepoorderds2", { poid, year: "2026-27", vendor: vendor.vendorname, vendorid: vendor._id, price: total, netprice: total, actualAmount: total, poType: "Local", postatus: "Draft", approvalStatus: "Draft", deliveryType: "Physical Delivery", terms, remarks, creatorName: currentName(), creatorEmail: currentUser(), creatorSignature: signature.signaturelink || "", description: "Local PO" });
-      await Promise.all(priced.map((item) => saveRow("storepoitemsds2", { ...item, poid, vendor: vendor.vendorname, vendorid: vendor._id, postatus: "Draft" })));
+      const storeName = store.storename || store.store || store.name || "";
+      const storeId = store._id || store.storeid || "";
+      const header = await saveRow("storepoorderds2", { poid, year: "2026-27", vendor: vendor.vendorname, vendorid: vendor._id, storeid: storeId, storename: storeName, store: storeName, price: baseAmount, amount: baseAmount, gst: num(gst), discount: num(discount), netprice: total, actualAmount: total, poType: "Local", postatus: "Draft", approvalStatus: "Draft", deliveryType: "Physical Delivery", terms, remarks, creatorName: currentName(), creatorEmail: currentUser(), creatorSignature: signature.signaturelink || "", description: "Local PO" });
+      await Promise.all(priced.map((item) => saveRow("storepoitemsds2", { ...item, poid, vendor: vendor.vendorname, vendorid: vendor._id, storeid: storeId, storename: storeName, postatus: "Draft" })));
       setMessage("Local PO created as draft");
-      setPrintData({ header: { ...vendor, ...header, terms, remarks }, items: priced });
+      setPrintData({ header: { ...vendor, ...header, store: storeName, storename: storeName, terms, remarks }, items: priced });
     } catch (err) { setError(err.message); }
   };
-  return <Page title="Local PO Creation" subtitle="Create local purchase orders directly from item master and one selected vendor." message={message} error={error}><Paper sx={{ p: 2, mb: 2 }}><Stack direction={{ xs: "column", md: "row" }} spacing={2} flexWrap="wrap"><Autocomplete sx={{ minWidth: 320 }} options={vendors} getOptionLabel={(o) => o.vendorname || o.name || ""} value={vendor} onChange={(_, v) => setVendor(v)} renderInput={(params) => <TextField {...params} label="Vendor" size="small" />} /><TextField size="small" label="Make" value={make} onChange={(e) => setMake(e.target.value)} /><TextField size="small" label="Terms and conditions" value={terms} onChange={(e) => setTerms(e.target.value)} /><TextField size="small" label="Remarks" value={remarks} onChange={(e) => setRemarks(e.target.value)} /><Button variant="contained" onClick={createPo}>Create PO Draft</Button><Button startIcon={<Print />} variant="outlined" disabled={!printData} onClick={() => printPurchase2("localPo", printData)}>Print local PO</Button></Stack></Paper><ItemsEditor items={items} setItems={setItems} showMake showPrice showUnit /></Page>;
+  return <Page title="Local PO Creation" subtitle="Create local purchase orders directly from item master and one selected vendor." message={message} error={error || basicsError}><Paper sx={{ p: 2, mb: 2 }}><Grid container spacing={2}><Grid item xs={12} md={4}><Autocomplete options={vendors} getOptionLabel={(o) => o.vendorname || o.name || ""} value={vendor} onChange={(_, v) => setVendor(v)} renderInput={(params) => <TextField {...params} label="Vendor" size="small" />} /></Grid><Grid item xs={12} md={4}><Autocomplete options={stores} getOptionLabel={(o) => o.storename || o.store || o.name || ""} value={store} onChange={(_, v) => setStore(v)} renderInput={(params) => <TextField {...params} label="Assigned store" size="small" />} /></Grid><Grid item xs={12} md={4}><TextField size="small" label="Make" value={make} onChange={(e) => setMake(e.target.value)} fullWidth /></Grid><Grid item xs={12} md={3}><TextField size="small" type="number" label="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} fullWidth /></Grid><Grid item xs={12} md={3}><TextField size="small" type="number" label="GST %" value={gst} onChange={(e) => setGst(e.target.value)} fullWidth /></Grid><Grid item xs={12} md={3}><TextField size="small" type="number" label="Discount amount" value={discount} onChange={(e) => setDiscount(e.target.value)} fullWidth /></Grid><Grid item xs={12} md={3}><TextField size="small" label="Remarks" value={remarks} onChange={(e) => setRemarks(e.target.value)} fullWidth /></Grid><Grid item xs={12}><TextField size="small" label="Terms and conditions" value={terms} onChange={(e) => setTerms(e.target.value)} multiline minRows={4} fullWidth /></Grid><Grid item xs={12}><Stack direction="row" spacing={1} flexWrap="wrap"><Button variant="contained" onClick={createPo}>Create PO Draft</Button><Button startIcon={<Print />} variant="outlined" disabled={!printData} onClick={() => printPurchase2("localPo", printData)}>Print local PO</Button></Stack></Grid></Grid></Paper><ItemsEditor items={items} setItems={setItems} showMake showPrice showUnit /></Page>;
 }
 
 export function Purchase2StoreItemUserPage() {
@@ -756,6 +948,195 @@ export function Purchase2ManagePoCreatorPage() {
   return <Purchase2ManagePoPage />;
 }
 
+const reportDate = (value) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return text(value) || "-";
+  return date.toLocaleDateString("en-IN");
+};
+const reportDateTime = (value) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return text(value) || "-";
+  return date.toLocaleString("en-IN");
+};
+const money = (value) => Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const printPoDetailReport = async ({ po = {}, poItems = [], pr = {}, prItems = [], approvals = [], stockRows = [], summary = {} }) => {
+  const institution = await loadPrintInstitution();
+  const logo = institution.logo || institution.logolink || institution.logoUrl || institution.logourl || "";
+  const instName = institution.institutionname || institution.institution || institution.nameofinstitution || institution.name || global1.insname || "Institution";
+  const address = institution.address || institution.institutionaddress || institution.address1 || "";
+  const meta = [institution.phone || institution.mobile || institution.contact, institution.email || institution.emailid, institution.website].filter(Boolean).join(" | ");
+  const rows = (poItems || []).map((item, index) => {
+    const stock = stockRows.find((s) => text(s.itemcode).toLowerCase() === text(item.itemcode).toLowerCase() || text(s.itemid) === text(item.itemid)) || {};
+    return `<tr><td>${index + 1}</td><td>${esc(item.itemcode)}</td><td>${esc(item.itemname)}</td><td>${esc(item.make)}</td><td>${esc(item.unit)}</td><td>${esc(item.quantity)}</td><td>${esc(item.price)}</td><td>${esc(item.gst)}</td><td>${esc(item.total)}</td><td>${esc(stock.storename || stock.store)}</td><td>${esc(stock.quantity)}</td><td>${esc(item.comments || item.remarks)}</td></tr>`;
+  }).join("");
+  const prRows = (prItems || []).map((item, index) => `<tr><td>${index + 1}</td><td>${esc(item.itemcode)}</td><td>${esc(item.itemname)}</td><td>${esc(item.quantity)}</td><td>${esc(item.estimatedprice)}</td><td>${esc(item.estimatedtotal)}</td><td>${esc(item.remarks)}</td></tr>`).join("");
+  const approvalRows = (approvals || []).map((row, index) => `<tr><td>${index + 1}</td><td>${esc(row.level)}</td><td>${esc(row.approvername)}</td><td>${esc(row.approveremail)}</td><td>${esc(row.status)}</td><td>${esc(reportDateTime(row.approvaldate || row.createdAt))}</td><td>${esc(row.remarks)}</td></tr>`).join("");
+  const win = window.open("", "_blank", "width=1200,height=850");
+  if (!win) return;
+  win.document.write(`<!doctype html><html><head><title>Purchase 2 PO Report</title><style>
+    @page{size:A4 portrait;margin:12mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#000;background:#f3f4f6;margin:0}.toolbar{max-width:1120px;margin:12px auto;text-align:right}.toolbar button{border:1px solid #111;background:#fff;color:#000;padding:8px 14px;border-radius:4px;font-weight:700}.sheet{width:210mm;min-height:297mm;background:#fff;margin:0 auto 18px;padding:13mm;box-shadow:0 8px 24px rgba(0,0,0,.12)}.header{text-align:center;border:1.5px solid #000;padding:10px;position:relative}.logo{position:absolute;left:12px;top:8px;width:62px;height:62px;object-fit:contain}.inst{font-size:20px;font-weight:900}.title{font-size:17px;font-weight:900;text-decoration:underline;margin-top:8px}.grid{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid #000;border-bottom:0;margin:10px 0}.cell{border-right:1px solid #000;border-bottom:1px solid #000;padding:6px;font-size:11px;min-height:38px}.cell:nth-child(4n){border-right:0}.cell span{display:block;font-weight:800}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0}.card{border:1px solid #000;padding:8px;font-size:11px}.card strong{display:block;font-size:16px;margin-top:3px}h3{font-size:14px;margin:14px 0 6px}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #000;padding:5px;font-size:10.5px;vertical-align:top;overflow-wrap:anywhere}th{font-weight:900;background:#fff}.remarks{border:1px solid #000;min-height:42px;margin-top:10px;padding:8px;font-size:11px}.sign{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:28px}.sign div{border-top:1px solid #000;padding-top:6px;text-align:center;font-size:11px}@media print{body{background:#fff}.toolbar{display:none}.sheet{box-shadow:none;margin:0;width:auto;min-height:auto;padding:0}tr{break-inside:avoid}thead{display:table-header-group}}
+  </style></head><body><div class="toolbar"><button onclick="window.print()">Print</button><button onclick="window.close()">Close</button></div><main class="sheet">
+    <div class="header">${logo ? `<img class="logo" src="${esc(logo)}" />` : ""}<div class="inst">${esc(instName)}</div><div>${esc(address)}</div><div>${esc(meta)}</div><div class="title">PURCHASE ORDER DETAIL REPORT</div></div>
+    <div class="cards"><div class="card">PO Amount<strong>${money(summary.totalAmount)}</strong></div><div class="card">Items<strong>${summary.totalItems || 0}</strong></div><div class="card">Approved Stock<strong>${summary.availableItems || 0}</strong></div><div class="card">Short Stock<strong>${summary.shortItems || 0}</strong></div></div>
+    <div class="grid">
+      <div class="cell"><span>PO No</span>${esc(po.poid)}</div><div class="cell"><span>PO Date/Raised</span>${esc(reportDateTime(po.createdAt || po.updatedate))}</div><div class="cell"><span>Status</span>${esc(po.postatus || po.approvalStatus)}</div><div class="cell"><span>Vendor</span>${esc(po.vendor)}</div>
+      <div class="cell"><span>PR No</span>${esc(po.prnumber || pr.prnumber)}</div><div class="cell"><span>PR Raised</span>${esc(reportDateTime(pr.createdAt || pr.requestdate || pr.reqdate))}</div><div class="cell"><span>PR Raised By</span>${esc(pr.requestedby || pr.name)}</div><div class="cell"><span>PR User</span>${esc(pr.requestedbyemail || pr.user)}</div>
+      <div class="cell"><span>Store</span>${esc(po.storename || pr.storename)}</div><div class="cell"><span>Department</span>${esc(pr.departmentname || po.departmentname)}</div><div class="cell"><span>Approved On</span>${esc(reportDateTime((approvals || []).slice(-1)[0]?.approvaldate || po.updatedAt))}</div><div class="cell"><span>Generated By</span>${esc(currentName())}</div>
+    </div>
+    <h3>PO Items And Stock Status</h3><table><thead><tr><th>Sr</th><th>Code</th><th>Item</th><th>Make</th><th>Unit</th><th>PO Qty</th><th>Rate</th><th>GST</th><th>Total</th><th>Store</th><th>Stock</th><th>Remarks</th></tr></thead><tbody>${rows || `<tr><td colspan="12">No items available</td></tr>`}</tbody></table>
+    <h3>Associated PR Details</h3><table><thead><tr><th>Sr</th><th>Code</th><th>Item</th><th>Qty</th><th>Approx Rate</th><th>Approx Total</th><th>Remarks</th></tr></thead><tbody>${prRows || `<tr><td colspan="7">No PR item details available</td></tr>`}</tbody></table>
+    <h3>Approval Details</h3><table><thead><tr><th>Sr</th><th>Level</th><th>Approver</th><th>Email</th><th>Status</th><th>Date</th><th>Remarks</th></tr></thead><tbody>${approvalRows || `<tr><td colspan="7">No approval records available</td></tr>`}</tbody></table>
+    <div class="remarks"><strong>Terms:</strong><br />${esc(po.terms)}<br /><br /><strong>Warranty:</strong><br />${esc(po.warranty)}</div>
+    <div class="sign"><div>Prepared By</div><div>Checked By</div><div>Approved By</div><div>Store In-charge</div></div>
+  </main></body></html>`);
+  win.document.close();
+  win.focus();
+};
+
+export function Purchase2PoDetailReportPage() {
+  const [rows, setRows] = useState([]);
+  const [filtered, setFiltered] = useState([]);
+  const [filters, setFilters] = useState([]);
+  const [draft, setDraft] = useState({ field: "poid", value: "" });
+  const [dateRange, setDateRange] = useState({ from: "", to: "" });
+  const [selectedPo, setSelectedPo] = useState(null);
+  const [poItems, setPoItems] = useState([]);
+  const [pr, setPr] = useState({});
+  const [prItems, setPrItems] = useState([]);
+  const [approvals, setApprovals] = useState([]);
+  const [stockRows, setStockRows] = useState([]);
+  const [error, setError] = useState("");
+  const fields = ["poid", "prnumber", "vendor", "postatus", "approvalStatus", "poType", "storename", "year", "creatorName", "creatorEmail"];
+  const load = async () => {
+    try {
+      const poRows = await getRows("storepoorderds2");
+      setRows(poRows);
+      setFiltered(poRows);
+    } catch (err) {
+      setError(err.message || "Unable to load PO records");
+    }
+  };
+  useEffect(() => { load(); }, []);
+  const applyFilters = () => {
+    const from = dateRange.from ? new Date(dateRange.from) : null;
+    const to = dateRange.to ? new Date(`${dateRange.to}T23:59:59`) : null;
+    setFiltered(rows.filter((row) => {
+      const rowDate = new Date(row.createdAt || row.updatedate || row.reqdate || row.updatedAt || 0);
+      const inDate = (!from || rowDate >= from) && (!to || rowDate <= to);
+      const inFilters = filters.every((filter) => text(row[filter.field]).toLowerCase().includes(text(filter.value).toLowerCase()));
+      return inDate && inFilters;
+    }));
+  };
+  useEffect(() => { applyFilters(); }, [rows]);
+  const openPo = async (po) => {
+    setSelectedPo(po);
+    if (!po) {
+      setPoItems([]);
+      setPr({});
+      setPrItems([]);
+      setApprovals([]);
+      setStockRows([]);
+      return;
+    }
+    const [items, prRows, approvalRows, stock] = await Promise.all([
+      getRows("storepoitemsds2", [{ field: "poid", value: po.poid }]),
+      po.prnumber ? getRows("storeprrequestds2", [{ field: "prnumber", value: po.prnumber }]) : Promise.resolve([]),
+      getRows("storepoapprovalds2", [{ field: "poid", value: po.poid }]),
+      getRows("storeitemsds2")
+    ]);
+    const prHeader = prRows[0] || {};
+    const childPrItems = po.prnumber ? await getRows("storeprrequestitemsds2", [{ field: "prnumber", value: po.prnumber }]) : [];
+    setPoItems(items);
+    setPr(prHeader);
+    setPrItems(childPrItems);
+    setApprovals(approvalRows);
+    setStockRows(stock.filter((stockRow) => items.some((item) => text(stockRow.itemcode).toLowerCase() === text(item.itemcode).toLowerCase() || text(stockRow.itemid) === text(item.itemid))));
+  };
+  const summary = useMemo(() => {
+    const totalAmount = poItems.reduce((sum, item) => sum + num(item.total || (num(item.price) * num(item.quantity))), 0);
+    const shortItems = poItems.filter((item) => {
+      const stock = stockRows.find((s) => text(s.itemcode).toLowerCase() === text(item.itemcode).toLowerCase() || text(s.itemid) === text(item.itemid));
+      return num(stock?.quantity) < num(item.quantity);
+    }).length;
+    return { totalAmount, totalItems: poItems.length, availableItems: poItems.length - shortItems, shortItems, approvals: approvals.length };
+  }, [poItems, stockRows, approvals]);
+  const stockChart = poItems.map((item) => {
+    const stock = stockRows.find((s) => text(s.itemcode).toLowerCase() === text(item.itemcode).toLowerCase() || text(s.itemid) === text(item.itemid)) || {};
+    return { name: item.itemcode || item.itemname || "Item", po: num(item.quantity), stock: num(stock.quantity) };
+  });
+  const statusChart = [
+    { name: "Available", value: summary.availableItems },
+    { name: "Short", value: summary.shortItems }
+  ];
+  const valueOptions = Array.from(new Set(rows.map((row) => text(row[draft.field])).filter(Boolean))).sort();
+  const addFilter = () => {
+    if (!draft.field || !draft.value) return;
+    setFilters((prev) => [...prev, draft]);
+    setDraft((prev) => ({ ...prev, value: "" }));
+  };
+  return (
+    <Page title="Purchase 2 PO Detail Report" subtitle="Search any PO, view its PR, approval, store and stock details, and print the complete report." error={error}>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} md={2}><TextField size="small" type="date" label="From date" value={dateRange.from} InputLabelProps={{ shrink: true }} onChange={(e) => setDateRange((p) => ({ ...p, from: e.target.value }))} fullWidth /></Grid>
+          <Grid item xs={12} md={2}><TextField size="small" type="date" label="To date" value={dateRange.to} InputLabelProps={{ shrink: true }} onChange={(e) => setDateRange((p) => ({ ...p, to: e.target.value }))} fullWidth /></Grid>
+          <Grid item xs={12} md={2}><Autocomplete options={fields} value={draft.field} onChange={(_, value) => setDraft({ field: value || "poid", value: "" })} renderInput={(params) => <TextField {...params} label="Filter field" size="small" />} /></Grid>
+          <Grid item xs={12} md={3}><Autocomplete freeSolo options={valueOptions} value={draft.value} onInputChange={(_, value) => setDraft((p) => ({ ...p, value }))} renderInput={(params) => <TextField {...params} label="Filter value" size="small" />} /></Grid>
+          <Grid item xs={12} md={3}><Stack direction="row" spacing={1}><Button variant="outlined" onClick={addFilter}>Add filter</Button><Button variant="contained" onClick={applyFilters}>Apply</Button><Button onClick={() => { setFilters([]); setDateRange({ from: "", to: "" }); setFiltered(rows); }}>Clear</Button></Stack></Grid>
+        </Grid>
+        {!!filters.length && <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>Filters: {filters.map((f) => `${f.field}: ${f.value}`).join(", ")}</Typography>}
+      </Paper>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Typography variant="h6" fontWeight={800}>PO list</Typography>
+        <DataGrid autoHeight rows={filtered.map((row) => ({ ...row, id: row._id }))} columns={[
+          { field: "poid", headerName: "PO No", width: 160 },
+          { field: "createdAt", headerName: "Raised", width: 170, valueGetter: (params) => reportDate(params.row.createdAt || params.row.updatedate) },
+          { field: "prnumber", headerName: "PR No", width: 150 },
+          { field: "vendor", headerName: "Vendor", flex: 1, minWidth: 180 },
+          { field: "postatus", headerName: "PO Status", width: 130 },
+          { field: "approvalStatus", headerName: "Approval", width: 130 },
+          { field: "actualAmount", headerName: "Amount", width: 130 },
+          { field: "actions", headerName: "Select", width: 110, renderCell: (params) => <Button size="small" variant="contained" onClick={() => openPo(params.row)}>Select</Button> }
+        ]} slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true } }} />
+      </Paper>
+      {selectedPo && <>
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          {[["PO Amount", money(summary.totalAmount)], ["PO Items", summary.totalItems], ["Stock Available", summary.availableItems], ["Stock Short", summary.shortItems], ["Approvals", summary.approvals]].map(([label, value]) => (
+            <Grid item xs={12} sm={6} md={2.4} key={label}><Paper sx={{ p: 2, borderRadius: 2, height: "100%" }}><Typography variant="body2" color="text.secondary">{label}</Typography><Typography variant="h5" fontWeight={900}>{value}</Typography></Paper></Grid>
+          ))}
+        </Grid>
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid item xs={12} md={8}><Paper sx={{ p: 2, height: 320 }}><Typography variant="h6">PO quantity vs stock</Typography><ResponsiveContainer width="100%" height="85%"><BarChart data={stockChart}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip /><Legend /><Bar dataKey="po" name="PO Qty" fill="#2563eb" /><Bar dataKey="stock" name="Store Stock" fill="#16a34a" /></BarChart></ResponsiveContainer></Paper></Grid>
+          <Grid item xs={12} md={4}><Paper sx={{ p: 2, height: 320 }}><Typography variant="h6">Stock status</Typography><ResponsiveContainer width="100%" height="85%"><PieChart><Pie data={statusChart} dataKey="value" nameKey="name" outerRadius={92} label>{statusChart.map((entry, index) => <Cell key={entry.name} fill={index === 0 ? "#16a34a" : "#dc2626"} />)}</Pie><Tooltip /><Legend /></PieChart></ResponsiveContainer></Paper></Grid>
+        </Grid>
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}><Typography variant="h6" fontWeight={800}>Selected PO: {selectedPo.poid}</Typography><Button startIcon={<Print />} variant="contained" onClick={() => printPoDetailReport({ po: selectedPo, poItems, pr, prItems, approvals, stockRows, summary })}>Print preview</Button></Stack>
+          <Grid container spacing={2}>
+            {[
+              ["Raised", reportDateTime(selectedPo.createdAt || selectedPo.updatedate)],
+              ["Vendor", selectedPo.vendor],
+              ["PO Status", selectedPo.postatus],
+              ["Approval Status", selectedPo.approvalStatus],
+              ["PR No", selectedPo.prnumber || pr.prnumber],
+              ["PR Raised By", pr.requestedby || pr.name],
+              ["PR Raised Date", reportDateTime(pr.createdAt || pr.requestdate || pr.reqdate)],
+              ["Store", selectedPo.storename || pr.storename],
+              ["Department", pr.departmentname || selectedPo.departmentname],
+              ["Terms", selectedPo.terms],
+              ["Warranty", selectedPo.warranty]
+            ].map(([label, value]) => <Grid item xs={12} md={3} key={label}><Typography variant="caption" color="text.secondary">{label}</Typography><Typography fontWeight={700}>{value || "-"}</Typography></Grid>)}
+          </Grid>
+        </Paper>
+        <Paper sx={{ p: 2, mb: 2 }}><Typography variant="h6">PO items with store stock</Typography><DataGrid autoHeight rows={poItems.map((item, index) => { const stock = stockRows.find((s) => text(s.itemcode).toLowerCase() === text(item.itemcode).toLowerCase() || text(s.itemid) === text(item.itemid)) || {}; return { ...item, id: item._id || index, stockstore: stock.storename || stock.store || "-", stockquantity: stock.quantity ?? 0, stockstatus: num(stock.quantity) >= num(item.quantity) ? "Available" : "Short" }; })} columns={[{ field: "itemcode", headerName: "Code", width: 130 }, { field: "itemname", headerName: "Item", flex: 1, minWidth: 220 }, { field: "make", headerName: "Make", width: 130 }, { field: "unit", headerName: "Unit", width: 90 }, { field: "quantity", headerName: "PO Qty", width: 110 }, { field: "price", headerName: "Rate", width: 110 }, { field: "total", headerName: "Total", width: 120 }, { field: "stockstore", headerName: "Stock Store", width: 160 }, { field: "stockquantity", headerName: "Stock Qty", width: 120 }, { field: "stockstatus", headerName: "Stock Status", width: 130 }]} slots={{ toolbar: GridToolbar }} /></Paper>
+        <Paper sx={{ p: 2, mb: 2 }}><Typography variant="h6">Associated PR items</Typography><DataGrid autoHeight rows={prItems.map((item, index) => ({ ...item, id: item._id || index }))} columns={[{ field: "itemcode", headerName: "Code", width: 130 }, { field: "itemname", headerName: "Item", flex: 1 }, { field: "quantity", headerName: "Qty", width: 100 }, { field: "estimatedprice", headerName: "Approx Rate", width: 130 }, { field: "estimatedtotal", headerName: "Approx Total", width: 140 }, { field: "remarks", headerName: "Remarks", flex: 1 }]} slots={{ toolbar: GridToolbar }} /></Paper>
+        <Paper sx={{ p: 2 }}><Typography variant="h6">Approval details</Typography><DataGrid autoHeight rows={approvals.map((row, index) => ({ ...row, id: row._id || index }))} columns={[{ field: "level", headerName: "Level", width: 100 }, { field: "approvername", headerName: "Approver", flex: 1 }, { field: "approveremail", headerName: "Email", flex: 1 }, { field: "status", headerName: "Status", width: 130 }, { field: "approvaldate", headerName: "Approval Date", width: 150, valueGetter: (params) => reportDate(params.row.approvaldate || params.row.createdAt) }, { field: "remarks", headerName: "Remarks", flex: 1 }]} slots={{ toolbar: GridToolbar }} /></Paper>
+      </>}
+    </Page>
+  );
+}
+
 export function UserSignatureUploadPage() {
   const [rows, setRows] = useState([]);
   const [configs, setConfigs] = useState([]);
@@ -802,56 +1183,264 @@ export function UserSignatureUploadPage() {
 }
 
 export function Purchase2GatePassPage() {
-  const [pos, setPos] = useState([]);
+  const [sources, setSources] = useState([]);
   const [selected, setSelected] = useState(null);
   const [items, setItems] = useState([]);
-  const [form, setForm] = useState({ receiveddate: today(), vehicle: "", challanno: "", invoiceno: "", remarks: "" });
+  const [direction, setDirection] = useState("Inward");
+  const [sourceType, setSourceType] = useState("PO");
+  const [form, setForm] = useState({ receiveddate: today(), vehicleno: "", drivername: "", drivercontact: "", invoiceno: "", remarks: "", remarktype: "Non countable" });
+  const [attachment, setAttachment] = useState(null);
   const [printData, setPrintData] = useState(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  useEffect(() => { getRows("storepoorderds2").then((rows) => setPos(rows.filter((po) => ["Approved", "Delivery Scheduled"].includes(po.approvalStatus) || ["Approved", "Delivery Scheduled"].includes(po.postatus)))); }, []);
-  const open = async (po) => { setSelected(po); setItems(await getRows("storepoitemsds2", [{ field: "poid", value: po.poid }])); };
+  const sourceOptions = direction === "Inward" ? ["PO", "LPO"] : ["Internal Movement", "Returnable Goods", "Non returnable Goods"];
+  const loadSources = async () => {
+    try {
+      setError("");
+      setSelected(null);
+      setItems([]);
+      setPrintData(null);
+      if (direction === "Inward") {
+        const rows = await getRows("storepoorderds2");
+        const approved = rows.filter((po) => ["approved", "delivery scheduled"].includes(text(po.approvalStatus).toLowerCase()) || ["approved", "delivery scheduled"].includes(text(po.postatus).toLowerCase()));
+        setSources(approved.filter((po) => sourceType === "LPO" ? text(po.poType).toLowerCase() === "local" : text(po.poType).toLowerCase() !== "local"));
+      } else if (sourceType === "Internal Movement") {
+        const rows = await getRows("storepoorderds2");
+        setSources(rows.filter((po) => ["approved", "delivery scheduled"].includes(text(po.approvalStatus).toLowerCase()) || ["approved", "delivery scheduled"].includes(text(po.postatus).toLowerCase())));
+      } else {
+        const rows = await getRows("storequalitycheckds2");
+        const returnType = sourceType === "Returnable Goods" ? "Returnable" : "Non Returnable";
+        setSources(rows.filter((qc) => text(qc.returncategory).toLowerCase() === returnType.toLowerCase() && num(qc.returnedquantity || qc.totalreturnedquantity || qc.rejectedquantity || qc.totalrejectedquantity) > 0));
+      }
+    } catch (err) {
+      setError(err.message || "Unable to load source documents");
+    }
+  };
+  useEffect(() => { loadSources(); }, [direction, sourceType]);
+  const open = async (source) => {
+    setSelected(source);
+    setPrintData(null);
+    if (!source) {
+      setItems([]);
+      return;
+    }
+    if (direction === "Outward" && sourceType !== "Internal Movement") {
+      const qcItems = await getRows("storequalitycheckitemsds2", [{ field: "qcno", value: source.qcno }]);
+      setItems(qcItems.filter((item) => num(item.returnedquantity || item.rejectedquantity) > 0).map((item) => ({
+        ...item,
+        orderedquantity: item.orderedquantity || item.quantity || item.receivedquantity,
+        receivedquantity: item.returnedquantity || item.rejectedquantity,
+        gatepassquantity: item.returnedquantity || item.rejectedquantity
+      })));
+      return;
+    }
+    const poItems = await getRows("storepoitemsds2", [{ field: "poid", value: source.poid }]);
+    setItems(poItems.map((item) => ({
+      ...item,
+      orderedquantity: item.quantity,
+      receivedquantity: form.remarktype === "Countable" ? "" : item.quantity,
+      gatepassquantity: form.remarktype === "Countable" ? "" : item.quantity
+    })));
+  };
+  const documentLabel = (row = {}) => {
+    if (direction === "Outward" && sourceType !== "Internal Movement") return `${row.qcno || ""} - ${row.poid || ""} - ${row.vendorname || ""}`;
+    return `${row.poid || ""} - ${row.vendor || row.vendorname || ""}`;
+  };
   const save = async () => {
     try {
+      if (!selected) throw new Error("Select a source document");
       const gatepassno = key("GP");
-      const header = await saveRow("storegatepassds2", { ...form, gatepassno, poid: selected.poid, vendorid: selected.vendorid, vendorname: selected.vendor, storeid: selected.storeid, storename: selected.storename, receivedby: currentName(), status: "Received" });
-      await Promise.all(items.map((item) => saveRow("storegatepassitemsds2", { gatepassno, poid: selected.poid, itemid: item.itemid, itemcode: item.itemcode, itemname: item.itemname, orderedquantity: item.quantity, receivedquantity: item.quantity, unit: item.unit, remarks: item.remarks })));
+      const attachmentlink = await uploadPurchase2Attachment(attachment, "purchase2/gate-pass");
+      const vendorname = selected.vendor || selected.vendorname || "";
+      const status = direction === "Inward" ? "Received" : "Outward Created";
+      const header = await saveRow("storegatepassds2", {
+        ...form,
+        gatepassno,
+        direction,
+        gatepasstype: direction,
+        sourcetype: sourceType,
+        qcno: selected.qcno || "",
+        poid: selected.poid || "",
+        vendorid: selected.vendorid || "",
+        vendorname,
+        storeid: selected.storeid || "",
+        storename: selected.storename || selected.store || "",
+        vehicle: form.vehicleno,
+        challanno: selected.challanno || "",
+        attachmentlink,
+        receivedby: currentName(),
+        receivedbyemail: currentUser(),
+        status
+      });
+      await Promise.all(items.map((item) => saveRow("storegatepassitemsds2", {
+        gatepassno,
+        direction,
+        sourcetype: sourceType,
+        qcno: selected.qcno || "",
+        poid: selected.poid || "",
+        itemid: item.itemid,
+        itemcode: item.itemcode,
+        itemname: item.itemname,
+        itemdescription: item.description || item.itemdescription || item.itemname,
+        orderedquantity: item.orderedquantity || item.quantity,
+        receivedquantity: form.remarktype === "Countable" ? num(item.receivedquantity || item.gatepassquantity) : num(item.receivedquantity || item.gatepassquantity || item.quantity || item.rejectedquantity || item.returnedquantity),
+        gatepassquantity: form.remarktype === "Countable" ? num(item.receivedquantity || item.gatepassquantity) : num(item.receivedquantity || item.gatepassquantity || item.quantity || item.rejectedquantity || item.returnedquantity),
+        unit: item.unit,
+        remarks: item.remarks
+      })));
       setMessage("Gate pass created");
-      setPrintData({ header: { ...selected, ...form, ...header }, items });
+      setPrintData({ header: { ...selected, ...form, ...header, attachmentlink }, items });
+      setAttachment(null);
     } catch (err) { setError(err.message); }
   };
-  return <Page title="PO Gate Pass" subtitle="Create gate pass records for approved POs." message={message} error={error}><Paper sx={{ p: 2, mb: 2 }}><Stack direction={{ xs: "column", md: "row" }} spacing={2} flexWrap="wrap"><Autocomplete sx={{ minWidth: 320 }} options={pos} getOptionLabel={(o) => `${o.poid || ""} - ${o.vendor || ""}`} onChange={(_, v) => open(v)} renderInput={(params) => <TextField {...params} label="Approved PO" size="small" />} />{["vehicle", "challanno", "invoiceno", "remarks"].map((f) => <TextField key={f} size="small" label={f} value={form[f]} onChange={(e) => setForm((p) => ({ ...p, [f]: e.target.value }))} />)}<Button variant="contained" onClick={save} disabled={!selected}>Create gate pass</Button><Button startIcon={<Print />} variant="outlined" disabled={!printData} onClick={() => printPurchase2("gatePass", printData)}>Print gate pass</Button></Stack></Paper><DataGrid autoHeight rows={items.map((r, i) => ({ ...r, id: i }))} columns={[{ field: "itemname", headerName: "Item", flex: 1 }, { field: "quantity", headerName: "Qty", width: 120 }, { field: "remarks", headerName: "Remarks", flex: 1, editable: true }]} processRowUpdate={(row) => { setItems(items.map((it, idx) => idx === row.id ? { ...it, remarks: row.remarks || "" } : it)); return row; }} /></Page>;
+  return <Page title="PO Gate Pass" subtitle="Create inward and outward gate passes for PO, LPO, internal movement, and QC return documents." message={message} error={error}>
+    <Paper sx={{ p: 2, mb: 2 }}>
+      <Grid container spacing={2} alignItems="center">
+        <Grid item xs={12} md={2}><TextField select size="small" label="Gate pass direction" value={direction} onChange={(e) => { setDirection(e.target.value); setSourceType(e.target.value === "Inward" ? "PO" : "Internal Movement"); }} fullWidth>{["Inward", "Outward"].map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+        <Grid item xs={12} md={2}><TextField select size="small" label="Source type" value={sourceType} onChange={(e) => setSourceType(e.target.value)} fullWidth>{sourceOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+        <Grid item xs={12} md={4}><Autocomplete options={sources} value={selected} getOptionLabel={documentLabel} onChange={(_, v) => open(v)} renderInput={(params) => <TextField {...params} label="Select source document" size="small" />} /></Grid>
+        <Grid item xs={12} md={2}><TextField size="small" type="date" label="Gate pass date" value={form.receiveddate} InputLabelProps={{ shrink: true }} onChange={(e) => setForm((p) => ({ ...p, receiveddate: e.target.value }))} fullWidth /></Grid>
+        <Grid item xs={12} md={2}><TextField select size="small" label="Remark type" value={form.remarktype} onChange={(e) => setForm((p) => ({ ...p, remarktype: e.target.value }))} fullWidth>{["Countable", "Non countable"].map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+        <Grid item xs={12} md={3}><TextField size="small" label="Vehicle no" value={form.vehicleno} onChange={(e) => setForm((p) => ({ ...p, vehicleno: e.target.value }))} fullWidth /></Grid>
+        <Grid item xs={12} md={3}><TextField size="small" label="Driver name" value={form.drivername} onChange={(e) => setForm((p) => ({ ...p, drivername: e.target.value }))} fullWidth /></Grid>
+        <Grid item xs={12} md={3}><TextField size="small" label="Contact no" value={form.drivercontact} onChange={(e) => setForm((p) => ({ ...p, drivercontact: e.target.value }))} fullWidth /></Grid>
+        <Grid item xs={12} md={3}><TextField size="small" label="Invoice no" value={form.invoiceno} onChange={(e) => setForm((p) => ({ ...p, invoiceno: e.target.value }))} fullWidth /></Grid>
+        <Grid item xs={12} md={8}><TextField size="small" label="Remarks" value={form.remarks} onChange={(e) => setForm((p) => ({ ...p, remarks: e.target.value }))} fullWidth /></Grid>
+        <Grid item xs={12} md={2}><Button component="label" startIcon={<UploadFile />} variant="outlined" fullWidth>{attachment?.name || "Attachment"}<input hidden type="file" onChange={(e) => setAttachment(e.target.files?.[0] || null)} /></Button></Grid>
+        <Grid item xs={12} md={2}><Button fullWidth variant="contained" onClick={save} disabled={!selected}>Create gate pass</Button></Grid>
+        <Grid item xs={12} md={2}><Button fullWidth startIcon={<Print />} variant="outlined" disabled={!printData} onClick={() => printPurchase2("gatePass", printData)}>Print</Button></Grid>
+      </Grid>
+    </Paper>
+    <DataGrid autoHeight rows={items.map((r, i) => ({ ...r, id: i }))} columns={[
+      { field: "itemcode", headerName: "Code", width: 130 },
+      { field: "itemname", headerName: "Item", flex: 1, minWidth: 220 },
+      { field: "itemdescription", headerName: "Description", flex: 1, minWidth: 220, valueGetter: (params) => params.row.description || params.row.itemdescription || params.row.itemname },
+      { field: "unit", headerName: "Unit", width: 100 },
+      { field: "orderedquantity", headerName: "PO Qty", width: 120, valueGetter: (params) => params.row.orderedquantity || params.row.quantity },
+      { field: "receivedquantity", headerName: "Received/Gate Qty", width: 170, editable: form.remarktype === "Countable" },
+      { field: "remarks", headerName: "Remarks", flex: 1, editable: true }
+    ]} processRowUpdate={(row) => { setItems(items.map((it, idx) => idx === row.id ? { ...it, receivedquantity: row.receivedquantity, gatepassquantity: row.receivedquantity, remarks: row.remarks || "" } : it)); return row; }} slots={{ toolbar: GridToolbar }} />
+  </Page>;
 }
 
 export function Purchase2QualityCheckPage() {
   const [passes, setPasses] = useState([]);
   const [selected, setSelected] = useState(null);
+  const [po, setPo] = useState({});
   const [items, setItems] = useState([]);
-  const [remarks, setRemarks] = useState("");
+  const [form, setForm] = useState({ inspectiondate: today(), billno: "", billdate: "", challanno: "", challandate: "", returncategory: "Returnable", remarks: "" });
+  const [attachment, setAttachment] = useState(null);
   const [printData, setPrintData] = useState(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  useEffect(() => { getRows("storegatepassds2").then(setPasses); }, []);
+  useEffect(() => { getRows("storegatepassds2").then((rows) => setPasses(rows.filter((row) => text(row.direction || row.gatepasstype || "Inward").toLowerCase() === "inward"))); }, []);
   const open = async (gp) => {
     setSelected(gp);
+    setPrintData(null);
+    const poRows = await getRows("storepoorderds2", [{ field: "poid", value: gp.poid }]);
+    setPo(poRows[0] || {});
     const gpItems = await getRows("storegatepassitemsds2", [{ field: "gatepassno", value: gp.gatepassno }]);
-    setItems(gpItems.map((item) => ({ ...item, receivedquantity: item.receivedquantity || item.orderedquantity || 0, approvedquantity: item.receivedquantity || 0, rejectedquantity: 0, returnedquantity: 0, status: "Approved" })));
+    setForm((prev) => ({
+      ...prev,
+      billno: gp.billno || "",
+      billdate: gp.billdate ? String(gp.billdate).slice(0, 10) : "",
+      challanno: gp.challanno || "",
+      challandate: gp.challandate ? String(gp.challandate).slice(0, 10) : ""
+    }));
+    setItems(gpItems.map((item) => {
+      const gateQty = num(item.receivedquantity || item.gatepassquantity || item.orderedquantity);
+      return {
+        ...item,
+        itemdescription: item.itemdescription || item.description || item.itemname,
+        poquantity: item.orderedquantity || item.quantity || 0,
+        gatepassquantity: gateQty,
+        receivedquantity: gateQty,
+        approvedquantity: gateQty,
+        rejectedquantity: 0,
+        returnedquantity: 0,
+        status: "Approved"
+      };
+    }));
   };
   const save = async () => {
     try {
       const qcno = key("QC");
-      const header = await saveRow("storequalitycheckds2", { qcno, gatepassno: selected.gatepassno, poid: selected.poid, vendorname: selected.vendorname, storename: selected.storename, storeid: selected.storeid, checkedby: currentName(), checkedbyemail: currentUser(), checkdate: today(), status: "QC Done", remarks });
+      if (!selected) throw new Error("Select a gate pass");
+      const attachmentlink = await uploadPurchase2Attachment(attachment, "purchase2/quality-check");
+      const totalRejected = items.reduce((sum, item) => sum + num(item.rejectedquantity), 0);
+      const totalReturned = items.reduce((sum, item) => sum + num(item.returnedquantity), 0);
+      const header = await saveRow("storequalitycheckds2", {
+        ...form,
+        qcno,
+        gatepassno: selected.gatepassno,
+        poid: selected.poid,
+        vendorid: selected.vendorid,
+        vendorname: selected.vendorname || po.vendor,
+        storename: selected.storename || po.storename,
+        storeid: selected.storeid || po.storeid,
+        checkedby: currentName(),
+        checkedbyemail: currentUser(),
+        inspectiondate: form.inspectiondate,
+        checkdate: form.inspectiondate,
+        attachmentlink,
+        rejectedquantity: totalRejected,
+        returnedquantity: totalReturned,
+        totalrejectedquantity: totalRejected,
+        totalreturnedquantity: totalReturned,
+        status: "QC Done",
+        remarks: form.remarks
+      });
       for (const item of items) {
-        await saveRow("storequalitycheckitemsds2", { ...item, qcno });
+        await saveRow("storequalitycheckitemsds2", { ...item, qcno, returncategory: form.returncategory, status: num(item.rejectedquantity) > 0 ? "Rejected" : "Approved" });
         const stocks = await getRows("storeitemsds2", [{ field: "storeid", value: selected.storeid || selected.storeId || "" }, { field: "itemcode", value: item.itemcode }]);
         if (stocks[0]) await updateRow("storeitemsds2", stocks[0], { quantity: num(stocks[0].quantity) + num(item.approvedquantity) });
         else await saveRow("storeitemsds2", { storeid: selected.storeid, storename: selected.storename, itemcode: item.itemcode, itemname: item.itemname, quantity: item.approvedquantity, unit: item.unit, status: "Active" });
       }
       setMessage("Quality check saved and approved stock updated");
-      setPrintData({ header: { ...selected, ...header, remarks }, items });
+      setPrintData({ header: { ...selected, ...po, ...header, attachmentlink }, items });
+      setAttachment(null);
     } catch (err) { setError(err.message); }
   };
-  return <Page title="Quality Check" subtitle="Record received, approved, rejected and returned quantities after gate pass." message={message} error={error}><Paper sx={{ p: 2, mb: 2 }}><Stack direction={{ xs: "column", md: "row" }} spacing={2} flexWrap="wrap"><Autocomplete sx={{ minWidth: 320 }} options={passes} getOptionLabel={(o) => `${o.gatepassno || ""} - ${o.poid || ""}`} onChange={(_, v) => open(v)} renderInput={(params) => <TextField {...params} label="Gate pass" size="small" />} /><TextField size="small" label="Remarks" value={remarks} onChange={(e) => setRemarks(e.target.value)} /><Button variant="contained" onClick={save} disabled={!selected}>Save QC</Button><Button startIcon={<Print />} variant="outlined" disabled={!printData} onClick={() => printPurchase2("qualityCheck", printData)}>Print QC</Button></Stack></Paper><DataGrid autoHeight rows={items.map((r, i) => ({ ...r, id: i }))} processRowUpdate={(row) => { setItems(items.map((it, idx) => idx === row.id ? row : it)); return row; }} columns={[{ field: "itemname", headerName: "Item", flex: 1 }, { field: "receivedquantity", headerName: "Received", width: 120, editable: true }, { field: "approvedquantity", headerName: "Approved", width: 120, editable: true }, { field: "rejectedquantity", headerName: "Rejected", width: 120, editable: true }, { field: "returnedquantity", headerName: "Returned", width: 120, editable: true }, { field: "remarks", headerName: "Remarks", flex: 1, editable: true }]} /></Page>;
+  return <Page title="Quality Check" subtitle="Inspect gate pass items, capture bill/challan data, attachments, and accepted/rejected quantities." message={message} error={error}>
+    <Paper sx={{ p: 2, mb: 2 }}>
+      <Grid container spacing={2} alignItems="center">
+        <Grid item xs={12} md={4}><Autocomplete options={passes} value={selected} getOptionLabel={(o) => `${o.gatepassno || ""} - ${o.poid || ""} - ${o.vendorname || ""}`} onChange={(_, v) => open(v)} renderInput={(params) => <TextField {...params} label="Gate pass / PO number" size="small" />} /></Grid>
+        <Grid item xs={12} md={2}><TextField size="small" type="date" label="Inspection date" value={form.inspectiondate} InputLabelProps={{ shrink: true }} onChange={(e) => setForm((p) => ({ ...p, inspectiondate: e.target.value }))} fullWidth /></Grid>
+        <Grid item xs={12} md={2}><TextField size="small" label="Bill no" value={form.billno} onChange={(e) => setForm((p) => ({ ...p, billno: e.target.value }))} fullWidth /></Grid>
+        <Grid item xs={12} md={2}><TextField size="small" type="date" label="Bill date" value={form.billdate} InputLabelProps={{ shrink: true }} onChange={(e) => setForm((p) => ({ ...p, billdate: e.target.value }))} fullWidth /></Grid>
+        <Grid item xs={12} md={2}><TextField select size="small" label="Return category" value={form.returncategory} onChange={(e) => setForm((p) => ({ ...p, returncategory: e.target.value }))} fullWidth>{["Returnable", "Non Returnable"].map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+        <Grid item xs={12} md={2}><TextField size="small" label="Challan no" value={form.challanno} onChange={(e) => setForm((p) => ({ ...p, challanno: e.target.value }))} fullWidth /></Grid>
+        <Grid item xs={12} md={2}><TextField size="small" type="date" label="Challan date" value={form.challandate} InputLabelProps={{ shrink: true }} onChange={(e) => setForm((p) => ({ ...p, challandate: e.target.value }))} fullWidth /></Grid>
+        <Grid item xs={12} md={4}><TextField size="small" label="Remarks" value={form.remarks} onChange={(e) => setForm((p) => ({ ...p, remarks: e.target.value }))} fullWidth /></Grid>
+        <Grid item xs={12} md={2}><Button component="label" startIcon={<UploadFile />} variant="outlined" fullWidth>{attachment?.name || "Attachment"}<input hidden type="file" onChange={(e) => setAttachment(e.target.files?.[0] || null)} /></Button></Grid>
+        <Grid item xs={12} md={1}><Button fullWidth variant="contained" onClick={save} disabled={!selected}>Save QC</Button></Grid>
+        <Grid item xs={12} md={1}><Button fullWidth startIcon={<Print />} variant="outlined" disabled={!printData} onClick={() => printPurchase2("qualityCheck", printData)}>Print</Button></Grid>
+      </Grid>
+      {selected && <Box sx={{ mt: 2 }}>
+        <Typography variant="body2" color="text.secondary">
+          Inspection Date: {form.inspectiondate || "-"} | PO No: {selected.poid || "-"} | Vendor: {selected.vendorname || po.vendor || "-"} | Gate Pass No: {selected.gatepassno || "-"}
+        </Typography>
+      </Box>}
+    </Paper>
+    <DataGrid autoHeight rows={items.map((r, i) => ({ ...r, id: i }))} processRowUpdate={(row, oldRow) => {
+      const gateQty = num(row.gatepassquantity || row.receivedquantity);
+      const approvedChanged = num(row.approvedquantity) !== num(oldRow.approvedquantity);
+      const rejectedChanged = num(row.rejectedquantity) !== num(oldRow.rejectedquantity);
+      const approved = approvedChanged && !rejectedChanged ? Math.max(0, Math.min(num(row.approvedquantity), gateQty)) : gateQty - Math.max(0, Math.min(num(row.rejectedquantity), gateQty));
+      const rejected = approvedChanged && !rejectedChanged ? gateQty - approved : Math.max(0, Math.min(num(row.rejectedquantity), gateQty));
+      const finalRow = { ...row, rejectedquantity: rejected, approvedquantity: approved, returnedquantity: rejected, status: rejected > 0 ? "Partially Rejected" : "Approved" };
+      setItems(items.map((it, idx) => idx === row.id ? finalRow : it));
+      return finalRow;
+    }} columns={[
+      { field: "itemdescription", headerName: "Item description", flex: 1, minWidth: 220, valueGetter: (params) => params.row.itemdescription || params.row.description || params.row.itemname },
+      { field: "unit", headerName: "Unit", width: 100 },
+      { field: "poquantity", headerName: "PO quantity", width: 130, valueGetter: (params) => params.row.poquantity || params.row.orderedquantity || params.row.quantity },
+      { field: "gatepassquantity", headerName: "Gate pass quantity", width: 160, valueGetter: (params) => params.row.gatepassquantity || params.row.receivedquantity },
+      { field: "approvedquantity", headerName: "Accepted Quantity", width: 160, editable: true },
+      { field: "rejectedquantity", headerName: "Rejected Quantity", width: 160, editable: true },
+      { field: "remarks", headerName: "Remarks", flex: 1, minWidth: 180, editable: true }
+    ]} slots={{ toolbar: GridToolbar }} />
+  </Page>;
 }
 
 export function Purchase2GrnCreationPage() {

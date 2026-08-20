@@ -31,6 +31,11 @@ import { ArrowBack, CheckCircle, Lock, PlayCircle, Refresh } from "@mui/icons-ma
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import {
+  completeStudentSequentialContent,
+  groupSequentialContent,
+  loadStudentSequentialContent
+} from "../utils/nepLmsSequentialContentTools";
 
 const uniqueSorted = (values = []) => [...new Set(values.map((item) => String(item || "").trim()).filter(Boolean))]
   .sort((a, b) => a.localeCompare(b));
@@ -65,34 +70,15 @@ export default function NepLmsStudentSequentialContentPage() {
   )), [courses, filters]);
 
   const sequences = useMemo(() => {
-    const map = new Map();
-    [...lessonContent].sort((a, b) => Number(a.sequence || 0) - Number(b.sequence || 0)).forEach((item) => {
-      const key = String(item.lessonresourceid || "general");
-      if (!map.has(key)) {
-        map.set(key, {
-          id: key,
-          title: item.lessonplantitle || "Lesson sequence",
-          module: item.module || "",
-          topic: item.topics || "",
-          rows: []
-        });
-      }
-      map.get(key).rows.push(item);
-    });
-    return [...map.values()].map((sequence) => {
+    return groupSequentialContent(lessonContent).map((sequence) => {
       const total = sequence.rows.length;
       const completedCount = sequence.rows.filter((item) => item.completed).length;
-      const status = total && completedCount === total
-        ? "completed"
-        : completedCount > 0
-          ? "pending"
-          : "notopened";
       const nextItem = sequence.rows.find((item) => !item.completed && !item.locked) || null;
       return {
         ...sequence,
         total,
         completedCount,
-        status,
+        status: sequence.status.key,
         nextItem
       };
     });
@@ -187,14 +173,12 @@ export default function NepLmsStudentSequentialContentPage() {
     try {
       setLoading(true);
       setError("");
-      const res = await ep1.get("/api/v2/neplms/student-workspace/lesson-content", {
-        params: baseParams({
-          academicyear: course.academicyear,
-          semester: course.semester,
-          coursecode: course.coursecode
-        })
-      });
-      setLessonContent(res.data?.data || []);
+      const rows = await loadStudentSequentialContent(baseParams({
+        academicyear: course.academicyear,
+        semester: course.semester,
+        coursecode: course.coursecode
+      }));
+      setLessonContent(rows);
     } catch (err) {
       setLessonContent([]);
       setError(err.response?.data?.message || "Unable to load sequential content");
@@ -221,13 +205,13 @@ export default function NepLmsStudentSequentialContentPage() {
       setSubmitting(true);
       setError("");
       setMessage("");
-      const res = await ep1.post("/api/v2/neplms/student-workspace/lesson-content-complete", {
+      const res = await completeStudentSequentialContent({
         colid: global1.colid,
         regno: global1.regno,
         user: global1.user,
         contentid: content._id
       });
-      const progress = res.data?.progress;
+      const progress = res?.progress;
       setMessage(progress
         ? `Step ${content.sequence || ""} completed. Progress: ${progress.completedsteps}/${progress.totalsteps} (${progress.progresspercentage}%).`
         : "Content marked completed.");

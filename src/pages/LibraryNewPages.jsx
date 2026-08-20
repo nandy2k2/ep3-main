@@ -303,24 +303,26 @@ export function LibraryBookMasterPage() {
   const [rows, setRows] = useState([]);
   const [options, setOptions] = useState({});
   const [filters, setFilters] = useState([{ field: "title", value: "" }]);
+  const [pagination, setPagination] = useState({ page: 1, limit: 5000, total: 0, returned: 0, hasNext: false, hasPrev: false });
   const [form, setForm] = useState({ status: "Available" });
   const [selectedCodeBook, setSelectedCodeBook] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  const params = () => {
-    const p = { colid: global1.colid, user: global1.user };
+  const params = (page = pagination.page) => {
+    const p = { colid: global1.colid, user: global1.user, page, limit: pagination.limit || 5000 };
     if (form.libraryid) p.libraryid = form.libraryid;
     filters.forEach((filter) => { if (filter.field && filter.value) p[filter.field] = filter.value; });
     return p;
   };
-  const load = async () => {
+  const load = async (page = pagination.page) => {
     setLoading(true);
     try {
-      const res = await ep1.get("/api/v2/librarynew/books", { params: params() });
+      const res = await ep1.get("/api/v2/librarynew/books", { params: params(page) });
       setRows(res.data?.data || []);
       setOptions(res.data?.options || {});
+      setPagination((prev) => ({ ...prev, ...(res.data?.pagination || {}), page }));
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load books");
     } finally {
@@ -334,7 +336,7 @@ export function LibraryBookMasterPage() {
       await ep1.post("/api/v2/librarynew/books", { ...form, colid: global1.colid, user: global1.user });
       setMessage("Book saved.");
       setForm({ status: "Available" });
-      await load();
+      await load(1);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to save book");
     } finally {
@@ -344,7 +346,7 @@ export function LibraryBookMasterPage() {
   const deleteRow = async (row) => {
     if (!window.confirm("Delete this book?")) return;
     await ep1.post("/api/v2/librarynew/books/delete", { id: row._id, colid: global1.colid });
-    load();
+    load(pagination.page);
   };
   const upload = async (event) => {
     const file = event.target.files?.[0];
@@ -354,7 +356,7 @@ export function LibraryBookMasterPage() {
       const rows = await readExcel(file);
       const res = await ep1.post("/api/v2/librarynew/books/bulk", { colid: global1.colid, user: global1.user, rows });
       setMessage(`${res.data?.saved || 0} books uploaded.`);
-      await load();
+      await load(1);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to upload books");
     } finally {
@@ -424,7 +426,16 @@ export function LibraryBookMasterPage() {
         </Paper>
         <Paper sx={{ p: 2 }}>
           <FieldFilters fields={bookFields} options={options} filters={filters} setFilters={setFilters} />
-          <Button sx={{ mt: 1 }} variant="contained" startIcon={<Refresh />} onClick={load} disabled={loading}>Apply</Button>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }} sx={{ mt: 1 }}>
+            <Button variant="contained" startIcon={<Refresh />} onClick={() => load(1)} disabled={loading}>Apply</Button>
+            <Button variant="outlined" disabled={loading || !pagination.hasPrev} onClick={() => load(Math.max((pagination.page || 1) - 1, 1))}>Previous Set</Button>
+            <Button variant="outlined" disabled={loading || !pagination.hasNext} onClick={() => load((pagination.page || 1) + 1)}>Next Set</Button>
+            <Typography variant="body2" color="text.secondary">
+              Showing {pagination.total ? ((pagination.page - 1) * pagination.limit) + 1 : 0}
+              - {Math.min((pagination.page - 1) * pagination.limit + (pagination.returned || rows.length), pagination.total || rows.length)}
+              {" "}of {pagination.total || rows.length} records
+            </Typography>
+          </Stack>
         </Paper>
         <Box sx={{ height: 560 }}>
           <DataGrid rows={rows} columns={columns} getRowId={(row) => row._id} loading={loading} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} />

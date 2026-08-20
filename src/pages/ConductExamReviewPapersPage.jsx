@@ -7,6 +7,9 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Grid,
   LinearProgress,
   MenuItem,
@@ -18,6 +21,7 @@ import {
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import VerifiedIcon from "@mui/icons-material/Verified";
+import UploadFileIcon from "@mui/icons-material/UploadFile";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
@@ -40,10 +44,14 @@ export default function ConductExamReviewPapersPage() {
   const [bulkPaperStatus, setBulkPaperStatus] = useState("Default");
   const [audit, setAudit] = useState([]);
   const [blocks, setBlocks] = useState([]);
+  const [reviewDocuments, setReviewDocuments] = useState([]);
+  const [reviewDocTitle, setReviewDocTitle] = useState("");
+  const [documentDialog, setDocumentDialog] = useState(false);
   const [filters, setFilters] = useState({ academicyear: "", examcode: "", regulation: "", programcode: "", coursecode: "", papersetteremail: "" });
   const [loading, setLoading] = useState(false);
   const [accepting, setAccepting] = useState(false);
   const [storing, setStoring] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -114,10 +122,34 @@ export default function ConductExamReviewPapersPage() {
       setPaper(res.data?.paper || null);
       setAudit(res.data?.audit || []);
       setBlocks(res.data?.blocks || []);
+      setReviewDocuments(res.data?.paper?.reviewdocuments || []);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load paper details.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const uploadReviewDocument = async (file) => {
+    if (!file || !paper?._id) return;
+    try {
+      setUploadingDoc(true);
+      setError("");
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("colid", global1.colid);
+      const uploadRes = await ep1.post("/api/v2/conductexam/question-paper-upload", formData, { headers: { "Content-Type": "multipart/form-data" } });
+      const data = uploadRes.data?.data || {};
+      const nextDocs = [...reviewDocuments, { title: reviewDocTitle || file.name, filename: data.filename || file.name, url: data.url || "", uploadedby: global1.user, uploadeddate: new Date().toISOString() }];
+      const saveRes = await ep1.post("/api/v2/conductexam/question-paper-documents", { colid: global1.colid, paperid: paper._id, target: "reviewdocuments", documents: nextDocs, user: global1.user });
+      setReviewDocuments(saveRes.data?.data?.reviewdocuments || nextDocs);
+      setPaper(saveRes.data?.data || paper);
+      setReviewDocTitle("");
+      setMessage("Review document uploaded.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to upload review document.");
+    } finally {
+      setUploadingDoc(false);
     }
   };
 
@@ -214,6 +246,7 @@ export default function ConductExamReviewPapersPage() {
     { field: "papersettername", headerName: "Paper Setter", width: 190 },
     { field: "status", headerName: "Status", width: 160 },
     { field: "paperstatus", headerName: "Paper Status", width: 150 },
+    { field: "documents", headerName: "Documents", width: 120, sortable: false, renderCell: () => <Button size="small" onClick={(event) => { event.stopPropagation(); setDocumentDialog(true); }}>Documents</Button> },
     { field: "blockchainhash", headerName: "Blockchain Hash", minWidth: 240, flex: 1 }
   ];
 
@@ -244,6 +277,7 @@ export default function ConductExamReviewPapersPage() {
               <Button variant="outlined" disabled={!selectedIdsOrCurrent().length || accepting} onClick={updatePaperStatus}>
                 Update Status
               </Button>
+              <Button variant="outlined" component="label" startIcon={<UploadFileIcon />} disabled={!paper || uploadingDoc}>{uploadingDoc ? "Uploading..." : "Upload Review Doc"}<input hidden type="file" onChange={(e) => uploadReviewDocument(e.target.files?.[0])} /></Button>
               <Button variant="contained" color="success" startIcon={accepting ? <CircularProgress size={18} color="inherit" /> : <CheckCircleIcon />} disabled={!selectedIdsOrCurrent().length || accepting} onClick={acceptPaper}>{accepting ? "Accepting..." : `Accept ${selectedPaperIds.length ? `(${selectedPaperIds.length})` : ""}`}</Button>
               <Button variant="contained" startIcon={storing ? <CircularProgress size={18} color="inherit" /> : <VerifiedIcon />} disabled={!selectedIdsOrCurrent().length || storing} onClick={storeBlockchain}>{storing ? "Storing..." : `Store Blockchain ${selectedPaperIds.length ? `(${selectedPaperIds.length})` : ""}`}</Button>
             </Stack>
@@ -299,6 +333,8 @@ export default function ConductExamReviewPapersPage() {
                   ["Status", paper.status],
                   ["Paper Status", paper.paperstatus || "Default"]
                 ].map(([label, value]) => <Grid item xs={12} md={3} key={label}><Typography variant="caption" color="text.secondary">{label}</Typography><Typography fontWeight={800}>{value || "-"}</Typography></Grid>)}
+                <Grid item xs={12} md={4}><TextField fullWidth label="Review Document Title" value={reviewDocTitle} onChange={(e) => setReviewDocTitle(e.target.value)} /></Grid>
+                <Grid item xs={12} md={8}><Stack direction="row" spacing={1} flexWrap="wrap">{reviewDocuments.map((doc, index) => <Button key={`${doc.url}-${index}`} size="small" href={doc.url} target="_blank" rel="noreferrer">{doc.title || doc.filename || `Document ${index + 1}`}</Button>)}</Stack></Grid>
                 {(paper.blockchainverificationurl || paper.blockchainhash) && (
                   <Grid item xs={12}>
                     <Alert severity="success">
@@ -352,6 +388,15 @@ export default function ConductExamReviewPapersPage() {
             </Paper>
           </Stack>
         )}
+        <Dialog open={documentDialog} onClose={() => setDocumentDialog(false)} maxWidth="md" fullWidth>
+          <DialogTitle>Question Paper Documents</DialogTitle>
+          <DialogContent>
+            <Stack spacing={1} sx={{ pt: 1 }}>
+              {[...(paper?.paperdocuments || []), ...(paper?.moderationdocuments || []), ...(paper?.reviewdocuments || [])].map((doc, index) => <Button key={`${doc.url}-${index}`} href={doc.url} target="_blank" rel="noreferrer" variant="outlined">{doc.title || doc.filename || `Document ${index + 1}`}</Button>)}
+              {!paper?.paperdocuments?.length && !paper?.moderationdocuments?.length && !paper?.reviewdocuments?.length && <Typography color="text.secondary">No documents uploaded.</Typography>}
+            </Stack>
+          </DialogContent>
+        </Dialog>
       </Box>
     </MenuPageShell>
   );

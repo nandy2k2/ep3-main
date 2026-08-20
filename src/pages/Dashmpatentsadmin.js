@@ -19,7 +19,7 @@ import { mainListItems, secondaryListItems } from './menucasadmin1';
 import { useState } from 'react';
 // import Chart from './Charts';
 // import Deposits from './Deposits';
-import ViewPage from './Viewmpatentsadmin';
+import PersonalDataSubmissionPage from './PersonalDataSubmissionPage';
 import Login from './Login';
 import global1 from './global1';
 
@@ -166,7 +166,7 @@ function DashboardContent() {
                     <Toolbar />
                     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
                         <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
-                            < ViewPage/>
+                            <PersonalDataSubmissionPage kind="patents" admin />
                         </Paper>
                     </Container>
                 </Box>

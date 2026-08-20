@@ -144,11 +144,12 @@ function Signatures({ labels }) {
   );
 }
 
-function Totals({ items }) {
-  const subtotal = getTotal(items);
-  const tax = getTax(items);
-  const discount = getDiscount(items);
-  const grand = subtotal + tax - discount;
+function Totals({ items, header = {} }) {
+  const hasHeaderAmount = header.amount !== undefined || header.price !== undefined;
+  const subtotal = hasHeaderAmount ? Number(pick(header, ["amount", "price"], 0) || 0) : getTotal(items);
+  const tax = header.gst !== undefined && header.gst !== "" ? subtotal * (Number(header.gst || 0) / 100) : getTax(items);
+  const discount = header.discount !== undefined && header.discount !== "" ? Number(header.discount || 0) : getDiscount(items);
+  const grand = header.actualAmount !== undefined || header.netprice !== undefined ? Number(pick(header, ["actualAmount", "netprice"], 0) || 0) : subtotal + tax - discount;
   return (
     <section className="totals">
       <div className="amount-words"><strong>Amount in Words:</strong><br />{amountInWords(grand)}</div>
@@ -189,7 +190,11 @@ export function Purchase2IndentPrint({ header = {}, items = [], institution = {}
         { key: "remarks", label: "Remarks" }
       ]} rows={items} />
       <Remarks>{pick(header, ["remarks", "comment", "comments", "note", "description"], "")}</Remarks>
-      <Signatures labels={["Requester Signature", "HOD/HOI Approval", "Store In-charge"]} />
+      <Signatures labels={[
+        { label: "Requester Signature", name: pick(header, ["requestedby", "faculty", "name"], ""), image: pick(header, ["requestersignature", "creatorSignature"], "") },
+        { label: "HOD/HOI Approval", name: pick(header, ["approvedby", "hoiapprovername", "approvername"], ""), image: pick(header, ["approversignature"], "") },
+        { label: "Store In-charge", name: pick(header, ["allottedby"], ""), image: pick(header, ["storesignature"], "") }
+      ]} />
     </PrintShell>
   );
 }
@@ -226,7 +231,7 @@ export function Purchase2PrPrint({ header = {}, items = [], institution = {} }) 
   );
 }
 
-function PoLikePrint({ header = {}, items = [], institution = {}, title }) {
+function PoLikePrint({ header = {}, items = [], institution = {}, title, omitChecked = false }) {
   return (
     <PrintShell landscape={items.length > 6}>
       <Header title={title} institution={institution} />
@@ -264,12 +269,12 @@ function PoLikePrint({ header = {}, items = [], institution = {}, title }) {
         { key: "gst", label: "Tax/GST", render: (row) => value(row.gst || row.tax || row.taxamount) },
         { key: "total", label: "Amount", render: (row) => formatCurrency(row.total || Number(pick(row, ["price", "rate", "estimatedprice"], 0)) * Number(row.quantity || 0)) }
       ]} rows={items} />
-      <Totals items={items} />
+      <Totals items={items} header={header} />
       <Remarks>{pick(header, ["remarks", "terms", "generalterms", "paymentterms", "description"], "No additional terms.")}</Remarks>
       <Signatures labels={[
         { label: "Prepared By", name: pick(header, ["creatorName", "preparedby"], ""), image: pick(header, ["creatorSignature"], "") },
         ...((header.approvalhistory || []).map((item) => ({ label: `Approved L${item.level || ""}`, name: item.approvername, image: item.signaturelink }))),
-        "Checked By",
+        ...(omitChecked ? [] : ["Checked By"]),
         "Vendor Acceptance"
       ]} />
     </PrintShell>
@@ -281,7 +286,7 @@ export function Purchase2PoPrint(props) {
 }
 
 export function Purchase2LocalPoPrint(props) {
-  return <PoLikePrint {...props} title="LOCAL PURCHASE ORDER" />;
+  return <PoLikePrint {...props} title="LOCAL PURCHASE ORDER" omitChecked />;
 }
 
 export function Purchase2GatePassPrint({ header = {}, items = [], institution = {} }) {
@@ -299,7 +304,9 @@ export function Purchase2GatePassPrint({ header = {}, items = [], institution = 
         { label: "Driver Name", value: pick(header, ["drivername"], "") },
         { label: "Driver Contact", value: pick(header, ["drivercontact"], "") },
         { label: "DC/Invoice No", value: pick(header, ["invoiceno", "challanno", "dcInvoiceNo"]) },
-        { label: "Gate Pass Type", value: pick(header, ["gatepasstype", "type"], "Inward") },
+        { label: "Gate Pass Type", value: pick(header, ["direction", "gatepasstype", "type"], "Inward") },
+        { label: "Source Type", value: pick(header, ["sourcetype"], "") },
+        { label: "Remark Type", value: pick(header, ["remarktype"], "") },
         { label: "Status", value: pick(header, ["status"]) }
       ]} />
       <Table columns={[
@@ -308,10 +315,11 @@ export function Purchase2GatePassPrint({ header = {}, items = [], institution = 
         { key: "itemname", label: "Item Name" },
         { key: "unit", label: "Unit" },
         { key: "orderedquantity", label: "PO Qty", render: (row) => formatQty(row.orderedquantity || row.quantity) },
-        { key: "receivedquantity", label: "Gate Pass Qty", render: (row) => formatQty(row.receivedquantity || row.quantity) },
+        { key: "receivedquantity", label: "Gate Pass Qty", render: (row) => formatQty(row.receivedquantity || row.gatepassquantity || row.quantity) },
         { key: "package", label: "Package/Box" },
         { key: "remarks", label: "Remarks" }
       ]} rows={items} />
+      {pick(header, ["attachmentlink"], "") && <Remarks>Attachment: {pick(header, ["attachmentlink"], "")}</Remarks>}
       <Remarks>{pick(header, ["remarks", "comment", "comments", "note"], "")}</Remarks>
       <Signatures labels={["Security Signature", "Store In-charge", "Receiver Signature"]} />
     </PrintShell>
@@ -330,6 +338,12 @@ export function Purchase2QualityCheckPrint({ header = {}, items = [], institutio
         { label: "Vendor Name", value: pick(header, ["vendorname", "vendor"]) },
         { label: "Store", value: pick(header, ["storename", "store"]) },
         { label: "Checked By", value: pick(header, ["checkedby", "name"]) },
+        { label: "Inspection Date", value: formatDate(pick(header, ["inspectiondate", "checkdate"])) },
+        { label: "Bill No", value: pick(header, ["billno"], "") },
+        { label: "Bill Date", value: formatDate(pick(header, ["billdate"], "")) },
+        { label: "Challan No", value: pick(header, ["challanno"], "") },
+        { label: "Challan Date", value: formatDate(pick(header, ["challandate"], "")) },
+        { label: "Return Category", value: pick(header, ["returncategory"], "") },
         { label: "Status", value: pick(header, ["status"]) }
       ]} />
       <Table columns={[
@@ -337,14 +351,15 @@ export function Purchase2QualityCheckPrint({ header = {}, items = [], institutio
         { key: "itemcode", label: "Item Code" },
         { key: "itemname", label: "Item Name" },
         { key: "unit", label: "Unit" },
-        { key: "orderedquantity", label: "Ordered Qty", render: (row) => formatQty(row.orderedquantity) },
-        { key: "receivedquantity", label: "Received Qty", render: (row) => formatQty(row.receivedquantity) },
+        { key: "orderedquantity", label: "PO Qty", render: (row) => formatQty(row.orderedquantity || row.poquantity || row.quantity) },
+        { key: "receivedquantity", label: "Gate Pass Qty", render: (row) => formatQty(row.gatepassquantity || row.receivedquantity) },
         { key: "approvedquantity", label: "Approved Qty", render: (row) => formatQty(row.approvedquantity) },
         { key: "rejectedquantity", label: "Rejected Qty", render: (row) => formatQty(row.rejectedquantity) },
         { key: "returnedquantity", label: "Returned Qty", render: (row) => formatQty(row.returnedquantity) },
         { key: "status", label: "QC Status" },
         { key: "remarks", label: "Remarks" }
       ]} rows={items} />
+      {pick(header, ["attachmentlink"], "") && <Remarks>Attachment: {pick(header, ["attachmentlink"], "")}</Remarks>}
       <Remarks>{pick(header, ["remarks", "reason", "comment", "comments", "note"], "")}</Remarks>
       <Signatures labels={["QC Done By", "Store In-charge", "Approval Authority"]} />
     </PrintShell>

@@ -33,15 +33,18 @@ import ep1 from "../api/ep1";
 import global1 from "./global1";
 
 const subjectFields = ["Major", "Minor", "AEC", "SEC", "VAC", "IDC", "MDC"];
-const fields = ["name", "regno", "scholarnumber", "abcid", "password", "email", "googleemail", "phone", "regulation", "program", "programcode", "Mediumofinstruction", "specialization1", "specialization2", ...subjectFields, "academicyear", "admissionyear", "rollno", "gender", "category", "state", "city", "district", "pincode", "guardianname", "guardianmobile", "guardianemail", "photo", "semester", "section"];
+const fields = ["name", "regno", "scholarnumber", "abcid", "password", "email", "googleemail", "excluded", "phone", "fathername", "mothername", "dob", "nationality", "address", "regulation", "program", "programcode", "Mediumofinstruction", "specialization1", "specialization2", ...subjectFields, "academicyear", "admissionyear", "rollno", "gender", "category", "state", "city", "district", "pincode", "guardianname", "guardianmobile", "guardianemail", "photo", "semester", "section"];
 const academicYears = ["2023-24", "2024-25", "2025-26", "2026-27", "2027-28"];
 const semesters = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
 const staticDropdownOptions = {
   academicyear: academicYears,
   admissionyear: academicYears,
   gender: ["Male", "Female", "Not specified"],
+  nationality: ["Indian", "Other"],
   semester: semesters,
   category: ["General", "SC", "ST", "OBC"]
+  ,
+  excluded: ["No", "Yes"]
 };
 const labels = {
   name: "Name",
@@ -50,8 +53,14 @@ const labels = {
   abcid: "ABC ID",
   password: "Password",
   googleemail: "Google Email",
+  excluded: "Excluded",
   email: "Email",
   phone: "Phone",
+  fathername: "Father's Name",
+  mothername: "Mother's Name",
+  dob: "Date of Birth",
+  nationality: "Nationality",
+  address: "Address",
   program: "Program",
   programcode: "Program Code",
   Mediumofinstruction: "Medium of Instruction",
@@ -83,7 +92,7 @@ const labels = {
   department: "Department",
   institution: "Institution"
 };
-const viewFilterFields = ["academicyear", "program", "programcode", "Mediumofinstruction", "department", "semester", "section", "specialization1", "specialization2", "Major", "Minor", "IDC", "AEC", "SEC", "VAC", "name", "regno", "scholarnumber", "abcid", "email", "phone", "institution"];
+const viewFilterFields = ["academicyear", "program", "programcode", "Mediumofinstruction", "department", "semester", "section", "specialization1", "specialization2", "Major", "Minor", "IDC", "AEC", "SEC", "VAC", "name", "regno", "scholarnumber", "abcid", "email", "phone", "fathername", "mothername", "dob", "gender", "category", "nationality", "address", "state", "city", "district", "pincode", "institution", "excluded"];
 const blankViewFilter = { field: "academicyear", value: "" };
 const blankForm = { ...fields.reduce((acc, field) => ({ ...acc, [field]: staticDropdownOptions[field]?.[0] || "" }), {}), customFields: {} };
 const normalizeKey = (key) => String(key || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -119,6 +128,11 @@ const valueFromRow = (row, field) => {
     scholarnumber: ["scholarnumber", "scholar number", "scholar no"],
     abcid: ["abcid", "abc id", "abc"],
     password: ["password"],
+    fathername: ["fathername", "father name", "fathersname", "father's name"],
+    mothername: ["mothername", "mother name", "mothersname", "mother's name"],
+    dob: ["dob", "dateofbirth", "date of birth", "birthdate", "birth date"],
+    nationality: ["nationality", "national"],
+    address: ["address", "student address", "residential address", "permanent address"],
     programcode: ["programcode", "program code"],
     Mediumofinstruction: ["Mediumofinstruction", "mediumofinstruction", "medium of instruction"],
     specialization1: ["specialization1", "specialization 1", "specialisation1", "specialisation 1"],

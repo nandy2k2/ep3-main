@@ -10,6 +10,7 @@ import {
   Toolbar,
   Typography
 } from "@mui/material";
+import { Link as RouterLink } from "react-router-dom";
 import { createTheme, styled, ThemeProvider } from "@mui/material/styles";
 import AppBar from "@mui/material/AppBar";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
@@ -116,6 +117,9 @@ export default function MenuPageShell({ title, children, menuType }) {
             </Typography>
             <TopMenuSearch menuType={menuType} />
             <ActivityPointBadge sx={{ mr: 2 }} />
+            <Button color="inherit" component={RouterLink} to="/central-ticket-raise" sx={{ whiteSpace: "nowrap", mr: 1 }}>
+              Raise ticket
+            </Button>
             <Button color="inherit" startIcon={<LogoutIcon />} onClick={logout} sx={{ whiteSpace: "nowrap" }}>
               Logout
             </Button>

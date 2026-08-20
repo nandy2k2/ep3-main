@@ -34,6 +34,14 @@ import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import {
+  deleteSequentialContent,
+  generateSequentialContentFile,
+  generateSequentialFlashcards,
+  loadSequentialContentWithProgress,
+  saveSequentialContent,
+  uploadSequentialContentFile
+} from "../utils/nepLmsSequentialContentTools";
 
 const blankResource = { title: "", section: "", module: "", topic: "", description: "", url: "", order: "", employabilityrelated: "No", duedate: "", fullmarks: "", file: null };
 const blankQuiz = { title: "", module: "", topic: "", startdatetime: "", enddatetime: "", status: "Active" };
@@ -537,12 +545,9 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
         ...(courseGroupMode ? { coursegroup: courseGroup } : {}),
         facultyemail: global1.user
       };
-      const [contentRes, progressRes] = await Promise.all([
-        ep1.get("/api/v2/neplms/lesson-content", { params }),
-        ep1.get("/api/v2/neplms/lesson-content/progress", { params })
-      ]);
-      setLessonContents(contentRes.data?.data || []);
-      setLessonProgress(progressRes.data?.data || []);
+      const { contents, progress } = await loadSequentialContentWithProgress(params);
+      setLessonContents(contents);
+      setLessonProgress(progress);
     } catch (err) {
       setLessonContents([]);
       setLessonProgress([]);
@@ -554,12 +559,8 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
     if (!file) return;
     try {
       setError("");
-      const data = new FormData();
-      data.append("colid", global1.colid || "");
-      data.append("coursecode", selectedCourse?.coursecode || "");
-      data.append("file", file);
-      const res = await ep1.post("/api/v2/neplms/lesson-content/upload", data, { headers: { "Content-Type": "multipart/form-data" } });
-      applyLink(res.data?.url || res.data?.data?.filelink || "");
+      const url = await uploadSequentialContentFile({ file, colid: global1.colid, coursecode: selectedCourse?.coursecode });
+      applyLink(url);
       setMessage("File uploaded to AWS");
     } catch (err) {
       setError(err.response?.data?.message || "Unable to upload file");
@@ -579,7 +580,7 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
       setError("");
       setMessage("");
       const lesson = resources.find((row) => row._id === selectedLessonResourceId);
-      await ep1.post("/api/v2/neplms/lesson-content", {
+      await saveSequentialContent({
         ...coursePayload(),
         ...lessonContentForm,
         id: editingLessonContentId,
@@ -620,7 +621,7 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
   const deleteLessonContent = async (row) => {
     if (!window.confirm("Delete this lesson content and related progress?")) return;
     try {
-      await ep1.post("/api/v2/neplms/lesson-content/delete", { id: row._id, colid: global1.colid });
+      await deleteSequentialContent({ id: row._id, colid: global1.colid });
       setMessage("Lesson content deleted");
       loadLessonContent(selectedLessonResourceId);
     } catch (err) {
@@ -638,7 +639,7 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
       setError("");
       setMessage("");
       const lesson = resources.find((row) => row._id === selectedLessonResourceId);
-      const res = await ep1.post("/api/v2/neplms/lesson-content/generate-file", {
+      const res = await generateSequentialContentFile({
         ...coursePayload(),
         ...lessonContentForm,
         lessonresourceid: selectedLessonResourceId,
@@ -649,7 +650,7 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
         language: lessonAiForm.language,
         additionalprompt: lessonAiForm.additionalprompt
       });
-      setLessonContentForm((prev) => ({ ...prev, contenttype: "Text", filelink: res.data?.url || "" }));
+      setLessonContentForm((prev) => ({ ...prev, contenttype: "Text", filelink: res?.url || "" }));
       setMessage("AI text file created and uploaded to AWS");
     } catch (err) {
       setError(err.response?.data?.message || "Unable to generate lesson content file");
@@ -668,7 +669,7 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
       setError("");
       setMessage("");
       const lesson = resources.find((row) => row._id === selectedLessonResourceId);
-      const res = await ep1.post("/api/v2/neplms/lesson-content/generate-flashcards", {
+      const res = await generateSequentialFlashcards({
         ...coursePayload(),
         ...lessonContentForm,
         contenttype: "Flash Card",
@@ -684,7 +685,7 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
       setLessonContentForm((prev) => ({
         ...prev,
         contenttype: "Flash Card",
-        flashcards: res.data?.data?.length ? res.data.data : prev.flashcards
+        flashcards: res?.data?.length ? res.data : prev.flashcards
       }));
       setMessage("AI flashcards created. Review and save them.");
     } catch (err) {

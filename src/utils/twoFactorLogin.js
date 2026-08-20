@@ -16,7 +16,7 @@ const createDeviceId = () => {
 
 export const isTwoFactorApplicable = (responseData) => {
   const role = String(responseData?.role || "").trim().toLowerCase();
-  return responseData?.status === "Success" && role && role !== "student";
+  return responseData?.status === "Success" && role && role !== "student" && responseData?.twofa?.required === true;
 };
 
 export const getAuthenticatorDeviceId = () => {

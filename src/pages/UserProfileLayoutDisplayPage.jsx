@@ -33,6 +33,16 @@ const titleCase = (value = "") => String(value)
   .trim()
   .replace(/^./, (char) => char.toUpperCase());
 
+const fieldDisplayName = (field = {}) => (
+  field.displayname
+  || field.displayName
+  || field.label
+  || field.fieldlabel
+  || field.fieldLabel
+  || field.name
+  || titleCase(field.field || "")
+);
+
 const cleanValue = (value) => {
   if (value === undefined || value === null || value === "") return "-";
   if (Array.isArray(value)) return value.join(", ");
@@ -69,7 +79,7 @@ const mergePendingValues = (user, pendingValues = {}) => {
 };
 
 function groupLayout(layout, user, fields) {
-  const fieldLabels = new Map((fields || []).map((item) => [item.field, item.label || item.field]));
+  const fieldLabels = new Map((fields || []).map((item) => [item.field, fieldDisplayName(item)]));
   const visibleLayout = (layout || [])
     .filter((item) => String(item.visible || "Yes") !== "No")
     .sort((a, b) => Number(a.sectionorder ?? a.taborder ?? 0) - Number(b.sectionorder ?? b.taborder ?? 0)
@@ -368,7 +378,6 @@ export default function UserProfileLayoutDisplayPage({ student = false }) {
             font-size: 10px !important;
             color: #475569;
             font-weight: 800 !important;
-            text-transform: uppercase;
             letter-spacing: .02em;
           }
           .rolewise-profile-value {
@@ -419,7 +428,7 @@ export default function UserProfileLayoutDisplayPage({ student = false }) {
                       <React.Fragment key={index}>
                         <Grid item xs={12} md={4}>
                           <TextField select fullWidth size="small" label="Field" value={filter.field} onChange={(event) => updateFilter(index, "field", event.target.value)}>
-                            {fields.map((field) => <MenuItem key={field.field} value={field.field}>{field.label}</MenuItem>)}
+                            {fields.map((field) => <MenuItem key={field.field} value={field.field}>{fieldDisplayName(field)}</MenuItem>)}
                           </TextField>
                         </Grid>
                         <Grid item xs={12} md={6}>
@@ -469,4 +478,242 @@ export default function UserProfileLayoutDisplayPage({ student = false }) {
 
 export function StudentProfileLayoutDisplayPage() {
   return <UserProfileLayoutDisplayPage student />;
+}
+
+export function UserProfileCustomFieldsGridPage() {
+  const [fields, setFields] = useState([]);
+  const [layouts, setLayouts] = useState([]);
+  const [selectedRole, setSelectedRole] = useState("Student");
+  const [filters, setFilters] = useState([{ ...emptyFilter }]);
+  const [filterOptions, setFilterOptions] = useState({});
+  const [rows, setRows] = useState([]);
+  const [selectedRows, setSelectedRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => { loadMeta(); }, []);
+
+  const layoutFields = useMemo(() => (
+    Array.from((layouts || [])
+      .filter((item) => String(item.visible || "Yes") !== "No")
+      .filter((item) => !selectedRole || selectedRole === "All" || item.role === selectedRole)
+      .sort((a, b) => Number(a.sectionorder || 0) - Number(b.sectionorder || 0)
+        || String(a.section || "").localeCompare(String(b.section || ""))
+        || Number(a.order || 0) - Number(b.order || 0)
+        || String(a.label || a.field || "").localeCompare(String(b.label || b.field || "")))
+      .reduce((map, item) => {
+        if (item.field && !map.has(item.field)) map.set(item.field, item);
+        return map;
+      }, new Map()).values())
+  ), [layouts, selectedRole]);
+
+  const roleOptions = useMemo(() => (
+    Array.from(new Set(["Student", "All", ...layouts.map((row) => row.role).filter(Boolean)])).sort()
+  ), [layouts]);
+
+  const ensureFilterFields = (items = []) => {
+    const required = [
+      ["role", "Role"],
+      ["name", "Name"],
+      ["email", "Email"],
+      ["user", "User Email"],
+      ["regno", "Reg No"],
+      ["academicyear", "Academic Year"],
+      ["admissionyear", "Admission Year"],
+      ["regulation", "Regulation"],
+      ["program", "Program"],
+      ["programcode", "Program Code"],
+      ["semester", "Semester"],
+      ["section", "Section"],
+      ["gender", "Gender"],
+      ["category", "Category"],
+      ["department", "Department"]
+    ];
+    const map = new Map(items.map((item) => [item.field, item]));
+    required.forEach(([field, label]) => {
+      if (!map.has(field)) map.set(field, { field, label });
+    });
+    return Array.from(map.values());
+  };
+
+  const loadMeta = async () => {
+    try {
+      const [metaRes, layoutRes] = await Promise.all([
+        ep1.get("/api/v2/user-data/meta", { params: { colid: global1.colid } }),
+        ep1.get("/api/v2/user-profile-display-layouts", { params: { colid: global1.colid } })
+      ]);
+      const allFields = ensureFilterFields((metaRes.data?.filterFields || []).filter((field) => !String(field.field).includes("$")));
+      setFields(allFields);
+      setLayouts(layoutRes.data || []);
+      setFilterOptions(Object.fromEntries(allFields.filter((field) => field.options?.length).map((field) => [field.field, field.options])));
+    } catch (err) {
+      setError(err.response?.data?.msg || "Unable to load display layout metadata");
+    }
+  };
+
+  const updateFilter = async (index, key, value) => {
+    const next = filters.map((item, itemIndex) => (
+      itemIndex === index ? { ...item, [key]: value, ...(key === "field" ? { value: "" } : {}) } : item
+    ));
+    setFilters(next);
+    if (key === "field" && value && !filterOptions[value]) {
+      try {
+        const selectedField = fields.find((field) => field.field === value);
+        if (selectedField?.options?.length) {
+          setFilterOptions((prev) => ({ ...prev, [value]: selectedField.options }));
+        } else {
+          const res = await ep1.get("/api/v2/user-data/options", { params: { colid: global1.colid, field: value } });
+          setFilterOptions((prev) => ({ ...prev, [value]: res.data || [] }));
+        }
+      } catch {
+        setFilterOptions((prev) => ({ ...prev, [value]: [] }));
+      }
+    }
+  };
+
+  const searchRows = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await ep1.post("/api/v2/user-data/search", {
+        colid: global1.colid,
+        filters: [
+          ...(selectedRole && selectedRole !== "All" ? [{ field: "role", value: selectedRole }] : []),
+          ...filters.filter((filter) => filter.field && String(filter.value || "").trim() !== "")
+        ],
+        limit: 20000
+      });
+      const flattened = (res.data || []).map((row) => {
+        const custom = row.customFields || {};
+        const next = { ...row };
+        layoutFields.forEach((field) => {
+          next[field.field] = String(field.field || "").startsWith("customFields.")
+            ? custom[String(field.field).replace("customFields.", "")] ?? ""
+            : row[field.field] ?? "";
+        });
+        return next;
+      });
+      setRows(flattened);
+      setSelectedRows([]);
+    } catch (err) {
+      setError(err.response?.data?.msg || "Unable to load users");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const columns = [
+    ...layoutFields.map((field) => ({
+      field: field.field,
+      headerName: field.label || fieldDisplayName(field),
+      minWidth: 180,
+      flex: 1,
+      renderCell: ({ value }) => (
+        <Typography variant="body2" sx={{ whiteSpace: "normal", overflowWrap: "anywhere", lineHeight: 1.25 }}>
+          {cleanValue(value)}
+        </Typography>
+      )
+    }))
+  ];
+
+  return (
+    <MenuPageShell title="Custom Fields Display Grid">
+      <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
+        <Paper elevation={0} sx={{ p: 2, mb: 2, border: "1px solid #e5e7eb" }}>
+          <Breadcrumbs sx={{ mb: 0.5 }}>
+            <Link underline="hover" color="inherit" href="/dashdashfacnew">Dashboard</Link>
+            <Typography color="text.primary">User management</Typography>
+          </Breadcrumbs>
+          <Typography variant="h5" fontWeight={900}>Custom Fields Display Grid</Typography>
+          <Typography color="text.secondary">Displays only fields configured in Profile Display Layout, using the configured display names and order.</Typography>
+        </Paper>
+
+        {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
+
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Stack direction={{ xs: "column", md: "row" }} alignItems={{ xs: "stretch", md: "center" }} justifyContent="space-between" spacing={1} sx={{ mb: 2 }}>
+            <Box>
+              <Typography variant="h6" fontWeight={800}>Dynamic filters</Typography>
+              <Typography variant="body2" color="text.secondary">{rows.length} matching rows loaded. {selectedRows.length} selected.</Typography>
+            </Box>
+            <Stack direction="row" spacing={1} flexWrap="wrap">
+              <Button variant="outlined" disabled={!rows.length} onClick={() => setSelectedRows(rows.map((row) => row._id))}>Select all loaded</Button>
+              <Button startIcon={<Add />} variant="outlined" onClick={() => setFilters((prev) => [...prev, { ...emptyFilter }])}>Add Filter</Button>
+            </Stack>
+          </Stack>
+          <Grid container spacing={1.5}>
+            <Grid item xs={12} md={4}>
+              <Autocomplete
+                options={roleOptions}
+                value={selectedRole}
+                onChange={(_, value) => {
+                  setSelectedRole(value || "Student");
+                  setRows([]);
+                  setSelectedRows([]);
+                }}
+                renderInput={(params) => <TextField {...params} size="small" label="Display layout role" />}
+              />
+            </Grid>
+            <Grid item xs={12} md={8}>
+              <Alert severity={layoutFields.length ? "info" : "warning"} sx={{ py: 0.5 }}>
+                {layoutFields.length ? `${layoutFields.length} configured display layout fields will be shown.` : "No visible fields are configured for this role in Profile Display Layout."}
+              </Alert>
+            </Grid>
+            {filters.map((filter, index) => {
+              const selectedField = fields.find((field) => field.field === filter.field);
+              const options = (filterOptions[filter.field] || selectedField?.options || []).map((item) => String(item));
+              return (
+                <React.Fragment key={index}>
+                  <Grid item xs={12} md={4}>
+                    <Autocomplete
+                      options={fields}
+                      getOptionLabel={(option) => fieldDisplayName(option)}
+                      value={fields.find((field) => field.field === filter.field) || null}
+                      onChange={(_, value) => updateFilter(index, "field", value?.field || "")}
+                      renderInput={(params) => <TextField {...params} size="small" label="Field" />}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <Autocomplete
+                      freeSolo
+                      options={options}
+                      value={filter.value || ""}
+                      onInputChange={(_, value) => updateFilter(index, "value", value)}
+                      renderInput={(params) => <TextField {...params} size="small" label="Value" />}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={2}>
+                    <IconButton color="error" onClick={() => setFilters((prev) => prev.length === 1 ? [{ ...emptyFilter }] : prev.filter((_, itemIndex) => itemIndex !== index))}>
+                      <Delete />
+                    </IconButton>
+                  </Grid>
+                </React.Fragment>
+              );
+            })}
+            <Grid item xs={12}>
+              <Button variant="contained" startIcon={<Search />} disabled={loading || !layoutFields.length} onClick={searchRows}>{loading ? "Loading..." : "Load Matching Students"}</Button>
+            </Grid>
+          </Grid>
+        </Paper>
+
+        <Paper sx={{ p: 1, overflowX: "auto" }}>
+          <DataGrid
+            rows={rows}
+            getRowId={(row) => row._id}
+            columns={columns}
+            loading={loading}
+            checkboxSelection
+            rowSelectionModel={selectedRows}
+            onRowSelectionModelChange={(model) => setSelectedRows(model)}
+            autoHeight
+            getRowHeight={() => "auto"}
+            slots={{ toolbar: GridToolbar }}
+            slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "custom_fields_display_grid" } } }}
+            pageSizeOptions={[10, 25, 50, 100]}
+            sx={{ "& .MuiDataGrid-cell": { alignItems: "flex-start", py: 1, whiteSpace: "normal" } }}
+          />
+        </Paper>
+      </Box>
+    </MenuPageShell>
+  );
 }

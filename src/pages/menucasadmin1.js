@@ -266,6 +266,12 @@ const MenuCasAdminFullTree = ({ open }) => {
         </AccordionSummary>
         <AccordionDetails>
 
+        <ListItem button component={RouterLink} to="/dashmprojectsadmin">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primary="Projects" />}
+</ListItem>
 
         <ListItem button component={RouterLink} to="/dashmpublicationsadmin">
 <ListItemIcon>

@@ -152,6 +152,15 @@ export default function ExamrollRulesCheckPage() {
             <Button variant="contained" color="secondary" disabled={!!processing || !selectedIds.length} onClick={() => bulkUpdate("attendancepresent")}>
               {processing === "attendancepresent" ? "Updating..." : `Set Attendance Present/1 (${selectedIds.length})`}
             </Button>
+            <Button variant="contained" color="info" disabled={!!processing || !selectedIds.length} onClick={() => bulkUpdate("feesyes")}>
+              {processing === "feesyes" ? "Updating..." : `Set Fees Yes (${selectedIds.length})`}
+            </Button>
+            <Button variant="contained" color="warning" disabled={!!processing || !selectedIds.length} onClick={() => bulkUpdate("disciplinaryyes")}>
+              {processing === "disciplinaryyes" ? "Updating..." : `Set Disciplinary Yes (${selectedIds.length})`}
+            </Button>
+            <Button variant="contained" color="success" disabled={!!processing || !selectedIds.length} onClick={() => bulkUpdate("atktyes")}>
+              {processing === "atktyes" ? "Updating..." : `Set ATKT Yes (${selectedIds.length})`}
+            </Button>
           </Stack>
         </Paper>
         <Paper sx={{ p: 1, overflowX: "auto" }}>

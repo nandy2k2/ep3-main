@@ -69,7 +69,7 @@ export default function ConductExamComponentwiseAllocationPage() {
   const [papersPerExaminer, setPapersPerExaminer] = useState("");
   const [aiRules, setAiRules] = useState("");
   const [aiResponse, setAiResponse] = useState("");
-  const [filters, setFilters] = useState({ academicyear: "", examcode: "", regulation: "", programcode: "", coursecode: "", componenttype: "", assessmentcomponent: "" });
+  const [filters, setFilters] = useState({ academicyear: "", examcode: "", regulation: "", programcode: "", semester: "", coursecode: "", componenttype: "", assessmentcomponent: "" });
   const [selectedIds, setSelectedIds] = useState([]);
   const [editId, setEditId] = useState("");
   const [loading, setLoading] = useState(false);
@@ -112,10 +112,12 @@ export default function ConductExamComponentwiseAllocationPage() {
     const byExam = byYear.filter((row) => !form.examcode || row.examcode === form.examcode);
     const byReg = byExam.filter((row) => !form.regulation || row.regulation === form.regulation);
     const byProgram = byReg.filter((row) => !form.programcode || row.programcode === form.programcode);
+    const bySemester = byProgram.filter((row) => !form.semester || row.semester === form.semester);
     const programMap = new Map();
     byReg.forEach((row) => row.programcode && programMap.set(row.programcode, { programcode: row.programcode, program: row.program }));
+    const semesters = uniq(byProgram.map((row) => row.semester));
     const courseMap = new Map();
-    byProgram.forEach((row) => row.coursecode && courseMap.set(row.coursecode, row));
+    bySemester.forEach((row) => row.coursecode && courseMap.set(row.coursecode, row));
     return {
       academicyears: uniq(courses.map((row) => row.academicyear)),
       exams: uniq(byYear.map((row) => `${row.examcode}||${row.exam}`)).map((value) => {
@@ -124,6 +126,7 @@ export default function ConductExamComponentwiseAllocationPage() {
       }),
       regulations: uniq(byExam.map((row) => row.regulation)),
       programs: [...programMap.values()].sort((a, b) => String(a.program).localeCompare(String(b.program))),
+      semesters,
       coursesList: [...courseMap.values()].sort((a, b) => String(a.course).localeCompare(String(b.course)))
     };
   }, [courses, form]);
@@ -132,6 +135,7 @@ export default function ConductExamComponentwiseAllocationPage() {
     (!form.academicyear || row.academicyear === form.academicyear)
     && (!form.examcode || row.examcode === form.examcode)
     && (!form.programcode || row.programcode === form.programcode)
+    && (!form.semester || row.semester === form.semester)
     && (!form.coursecode || row.coursecode === form.coursecode)
   )), [examiners, form]);
 
@@ -139,6 +143,7 @@ export default function ConductExamComponentwiseAllocationPage() {
     (!form.academicyear || row.academicyear === form.academicyear)
     && (!form.regulation || row.regulation === form.regulation)
     && (!form.programcode || row.programcode === form.programcode)
+    && (!form.semester || row.semester === form.semester)
     && (!form.coursecode || row.coursecode === form.coursecode)
     && (!form.componenttype || row.componenttype === form.componenttype)
   )), [components, form]);
@@ -156,7 +161,7 @@ export default function ConductExamComponentwiseAllocationPage() {
       course: selected?.course || "",
       type: selected?.type || "",
       subject: selected?.subject || "",
-      semester: selected?.semester || ""
+      semester: selected?.semester || prev.semester || ""
     }));
     setStudents([]);
     setSelectedComponents([]);
@@ -285,6 +290,7 @@ export default function ConductExamComponentwiseAllocationPage() {
     { field: "regulation", headerName: "Regulation", width: 130 },
     { field: "program", headerName: "Program", width: 160 },
     { field: "programcode", headerName: "Program Code", width: 130 },
+    { field: "semester", headerName: "Semester", width: 110 },
     { field: "course", headerName: "Course", minWidth: 180, flex: 1 },
     { field: "coursecode", headerName: "Course Code", width: 130 },
     { field: "componenttype", headerName: "Component Type", width: 150 },
@@ -332,7 +338,8 @@ export default function ConductExamComponentwiseAllocationPage() {
             <Grid item xs={12} md={2}><TextField select fullWidth label="Academic Year" value={form.academicyear} onChange={(e) => setForm({ ...blankForm, academicyear: e.target.value })}>{dropdowns.academicyears.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={2.5}><TextField select fullWidth label="Exam" value={form.examcode} onChange={(e) => { const exam = dropdowns.exams.find((item) => item.examcode === e.target.value); setForm((prev) => ({ ...blankForm, academicyear: prev.academicyear, examcode: e.target.value, exam: exam?.exam || "" })); }}>{dropdowns.exams.map((item) => <MenuItem key={item.examcode} value={item.examcode}>{item.exam} ({item.examcode})</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={2}><TextField select fullWidth label="Regulation" value={form.regulation} onChange={(e) => setForm((prev) => ({ ...prev, regulation: e.target.value, program: "", programcode: "", course: "", coursecode: "" }))}>{dropdowns.regulations.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
-            <Grid item xs={12} md={2.5}><TextField select fullWidth label="Program" value={form.programcode} onChange={(e) => { const program = dropdowns.programs.find((item) => item.programcode === e.target.value); setForm((prev) => ({ ...prev, programcode: e.target.value, program: program?.program || "", course: "", coursecode: "" })); }}>{dropdowns.programs.map((item) => <MenuItem key={item.programcode} value={item.programcode}>{item.program} ({item.programcode})</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={2.5}><TextField select fullWidth label="Program" value={form.programcode} onChange={(e) => { const program = dropdowns.programs.find((item) => item.programcode === e.target.value); setForm((prev) => ({ ...prev, programcode: e.target.value, program: program?.program || "", semester: "", course: "", coursecode: "" })); }}>{dropdowns.programs.map((item) => <MenuItem key={item.programcode} value={item.programcode}>{item.program} ({item.programcode})</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={2}><TextField select fullWidth label="Semester" value={form.semester} onChange={(e) => setForm((prev) => ({ ...prev, semester: e.target.value, course: "", coursecode: "" }))}><MenuItem value="">Select</MenuItem>{dropdowns.semesters.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={3}><Autocomplete options={dropdowns.coursesList} getOptionLabel={courseLabel} value={dropdowns.coursesList.find((item) => item.coursecode === form.coursecode) || null} onChange={(_, value) => setCourseDetails(value?.coursecode || "")} renderInput={(params) => <TextField {...params} label="Course" />} /></Grid>
             <Grid item xs={12} md={2}><TextField select fullWidth label="Component Type" value={form.componenttype} onChange={(e) => { setForm((prev) => ({ ...prev, componenttype: e.target.value, assessmentcomponent: "" })); setSelectedComponents([]); }}>{["Theory", "Practical", "Viva"].map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={5}>
