@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   FormControl,
@@ -21,6 +22,8 @@ import PlacementCoordinatorShell from "./PlacementCoordinatorShell";
 
 const emptyForm = {
   id: "",
+  program: "",
+  programcode: "",
   merchantid: "",
   aggregatorid: "",
   secretkey: "",
@@ -34,13 +37,14 @@ const emptyForm = {
 
 const activeText = (value) => (value === true || value === "Yes" ? "Yes" : "No");
 
-const IciciGatewayPage = () => {
+export const IciciGatewayConfigFormPage = ({ programMode = false }) => {
   const navigate = useNavigate();
   const colid = useMemo(() => global1.colid, []);
   const currentUser = useMemo(() => global1.user, []);
   const currentName = useMemo(() => global1.name || global1.user || "NA", []);
   const [form, setForm] = useState(emptyForm);
   const [rows, setRows] = useState([]);
+  const [programs, setPrograms] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -50,8 +54,12 @@ const IciciGatewayPage = () => {
     setLoading(true);
     setError("");
     try {
-      const res = await ep1.get("/api/v2/icicigatewayconfig", { params: { colid } });
-      setRows(res.data.data || []);
+      const [configRes, programRes] = await Promise.all([
+        ep1.get("/api/v2/icicigatewayconfig", { params: { colid } }),
+        programMode ? ep1.get("/api/v2/mprograms-management", { params: { colid } }).catch(() => ({ data: { data: [] } })) : Promise.resolve({ data: { data: [] } })
+      ]);
+      setRows(configRes.data.data || []);
+      setPrograms(programRes.data?.data || []);
     } catch (err) {
       setError(err.response?.data?.message || err.message || "Unable to load ICICI configuration");
     } finally {
@@ -98,6 +106,8 @@ const IciciGatewayPage = () => {
   const editRow = (row) => {
     setForm({
       id: row._id,
+      program: row.program || "",
+      programcode: row.programcode || "",
       merchantid: row.merchantid || "",
       aggregatorid: row.aggregatorid || "",
       secretkey: row.secretkey || "",
@@ -109,6 +119,14 @@ const IciciGatewayPage = () => {
       notes: row.notes || ""
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const chooseProgram = (value) => {
+    setForm((prev) => ({
+      ...prev,
+      program: value?.program || "",
+      programcode: value?.programcode || ""
+    }));
   };
 
   const deleteRow = async (row) => {
@@ -141,6 +159,8 @@ const IciciGatewayPage = () => {
         </Stack>
       )
     },
+    { field: "program", headerName: "Program", minWidth: 180, flex: 1 },
+    { field: "programcode", headerName: "Program Code", minWidth: 150 },
     { field: "merchantid", headerName: "Merchant ID", minWidth: 180, flex: 1 },
     { field: "aggregatorid", headerName: "Aggregator ID", minWidth: 180, flex: 1 },
     { field: "secretkey", headerName: "Secret key", minWidth: 220, flex: 1 },
@@ -155,11 +175,11 @@ const IciciGatewayPage = () => {
   ];
 
   return (
-    <PlacementCoordinatorShell title="ICICI configuration">
+    <PlacementCoordinatorShell title={programMode ? "Program-wise ICICI configuration" : "ICICI configuration"}>
       <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} spacing={2} sx={{ mb: 2 }}>
         <Box>
-          <Typography variant="h5" fontWeight={700}>ICICI configuration</Typography>
-          <Typography variant="body2" color="text.secondary">Manage ICICI merchant and aggregator settings for this institution.</Typography>
+          <Typography variant="h5" fontWeight={700}>{programMode ? "Program-wise ICICI configuration" : "ICICI configuration"}</Typography>
+          <Typography variant="body2" color="text.secondary">{programMode ? "Manage ICICI merchant settings for specific programs. Student payment will use the matching program configuration first, otherwise the default ICICI configuration." : "Manage ICICI merchant and aggregator settings for this institution."}</Typography>
         </Box>
         <Button variant="outlined" startIcon={<ArrowBack />} onClick={() => navigate("/dashdashfacnew")}>Back to dashboard</Button>
       </Stack>
@@ -169,6 +189,18 @@ const IciciGatewayPage = () => {
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(4, 1fr)" }, gap: 2 }}>
+          {programMode && (
+            <>
+              <Autocomplete
+                options={programs}
+                value={programs.find((row) => row.program === form.program && row.programcode === form.programcode) || null}
+                getOptionLabel={(option) => option?._id ? `${option.program || ""} (${option.programcode || ""})` : ""}
+                onChange={(_, value) => chooseProgram(value)}
+                renderInput={(params) => <TextField {...params} size="small" label="Program" required />}
+              />
+              <TextField size="small" label="Program Code" value={form.programcode} InputProps={{ readOnly: true }} />
+            </>
+          )}
           <TextField size="small" label="Merchant ID" value={form.merchantid} onChange={(e) => setForm({ ...form, merchantid: e.target.value })} required />
           <TextField size="small" label="Aggregator ID" value={form.aggregatorid} onChange={(e) => setForm({ ...form, aggregatorid: e.target.value })} required />
           <TextField size="small" label="Secret key" value={form.secretkey} onChange={(e) => setForm({ ...form, secretkey: e.target.value })} required />
@@ -195,7 +227,7 @@ const IciciGatewayPage = () => {
           <Button
             variant="contained"
             startIcon={<Save />}
-            disabled={saving || !form.merchantid || !form.aggregatorid || !form.secretkey}
+            disabled={saving || (programMode && !form.programcode) || !form.merchantid || !form.aggregatorid || !form.secretkey}
             onClick={saveRow}
           >
             {form.id ? "Update" : "Save"}
@@ -219,5 +251,7 @@ const IciciGatewayPage = () => {
     </PlacementCoordinatorShell>
   );
 };
+
+const IciciGatewayPage = () => <IciciGatewayConfigFormPage />;
 
 export default IciciGatewayPage;

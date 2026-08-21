@@ -860,7 +860,7 @@ export function StudentExamDynamicFormPage() {
     [context, filters.examtype]
   );
   const courseRows = useMemo(() => courses.map((row, index) => ({ ...row, id: courseKey(row) || `course-${index}` })), [courses]);
-  const feeLedgerRows = useMemo(() => (context?.examFeeLedger || []).map((row, index) => ({ ...row, id: row._id || `fee-${index}` })), [context]);
+  const persistedFeeLedgerRows = useMemo(() => (context?.examFeeLedger || []).map((row, index) => ({ ...row, id: row._id || `fee-${index}` })), [context]);
   const allCourseIds = useMemo(() => courseRows.map((row) => row.id), [courseRows]);
   const allCoursesSelected = allCourseIds.length > 0 && allCourseIds.every((id) => selectedCourses.includes(id));
   const someCoursesSelected = allCourseIds.some((id) => selectedCourses.includes(id));
@@ -873,6 +873,25 @@ export function StudentExamDynamicFormPage() {
     const course = courseRows.find((row) => row.id === key);
     return sum + Number(course?.fee || 0);
   }, 0);
+  const calculatedFeeRows = useMemo(() => totalFee > 0 ? [{
+    id: "calculated-exam-fee",
+    feegroup: "Exam Fee",
+    feeitem: "Exam Fee",
+    feecategory: "Exam Fee",
+    feetype: filters.examtype,
+    academicyear: filters.academicyear,
+    regulation: context?.student?.regulation,
+    program: context?.student?.program,
+    programcode: context?.student?.programcode,
+    semester: context?.student?.semester,
+    amount: totalFee,
+    paid: 0,
+    concession: 0,
+    balance: totalFee,
+    classdate: new Date().toISOString(),
+    status: "Calculated"
+  }] : [], [totalFee, filters.examtype, filters.academicyear, context]);
+  const feeLedgerRows = persistedFeeLedgerRows.length ? persistedFeeLedgerRows : calculatedFeeRows;
   const toggleCourse = (key) => {
     setSelectedCourses((prev) => prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]);
   };
@@ -928,6 +947,9 @@ export function StudentExamDynamicFormPage() {
         documents,
         courses: selectedCourseRows
       });
+      if (Array.isArray(res.data?.examFeeLedger)) {
+        setContext((prev) => prev ? { ...prev, examFeeLedger: res.data.examFeeLedger } : prev);
+      }
       setMessage(`Exam form submitted. Ledger rows: ${res.data?.ledgerCreated || 0}, examroll rows: ${res.data?.examRollCreated || 0}`);
     } catch (err) {
       const errors = err.response?.data?.errors;

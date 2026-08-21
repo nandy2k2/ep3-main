@@ -54,7 +54,7 @@ const panelFields = ["academicyear", "regulation", "program", "programcode", "pa
 const oralPanelFields = ["academicyear", "regulation", "program", "programcode", "panelname", "description", "approvalstatus", "status", "currentapprovername", "currentapproveremail", "comments"];
 const oralPanelMemberFields = ["academicyear", "regulation", "panelname", "program", "programcode", "examinername", "examineremail", "designation", "qualification", "type", "specialization", "eligible", "approvalstatus", "preferenceorder", "currentlevel", "currentapprovername", "currentapproveremail", "useremail", "comments"];
 const memberFields = ["academicyear", "regulation", "panelname", "program", "programcode", "examinername", "examineremail", "designation", "qualification", "type", "specialization", "ugteachingexp", "pgteachingexp", "address", "phone", "email", "eligible", "approvalstatus", "comments"];
-const memberApprovalFields = [...memberFields, "user", "useremail"];
+const memberApprovalFields = [...memberFields, "currentlevel", "currentapprovername", "currentapproveremail", "user", "useremail"];
 const examinerAssignmentFields = ["academicyear", "regulation", "program", "programcode", "panelname", "student", "regno", "topic", "fileurl", "examinername", "examineremail", "status", "remarks"];
 const rubricFields = ["academicyear", "regulation", "program", "programcode", "group", "topic", "status"];
 const oralDefenseFields = ["academicyear", "regulation", "program", "programcode", "panelname", "student", "regno", "topic", "examinername", "examineremail", "targetdate", "oraldefensedate", "status", "comments"];
@@ -1451,6 +1451,9 @@ export function PhdExaminerPanelMembersPage() {
   const [rows, setRows] = useState([]);
   const [filters, setFilters] = useState({});
   const [selection, setSelection] = useState([]);
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState("");
+  const [submitComments, setSubmitComments] = useState("");
   const [form, setForm] = useState({ panelid: "", academicyear: "", regulation: "", panelname: "", program: "", programcode: "", examinername: "", examineremail: "", designation: "", qualification: "", type: "External", specialization: "", ugteachingexp: "", pgteachingexp: "", address: "", phone: "", email: "", eligible: "Yes", approvalstatus: "Pending", comments: "" });
   const loadPanels = async () => {
     const res = await ep1.get("/api/v2/phd/examiner-panels", { params: { colid: global1.colid } });
@@ -1463,9 +1466,23 @@ export function PhdExaminerPanelMembersPage() {
   useEffect(() => { loadPanels(); loadRows(); }, []);
   const choosePanel = (p) => setForm((prev) => ({ ...prev, panelid: p?._id || "", academicyear: p?.academicyear || "", regulation: p?.regulation || "", panelname: p?.panelname || "", program: p?.program || "", programcode: p?.programcode || "" }));
   const save = async () => {
+    setBusy("save");
     await ep1.post("/api/v2/phd/examiner-panel-members", { ...form, colid: global1.colid, name: global1.name, user: global1.user });
     setForm({ panelid: "", academicyear: "", regulation: "", panelname: "", program: "", programcode: "", examinername: "", examineremail: "", designation: "", qualification: "", type: "External", specialization: "", ugteachingexp: "", pgteachingexp: "", address: "", phone: "", email: "", eligible: "Yes", approvalstatus: "Pending", comments: "" });
     loadRows(); load();
+    setBusy("");
+  };
+  const submitPanel = async () => {
+    if (!form.panelid) return;
+    setBusy("submit");
+    try {
+      const res = await ep1.post("/api/v2/phd/examiner-panels-submit", { colid: global1.colid, id: form.panelid, comments: submitComments, name: global1.name, user: global1.user });
+      setMessage(`${res.data?.submitted || 0} examiner member(s) submitted for approval.`);
+      setSubmitComments("");
+      await loadRows();
+    } finally {
+      setBusy("");
+    }
   };
   const bulkUpload = async (event) => {
     const file = event.target.files?.[0]; event.target.value = ""; if (!file) return;
@@ -1478,14 +1495,146 @@ export function PhdExaminerPanelMembersPage() {
     <MenuPageShell title="Examiner panel members">
       <Stack spacing={2} sx={{ p: 2 }}>
         <Typography variant="h5" fontWeight={900}>Examiner Panel Members</Typography>
+        {message && <Alert severity="success" onClose={() => setMessage("")}>{message}</Alert>}
         <Paper variant="outlined" sx={{ p: 2 }}><Grid container spacing={2}>
           <Grid item xs={12} md={5}><Autocomplete options={panels} getOptionLabel={panelLabel} onChange={(_, v) => choosePanel(v)} renderInput={(params) => <TextField {...params} size="small" label="Select examiner panel" />} /></Grid>
-          {memberFields.map((field) => <Grid item xs={12} md={["address", "comments", "specialization"].includes(field) ? 6 : 3} key={field}><TextField select={["type", "eligible", "approvalstatus"].includes(field)} fullWidth multiline={["address", "comments"].includes(field)} minRows={["address", "comments"].includes(field) ? 2 : undefined} size="small" label={fieldLabel(field)} value={form[field] || ""} onChange={(e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))}>{field === "type" && ["Internal", "External"].map((x) => <MenuItem key={x} value={x}>{x}</MenuItem>)}{field === "eligible" && ["Yes", "No"].map((x) => <MenuItem key={x} value={x}>{x}</MenuItem>)}{field === "approvalstatus" && ["Pending", "Approved", "Rejected"].map((x) => <MenuItem key={x} value={x}>{x}</MenuItem>)}</TextField></Grid>)}
-          <Grid item xs={12}><Button variant="contained" startIcon={<SaveIcon />} onClick={save}>Save member</Button></Grid>
+          {memberFields.map((field) => <Grid item xs={12} md={["address", "comments", "specialization"].includes(field) ? 6 : 3} key={field}><TextField select={["type", "eligible", "approvalstatus"].includes(field)} fullWidth multiline={["address", "comments"].includes(field)} minRows={["address", "comments"].includes(field) ? 2 : undefined} size="small" label={fieldLabel(field)} value={form[field] || ""} onChange={(e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))}>{field === "type" && ["Internal", "External"].map((x) => <MenuItem key={x} value={x}>{x}</MenuItem>)}{field === "eligible" && ["Yes", "No"].map((x) => <MenuItem key={x} value={x}>{x}</MenuItem>)}{field === "approvalstatus" && ["Pending", "Submitted", "Approved", "Rejected"].map((x) => <MenuItem key={x} value={x}>{x}</MenuItem>)}</TextField></Grid>)}
+          <Grid item xs={12} md={6}><TextField fullWidth size="small" label="Submission comments" value={submitComments} onChange={(e) => setSubmitComments(e.target.value)} /></Grid>
+          <Grid item xs={12} md={3}><Button fullWidth variant="contained" startIcon={<SaveIcon />} disabled={Boolean(busy)} onClick={save}>{busy === "save" ? <CircularProgress size={18} color="inherit" /> : "Save member"}</Button></Grid>
+          <Grid item xs={12} md={3}><Button fullWidth variant="outlined" disabled={!form.panelid || Boolean(busy)} onClick={submitPanel}>{busy === "submit" ? <CircularProgress size={18} /> : "Submit panel for approval"}</Button></Grid>
         </Grid></Paper>
         <DynamicFilters fields={memberFields} filters={filters} setFilters={setFilters} options={options || {}} onSearch={loadRows} />
         <Stack direction="row" spacing={1} flexWrap="wrap"><Button variant="outlined" onClick={() => exportCsv("phd-panel-members.csv", rows, columns.filter((c) => c.field !== "edit"))}>Export</Button><SimpleTemplateButton fields={["panelid", ...memberFields]} filename="phd-panel-members-template.xlsx" sheet="Members" /><Button variant="outlined" component="label" startIcon={<UploadFileIcon />}>Bulk upload<input hidden type="file" accept=".xlsx,.xls,.csv" onChange={bulkUpload} /></Button><Button color="error" variant="outlined" disabled={!selection.length} onClick={async () => { await ep1.post("/api/v2/phd/examiner-panel-members-delete", { colid: global1.colid, ids: selection }); setSelection([]); loadRows(); }}>Bulk delete</Button></Stack>
         <Paper sx={{ height: 650 }}><DataGrid rows={rowsWithId(rows)} columns={columns} checkboxSelection onRowSelectionModelChange={(m) => setSelection(Array.from(m))} slots={{ toolbar: GridToolbar }} sx={gridSx} getRowHeight={() => "auto"} /></Paper>
+      </Stack>
+    </MenuPageShell>
+  );
+}
+
+export function PhdExaminerPanelWorkflowPage() {
+  const { options, programs, users } = usePhdOptions();
+  const [rows, setRows] = useState([]);
+  const [filters, setFilters] = useState({});
+  const [selection, setSelection] = useState([]);
+  const [busy, setBusy] = useState("");
+  const [form, setForm] = useState({ academicyear: "", regulation: "", program: "", programcode: "", level: 1, role: "", approvername: "", approveremail: "", status: "Active", remarks: "" });
+  const loadRows = async () => {
+    setBusy("load");
+    try {
+      const res = await ep1.get(`/api/v2/phd/examiner-panel-workflows?${queryString({ colid: global1.colid, ...filters })}`);
+      setRows(res.data?.data || []);
+    } finally {
+      setBusy("");
+    }
+  };
+  useEffect(() => { loadRows(); }, []);
+  const chooseProgram = (p) => setForm((prev) => ({ ...prev, academicyear: p?.academicyear || prev.academicyear, regulation: p?.regulation || prev.regulation, program: p?.program || "", programcode: p?.programcode || "" }));
+  const chooseApprover = (u) => setForm((prev) => ({ ...prev, approvername: u?.name || "", approveremail: u?.email || u?.user || "", role: u?.role || prev.role }));
+  const save = async () => {
+    setBusy("save");
+    try {
+      await ep1.post("/api/v2/phd/examiner-panel-workflows", { ...form, colid: global1.colid, name: global1.name, user: global1.user });
+      setForm({ academicyear: "", regulation: "", program: "", programcode: "", level: 1, role: "", approvername: "", approveremail: "", status: "Active", remarks: "" });
+      await loadRows();
+    } finally {
+      setBusy("");
+    }
+  };
+  const bulkUpload = async (event) => {
+    const file = event.target.files?.[0]; event.target.value = ""; if (!file) return;
+    setBusy("upload");
+    try {
+      const wb = XLSX.read(await file.arrayBuffer()); const items = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
+      await Promise.all(items.map((item) => ep1.post("/api/v2/phd/examiner-panel-workflows", { ...item, colid: global1.colid, name: global1.name, user: global1.user })));
+      await loadRows();
+    } finally {
+      setBusy("");
+    }
+  };
+  const deleteRows = async () => {
+    setBusy("delete");
+    try {
+      await ep1.post("/api/v2/phd/examiner-panel-workflows-delete", { colid: global1.colid, ids: selection });
+      setSelection([]);
+      await loadRows();
+    } finally {
+      setBusy("");
+    }
+  };
+  const cols = workflowFields.map((field) => ({ field, headerName: fieldLabel(field), minWidth: field === "remarks" ? 220 : 140, flex: field === "remarks" ? 1 : undefined }));
+  return (
+    <MenuPageShell title="Examiner panel workflow">
+      <Stack spacing={2} sx={{ p: 2 }}>
+        <Typography variant="h5" fontWeight={900}>Examiner Panel Approval Workflow</Typography>
+        <Paper variant="outlined" sx={{ p: 2 }}><Grid container spacing={2}>
+          <Grid item xs={12} md={4}><Autocomplete options={programs || []} getOptionLabel={programLabel} onChange={(_, v) => chooseProgram(v)} renderInput={(params) => <TextField {...params} size="small" label="Program" />} /></Grid>
+          <Grid item xs={12} md={4}><Autocomplete options={users || []} getOptionLabel={userLabel} onChange={(_, v) => chooseApprover(v)} renderInput={(params) => <TextField {...params} size="small" label="Approver" />} /></Grid>
+          {workflowFields.map((field) => <Grid item xs={12} md={field === "remarks" ? 6 : 3} key={field}><TextField fullWidth size="small" multiline={field === "remarks"} minRows={field === "remarks" ? 2 : undefined} label={fieldLabel(field)} value={form[field] || ""} onChange={(e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))} /></Grid>)}
+          <Grid item xs={12} md={3}><Button fullWidth variant="contained" disabled={Boolean(busy)} onClick={save}>{busy === "save" ? <CircularProgress size={18} color="inherit" /> : "Save workflow"}</Button></Grid>
+        </Grid></Paper>
+        <DynamicFilters fields={workflowFields} filters={filters} setFilters={setFilters} options={options || {}} onSearch={loadRows} />
+        <Stack direction="row" spacing={1} flexWrap="wrap">
+          <Button variant="outlined" onClick={() => exportCsv("phd-examiner-panel-workflow.csv", rows, cols)}>Export</Button>
+          <SimpleTemplateButton fields={workflowFields} filename="phd-examiner-panel-workflow-template.xlsx" sheet="Workflow" />
+          <Button variant="outlined" component="label" startIcon={<UploadFileIcon />} disabled={Boolean(busy)}>Bulk upload<input hidden type="file" accept=".xlsx,.xls,.csv" onChange={bulkUpload} /></Button>
+          <Button color="error" variant="outlined" disabled={!selection.length || Boolean(busy)} onClick={deleteRows}>{busy === "delete" ? <CircularProgress size={18} /> : "Bulk delete"}</Button>
+        </Stack>
+        <Paper sx={{ height: 620 }}><DataGrid loading={busy === "load"} rows={rowsWithId(rows)} columns={cols} checkboxSelection rowSelectionModel={selection} onRowSelectionModelChange={(m) => setSelection(Array.from(m))} slots={{ toolbar: GridToolbar }} sx={gridSx} getRowHeight={() => "auto"} /></Paper>
+      </Stack>
+    </MenuPageShell>
+  );
+}
+
+export function PhdExaminerPanelMemberApprovalPage() {
+  const { options } = usePhdOptions();
+  const [panels, setPanels] = useState([]);
+  const [rows, setRows] = useState([]);
+  const [filters, setFilters] = useState({});
+  const [selection, setSelection] = useState([]);
+  const [comments, setComments] = useState("");
+  const [busy, setBusy] = useState("");
+  const [message, setMessage] = useState("");
+  const loadRows = async () => {
+    setBusy("load");
+    try {
+      const res = await ep1.get(`/api/v2/phd/examiner-panel-approvals?${queryString({ colid: global1.colid, user: global1.user, finalOnly: "No", ...filters })}`);
+      setRows(res.data?.data || []);
+      setPanels(res.data?.panels || []);
+      setSelection([]);
+    } finally {
+      setBusy("");
+    }
+  };
+  useEffect(() => { loadRows(); }, []);
+  const action = async (actionName) => {
+    if (!selection.length) return;
+    setBusy(actionName.toLowerCase());
+    try {
+      const res = await ep1.post("/api/v2/phd/examiner-panel-approval-action", { colid: global1.colid, ids: selection, action: actionName, comments, name: global1.name, user: global1.user });
+      setMessage(`${res.data?.updated || 0} member(s) ${actionName.toLowerCase()}d.`);
+      setComments("");
+      await loadRows();
+    } finally {
+      setBusy("");
+    }
+  };
+  const cols = memberApprovalFields.map((field) => ({ field, headerName: fieldLabel(field), minWidth: ["address", "comments", "useremail", "currentapproveremail"].includes(field) ? 220 : 140, flex: field === "address" ? 1 : undefined }));
+  const panelCols = panelFields.map((field) => ({ field, headerName: fieldLabel(field), minWidth: field === "description" ? 240 : 140, flex: field === "description" ? 1 : undefined }));
+  return (
+    <MenuPageShell title="Examiner panel member approval">
+      <Stack spacing={2} sx={{ p: 2 }}>
+        <Typography variant="h5" fontWeight={900}>Examiner Panel Member Approval</Typography>
+        {message && <Alert severity="success" onClose={() => setMessage("")}>{message}</Alert>}
+        <DynamicFilters fields={memberApprovalFields} filters={filters} setFilters={setFilters} options={options || {}} onSearch={loadRows} />
+        <Paper variant="outlined" sx={{ p: 2 }}><Grid container spacing={2}>
+          <Grid item xs={12}><TextField fullWidth multiline minRows={2} label="Approval / rejection comments" value={comments} onChange={(e) => setComments(e.target.value)} /></Grid>
+          <Grid item xs={12} md={3}><Button fullWidth variant="contained" disabled={!selection.length || Boolean(busy)} onClick={() => action("Approve")}>{busy === "approve" ? <CircularProgress size={18} color="inherit" /> : "Approve selected members"}</Button></Grid>
+          <Grid item xs={12} md={3}><Button fullWidth color="error" variant="outlined" disabled={!selection.length || Boolean(busy)} onClick={() => action("Reject")}>{busy === "reject" ? <CircularProgress size={18} /> : "Reject selected members"}</Button></Grid>
+        </Grid></Paper>
+        <Typography fontWeight={800}>Panels Pending At Your Level</Typography>
+        <Paper sx={{ height: 250 }}><DataGrid loading={busy === "load"} rows={rowsWithId(panels)} columns={panelCols} slots={{ toolbar: GridToolbar }} sx={gridSx} getRowHeight={() => "auto"} /></Paper>
+        <Typography fontWeight={800}>Members Pending At Your Level</Typography>
+        <Paper sx={{ height: 620 }}><DataGrid loading={busy === "load"} rows={rowsWithId(rows)} columns={cols} checkboxSelection rowSelectionModel={selection} onRowSelectionModelChange={(m) => setSelection(Array.from(m))} slots={{ toolbar: GridToolbar }} sx={gridSx} getRowHeight={() => "auto"} /></Paper>
       </Stack>
     </MenuPageShell>
   );
@@ -1503,9 +1652,9 @@ export function PhdPanelApprovalPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
-  const loadPanels = async () => { const res = await ep1.get("/api/v2/phd/examiner-panels", { params: { colid: global1.colid } }); setPanels(res.data?.data || []); };
+  const loadPanels = async () => { const res = await ep1.get("/api/v2/phd/examiner-panels", { params: { colid: global1.colid, approvalstatus: "Submitted" } }); setPanels(res.data?.data || []); };
   const loadRows = async (extra = {}) => {
-    const res = await ep1.get(`/api/v2/phd/examiner-panel-members?${queryString({ colid: global1.colid, ...filters, ...extra })}`);
+    const res = await ep1.get(`/api/v2/phd/examiner-panel-approvals?${queryString({ colid: global1.colid, user: global1.user, finalOnly: "Yes", ...filters, ...extra })}`);
     setRows(res.data?.data || []);
   };
   useEffect(() => { loadPanels(); loadRows(); }, []);
@@ -1529,11 +1678,24 @@ export function PhdPanelApprovalPage() {
     setMessage(""); setError("");
     setBusy("approve");
     try {
-      const res = await ep1.post("/api/v2/phd/examiner-panel-members-approve", { colid: global1.colid, ids: selection, comments, name: global1.name, user: global1.user });
+      const res = await ep1.post("/api/v2/phd/examiner-panel-approval-action", { colid: global1.colid, ids: selection, action: "Approve", comments, name: global1.name, user: global1.user });
       setMessage(`${res.data?.updated || 0} examiner(s) approved and linked to user login.`);
       setSelection([]); setComments(""); loadRows();
     } catch (err) {
       setError(err.response?.data?.message || err.message || "Unable to approve panel members.");
+    } finally {
+      setBusy("");
+    }
+  };
+  const rejectSelected = async () => {
+    setMessage(""); setError("");
+    setBusy("reject");
+    try {
+      const res = await ep1.post("/api/v2/phd/examiner-panel-approval-action", { colid: global1.colid, ids: selection, action: "Reject", comments, name: global1.name, user: global1.user });
+      setMessage(`${res.data?.updated || 0} examiner(s) rejected.`);
+      setSelection([]); setComments(""); loadRows();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || "Unable to reject panel members.");
     } finally {
       setBusy("");
     }
@@ -1545,10 +1707,10 @@ export function PhdPanelApprovalPage() {
   return (
     <MenuPageShell title="Panel approval">
       <Stack spacing={2} sx={{ p: 2 }}>
-        <Typography variant="h5" fontWeight={900}>Panel Approval</Typography>
+        <Typography variant="h5" fontWeight={900}>Final Examiner Panel Approval</Typography>
         {message && <Alert severity="success" onClose={() => setMessage("")}>{message}</Alert>}
         {error && <Alert severity="error" onClose={() => setError("")}>{error}</Alert>}
-        <Paper variant="outlined" sx={{ p: 2 }}><Grid container spacing={2}><Grid item xs={12} md={5}><Autocomplete options={panels} getOptionLabel={panelLabel} onChange={(_, v) => loadRows({ panelid: v?._id || "" })} renderInput={(params) => <TextField {...params} size="small" label="Select panel" />} /></Grid><Grid item xs={12} md={7}><TextField fullWidth size="small" label="Approval comments" value={comments} onChange={(e) => setComments(e.target.value)} /></Grid><Grid item xs={12} md={3}><FormControlLabel control={<Checkbox checked={includeCredentials} onChange={(e) => setIncludeCredentials(e.target.checked)} />} label="Include username/password" /></Grid><Grid item xs={12} md={3}><Button fullWidth variant="outlined" disabled={Boolean(busy)} onClick={resetAppointmentContent}>Load default letter content</Button></Grid><Grid item xs={12} md={3}><Button fullWidth variant="contained" disabled={!selection.length || Boolean(busy)} onClick={approveSelected}>{busy === "approve" ? <CircularProgress size={18} color="inherit" /> : "Approve selected members"}</Button></Grid><Grid item xs={12} md={3}><Button fullWidth variant="outlined" disabled={!selection.length || Boolean(busy)} onClick={sendBulkEmail}>{busy === "email" ? <CircularProgress size={18} /> : "Send appointment email"}</Button></Grid><Grid item xs={12}><TextField fullWidth multiline minRows={12} label="Appointment email content" value={emailContent} onChange={(e) => setEmailContent(e.target.value)} helperText="Use placeholders such as {{examinername}}, {{program}}, {{programcode}}, {{institutionname}}, {{institutionemail}}, {{username}}, {{password}}. The same content is used for print and email." /></Grid></Grid></Paper>
+        <Paper variant="outlined" sx={{ p: 2 }}><Grid container spacing={2}><Grid item xs={12} md={5}><Autocomplete options={panels} getOptionLabel={panelLabel} onChange={(_, v) => loadRows({ panelid: v?._id || "" })} renderInput={(params) => <TextField {...params} size="small" label="Select panel" />} /></Grid><Grid item xs={12} md={7}><TextField fullWidth size="small" label="Approval comments" value={comments} onChange={(e) => setComments(e.target.value)} /></Grid><Grid item xs={12} md={3}><FormControlLabel control={<Checkbox checked={includeCredentials} onChange={(e) => setIncludeCredentials(e.target.checked)} />} label="Include username/password" /></Grid><Grid item xs={12} md={3}><Button fullWidth variant="outlined" disabled={Boolean(busy)} onClick={resetAppointmentContent}>Load default letter content</Button></Grid><Grid item xs={12} md={3}><Button fullWidth variant="contained" disabled={!selection.length || Boolean(busy)} onClick={approveSelected}>{busy === "approve" ? <CircularProgress size={18} color="inherit" /> : "Approve selected members"}</Button></Grid><Grid item xs={12} md={3}><Button fullWidth color="error" variant="outlined" disabled={!selection.length || Boolean(busy)} onClick={rejectSelected}>{busy === "reject" ? <CircularProgress size={18} /> : "Reject selected members"}</Button></Grid><Grid item xs={12} md={3}><Button fullWidth variant="outlined" disabled={!selection.length || Boolean(busy)} onClick={sendBulkEmail}>{busy === "email" ? <CircularProgress size={18} /> : "Send appointment email"}</Button></Grid><Grid item xs={12}><TextField fullWidth multiline minRows={12} label="Appointment email content" value={emailContent} onChange={(e) => setEmailContent(e.target.value)} helperText="Use placeholders such as {{examinername}}, {{program}}, {{programcode}}, {{institutionname}}, {{institutionemail}}, {{username}}, {{password}}. The same content is used for print and email." /></Grid></Grid></Paper>
         <DynamicFilters fields={memberApprovalFields} filters={filters} setFilters={setFilters} options={options || {}} onSearch={loadRows} />
         <Paper sx={{ height: 680 }}><DataGrid rows={rowsWithId(rows)} columns={cols} checkboxSelection rowSelectionModel={selection} onRowSelectionModelChange={(m) => setSelection(Array.from(m))} slots={{ toolbar: GridToolbar }} sx={gridSx} getRowHeight={() => "auto"} /></Paper>
       </Stack>

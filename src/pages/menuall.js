@@ -2491,7 +2491,9 @@ export function menuitemsall() {
             ["/phd-award-letter", "Generate PhD award letter"],
             ["/phd-examiner-panel", "Examiner panel"],
             ["/phd-examiner-panel-members", "Examiner panel members"],
-            ["/phd-panel-approval", "Panel approval"],
+            ["/phd-examiner-panel-workflow", "Examiner panel workflow"],
+            ["/phd-examiner-panel-member-approval", "Examiner panel member approval"],
+            ["/phd-panel-approval", "Final panel approval"],
             ["/phd-examiner-rubrics", "Examiner assessment rubrics"],
             ["/phd-examiner-assignment", "Examiner assignment"],
             ["/phd-examiner-review", "Examiner review"],
@@ -2541,6 +2543,13 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Exam fees" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/conduct-exam-form-fillup-dates">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Exam form fill-up dates" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/conduct-exam-form-builder">
             <ListItemIcon>
               <PersonIcon />
@@ -2588,6 +2597,13 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Exam auto scheduler 2" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/conduct-exam-auto-scheduler-3">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Exam auto scheduler 3" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/conduct-exam-atkt-scheduler">
@@ -4115,6 +4131,12 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="ICICI configuration" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/icici-program-gateway">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Program-wise ICICI configuration" />}
           </ListItem>
           <ListItem button component={RouterLink} to="/easebuzzpaymentprocess">
             <ListItemIcon>

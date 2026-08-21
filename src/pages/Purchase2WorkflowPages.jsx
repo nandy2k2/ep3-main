@@ -11,6 +11,8 @@ import {
   MenuItem,
   Paper,
   Stack,
+  Tab,
+  Tabs,
   TextField,
   Typography
 } from "@mui/material";
@@ -655,29 +657,51 @@ export function Purchase2PoAssignmentPage() {
   const [prs, setPrs] = useState([]);
   const [users, setUsers] = useState([]);
   const [selected, setSelected] = useState([]);
+  const [activeTab, setActiveTab] = useState("new");
+  const [activePr, setActivePr] = useState(null);
   const [assignee, setAssignee] = useState(null);
   const [remarks, setRemarks] = useState("");
+  const [statusComments, setStatusComments] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [printingId, setPrintingId] = useState("");
+  const statusBucket = (row = {}) => {
+    const status = text(row.prstatus || row.reqstatus || row.status).toLowerCase();
+    if (status === "hold" || status === "on hold") return "hold";
+    if (status === "reject" || status === "rejected") return "reject";
+    return "new";
+  };
   const load = async () => {
     const [prRows, hierarchyRes] = await Promise.all([
       getRows("storeprrequestds2"),
-      ep1.get("/api/v2/hr-advanced/hierarchy", { params: { colid: global1.colid } })
+      ep1.get("/api/v2/hr-advanced/hierarchy", { params: { colid: global1.colid, manageremail: currentUser() } })
     ]);
     setPrs(prRows);
     const userMap = new Map();
     (hierarchyRes.data?.data || []).forEach((row) => {
-      [
-        { name: row.employeename, email: row.employeeemail, department: row.department },
-        { name: row.managername, email: row.manageremail, department: row.managerdepartment || row.department }
-      ].forEach((user) => {
-        const email = text(user.email).toLowerCase();
-        if (email) userMap.set(email, { ...user, user: user.email });
-      });
+      if (text(row.status || "Active").toLowerCase() === "inactive") return;
+      const user = { name: row.employeename, email: row.employeeemail, department: row.department };
+      const email = text(user.email).toLowerCase();
+      if (email) userMap.set(email, { ...user, user: user.email });
     });
     setUsers([...userMap.values()].sort((a, b) => text(a.name).localeCompare(text(b.name))));
   };
   useEffect(() => { load(); }, []);
+  const choosePr = (row) => {
+    setActivePr(row);
+    setStatusComments(row?.statuscomments || row?.prcomments || row?.holdrejectcomments || row?.comments || row?.remarks || "");
+  };
+  const printPr = async (row) => {
+    try {
+      setPrintingId(row?._id || row?.id || row?.prnumber || "");
+      const items = await getRows("storeprrequestitemsds2", [{ field: "prnumber", value: row?.prnumber }]);
+      await printPurchase2("pr", { header: row, items });
+    } catch (err) {
+      setError(err.message || "Unable to print PR");
+    } finally {
+      setPrintingId("");
+    }
+  };
   const assign = async () => {
     try {
       if (!selected.length || !assignee) throw new Error("Select PR requests and assignee");
@@ -689,7 +713,97 @@ export function Purchase2PoAssignmentPage() {
       setSelected([]);
     } catch (err) { setError(err.message); }
   };
-  return <Page title="Assign Store Requests for PO Creation" subtitle="Assign approved store PR requests to PO creators." message={message} error={error}><Paper sx={{ p: 2, mb: 2 }}><Stack direction={{ xs: "column", md: "row" }} spacing={2}><Autocomplete sx={{ minWidth: 320 }} options={users} getOptionLabel={(o) => `${o.name || ""} ${o.email || o.user || ""}`} value={assignee} onChange={(_, v) => setAssignee(v)} renderInput={(params) => <TextField {...params} label="PO creator" size="small" />} /><TextField size="small" label="Remarks" value={remarks} onChange={(e) => setRemarks(e.target.value)} /><Button variant="contained" onClick={assign}>Assign</Button></Stack></Paper><Paper sx={{ p: 2 }}><DataGrid autoHeight checkboxSelection rowSelectionModel={selected} onRowSelectionModelChange={setSelected} rows={prs.map((r) => ({ ...r, id: r._id }))} columns={[{ field: "prnumber", headerName: "PR", width: 180 }, { field: "storename", headerName: "Store", width: 180 }, { field: "status", headerName: "Status", width: 130 }, { field: "requestdate", headerName: "Date", width: 130 }, { field: "remarks", headerName: "Remarks", flex: 1 }]} slots={{ toolbar: GridToolbar }} /></Paper></Page>;
+  const updatePrStatus = async (nextStatus) => {
+    try {
+      if (!activePr?._id) throw new Error("Select a PR from the grid");
+      const patch = {
+        status: nextStatus,
+        reqstatus: nextStatus,
+        prstatus: nextStatus,
+        statuscomments: statusComments,
+        prcomments: statusComments,
+        holdrejectcomments: statusComments,
+        statusupdatedby: currentName(),
+        statusupdatedbyemail: currentUser(),
+        statusupdateddate: today()
+      };
+      const saved = await updateRow("storeprrequestds2", activePr, patch);
+      const updated = { ...activePr, ...(saved || {}), ...patch };
+      setPrs((prev) => prev.map((row) => row._id === activePr._id ? updated : row));
+      setActivePr(updated);
+      setActiveTab(statusBucket(updated));
+      setMessage(`PR moved to ${nextStatus}`);
+    } catch (err) {
+      setError(err.message || "Unable to update PR status");
+    }
+  };
+  const filteredPrs = prs.filter((row) => statusBucket(row) === activeTab);
+  const columns = [
+    { field: "prnumber", headerName: "PR", width: 180 },
+    { field: "storename", headerName: "Store", width: 180 },
+    { field: "status", headerName: "Status", width: 130 },
+    { field: "requestdate", headerName: "Date", width: 130 },
+    { field: "remarks", headerName: "Remarks", flex: 1, minWidth: 220 },
+    { field: "statuscomments", headerName: "Status Comments", flex: 1, minWidth: 220 },
+    {
+      field: "print",
+      headerName: "Print preview",
+      width: 150,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => (
+        <Button
+          size="small"
+          startIcon={<Print />}
+          disabled={printingId === (params.row._id || params.row.id || params.row.prnumber)}
+          onClick={() => printPr(params.row)}
+        >
+          {printingId === (params.row._id || params.row.id || params.row.prnumber) ? "Loading" : "Print PR"}
+        </Button>
+      )
+    }
+  ];
+  return (
+    <Page title="Assign Store Requests for PO Creation" subtitle="Assign approved store PR requests to PO creators." message={message} error={error}>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+          <Autocomplete sx={{ minWidth: 320 }} options={users} getOptionLabel={(o) => `${o.name || ""} ${o.email || o.user || ""}`} value={assignee} onChange={(_, v) => setAssignee(v)} renderInput={(params) => <TextField {...params} label="PO creator" size="small" />} />
+          <TextField size="small" label="Remarks" value={remarks} onChange={(e) => setRemarks(e.target.value)} />
+          <Button variant="contained" onClick={assign}>Assign</Button>
+        </Stack>
+      </Paper>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Stack spacing={2}>
+          <Typography variant="h6" fontWeight={800}>PR status action</Typography>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ md: "center" }}>
+            <Chip color={activePr ? "primary" : "default"} label={activePr ? `Selected PR: ${activePr.prnumber || activePr._id}` : "Select a PR from grid"} />
+            <TextField fullWidth size="small" label="Comments" value={statusComments} onChange={(e) => setStatusComments(e.target.value)} />
+            <Button variant="outlined" disabled={!activePr} onClick={() => updatePrStatus("Submitted")}>Move to New</Button>
+            <Button variant="outlined" color="warning" disabled={!activePr} onClick={() => updatePrStatus("Hold")}>Hold</Button>
+            <Button variant="outlined" color="error" disabled={!activePr} onClick={() => updatePrStatus("Rejected")}>Reject</Button>
+          </Stack>
+        </Stack>
+      </Paper>
+      <Paper sx={{ p: 2 }}>
+        <Tabs value={activeTab} onChange={(_, value) => { setActiveTab(value); setSelected([]); }}>
+          <Tab value="new" label={`New (${prs.filter((row) => statusBucket(row) === "new").length})`} />
+          <Tab value="hold" label={`Hold (${prs.filter((row) => statusBucket(row) === "hold").length})`} />
+          <Tab value="reject" label={`Reject (${prs.filter((row) => statusBucket(row) === "reject").length})`} />
+        </Tabs>
+        <DataGrid
+          sx={{ mt: 2 }}
+          autoHeight
+          checkboxSelection
+          rowSelectionModel={selected}
+          onRowSelectionModelChange={setSelected}
+          onRowClick={(params) => choosePr(params.row)}
+          rows={filteredPrs.map((r) => ({ ...r, id: r._id }))}
+          columns={columns}
+          slots={{ toolbar: GridToolbar }}
+        />
+      </Paper>
+    </Page>
+  );
 }
 
 export function Purchase2LocalPoPage() {

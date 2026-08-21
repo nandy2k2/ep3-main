@@ -1141,9 +1141,10 @@ import NepLmsStudentLearningProfilePage from "./pages/NepLmsStudentLearningProfi
 import ConductExamMasterPage from "./pages/ConductExamMasterPage";
 import { ConductExamAutoFacultyPage, ConductExamAutoInstitutionPage } from "./pages/ConductExamAutoCreatePage";
 import ConductExamDatesPage from "./pages/ConductExamDatesPage";
+import ConductExamFormFillupDatesPage from "./pages/ConductExamFormFillupDatesPage";
 import ConductExamCoursePage from "./pages/ConductExamCoursePage";
 import ConductExamCourseSchedulerPage from "./pages/ConductExamCourseSchedulerPage";
-import { ConductExamAutoScheduler2Page, ConductExamPopulateCoursesPage } from "./pages/ConductExamPopulateAndSchedulerPages";
+import { ConductExamAutoScheduler2Page, ConductExamAutoScheduler3Page, ConductExamPopulateCoursesPage } from "./pages/ConductExamPopulateAndSchedulerPages";
 import ConductExamAtktSchedulerPage from "./pages/ConductExamAtktSchedulerPage";
 import ConductExamRollPage from "./pages/ConductExamRollPage";
 import ConductExamRollListReportPage from "./pages/ConductExamRollListReportPage";
@@ -1311,8 +1312,10 @@ import PublicAdmissionAiPhDocumentsPage from "./pages/PublicAdmissionAiPhDocumen
 import PublicAdmissionAiAgentDocumentsPage from "./pages/PublicAdmissionAiAgentDocumentsPage";
 import {
   PhdExaminerAssignmentPage,
+  PhdExaminerPanelMemberApprovalPage,
   PhdExaminerPanelMembersPage,
   PhdExaminerPanelPage,
+  PhdExaminerPanelWorkflowPage,
   PhdExaminerReviewPage,
   PhdExaminerRubricsPage,
   PhdFinalExaminerApprovedPage,
@@ -1713,6 +1716,7 @@ import ProvisionalAdmissionFeePage from "./pages/ProvisionalAdmissionFeePage";
 import EasebuzzGatewayPage from "./pages/EasebuzzGatewayPage";
 import MasterGatewayPage from "./pages/MasterGatewayPage";
 import IciciGatewayPage from "./pages/IciciGatewayPage";
+import IciciProgramGatewayPage from "./pages/IciciProgramGatewayPage";
 import EasebuzzPaymentProcessPage from "./pages/EasebuzzPaymentProcessPage";
 import EasebuzzPaymentViewPage from "./pages/EasebuzzPaymentViewPage";
 import IciciPaymentViewPage from "./pages/IciciPaymentViewPage";
@@ -3386,6 +3390,7 @@ function App() {
         <Route path="/easebuzzgateway" element={<EasebuzzGatewayPage />} />
         <Route path="/mastergateway" element={<MasterGatewayPage />} />
         <Route path="/icicigateway" element={<IciciGatewayPage />} />
+        <Route path="/icici-program-gateway" element={<IciciProgramGatewayPage />} />
         <Route path="/easebuzzpaymentprocess" element={<EasebuzzPaymentProcessPage />} />
         <Route path="/easebuzzpaymentview" element={<EasebuzzPaymentViewPage />} />
         <Route path="/icicipaymentview" element={<IciciPaymentViewPage />} />
@@ -4122,6 +4127,7 @@ function App() {
         <Route path="/conduct-exam-auto-faculty" element={<ConductExamAutoFacultyPage />} />
         <Route path="/conduct-exam-auto-institution" element={<ConductExamAutoInstitutionPage />} />
         <Route path="/conduct-exam-fees" element={<ConductExamFeePage />} />
+        <Route path="/conduct-exam-form-fillup-dates" element={<ConductExamFormFillupDatesPage />} />
         <Route path="/exam-appeal-workflow" element={<ExamAppealWorkflowPage />} />
         <Route path="/student-exam-appeal" element={<StudentExamAppealPage />} />
         <Route path="/exam-appeal-approval" element={<ExamAppealApprovalPage />} />
@@ -4135,6 +4141,7 @@ function App() {
         <Route path="/conduct-exam-course-scheduler" element={<ConductExamCourseSchedulerPage />} />
         <Route path="/conduct-exam-populate-courses" element={<ConductExamPopulateCoursesPage />} />
         <Route path="/conduct-exam-auto-scheduler-2" element={<ConductExamAutoScheduler2Page />} />
+        <Route path="/conduct-exam-auto-scheduler-3" element={<ConductExamAutoScheduler3Page />} />
         <Route path="/conduct-exam-atkt-scheduler" element={<ConductExamAtktSchedulerPage />} />
         <Route path="/examroll" element={<ConductExamRollPage />} />
         <Route path="/conduct-exam-roll-list-report" element={<ConductExamRollListReportPage />} />
@@ -4171,6 +4178,8 @@ function App() {
         <Route path="/phd-award-letter" element={<PhdAwardLetterPage />} />
         <Route path="/phd-examiner-panel" element={<PhdExaminerPanelPage />} />
         <Route path="/phd-examiner-panel-members" element={<PhdExaminerPanelMembersPage />} />
+        <Route path="/phd-examiner-panel-workflow" element={<PhdExaminerPanelWorkflowPage />} />
+        <Route path="/phd-examiner-panel-member-approval" element={<PhdExaminerPanelMemberApprovalPage />} />
         <Route path="/phd-panel-approval" element={<PhdPanelApprovalPage />} />
         <Route path="/phd-examiner-rubrics" element={<PhdExaminerRubricsPage />} />
         <Route path="/phd-examiner-assignment" element={<PhdExaminerAssignmentPage />} />
