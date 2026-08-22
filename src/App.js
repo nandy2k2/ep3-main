@@ -1439,6 +1439,11 @@ import EmailConfigurationPage from "./pages/EmailConfigurationPage";
 import ConfigurationSetupPage from "./pages/ConfigurationSetupPage";
 import AiConfigurationPage from "./pages/AiConfigurationPage";
 import OllamaConfigurationPage from "./pages/OllamaConfigurationPage";
+import AiCodingPageBuilder from "./pages/AiCodingPageBuilder";
+import MyAiCodingPage from "./pages/MyAiCodingPage";
+import MyAiCodingPage2 from "./pages/MyAiCodingPage2";
+import MyCodeEditorPage from "./pages/MyCodeEditorPage";
+import MyCodeEditorInteractivePage from "./pages/MyCodeEditorInteractivePage";
 import CountryConfigurationPage from "./pages/CountryConfigurationPage";
 import DummyDataGeneratorPage from "./pages/DummyDataGeneratorPage";
 import DummyMarksDataPage from "./pages/DummyMarksDataPage";
@@ -2350,6 +2355,7 @@ import {
   NepLmsHelpPage,
   PlacementCoordinatorHelpPage,
   Purchase2HelpPage,
+  CodeEditorHelpPage,
   ProfileHelpPage,
   RecruitmentHelpPage,
   TranscriptHelpPage,
@@ -3923,6 +3929,7 @@ function App() {
         <Route path="/helpaihelpdesk" element={<AiHelpdeskHelpPage />} />
         <Route path="/helplibrarynew" element={<LibraryNewHelpPage />} />
         <Route path="/helppurchase2" element={<Purchase2HelpPage />} />
+        <Route path="/helpcodeeditor" element={<CodeEditorHelpPage />} />
         <Route path="/hostelbuildingrooms" element={<HostelBuildingRoomPage />} />
         <Route path="/hostelassignment" element={<HostelAssignmentPage />} />
         <Route path="/hostelvacancyreport" element={<HostelVacancyReportPage />} />
@@ -4092,6 +4099,11 @@ function App() {
         <Route path="/configuration" element={<ConfigurationSetupPage />} />
         <Route path="/aiconfiguration" element={<AiConfigurationPage />} />
         <Route path="/ollamaconfiguration" element={<OllamaConfigurationPage />} />
+        <Route path="/ai-coding-page-builder" element={<AiCodingPageBuilder />} />
+        <Route path="/my-ai-coding" element={<MyAiCodingPage />} />
+        <Route path="/my-ai-coding-2" element={<MyAiCodingPage2 />} />
+        <Route path="/my-code-editor" element={<MyCodeEditorPage />} />
+        <Route path="/my-code-editor-interactive" element={<MyCodeEditorInteractivePage />} />
         <Route path="/countryconfiguration" element={<CountryConfigurationPage />} />
         <Route path="/dummy-data-generator" element={<DummyDataGeneratorPage />} />
         <Route path="/dummy-marks-data" element={<DummyMarksDataPage />} />

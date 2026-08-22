@@ -72,6 +72,33 @@ function RouteButtons({ links = [] }) {
   );
 }
 
+function CodeBlock({ title, code }) {
+  return (
+    <Box sx={{ my: 1.5 }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 900, mb: 0.75, color: "#0f172a" }}>
+        {title}
+      </Typography>
+      <Box
+        component="pre"
+        sx={{
+          m: 0,
+          p: 1.5,
+          borderRadius: 1,
+          overflow: "auto",
+          bgcolor: "#0f172a",
+          color: "#e2e8f0",
+          fontSize: 12.5,
+          lineHeight: 1.55,
+          whiteSpace: "pre-wrap",
+          border: "1px solid #1e293b"
+        }}
+      >
+        {code}
+      </Box>
+    </Box>
+  );
+}
+
 function InfoList({ title, items = [] }) {
   if (!items.length) return null;
   return (
@@ -1641,5 +1668,415 @@ export function Purchase2HelpPage() {
         { title: "Audit Value", text: "Indent, PR, PO, gate pass, QC and GRN documents provide a traceable procurement file." }
       ]}
     />
+  );
+}
+
+const codeEditorReadBackend = `const students = await db.User.find({ role: "Student" }, 100);
+
+result = {
+  title: "Student List",
+  total: students.length,
+  rows: students.map((s) => ({
+    name: s.name,
+    email: s.email,
+    regno: s.regno,
+    program: s.program,
+    programcode: s.programcode,
+    semester: s.semester,
+    section: s.section
+  }))
+};`;
+
+const codeEditorReadFrontend = `<!doctype html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 18px; color: #111827; }
+    .card { display: inline-block; padding: 12px 14px; background: #ecfdf5; border: 1px solid #86efac; border-radius: 8px; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #d1d5db; padding: 7px; text-align: left; font-size: 13px; }
+    th { background: #f3f4f6; }
+  </style>
+</head>
+<body>
+  <h2 id="title">Student List</h2>
+  <div id="summary"></div>
+  <div id="table"></div>
+
+  <script>
+    const output = window.myCodeContext?.backendOutput || {};
+    const rows = output.rows || [];
+
+    document.getElementById("title").textContent = output.title || "Student List";
+    document.getElementById("summary").innerHTML = \`<div class="card">Total: \${output.total || rows.length}</div>\`;
+    document.getElementById("table").innerHTML = \`
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Reg No</th><th>Email</th><th>Program</th><th>Semester</th><th>Section</th></tr>
+        </thead>
+        <tbody>
+          \${rows.map((r) => \`
+            <tr>
+              <td>\${r.name || ""}</td>
+              <td>\${r.regno || ""}</td>
+              <td>\${r.email || ""}</td>
+              <td>\${r.program || ""}</td>
+              <td>\${r.semester || ""}</td>
+              <td>\${r.section || ""}</td>
+            </tr>
+          \`).join("")}
+        </tbody>
+      </table>\`;
+  </script>
+</body>
+</html>`;
+
+const interactiveBackend = `const action = input.action || "initial";
+const payload = input.payload || {};
+
+if (action === "loadPrograms") {
+  const programs = await db.mprograms.find({}, 500);
+  result = {
+    programs: programs
+      .map((p) => ({
+        program: p.program || p.programname || p.name || "",
+        programcode: p.programcode || p.code || ""
+      }))
+      .filter((p) => p.program)
+      .sort((a, b) => a.program.localeCompare(b.program))
+  };
+}
+
+if (action === "loadStudentsByProgram") {
+  const students = await db.User.find({
+    role: "Student",
+    program: payload.program,
+    programcode: payload.programcode
+  }, 500);
+
+  result = {
+    program: payload.program,
+    programcode: payload.programcode,
+    total: students.length,
+    students: students.map((s) => ({
+      name: s.name,
+      email: s.email,
+      phone: s.phone,
+      regno: s.regno,
+      semester: s.semester,
+      section: s.section
+    }))
+  };
+}
+
+if (action === "initial") {
+  result = { message: "Select a program and load students." };
+}`;
+
+const interactiveFrontend = `<!doctype html>
+<html>
+<head>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 18px; color: #111827; }
+    .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+    select, button { padding: 8px 10px; font-size: 14px; }
+    button { background: #2563eb; color: white; border: 0; border-radius: 6px; cursor: pointer; }
+    button:disabled { background: #94a3b8; cursor: wait; }
+    .card { display: inline-block; padding: 12px 14px; background: #ecfdf5; border: 1px solid #86efac; border-radius: 8px; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #d1d5db; padding: 7px; text-align: left; font-size: 13px; }
+    th { background: #f3f4f6; }
+  </style>
+</head>
+<body>
+  <h2>Programwise Student List</h2>
+  <div class="toolbar">
+    <label>Program</label>
+    <select id="program"><option value="">Loading programs...</option></select>
+    <button id="loadBtn">Load Students</button>
+    <span id="status"></span>
+  </div>
+  <div id="summary"></div>
+  <div id="table"></div>
+
+  <script>
+    const programSelect = document.getElementById("program");
+    const statusEl = document.getElementById("status");
+    const loadBtn = document.getElementById("loadBtn");
+    let programList = [];
+
+    async function loadPrograms() {
+      statusEl.textContent = "Loading programs...";
+      const data = await window.myCodeApi.call("loadPrograms", {});
+      programList = data.programs || [];
+      programSelect.innerHTML = \`
+        <option value="">Select program</option>
+        \${programList.map((p, index) => \`
+          <option value="\${index}">\${p.program} \${p.programcode ? "(" + p.programcode + ")" : ""}</option>
+        \`).join("")}
+      \`;
+      statusEl.textContent = "";
+    }
+
+    async function loadStudents() {
+      const index = programSelect.value;
+      if (index === "") {
+        alert("Please select program");
+        return;
+      }
+      const selected = programList[Number(index)];
+      loadBtn.disabled = true;
+      statusEl.textContent = "Loading students...";
+      try {
+        const data = await window.myCodeApi.call("loadStudentsByProgram", selected);
+        const rows = data.students || [];
+        document.getElementById("summary").innerHTML = \`
+          <div class="card"><b>\${data.program}</b> \${data.programcode || ""}: \${data.total || 0} student(s)</div>
+        \`;
+        document.getElementById("table").innerHTML = \`
+          <table>
+            <thead><tr><th>Name</th><th>Reg No</th><th>Email</th><th>Phone</th><th>Semester</th><th>Section</th></tr></thead>
+            <tbody>\${rows.map((r) => \`
+              <tr><td>\${r.name || ""}</td><td>\${r.regno || ""}</td><td>\${r.email || ""}</td><td>\${r.phone || ""}</td><td>\${r.semester || ""}</td><td>\${r.section || ""}</td></tr>
+            \`).join("")}</tbody>
+          </table>
+        \`;
+        statusEl.textContent = "Done";
+      } catch (err) {
+        statusEl.textContent = err.message || "Unable to load students";
+      } finally {
+        loadBtn.disabled = false;
+      }
+    }
+
+    loadBtn.addEventListener("click", loadStudents);
+    loadPrograms();
+  </script>
+</body>
+</html>`;
+
+const customModelsJson = `[
+  {
+    "name": "LocalTasks",
+    "fields": ["title", "status", "amount", "duedate"]
+  }
+]`;
+
+const customCrudBackend = `const action = input.action || "listTasks";
+const payload = input.payload || {};
+
+if (action === "createTask") {
+  await custom.LocalTasks.create({
+    title: payload.title,
+    status: payload.status || "Open",
+    amount: Number(payload.amount || 0),
+    duedate: payload.duedate || ""
+  });
+  result = { message: "Task created" };
+}
+
+if (action === "updateTask") {
+  await custom.LocalTasks.update(payload.id, {
+    title: payload.title,
+    status: payload.status,
+    amount: Number(payload.amount || 0),
+    duedate: payload.duedate || ""
+  });
+  result = { message: "Task updated" };
+}
+
+if (action === "deleteTask") {
+  await custom.LocalTasks.delete(payload.id);
+  result = { message: "Task deleted" };
+}
+
+if (action === "listTasks") {
+  const rows = await custom.LocalTasks.find(payload.filters || {}, 200);
+  result = {
+    rows: rows.map((row) => ({
+      id: row._id,
+      ...row.data,
+      updatedAt: row.updatedAt
+    }))
+  };
+}`;
+
+const customCrudFrontend = `<h2>Local Task CRUD</h2>
+<input id="title" placeholder="Title">
+<input id="amount" placeholder="Amount" type="number">
+<select id="status"><option>Open</option><option>Done</option></select>
+<button onclick="createTask()">Save Task</button>
+<div id="rows"></div>
+
+<script>
+  async function createTask() {
+    await window.myCodeApi.call("createTask", {
+      title: document.getElementById("title").value,
+      amount: document.getElementById("amount").value,
+      status: document.getElementById("status").value
+    });
+    await loadTasks();
+  }
+
+  async function deleteTask(id) {
+    await window.myCodeApi.call("deleteTask", { id });
+    await loadTasks();
+  }
+
+  async function loadTasks() {
+    const data = await window.myCodeApi.call("listTasks", {});
+    const rows = data.rows || [];
+    document.getElementById("rows").innerHTML = rows.map((row) => \`
+      <div style="border:1px solid #ddd;padding:8px;margin:6px 0">
+        <b>\${row.title || ""}</b> - \${row.status || ""} - \${row.amount || 0}
+        <button onclick="deleteTask('\${row.id}')">Delete</button>
+      </div>
+    \`).join("");
+  }
+
+  loadTasks();
+</script>`;
+
+const myAiCoding2Prompt = `Create a report page for pending fees.
+Use ledgerstud as the data source and enforce colid automatically.
+The page should have dynamic filters for academic year, program, programcode, semester, feegroup and feeitem.
+Show summary cards for total amount, paid, concession and balance.
+Show a MUI DataGrid with wrapped cells, export option and print preview.
+The page must be read-only. Do not create, update or delete records.
+Use dropdown values from the selected model fields.`;
+
+export function CodeEditorHelpPage() {
+  const quickLinks = [
+    ["/my-code-editor", "Code editor"],
+    ["/my-code-editor-interactive", "Code editor interactive"],
+    ["/my-ai-coding-2", "My AI coding 2"]
+  ];
+
+  return (
+    <MenuPageShell title="Code editor help">
+      <Box sx={{ p: { xs: 2, md: 3 }, backgroundColor: "#f8fafc", minHeight: "100vh" }}>
+        <Paper sx={{ p: 3, borderRadius: 2, mb: 2 }}>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={2} justifyContent="space-between">
+            <Box>
+              <Typography variant="h4" sx={{ fontWeight: 900, color: "#0f172a" }}>Code Editor Help</Typography>
+              <Typography sx={{ color: "#475569", maxWidth: 1100, mt: 0.75 }}>
+                This guide explains the one-way code editor, the interactive code editor, and My AI coding 2. It includes ready-to-use examples for reading existing ERP models, rendering frontend output, calling backend actions from frontend controls, and using custom document-backed models with CRUD.
+              </Typography>
+            </Box>
+            <RouteButtons links={quickLinks} />
+          </Stack>
+        </Paper>
+
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          {[
+            ["Existing ERP models", "Read only through db.Model.find/count/distinct. Create, update, delete and save are blocked."],
+            ["Institution safety", "Every existing model read is automatically filtered by logged-in colid. Do not manually pass another colid."],
+            ["Interactive calls", "Frontend preview uses window.myCodeApi.call(action, payload) to execute saved backend actions."],
+            ["Custom models", "Custom rows are stored as scoped documents and can be created, updated, deleted and queried through custom.Model."]
+          ].map(([title, textValue], index) => (
+            <Grid item xs={12} md={3} key={title}>
+              <Card sx={{ height: "100%", borderTop: `4px solid ${COLORS[index % COLORS.length]}`, borderRadius: 2 }}>
+                <CardContent>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>{title}</Typography>
+                  <Typography variant="body2" sx={{ color: "#475569", mt: 0.75 }}>{textValue}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+
+        <Paper sx={{ p: 2.5, borderRadius: 2, mb: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 900, mb: 1 }}>1. Code editor: one-way backend to frontend</Typography>
+          <Typography sx={{ color: "#475569", mb: 1 }}>
+            Use this when the backend prepares a result once, and the frontend only displays that result. Typical examples are reports, dashboards, lists, summaries and static previews.
+          </Typography>
+          <InfoList
+            title="Steps"
+            items={[
+              "Open AI coding -> My code editor.",
+              "Select existing models, for example Users. You may write db.User or db.Users in code.",
+              "Write backend code and set result = ...",
+              "Click Save, then Run Backend.",
+              "Write frontend HTML/JS that reads window.myCodeContext.backendOutput.",
+              "Click Run frontend from the saved grid row to preview the rendered page."
+            ]}
+          />
+          <CodeBlock title="Backend example: read students from Users" code={codeEditorReadBackend} />
+          <CodeBlock title="Frontend example: display backendOutput" code={codeEditorReadFrontend} />
+        </Paper>
+
+        <Paper sx={{ p: 2.5, borderRadius: 2, mb: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 900, mb: 1 }}>2. Code editor interactive: frontend calls backend after user action</Typography>
+          <Typography sx={{ color: "#475569", mb: 1 }}>
+            Use this when the frontend must react to user actions: load dropdowns, cascade selections, search, refresh a grid, load details on click, or run separate backend actions.
+          </Typography>
+          <InfoList
+            title="Important objects"
+            items={[
+              "Frontend calls backend with window.myCodeApi.call(action, payload).",
+              "Backend receives action as input.action and payload as input.payload.",
+              "The backend code should branch by action and set result for each case.",
+              "Existing ERP reads remain read-only and colid scoped.",
+              "For program dropdown from mprograms and student data from Users, select both mprograms and Users in Connect existing models."
+            ]}
+          />
+          <CodeBlock title="Backend example: load programs from mprograms, then students from Users" code={interactiveBackend} />
+          <CodeBlock title="Frontend example: program dropdown and Load Students button" code={interactiveFrontend} />
+        </Paper>
+
+        <Paper sx={{ p: 2.5, borderRadius: 2, mb: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 900, mb: 1 }}>3. Custom models: document-backed CRUD</Typography>
+          <Typography sx={{ color: "#475569", mb: 1 }}>
+            Custom models do not create Mongoose models. They store rows in a safe document collection scoped by institution, logged-in user, code page and model name. Use this for page-local data, prototypes, temporary registers, or user-owned mini apps.
+          </Typography>
+          <InfoList
+            title="Rules"
+            items={[
+              "Define custom model names in Custom models JSON.",
+              "Use custom.Model.create, custom.Model.find, custom.Model.update, custom.Model.delete and custom.Model.count.",
+              "Custom model CRUD is allowed because it is isolated from the main ERP collections.",
+              "Existing ERP model CRUD remains blocked even inside the interactive editor."
+            ]}
+          />
+          <CodeBlock title="Custom models JSON" code={customModelsJson} />
+          <CodeBlock title="Backend example: LocalTasks CRUD actions" code={customCrudBackend} />
+          <CodeBlock title="Frontend example: create, list and delete custom rows" code={customCrudFrontend} />
+        </Paper>
+
+        <Paper sx={{ p: 2.5, borderRadius: 2, mb: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 900, mb: 1 }}>4. My AI coding 2: generate functional pages from selected ERP models</Typography>
+          <Typography sx={{ color: "#475569", mb: 1 }}>
+            My AI coding 2 is used when the user wants AI to generate a page from a description. The page should still follow ERP safety rules: enforce colid, use selected models, honor role menu items, and keep create/update/delete only where explicitly required and safe.
+          </Typography>
+          <InfoList
+            title="Recommended workflow"
+            items={[
+              "Open AI coding -> My AI coding 2.",
+              "Select a menu group and page so the system can infer relevant models, or append selected models intentionally.",
+              "Describe the page behavior clearly: filters, dropdown sources, cascades, grid columns, charts, cards, print preview and CRUD mode.",
+              "For read-only reports, explicitly say read-only and no create/update/delete.",
+              "For dropdowns, specify the source model and fields, for example academic year from exammodel2marks and program from mprograms.",
+              "Generate the page, run it, then use refine commands to improve layout, filters, calculations or missing fields."
+            ]}
+          />
+          <CodeBlock title="Prompt example: read-only pending fees report" code={myAiCoding2Prompt} />
+        </Paper>
+
+        <Paper sx={{ p: 2.5, borderRadius: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 900, mb: 1 }}>Troubleshooting</Typography>
+          <InfoList
+            title="Common issues"
+            items={[
+              "Cannot read properties of undefined reading find: select the model in Connect existing models or use the actual model alias, for example db.User for Users.",
+              "No records showing: check whether the logged-in colid has data in that model. The system automatically adds colid to existing model reads.",
+              "Create or update blocked: this is correct for existing ERP models. Use custom models for isolated CRUD.",
+              "Frontend not showing latest backend result in one-way editor: click Run Backend first, then Run frontend.",
+              "Interactive frontend request failed: save the page first, then use window.myCodeApi.call from the preview.",
+              "Dropdown not loading: confirm backend action name in frontend matches input.action branch in backend code."
+            ]}
+          />
+        </Paper>
+      </Box>
+    </MenuPageShell>
   );
 }

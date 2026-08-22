@@ -109,7 +109,8 @@ export function menuitemsall() {
             ["/helpplacement", "Placement coordinator help"],
             ["/helpaihelpdesk", "AI Helpdesk help"],
             ["/helplibrarynew", "Library New help"],
-            ["/helppurchase2", "Purchase 2 help"]
+            ["/helppurchase2", "Purchase 2 help"],
+            ["/helpcodeeditor", "Code editor help"]
           ].map(([to, label]) => (
             <ListItem button component={RouterLink} to={to} key={to}>
               <ListItemIcon>
@@ -225,6 +226,45 @@ export function menuitemsall() {
               <AutoModeIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="VAC compliance agent" />}
+          </ListItem>
+        </AccordionDetails>
+      </Accordion>
+
+      <Accordion>
+        <AccordionSummary aria-controls="panel-ai-coding-content" id="panel-ai-coding-header">
+          <AutoModeIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{ fontSize: 14 }}>AI coding</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          <ListItem button component={RouterLink} to="/ai-coding-page-builder">
+            <ListItemIcon>
+              <AutoModeIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="AI page builder" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/my-ai-coding">
+            <ListItemIcon>
+              <AutoModeIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="My AI coding" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/my-ai-coding-2">
+            <ListItemIcon>
+              <AutoModeIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="My AI coding 2" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/my-code-editor">
+            <ListItemIcon>
+              <AutoModeIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="My code editor" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/my-code-editor-interactive">
+            <ListItemIcon>
+              <AutoModeIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Code editor interactive" />}
           </ListItem>
         </AccordionDetails>
       </Accordion>

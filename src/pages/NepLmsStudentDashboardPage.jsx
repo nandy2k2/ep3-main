@@ -60,6 +60,29 @@ const contentCount = (course = {}) => Number(course.assignmentCount || 0)
   + Number(course.quizCount || 0)
   + Number(course.sequenceCount || 0);
 
+const courseCardKey = (course = {}) => [
+  String(course.academicyear || "").trim(),
+  String(course.regulation || "").trim(),
+  String(course.programcode || "").trim(),
+  String(course.semester || "").trim(),
+  String(course.coursecode || "").trim()
+].join("||");
+
+const uniqueCourseCards = (rows = []) => {
+  const map = new Map();
+  rows.forEach((course) => {
+    const key = courseCardKey(course);
+    if (!key.replace(/\|/g, "")) return;
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, course);
+      return;
+    }
+    if (contentCount(course) > contentCount(existing)) map.set(key, course);
+  });
+  return Array.from(map.values());
+};
+
 const activitySections = [
   { key: "lessonPlans", label: "Lesson plans", icon: <School fontSize="small" />, color: "#1565c0" },
   { key: "courseMaterials", label: "Course materials", icon: <MenuBook fontSize="small" />, color: "#2e7d32" },
@@ -316,7 +339,7 @@ export default function NepLmsStudentDashboardPage() {
     ].filter(Boolean).map(String);
     return [...new Set(options)].sort((a, b) => Number(a) - Number(b) || a.localeCompare(b));
   }, [data?.semesterOptions, selectedSemester, student.semester]);
-  const courses = useMemo(() => [...(data?.courses || [])].sort((a, b) => {
+  const courses = useMemo(() => uniqueCourseCards(data?.courses || []).sort((a, b) => {
     const aContent = contentCount(a) > 0;
     const bContent = contentCount(b) > 0;
     if (aContent !== bContent) return aContent ? -1 : 1;
@@ -559,7 +582,7 @@ export default function NepLmsStudentDashboardPage() {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} sm={6} md={3}><StatCard icon={<School />} label="Assigned Courses" value={summary.courses || 0} color="#1e88e5" /></Grid>
+        <Grid item xs={12} sm={6} md={3}><StatCard icon={<School />} label="Assigned Courses" value={courses.length || 0} color="#1e88e5" /></Grid>
         <Grid item xs={12} sm={6} md={3}><StatCard icon={<TrendingUp />} label="Attendance" value={`${summary.attendancePercentage || 0}%`} color="#43a047" /></Grid>
         <Grid item xs={12} sm={6} md={3}><StatCard icon={<Event />} label="Upcoming Classes" value={summary.upcomingClasses || 0} color="#fb8c00" /></Grid>
         <Grid item xs={12} sm={6} md={3}><StatCard icon={<Quiz />} label="Upcoming Quiz" value={summary.upcomingQuizzes || 0} color="#8e24aa" /></Grid>
