@@ -350,6 +350,19 @@ const configs = {
       { field: "remarks", label: "Remarks" }
     ]
   },
+  purchase2mailconfigds2: {
+    title: "Purchase 2 mail configuration",
+    fields: [
+      { field: "eventname", label: "Event", required: true },
+      { field: "managername", label: "Purchase Manager Name" },
+      { field: "manageremail", label: "Purchase Manager Email", required: true },
+      { field: "ccemail", label: "CC Email" },
+      { field: "subjecttemplate", label: "Subject Template" },
+      { field: "bodytemplate", label: "Body Template" },
+      { field: "active", label: "Active Yes/No" },
+      { field: "remarks", label: "Remarks" }
+    ]
+  },
   vendords2: {
     title: "Vendors",
     fields: [

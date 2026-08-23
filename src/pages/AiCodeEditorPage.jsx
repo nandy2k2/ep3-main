@@ -26,6 +26,7 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 import DownloadIcon from "@mui/icons-material/Download";
 import CloseIcon from "@mui/icons-material/Close";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
+import AutoModeIcon from "@mui/icons-material/AutoMode";
 import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
@@ -51,7 +52,7 @@ const withScope = (payload = {}) => ({
 
 const apiBase = String(ep1.defaults?.baseURL || "").replace(/\/$/, "");
 
-export default function MyCodeEditorInteractivePage() {
+export default function AiCodeEditorPage() {
   const [form, setForm] = useState(blankForm);
   const [editId, setEditId] = useState("");
   const [rows, setRows] = useState([]);
@@ -71,6 +72,13 @@ export default function MyCodeEditorInteractivePage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [working, setWorking] = useState(false);
+  const [aiForm, setAiForm] = useState({
+    provider: "Gemini",
+    geminiModel: "gemini-2.5-flash-lite",
+    ollamaConfigId: "",
+    prompt: "",
+    outputMode: "Interactive CRUD / Report"
+  });
 
   const setField = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
 
@@ -95,6 +103,8 @@ export default function MyCodeEditorInteractivePage() {
       setError(err.response?.data?.message || "Unable to load existing model options.");
     }
   }, []);
+
+  const setAiField = (field, value) => setAiForm((prev) => ({ ...prev, [field]: value }));
 
   useEffect(() => {
     loadOptions();
@@ -213,6 +223,58 @@ export default function MyCodeEditorInteractivePage() {
       await loadRows();
     } catch (err) {
       setError(err.response?.data?.message || "Unable to run backend code.");
+      setMessage("");
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const generateWithAi = async () => {
+    if (!aiForm.prompt.trim()) {
+      setError("Enter a prompt describing the backend and frontend you want to create.");
+      return;
+    }
+    if (aiForm.provider === "Ollama" && !aiForm.ollamaConfigId) {
+      setError("Select an Ollama configuration.");
+      return;
+    }
+    setWorking(true);
+    setError("");
+    setMessage("Generating backend and frontend code...");
+    try {
+      const response = await ep1.post("/api/v2/my-code-editor-generate", withScope({
+        ...aiForm,
+        title: form.title,
+        description: form.description,
+        selectedModels: form.selectedModels,
+        customModels: form.customModels,
+        virtualModels: form.virtualModels,
+        sampleInput: form.sampleInput
+      }));
+      const generated = response.data?.generated || {};
+      const nextForm = {
+        ...form,
+        title: generated.title || form.title || "AI generated interactive page",
+        description: generated.description || form.description,
+        selectedModels: Array.isArray(generated.selectedModels) && generated.selectedModels.length ? generated.selectedModels : form.selectedModels,
+        customModels: generated.customModels || form.customModels,
+        virtualModels: generated.virtualModels || form.virtualModels,
+        sampleInput: generated.sampleInput || form.sampleInput,
+        backendCode: generated.backendCode || form.backendCode,
+        frontendCode: generated.frontendCode || form.frontendCode
+      };
+      const saveResponse = await ep1.post("/api/v2/my-code-editor", withScope({ ...nextForm, id: editId }));
+      const savedRow = saveResponse.data?.row || null;
+      setForm(nextForm);
+      setEditId(savedRow?._id || editId);
+      setActiveRow(savedRow);
+      setFrontendPreviewCode(nextForm.frontendCode || "");
+      setBackendOutput(savedRow?.lastBackendOutput || null);
+      setBackendLogs([]);
+      setMessage("AI generated code loaded and saved. Dropdowns can now call the generated backend.");
+      await loadRows();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to generate code.");
       setMessage("");
     } finally {
       setWorking(false);
@@ -414,20 +476,74 @@ export default function MyCodeEditorInteractivePage() {
   }, [customRows]);
 
   return (
-    <MenuPageShell title="Code Editor Interactive">
+    <MenuPageShell title="AI Code Editor">
       <Stack spacing={2}>
         <Paper sx={{ p: 2 }}>
           <Stack direction={{ xs: "column", md: "row" }} spacing={1} justifyContent="space-between" sx={{ mb: 1 }}>
             <Box>
-              <Typography variant="h6" sx={{ fontWeight: 800 }}>Userwise Interactive Code Playground</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 800 }}>AI Code Editor</Typography>
               <Typography variant="body2" color="text.secondary">
-                Stored per logged-in user. Frontend preview can call saved backend actions. Existing models stay read-only and always filtered by colid.
+                Generate backend and frontend code from a prompt, then run it in the same userwise interactive playground. Existing models stay read-only and always filtered by colid.
               </Typography>
             </Box>
             <Chip color="primary" label={`User: ${global1.user || ""}`} />
           </Stack>
           {message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+          <Paper variant="outlined" sx={{ p: 2, mb: 2, bgcolor: "#f8fafc" }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 900, mb: 1 }}>Generate code using AI</Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={2}>
+                <TextField select fullWidth label="Provider" value={aiForm.provider} onChange={(event) => setAiField("provider", event.target.value)}>
+                  <MenuItem value="Gemini">Gemini</MenuItem>
+                  <MenuItem value="Ollama">Ollama</MenuItem>
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                {aiForm.provider === "Ollama" ? (
+                  <Autocomplete
+                    options={options.ollamaConfigs || []}
+                    getOptionLabel={(option) => `${option.name || ""} ${option.modelname || ""}`.trim()}
+                    value={(options.ollamaConfigs || []).find((item) => item._id === aiForm.ollamaConfigId) || null}
+                    onChange={(event, value) => setAiField("ollamaConfigId", value?._id || "")}
+                    renderInput={(params) => <TextField {...params} label="Ollama configuration" />}
+                  />
+                ) : (
+                  <Autocomplete
+                    options={options.geminiModels || ["gemini-2.5-flash-lite"]}
+                    value={aiForm.geminiModel}
+                    onChange={(event, value) => setAiField("geminiModel", value || "gemini-2.5-flash-lite")}
+                    renderInput={(params) => <TextField {...params} label="Gemini model" />}
+                  />
+                )}
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <TextField select fullWidth label="Mode" value={aiForm.outputMode} onChange={(event) => setAiField("outputMode", event.target.value)}>
+                  <MenuItem value="Interactive CRUD / Report">Interactive CRUD / Report</MenuItem>
+                  <MenuItem value="Read only report">Read only report</MenuItem>
+                  <MenuItem value="Dashboard with charts">Dashboard with charts</MenuItem>
+                  <MenuItem value="Custom model CRUD">Custom model CRUD</MenuItem>
+                </TextField>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <Button fullWidth sx={{ height: 56 }} variant="contained" startIcon={working ? <CircularProgress size={18} color="inherit" /> : <AutoModeIcon />} onClick={generateWithAi} disabled={working}>
+                  Generate backend and frontend
+                </Button>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={4}
+                  label="Prompt"
+                  value={aiForm.prompt}
+                  onChange={(event) => setAiField("prompt", event.target.value)}
+                  helperText="Example: Create an interactive page where the user selects academic year from Users, then loads programwise student count with a bar chart. Frontend must call backend through window.myCodeApi.call."
+                />
+              </Grid>
+            </Grid>
+          </Paper>
 
           <Grid container spacing={2}>
             <Grid item xs={12} md={4}>
@@ -469,10 +585,10 @@ export default function MyCodeEditorInteractivePage() {
               <TextField fullWidth multiline minRows={9} label="Sample input JSON" value={form.sampleInput} onChange={(event) => setField("sampleInput", event.target.value)} />
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField fullWidth multiline minRows={14} label="Backend code" value={form.backendCode} onChange={(event) => setField("backendCode", event.target.value)} helperText="Use db.Model.find/count/distinct only for existing ERP data. Use custom.Model.create/update/delete for isolated custom CRUD. Set result = ... or return a value." />
+              <TextField fullWidth multiline minRows={14} maxRows={14} label="Backend code" value={form.backendCode} onChange={(event) => setField("backendCode", event.target.value)} helperText="Use db.Model.find/count/distinct only for existing ERP data. Use custom.Model.create/update/delete for isolated custom CRUD. Set result = ... or return a value." InputProps={{ sx: { alignItems: "flex-start", "& textarea": { height: "360px !important", maxHeight: "360px !important", overflow: "auto !important", fontFamily: "Menlo, Consolas, monospace", fontSize: 13, lineHeight: 1.45 } } }} />
             </Grid>
             <Grid item xs={12} md={6}>
-              <TextField fullWidth multiline minRows={14} label="Frontend HTML / JS code" value={form.frontendCode} onChange={(event) => setField("frontendCode", event.target.value)} helperText="Runs only in the isolated preview iframe." />
+              <TextField fullWidth multiline minRows={14} maxRows={14} label="Frontend HTML / JS code" value={form.frontendCode} onChange={(event) => setField("frontendCode", event.target.value)} helperText="Runs only in the isolated preview iframe." InputProps={{ sx: { alignItems: "flex-start", "& textarea": { height: "360px !important", maxHeight: "360px !important", overflow: "auto !important", fontFamily: "Menlo, Consolas, monospace", fontSize: 13, lineHeight: 1.45 } } }} />
             </Grid>
           </Grid>
 

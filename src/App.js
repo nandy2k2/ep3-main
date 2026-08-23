@@ -1444,6 +1444,8 @@ import MyAiCodingPage from "./pages/MyAiCodingPage";
 import MyAiCodingPage2 from "./pages/MyAiCodingPage2";
 import MyCodeEditorPage from "./pages/MyCodeEditorPage";
 import MyCodeEditorInteractivePage from "./pages/MyCodeEditorInteractivePage";
+import AiCodeEditorPage from "./pages/AiCodeEditorPage";
+import AiCodingAgentsPage from "./pages/AiCodingAgentsPage";
 import CountryConfigurationPage from "./pages/CountryConfigurationPage";
 import DummyDataGeneratorPage from "./pages/DummyDataGeneratorPage";
 import DummyMarksDataPage from "./pages/DummyMarksDataPage";
@@ -1763,6 +1765,8 @@ import {
 import Purchase2CrudPage from "./pages/Purchase2CrudPage";
 import {
   Purchase2GatePassPage,
+  Purchase2CashApprovalPage,
+  Purchase2CashApprovalReviewPage,
   Purchase2IndentApproverPage,
   Purchase2GrnCreationPage,
   Purchase2IndentPrintPage,
@@ -1773,6 +1777,7 @@ import {
   Purchase2PoDetailReportPage,
   Purchase2PoAssignmentPage,
   Purchase2PoApprovalWorkflowPage,
+  Purchase2PeWorkbenchPage,
   Purchase2QualityCheckPage,
   Purchase2StorePrRequestPage,
   Purchase2StoreItemUserPage,
@@ -2356,6 +2361,7 @@ import {
   PlacementCoordinatorHelpPage,
   Purchase2HelpPage,
   CodeEditorHelpPage,
+  AiAgentCodingHelpPage,
   ProfileHelpPage,
   RecruitmentHelpPage,
   TranscriptHelpPage,
@@ -3435,6 +3441,9 @@ function App() {
         <Route path="/purchase2-store-item-user" element={<Purchase2StoreItemUserPage />} />
         <Route path="/purchase2-po-assignment" element={<Purchase2PoAssignmentPage />} />
         <Route path="/purchase2-local-po" element={<Purchase2LocalPoPage />} />
+        <Route path="/purchase2-cash-approval" element={<Purchase2CashApprovalPage />} />
+        <Route path="/purchase2-cash-approval-review" element={<Purchase2CashApprovalReviewPage />} />
+        <Route path="/purchase2-pe-workbench" element={<Purchase2PeWorkbenchPage />} />
         <Route path="/purchase2-po-approval-workflow" element={<Purchase2PoApprovalWorkflowPage />} />
         <Route path="/purchase2-manage-po-admin" element={<Purchase2ManagePoAdminPage />} />
         <Route path="/purchase2-manage-po-creator" element={<Purchase2ManagePoCreatorPage />} />
@@ -3930,6 +3939,7 @@ function App() {
         <Route path="/helplibrarynew" element={<LibraryNewHelpPage />} />
         <Route path="/helppurchase2" element={<Purchase2HelpPage />} />
         <Route path="/helpcodeeditor" element={<CodeEditorHelpPage />} />
+        <Route path="/helpaicodingagents" element={<AiAgentCodingHelpPage />} />
         <Route path="/hostelbuildingrooms" element={<HostelBuildingRoomPage />} />
         <Route path="/hostelassignment" element={<HostelAssignmentPage />} />
         <Route path="/hostelvacancyreport" element={<HostelVacancyReportPage />} />
@@ -4104,6 +4114,8 @@ function App() {
         <Route path="/my-ai-coding-2" element={<MyAiCodingPage2 />} />
         <Route path="/my-code-editor" element={<MyCodeEditorPage />} />
         <Route path="/my-code-editor-interactive" element={<MyCodeEditorInteractivePage />} />
+        <Route path="/ai-code-editor" element={<AiCodeEditorPage />} />
+        <Route path="/ai-coding-agents" element={<AiCodingAgentsPage />} />
         <Route path="/countryconfiguration" element={<CountryConfigurationPage />} />
         <Route path="/dummy-data-generator" element={<DummyDataGeneratorPage />} />
         <Route path="/dummy-marks-data" element={<DummyMarksDataPage />} />

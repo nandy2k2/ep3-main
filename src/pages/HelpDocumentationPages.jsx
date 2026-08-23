@@ -2080,3 +2080,333 @@ export function CodeEditorHelpPage() {
     </MenuPageShell>
   );
 }
+
+const aiAgentStudentEmailCode = `const academicYear = input.academicyear || "2026-27";
+const reportTo = input.to || "admin@example.com";
+
+const students = await db.User.find({ role: "Student", academicyear: academicYear }, 5000);
+const programMap = {};
+
+for (const student of students) {
+  const key = student.program || "Not specified";
+  if (!programMap[key]) programMap[key] = { program: key, count: 0 };
+  programMap[key].count += 1;
+}
+
+const rows = Object.values(programMap).sort((a, b) => a.program.localeCompare(b.program));
+const htmlRows = rows.map((row) =>
+  \`<tr><td style="border:1px solid #ccc;padding:6px">\${row.program}</td><td style="border:1px solid #ccc;padding:6px;text-align:right">\${row.count}</td></tr>\`
+).join("");
+
+await email.send({
+  to: reportTo,
+  subject: \`Programwise student count for \${academicYear}\`,
+  html: \`
+    <h2>Programwise student count</h2>
+    <p>Academic year: <b>\${academicYear}</b></p>
+    <table style="border-collapse:collapse;width:100%">
+      <thead><tr><th style="border:1px solid #ccc;padding:6px;text-align:left">Program</th><th style="border:1px solid #ccc;padding:6px;text-align:right">Students</th></tr></thead>
+      <tbody>\${htmlRows}</tbody>
+    </table>
+  \`
+});
+
+result = {
+  message: "Report generated and emailed",
+  academicYear,
+  totalStudents: students.length,
+  rows
+};`;
+
+const aiAgentAwsValidationCode = `const academicYear = input.academicyear || "2026-27";
+const reportTo = input.to || "iqac@example.com";
+const limit = Number(input.limit || 100);
+
+const awsDefault = await aws.defaultConfig();
+if (!awsDefault) throw new Error("Default AWS configuration is missing");
+
+const projects = await db.dashmprojects.find({ academicyear: academicYear, submissionstatus: "Submitted" }, limit);
+const publications = await db.dashmpublications.find({ academicyear: academicYear, submissionstatus: "Submitted" }, limit);
+
+const missingProjectFiles = projects.filter((row) => !row.filelink).map((row) => ({
+  id: row._id,
+  title: row.title || row.projecttitle || "",
+  user: row.user || row.useremail || ""
+}));
+
+const missingPublicationFiles = publications.filter((row) => !row.filelink).map((row) => ({
+  id: row._id,
+  title: row.title || row.papertitle || "",
+  user: row.user || row.useremail || ""
+}));
+
+const report = {
+  academicYear,
+  generatedAt: new Date().toISOString(),
+  projectSubmissions: projects.length,
+  publicationSubmissions: publications.length,
+  missingProjectFiles,
+  missingPublicationFiles
+};
+
+const upload = await aws.uploadJson({
+  key: \`ai-agents/accreditation/\${academicYear}/document-check-\${Date.now()}.json\`,
+  data: report
+});
+
+await email.send({
+  to: reportTo,
+  subject: \`Document check report uploaded for \${academicYear}\`,
+  html: \`
+    <h2>Document check completed</h2>
+    <p>Academic year: <b>\${academicYear}</b></p>
+    <p>Projects checked: <b>\${projects.length}</b></p>
+    <p>Publications checked: <b>\${publications.length}</b></p>
+    <p>Report uploaded to AWS: <a href="\${upload.url}">\${upload.url}</a></p>
+  \`
+});
+
+result = {
+  message: "Database checked, report uploaded to AWS, email sent",
+  academicYear,
+  awsReportLink: upload.url,
+  report
+};`;
+
+const aiAgentGeminiValidationCode = `const framework = input.framework || "NAAC";
+const academicYear = input.academicyear || "2026-27";
+const reportTo = input.to || "iqac@example.com";
+
+const submissions = await db.dashmprojects.find({ academicyear: academicYear, submissionstatus: "Submitted" }, 25);
+
+const compactRows = submissions.map((row) => ({
+  id: row._id,
+  title: row.title || row.projecttitle || "",
+  agency: row.agency || row.sanctioningagency || "",
+  amount: row.amount || row.grantamount || "",
+  filelink: row.filelink || "",
+  status: row.submissionstatus || ""
+}));
+
+const validationPrompt = \`
+You are validating institutional project records for \${framework}.
+Check for test data, missing agency, missing amount, missing document link, unrealistic values,
+and whether each record appears ready for accreditation evidence review.
+Return strict JSON with summary, records, riskLevel and recommendations.
+Records:
+\${JSON.stringify(compactRows, null, 2)}
+\`;
+
+const geminiText = await gemini.generate({
+  model: input.model || "gemini-2.5-flash-lite",
+  prompt: validationPrompt
+});
+
+const upload = await aws.uploadText({
+  key: \`ai-agents/gemini-validation/\${academicYear}/project-validation-\${Date.now()}.txt\`,
+  text: geminiText,
+  contentType: "text/plain"
+});
+
+await email.send({
+  to: reportTo,
+  subject: \`\${framework} Gemini validation report for \${academicYear}\`,
+  html: \`
+    <h2>Gemini validation completed</h2>
+    <p>Academic year: <b>\${academicYear}</b></p>
+    <p>Records sent to Gemini: <b>\${compactRows.length}</b></p>
+    <p>Validation file: <a href="\${upload.url}">\${upload.url}</a></p>
+    <pre style="white-space:pre-wrap">\${geminiText}</pre>
+  \`
+});
+
+result = {
+  message: "Gemini validation completed, uploaded to AWS, and emailed",
+  academicYear,
+  framework,
+  checked: compactRows.length,
+  validationText: geminiText,
+  validationLink: upload.url
+};`;
+
+const aiAgentCreateUpdateCode = `const today = new Date();
+const faculties = await db.User.find({ role: "Faculty", excluded: { $ne: "Yes" } }, 1000);
+const rows = [];
+
+for (const faculty of faculties) {
+  const workloadCount = await db.workloadassignmentds.count({ facultyemail: faculty.email });
+  const courseMaterialCount = await db.neplmscoursematerialds.count({ facultyemail: faculty.email });
+
+  rows.push({
+    faculty: faculty.name,
+    facultyemail: faculty.email,
+    workloadCount,
+    courseMaterialCount,
+    status: workloadCount > 0 && courseMaterialCount > 0 ? "OK" : "Attention required"
+  });
+
+  await db.User.updateOne(
+    { email: faculty.email },
+    { lastAgentCheckDate: today }
+  );
+}
+
+await email.send({
+  to: input.to || "dean@example.com",
+  subject: "Faculty LMS readiness check",
+  html: rows.map((row) =>
+    \`<p><b>\${row.faculty}</b> - Workload: \${row.workloadCount}, Materials: \${row.courseMaterialCount}, Status: \${row.status}</p>\`
+  ).join("")
+});
+
+result = {
+  message: "Faculty LMS readiness checked",
+  checked: rows.length,
+  rows
+};`;
+
+const aiAgentPromptExample = `Create an agent for accreditation compliance.
+Use Users, dashmprojects, dashmpublications, dashmseminar and organizationhierarchy.
+Read only active faculty users for the logged-in institution.
+Check academic year from input.academicyear.
+Find faculty below target: projects per faculty, publications per faculty and seminars per faculty.
+Send a summary email to input.to.
+Return JSON with facultywise gaps and departmentwise summary.
+Do not delete any data.`;
+
+export function AiAgentCodingHelpPage() {
+  const quickLinks = [
+    ["/ai-coding-agents", "AI Agents"],
+    ["/my-ai-coding-2", "My AI coding 2"],
+    ["/my-code-editor-interactive", "Interactive code editor"]
+  ];
+
+  return (
+    <MenuPageShell title="AI Agent Coding help">
+      <Box sx={{ p: { xs: 2, md: 3 }, backgroundColor: "#f8fafc", minHeight: "100vh" }}>
+        <Paper sx={{ p: 3, borderRadius: 2, mb: 2 }}>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={2} justifyContent="space-between">
+            <Box>
+              <Typography variant="h4" sx={{ fontWeight: 900, color: "#0f172a" }}>AI Agent Coding</Typography>
+              <Typography sx={{ color: "#475569", maxWidth: 1100, mt: 0.75 }}>
+                AI Agents are scheduled or manual scripts that run inside the ERP with strict institution scoping. They can read, create and update selected models, send email through saved configuration, and read AWS configuration metadata. Delete operations are blocked.
+              </Typography>
+            </Box>
+            <RouteButtons links={quickLinks} />
+          </Stack>
+        </Paper>
+
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          {[
+            ["Institution scoped", "Existing model access is automatically filtered by logged-in colid."],
+            ["No delete", "Delete, remove and destructive operations are blocked in generated and manual agent code."],
+            ["Email ready", "Use email.send to send reports through saved mail configuration."],
+            ["AWS aware", "Use aws.defaultConfig and aws.configs to inspect saved AWS setup and links."]
+          ].map(([title, textValue], index) => (
+            <Grid item xs={12} md={3} key={title}>
+              <Card sx={{ height: "100%", borderTop: `4px solid ${COLORS[index % COLORS.length]}`, borderRadius: 2 }}>
+                <CardContent>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>{title}</Typography>
+                  <Typography variant="body2" sx={{ color: "#475569", mt: 0.75 }}>{textValue}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+
+        <Paper sx={{ p: 2.5, borderRadius: 2, mb: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 900, mb: 1 }}>How to create an agent</Typography>
+          <InfoList
+            title="Steps"
+            items={[
+              "Open AI Coding -> AI Agents.",
+              "Enter title, description and select Active as Yes.",
+              "Select the models the agent may use. Existing model access is always colid scoped.",
+              "Write agent code manually or generate it from a Gemini/Ollama prompt.",
+              "Add sample input JSON for manual test runs, for example { \"academicyear\": \"2026-27\", \"to\": \"admin@example.com\" }.",
+              "Choose Manual, Scheduled or Both. For scheduled agents, select weekly day and run time.",
+              "Save the agent, then use Run selected agent to test. Read Run Output and Logs below the form."
+            ]}
+          />
+        </Paper>
+
+        <Paper sx={{ p: 2.5, borderRadius: 2, mb: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 900, mb: 1 }}>Available runtime objects</Typography>
+          <InfoList
+            title="Agent objects"
+            items={[
+              "input: JSON input supplied during manual run or saved sample input during scheduled run.",
+              "db.Model.find(filter, limit): reads selected existing model rows. Colid is injected automatically.",
+              "db.Model.count(filter) and db.Model.distinct(field, filter): read summary data from selected models.",
+              "db.Model.create(data), updateOne(filter, update), updateMany(filter, update) and findOneAndUpdate(filter, update): allowed for selected models, with colid enforced.",
+              "email.send({ to, cc, bcc, subject, html, text }): sends email using saved email configuration.",
+              "aws.defaultConfig() and aws.configs(): reads saved AWS configuration metadata for links and validation workflows.",
+              "aws.uploadText({ key, text, contentType }), aws.uploadJson({ key, data }) and aws.uploadBase64({ key, base64, contentType }): upload generated agent output to the default or selected AWS configuration.",
+              "gemini.generate({ prompt, model }): calls Gemini from inside the running agent using saved AI configuration.",
+              "result: assign final JSON output to result so it appears in Run Output."
+            ]}
+          />
+        </Paper>
+
+        <Paper sx={{ p: 2.5, borderRadius: 2, mb: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 900, mb: 1 }}>Complete example: programwise student count and email</Typography>
+          <Typography sx={{ color: "#475569", mb: 1 }}>
+            This agent reads students for an academic year, creates a programwise count, emails the report, and returns the same summary in Run Output.
+          </Typography>
+          <CodeBlock title="Sample input JSON" code={`{ "academicyear": "2026-27", "to": "admin@example.com" }`} />
+          <CodeBlock title="Agent code" code={aiAgentStudentEmailCode} />
+        </Paper>
+
+        <Paper sx={{ p: 2.5, borderRadius: 2, mb: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 900, mb: 1 }}>Complete example: check database, upload to AWS and email</Typography>
+          <Typography sx={{ color: "#475569", mb: 1 }}>
+            This agent checks submitted project and publication records, creates a JSON report, uploads it to AWS using the saved configuration, then emails the uploaded report link.
+          </Typography>
+          <CodeBlock title="Sample input JSON" code={`{ "academicyear": "2026-27", "limit": 100, "to": "iqac@example.com" }`} />
+          <CodeBlock title="Agent code" code={aiAgentAwsValidationCode} />
+        </Paper>
+
+        <Paper sx={{ p: 2.5, borderRadius: 2, mb: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 900, mb: 1 }}>Complete example: call Gemini to validate records</Typography>
+          <Typography sx={{ color: "#475569", mb: 1 }}>
+            This agent reads project submissions, sends compact evidence data to Gemini for validation, uploads Gemini's validation response to AWS, and emails the result.
+          </Typography>
+          <CodeBlock title="Sample input JSON" code={`{ "academicyear": "2026-27", "framework": "NAAC", "model": "gemini-2.5-flash-lite", "to": "iqac@example.com" }`} />
+          <CodeBlock title="Agent code" code={aiAgentGeminiValidationCode} />
+        </Paper>
+
+        <Paper sx={{ p: 2.5, borderRadius: 2, mb: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 900, mb: 1 }}>Complete example: update records and email summary</Typography>
+          <Typography sx={{ color: "#475569", mb: 1 }}>
+            This agent checks faculty LMS readiness and updates a harmless last-check date on the user record. Replace model names with the exact models selected on the page.
+          </Typography>
+          <CodeBlock title="Sample input JSON" code={`{ "to": "dean@example.com" }`} />
+          <CodeBlock title="Agent code" code={aiAgentCreateUpdateCode} />
+        </Paper>
+
+        <Paper sx={{ p: 2.5, borderRadius: 2, mb: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 900, mb: 1 }}>Prompt generation example</Typography>
+          <Typography sx={{ color: "#475569", mb: 1 }}>
+            Use Gemini or Ollama to draft the code, then review the generated agent before saving. Gemini model selection supports the configured model list, including newer and higher-capability models when available in the backend configuration.
+          </Typography>
+          <CodeBlock title="Prompt" code={aiAgentPromptExample} />
+        </Paper>
+
+        <Paper sx={{ p: 2.5, borderRadius: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 900, mb: 1 }}>Troubleshooting</Typography>
+          <InfoList
+            title="Common checks"
+            items={[
+              "If db.Model is undefined, select that model in the model selector and use the exact alias shown on the page.",
+              "If no records appear, verify the logged-in institution has rows for that model. Colid filtering is automatic.",
+              "If email fails, check saved email configuration and make sure to, subject and html or text are supplied.",
+              "If AWS data is missing, configure AWS in the existing AWS settings flow. Agents read configuration; file uploads should continue using the existing AWS upload flow.",
+              "If a scheduled run does not execute, confirm Active is Yes, schedule mode is Scheduled or Both, weekly day and run time match server time, and the scheduler is running.",
+              "If generated code includes delete/remove/drop, remove it. The runtime blocks destructive operations."
+            ]}
+          />
+        </Paper>
+      </Box>
+    </MenuPageShell>
+  );
+}

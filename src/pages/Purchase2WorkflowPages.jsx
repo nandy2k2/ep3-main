@@ -25,6 +25,7 @@ import PlacementCoordinatorShell from "./PlacementCoordinatorShell";
 import { openPurchase2PrintWindow } from "./Purchase2PrintTemplates";
 
 const today = () => new Date().toISOString().slice(0, 10);
+const nowTime = () => new Date().toTimeString().slice(0, 5);
 const key = (prefix) => `${prefix}-${Date.now()}`;
 const text = (value) => String(value || "").trim();
 const num = (value) => Number(value || 0);
@@ -77,6 +78,48 @@ const loadPrintInstitution = async () => {
 const printPurchase2 = async (type, data) => {
   const institution = await loadPrintInstitution();
   openPurchase2PrintWindow(type, { ...(data || {}), institution });
+};
+const uniqueOptions = (rows = [], field) => [...new Set(rows.map((row) => text(row[field])).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+const inDateRange = (value, start, end) => {
+  if (!start && !end) return true;
+  const date = new Date(value || 0);
+  if (Number.isNaN(date.getTime())) return false;
+  if (start) {
+    const startDate = new Date(start);
+    startDate.setHours(0, 0, 0, 0);
+    if (date < startDate) return false;
+  }
+  if (end) {
+    const endDate = new Date(end);
+    endDate.setHours(23, 59, 59, 999);
+    if (date > endDate) return false;
+  }
+  return true;
+};
+const sendPurchase2Notification = async (eventname, context = {}) => {
+  try {
+    const configs = (await getRows("purchase2mailconfigds2", [{ field: "eventname", value: eventname }]))
+      .filter((row) => text(row.active || "Yes").toLowerCase() !== "no" && text(row.manageremail));
+    await Promise.all(configs.map((cfg) => {
+      const replacements = {
+        eventname,
+        prnumber: context.prnumber || "",
+        poid: context.poid || "",
+        status: context.status || "",
+        amount: context.amount || context.totalamount || "",
+        user: currentUser(),
+        name: currentName(),
+        date: today(),
+        time: nowTime()
+      };
+      const fill = (template, fallback) => Object.entries(replacements).reduce((body, [token, value]) => body.replaceAll(`{{${token}}}`, text(value)), template || fallback);
+      const subject = fill(cfg.subjecttemplate, `Purchase 2 ${eventname}`);
+      const emailbody = fill(cfg.bodytemplate, `<p>Purchase 2 event: <b>${eventname}</b></p><p>PR: ${replacements.prnumber}</p><p>PO: ${replacements.poid}</p><p>Status: ${replacements.status}</p>`);
+      return ep1.get("/api/v2/sendawsemail", { params: { email: cfg.manageremail, subject, emailbody } });
+    }));
+  } catch (error) {
+    // Notification must not block PR/PO transactions.
+  }
 };
 const uploadPurchase2Attachment = async (file, folder = "purchase2") => {
   if (!file) return "";
@@ -583,12 +626,14 @@ export function Purchase2StoreRequestReviewPage() {
         requestedbyemail: currentUser(),
         priority: "Normal",
         status: "Submitted",
+        requesttime: nowTime(),
         sourceindentid: selected._id,
         sourceindentno: selected.requestno || selected.reqid,
         totalamount: shortageItems.reduce((sum, item) => sum + num(item.estimatedtotal), 0),
         remarks: `Created from shortage in indent ${selected.requestno || selected.reqid || selected._id}`
       });
       await Promise.all(shortageItems.map((item) => saveRow("storeprrequestitemsds2", { ...item, prnumber, prrequestid: header._id, sourceindentid: selected._id, sourceindentno: selected.requestno || selected.reqid, estimatedtotal: num(item.quantity) * num(item.estimatedprice) })));
+      sendPurchase2Notification("PR Created", { prnumber, totalamount: header.totalamount, status: "Submitted" });
       const updated = await updateRow("storerequisitionds2", selected, { prnumber, shortageprstatus: "PR Created" });
       setSelected(updated);
       setMessage(`PR ${prnumber} created for shortage items`);
@@ -625,8 +670,10 @@ export function Purchase2StorePrRequestPage() {
     try {
       if (!form.storeid || !items.length) throw new Error("Select store and add items");
       const prnumber = key("PR");
-      const header = await saveRow("storeprrequestds2", { ...form, prnumber, requestedby: currentName(), requestedbyemail: currentUser(), status: "Submitted", totalamount: items.reduce((s, i) => s + num(i.estimatedtotal), 0) });
+      const totalamount = items.reduce((s, i) => s + num(i.estimatedtotal), 0);
+      const header = await saveRow("storeprrequestds2", { ...form, prnumber, requestedby: currentName(), requestedbyemail: currentUser(), status: "Submitted", requesttime: nowTime(), totalamount });
       await Promise.all(items.map((item) => saveRow("storeprrequestitemsds2", { ...item, prnumber, prrequestid: header._id, estimatedtotal: num(item.quantity) * num(item.estimatedprice) })));
+      sendPurchase2Notification("PR Created", { prnumber, totalamount, status: "Submitted" });
       setMessage("PR request submitted");
       setPrintData({ header, items });
       setItems([]);
@@ -646,7 +693,7 @@ export function Purchase2StorePrRequestPage() {
       <Stack direction="row" spacing={1} sx={{ mt: 2 }}><Button startIcon={<Print />} variant="outlined" disabled={!printData} onClick={() => printPurchase2("pr", printData)}>Print PR</Button></Stack>
       <Paper sx={{ p: 2, mt: 2 }}>
         <Typography variant="h6" fontWeight={800}>My PR history</Typography>
-        <DataGrid autoHeight rows={history.map((r) => ({ ...r, id: r._id }))} columns={[{ field: "prnumber", headerName: "PR Number", width: 180 }, { field: "storename", headerName: "Store", width: 180 }, { field: "status", headerName: "Status", width: 130 }, { field: "requestdate", headerName: "Date", width: 150 }, { field: "totalamount", headerName: "Total", width: 120 }, { field: "actions", headerName: "Print", width: 120, renderCell: (params) => <Button size="small" onClick={() => openHistory(params.row)}>Open</Button> }]} slots={{ toolbar: GridToolbar }} />
+        <DataGrid autoHeight rows={history.map((r) => ({ ...r, id: r._id }))} columns={[{ field: "prnumber", headerName: "PR Number", width: 180 }, { field: "storename", headerName: "Store", width: 180 }, { field: "status", headerName: "Status", width: 130 }, { field: "requestdate", headerName: "Date", width: 150 }, { field: "requesttime", headerName: "Time", width: 100 }, { field: "totalamount", headerName: "Total", width: 120 }, { field: "actions", headerName: "Print", width: 120, renderCell: (params) => <Button size="small" onClick={() => openHistory(params.row)}>Open</Button> }]} slots={{ toolbar: GridToolbar }} />
         {!!historyItems.length && <DataGrid sx={{ mt: 2 }} autoHeight rows={historyItems.map((r, i) => ({ ...r, id: i }))} columns={[{ field: "itemname", headerName: "Item", flex: 1 }, { field: "make", headerName: "Make", width: 140 }, { field: "quantity", headerName: "Qty", width: 100 }, { field: "estimatedprice", headerName: "Rate", width: 100 }]} />}
       </Paper>
     </Page>
@@ -655,6 +702,7 @@ export function Purchase2StorePrRequestPage() {
 
 export function Purchase2PoAssignmentPage() {
   const [prs, setPrs] = useState([]);
+  const [itemsByPr, setItemsByPr] = useState({});
   const [users, setUsers] = useState([]);
   const [selected, setSelected] = useState([]);
   const [activeTab, setActiveTab] = useState("new");
@@ -662,6 +710,8 @@ export function Purchase2PoAssignmentPage() {
   const [assignee, setAssignee] = useState(null);
   const [remarks, setRemarks] = useState("");
   const [statusComments, setStatusComments] = useState("");
+  const [dateRange, setDateRange] = useState({ start: "", end: "" });
+  const [filters, setFilters] = useState([{ field: "prnumber", value: "" }]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [printingId, setPrintingId] = useState("");
@@ -672,11 +722,41 @@ export function Purchase2PoAssignmentPage() {
     return "new";
   };
   const load = async () => {
-    const [prRows, hierarchyRes] = await Promise.all([
+    const [prRows, itemRows, assignmentRows, hierarchyRes] = await Promise.all([
       getRows("storeprrequestds2"),
+      getRows("storeprrequestitemsds2"),
+      getRows("storepoassignmentds2"),
       ep1.get("/api/v2/hr-advanced/hierarchy", { params: { colid: global1.colid, manageremail: currentUser() } })
     ]);
-    setPrs(prRows);
+    const assignedMap = new Map();
+    assignmentRows.forEach((row) => {
+      if (!row.prnumber) return;
+      assignedMap.set(row.prnumber, row);
+    });
+    const itemMap = {};
+    itemRows.forEach((item) => {
+      const prnumber = text(item.prnumber);
+      if (!prnumber) return;
+      if (!itemMap[prnumber]) itemMap[prnumber] = [];
+      itemMap[prnumber].push(item);
+    });
+    setItemsByPr(itemMap);
+    setPrs(prRows.map((row) => {
+      const assignment = assignedMap.get(row.prnumber) || {};
+      const items = itemMap[row.prnumber] || [];
+      return {
+        ...row,
+        assignedto: assignment.assignedto || row.assignedto || "",
+        assignedtoemail: assignment.assignedtoemail || row.assignedtoemail || "",
+        assignedby: assignment.assignedby || row.assignedby || "",
+        assigneddate: assignment.assigneddate || row.assigneddate || "",
+        assignmentstatus: assignment.status || row.assignmentstatus || "",
+        itemnames: items.map((item) => item.itemname || item.item || "").filter(Boolean).join(", "),
+        itemcodes: items.map((item) => item.itemcode || "").filter(Boolean).join(", "),
+        itemcount: items.length,
+        quantitysummary: items.map((item) => `${item.itemcode || item.itemname || "Item"}: ${item.quantity || 0}`).join(", ")
+      };
+    }));
     const userMap = new Map();
     (hierarchyRes.data?.data || []).forEach((row) => {
       if (text(row.status || "Active").toLowerCase() === "inactive") return;
@@ -707,10 +787,14 @@ export function Purchase2PoAssignmentPage() {
       if (!selected.length || !assignee) throw new Error("Select PR requests and assignee");
       await Promise.all(selected.map((id) => {
         const row = prs.find((pr) => pr._id === id);
-        return saveRow("storepoassignmentds2", { requestid: id, prnumber: row?.prnumber, assignedto: assignee.name, assignedtoemail: assignee.email || assignee.user, assignedby: currentName(), assignedbyemail: currentUser(), assigneddate: today(), status: "Assigned", remarks });
+        return Promise.all([
+          saveRow("storepoassignmentds2", { requestid: id, prnumber: row?.prnumber, assignedto: assignee.name, assignedtoemail: assignee.email || assignee.user, assignedby: currentName(), assignedbyemail: currentUser(), assigneddate: today(), assignedtime: nowTime(), status: "Assigned", remarks }),
+          updateRow("storeprrequestds2", row, { status: "Approved", reqstatus: "Approved", prstatus: "Approved", approvedby: currentName(), approvedbyemail: currentUser(), approveddate: today(), approvedtime: nowTime(), assignedto: assignee.name, assignedtoemail: assignee.email || assignee.user })
+        ]);
       }));
-      setMessage("PR requests assigned for PO creation");
+      setMessage("PR requests assigned and approved automatically for PO creation");
       setSelected([]);
+      await load();
     } catch (err) { setError(err.message); }
   };
   const updatePrStatus = async (nextStatus) => {
@@ -725,7 +809,8 @@ export function Purchase2PoAssignmentPage() {
         holdrejectcomments: statusComments,
         statusupdatedby: currentName(),
         statusupdatedbyemail: currentUser(),
-        statusupdateddate: today()
+        statusupdateddate: today(),
+        statusupdatedtime: nowTime()
       };
       const saved = await updateRow("storeprrequestds2", activePr, patch);
       const updated = { ...activePr, ...(saved || {}), ...patch };
@@ -737,12 +822,40 @@ export function Purchase2PoAssignmentPage() {
       setError(err.message || "Unable to update PR status");
     }
   };
-  const filteredPrs = prs.filter((row) => statusBucket(row) === activeTab);
+  const filterFields = [
+    { field: "prnumber", label: "PR Number" },
+    { field: "itemnames", label: "Items" },
+    { field: "itemcodes", label: "Item Code" },
+    { field: "storename", label: "Store" },
+    { field: "departmentname", label: "Department" },
+    { field: "requestedby", label: "Requested By" },
+    { field: "requestedbyemail", label: "Requested By Email" },
+    { field: "assignedto", label: "PO Creator" },
+    { field: "assignedtoemail", label: "PO Creator Email" },
+    { field: "status", label: "Status" }
+  ];
+  const updateFilter = (index, patch) => setFilters((prev) => prev.map((row, i) => i === index ? { ...row, ...patch } : row));
+  const filteredPrs = prs.filter((row) => {
+    if (statusBucket(row) !== activeTab) return false;
+    if (!inDateRange(row.requestdate || row.createdAt, dateRange.start, dateRange.end)) return false;
+    return filters.every((filter) => !text(filter.value) || text(row[filter.field]).toLowerCase().includes(text(filter.value).toLowerCase()));
+  });
   const columns = [
-    { field: "prnumber", headerName: "PR", width: 180 },
+    { field: "prnumber", headerName: "PR Number", width: 170 },
+    { field: "itemnames", headerName: "Items", minWidth: 260, flex: 1 },
+    { field: "itemcodes", headerName: "Item Codes", minWidth: 180 },
+    { field: "quantitysummary", headerName: "Qty Summary", minWidth: 220, flex: 1 },
+    { field: "assignedto", headerName: "PO Creator", width: 180 },
+    { field: "assignedtoemail", headerName: "PO Creator Email", width: 220 },
+    { field: "requestedby", headerName: "Requested By", width: 180 },
+    { field: "requestedbyemail", headerName: "Requested Email", width: 220 },
     { field: "storename", headerName: "Store", width: 180 },
-    { field: "status", headerName: "Status", width: 130 },
-    { field: "requestdate", headerName: "Date", width: 130 },
+    { field: "departmentname", headerName: "Department", width: 180 },
+    { field: "status", headerName: "PR Status", width: 130 },
+    { field: "requestdate", headerName: "PR Date", width: 130 },
+    { field: "requesttime", headerName: "PR Time", width: 100 },
+    { field: "assigneddate", headerName: "Assigned Date", width: 130 },
+    { field: "assignedtime", headerName: "Assigned Time", width: 120 },
     { field: "remarks", headerName: "Remarks", flex: 1, minWidth: 220 },
     { field: "statuscomments", headerName: "Status Comments", flex: 1, minWidth: 220 },
     {
@@ -778,13 +891,24 @@ export function Purchase2PoAssignmentPage() {
           <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ md: "center" }}>
             <Chip color={activePr ? "primary" : "default"} label={activePr ? `Selected PR: ${activePr.prnumber || activePr._id}` : "Select a PR from grid"} />
             <TextField fullWidth size="small" label="Comments" value={statusComments} onChange={(e) => setStatusComments(e.target.value)} />
-            <Button variant="outlined" disabled={!activePr} onClick={() => updatePrStatus("Submitted")}>Move to New</Button>
             <Button variant="outlined" color="warning" disabled={!activePr} onClick={() => updatePrStatus("Hold")}>Hold</Button>
             <Button variant="outlined" color="error" disabled={!activePr} onClick={() => updatePrStatus("Rejected")}>Reject</Button>
           </Stack>
         </Stack>
       </Paper>
       <Paper sx={{ p: 2 }}>
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid item xs={12} md={2}><TextField size="small" type="date" label="Start date" value={dateRange.start} InputLabelProps={{ shrink: true }} onChange={(e) => setDateRange((p) => ({ ...p, start: e.target.value }))} fullWidth /></Grid>
+          <Grid item xs={12} md={2}><TextField size="small" type="date" label="End date" value={dateRange.end} InputLabelProps={{ shrink: true }} onChange={(e) => setDateRange((p) => ({ ...p, end: e.target.value }))} fullWidth /></Grid>
+          <Grid item xs={12} md={8}><Stack direction="row" spacing={1} justifyContent="flex-end"><Button startIcon={<Add />} onClick={() => setFilters((prev) => [...prev, { field: "prnumber", value: "" }])}>Add filter</Button><Button startIcon={<Refresh />} onClick={load}>Load</Button></Stack></Grid>
+          {filters.map((filter, index) => (
+            <React.Fragment key={`${filter.field}-${index}`}>
+              <Grid item xs={12} md={3}><TextField select size="small" label="Filter field" value={filter.field} onChange={(e) => updateFilter(index, { field: e.target.value, value: "" })} fullWidth>{filterFields.map((field) => <MenuItem key={field.field} value={field.field}>{field.label}</MenuItem>)}</TextField></Grid>
+              <Grid item xs={12} md={7}><Autocomplete freeSolo options={uniqueOptions(prs, filter.field)} value={filter.value || ""} onChange={(_, value) => updateFilter(index, { value: value || "" })} onInputChange={(_, value) => updateFilter(index, { value })} renderInput={(params) => <TextField {...params} size="small" label="Value" />} /></Grid>
+              <Grid item xs={12} md={2}><Button fullWidth color="error" onClick={() => setFilters((prev) => prev.filter((_, i) => i !== index))}>Remove</Button></Grid>
+            </React.Fragment>
+          ))}
+        </Grid>
         <Tabs value={activeTab} onChange={(_, value) => { setActiveTab(value); setSelected([]); }}>
           <Tab value="new" label={`New (${prs.filter((row) => statusBucket(row) === "new").length})`} />
           <Tab value="hold" label={`Hold (${prs.filter((row) => statusBucket(row) === "hold").length})`} />
@@ -845,8 +969,9 @@ export function Purchase2LocalPoPage() {
       const signature = await getUserSignature();
       const storeName = store.storename || store.store || store.name || "";
       const storeId = store._id || store.storeid || "";
-      const header = await saveRow("storepoorderds2", { poid, year: "2026-27", vendor: vendor.vendorname, vendorid: vendor._id, storeid: storeId, storename: storeName, store: storeName, price: baseAmount, amount: baseAmount, gst: num(gst), discount: num(discount), netprice: total, actualAmount: total, poType: "Local", postatus: "Draft", approvalStatus: "Draft", deliveryType: "Physical Delivery", terms, remarks, creatorName: currentName(), creatorEmail: currentUser(), creatorSignature: signature.signaturelink || "", description: "Local PO" });
+      const header = await saveRow("storepoorderds2", { poid, year: "2026-27", vendor: vendor.vendorname, vendorid: vendor._id, storeid: storeId, storename: storeName, store: storeName, price: baseAmount, amount: baseAmount, gst: num(gst), discount: num(discount), netprice: total, actualAmount: total, poType: "Local", postatus: "Draft", approvalStatus: "Draft", deliveryType: "Physical Delivery", terms, remarks, creatorName: currentName(), creatorEmail: currentUser(), creatorSignature: signature.signaturelink || "", description: "Local PO", createdtime: nowTime() });
       await Promise.all(priced.map((item) => saveRow("storepoitemsds2", { ...item, poid, vendor: vendor.vendorname, vendorid: vendor._id, storeid: storeId, storename: storeName, postatus: "Draft" })));
+      sendPurchase2Notification("PO Generated", { poid, amount: total, status: "Draft" });
       setMessage("Local PO created as draft");
       setPrintData({ header: { ...vendor, ...header, store: storeName, storename: storeName, terms, remarks }, items: priced });
     } catch (err) { setError(err.message); }
@@ -965,9 +1090,10 @@ function Purchase2ManagePoPage({ admin = false }) {
       });
       const total = priced.reduce((sum, item) => sum + num(item.total), 0);
       const signature = await getUserSignature();
-      const header = await saveRow("storepoorderds2", { poid, prnumber: assignment.prnumber, year: "2026-27", vendor: matchingVendor.vendorname, vendorid: matchingVendor._id, price: total, netprice: total, actualAmount: total, poType: "Standard", postatus: "Draft", approvalStatus: "Draft", creatorName: currentName(), creatorEmail: currentUser(), creatorSignature: signature.signaturelink || "", terms: terms || matchingVendor.payterm || "", warranty, description: `PO from PR ${assignment.prnumber}` });
+      const header = await saveRow("storepoorderds2", { poid, prnumber: assignment.prnumber, year: "2026-27", vendor: matchingVendor.vendorname, vendorid: matchingVendor._id, price: total, netprice: total, actualAmount: total, poType: "Standard", postatus: "Draft", approvalStatus: "Draft", creatorName: currentName(), creatorEmail: currentUser(), creatorSignature: signature.signaturelink || "", terms: terms || matchingVendor.payterm || "", warranty, description: `PO from PR ${assignment.prnumber}`, createdtime: nowTime() });
       await Promise.all(priced.map((item) => saveRow("storepoitemsds2", { ...item, poid, postatus: "Draft", storereqid: assignment.requestid })));
       await updateRow("storepoassignmentds2", assignment, { status: "PO Created", poid });
+      sendPurchase2Notification("PO Generated", { poid, prnumber: assignment.prnumber, amount: total, status: "Draft" });
       setMessage(`PO ${poid} created as draft for ${matchingVendor.vendorname}`);
       setSelectedPo(header);
       setPoItems(priced);
@@ -1001,7 +1127,7 @@ function Purchase2ManagePoPage({ admin = false }) {
   const submitPo = async (po = selectedPo) => {
     try {
       const signature = await getUserSignature(po.creatorEmail || currentUser());
-      const updated = await updateRow("storepoorderds2", po, { postatus: "Submitted", approvalStatus: "Pending", currentStep: po.currentStep || 1, creatorSignature: po.creatorSignature || signature.signaturelink || "" });
+      const updated = await updateRow("storepoorderds2", po, { postatus: "Submitted", approvalStatus: "Pending", currentStep: po.currentStep || 1, creatorSignature: po.creatorSignature || signature.signaturelink || "", submittedtime: nowTime() });
       setSelectedPo(updated);
       setMessage("PO submitted for approval");
       await load();
@@ -1018,9 +1144,10 @@ function Purchase2ManagePoPage({ admin = false }) {
       const history = Array.isArray(po.approvalhistory) ? po.approvalhistory : [];
       const entry = { level: currentLevel.level, approvername: currentName(), approveremail: currentUser(), signaturelink: sig.signaturelink || "", date: new Date().toISOString(), status: "Approved" };
       const nextLevel = workflow.find((row) => num(row.level) > currentStep);
-      const patch = nextLevel ? { currentStep: nextLevel.level, approvalStatus: "Pending", postatus: "Submitted", approvalhistory: [...history, entry] } : { currentStep, approvalStatus: "Approved", postatus: "Approved", approvalhistory: [...history, entry] };
+      const patch = nextLevel ? { currentStep: nextLevel.level, approvalStatus: "Pending", postatus: "Submitted", approvalhistory: [...history, entry] } : { currentStep, approvalStatus: "Approved", postatus: "Approved", approvalhistory: [...history, entry], approvedtime: nowTime() };
       const updated = await updateRow("storepoorderds2", po, patch);
       await saveRow("storepoapprovalds2", { poid: po.poid, level: currentLevel.level, approvername: currentName(), approveremail: currentUser(), status: "Approved", approvaldate: today(), remarks: "" });
+      if (!nextLevel) sendPurchase2Notification("PO Finally Approved", { poid: po.poid, prnumber: po.prnumber, amount: po.actualAmount || po.netprice, status: "Approved" });
       setSelectedPo(updated);
       setMessage(nextLevel ? `Approved. Moved to level ${nextLevel.level}` : "PO fully approved");
       await load();
@@ -1060,6 +1187,340 @@ export function Purchase2ManagePoAdminPage() {
 
 export function Purchase2ManagePoCreatorPage() {
   return <Purchase2ManagePoPage />;
+}
+
+const humanCode = (prefix) => `${prefix}-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+
+const cashLineTotal = (row = {}) => {
+  const baseAmount = num(row.quantity) * num(row.rate);
+  const gstAmount = baseAmount * (num(row.gst) / 100);
+  const taxAmount = baseAmount * (num(row.taxPaidRate) / 100);
+  return Number((baseAmount + gstAmount + taxAmount).toFixed(2));
+};
+
+const printCashDocument = async (title, header = {}, items = []) => {
+  const institution = await loadPrintInstitution();
+  const logo = institution.logo || institution.logolink || institution.logoUrl || institution.logourl || "";
+  const instName = institution.institutionname || institution.institution || institution.nameofinstitution || institution.name || global1.insname || "Institution";
+  const address = institution.address || institution.institutionaddress || institution.address1 || "";
+  const meta = [institution.phone || institution.mobile || institution.contact, institution.email || institution.emailid, institution.website].filter(Boolean).join(" | ");
+  const total = items.reduce((sum, item) => sum + num(item.totalAmount), 0) || num(header.totalAmount || header.amount);
+  const rows = items.map((item, index) => `<tr><td>${index + 1}</td><td>${esc(item.itemcode)}</td><td>${esc(item.item || item.itemname)}</td><td>${esc(item.makeSize)}</td><td>${esc(item.unit)}</td><td>${esc(item.quantity)}</td><td>${esc(item.rate)}</td><td>${esc(item.gst)}</td><td>${esc(item.taxPaidRate)}</td><td>${money(item.totalAmount)}</td></tr>`).join("");
+  const win = window.open("", "_blank", "width=1100,height=850");
+  if (!win) return;
+  win.document.write(`<!doctype html><html><head><title>${esc(title)}</title><style>
+    @page{size:A4 portrait;margin:14mm}body{font-family:Arial,sans-serif;color:#000;background:#fff;margin:0}.toolbar{text-align:right;padding:10px}.toolbar button{padding:8px 14px;margin-left:8px}.sheet{padding:18px}.header{text-align:center;border-bottom:1.5px solid #000;padding-bottom:10px;margin-bottom:12px;position:relative}.logo{position:absolute;left:8px;top:0;max-width:70px;max-height:70px}.inst{font-size:20px;font-weight:900}.title{font-size:17px;font-weight:900;text-decoration:underline;margin-top:8px}.meta{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid #000;border-bottom:0;margin-bottom:12px}.cell{border-right:1px solid #000;border-bottom:1px solid #000;padding:7px;font-size:12px}.cell:nth-child(3n){border-right:0}.cell b{display:block}table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #000;padding:6px;text-align:left;vertical-align:top}th{background:#f1f5f9}.total{text-align:right;font-weight:900;margin-top:10px}.remarks{border:1px solid #000;min-height:50px;margin-top:12px;padding:8px}.sign{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:36px}.sign div{border-top:1px solid #000;text-align:center;padding-top:6px;font-size:12px}@media print{.toolbar{display:none}tr{break-inside:avoid}}
+  </style></head><body><div class="toolbar"><button onclick="window.print()">Print</button><button onclick="window.close()">Close</button></div><div class="sheet"><div class="header">${logo ? `<img class="logo" src="${esc(logo)}" />` : ""}<div class="inst">${esc(instName)}</div><div>${esc(address)}</div><div>${esc(meta)}</div><div class="title">${esc(title)}</div></div><div class="meta"><div class="cell"><b>Code / No</b>${esc(header.approvalNo || header.imprestcode || header.code)}</div><div class="cell"><b>Date</b>${esc(reportDate(header.date || header.impdate || header.createdAt))}</div><div class="cell"><b>Status</b>${esc(header.status)}</div><div class="cell"><b>Subject</b>${esc(header.subject)}</div><div class="cell"><b>Supplier / Officer</b>${esc(header.supplierName || header.officername)}</div><div class="cell"><b>Requested By</b>${esc(header.name || header.requestedby || header.user)}</div></div>${items.length ? `<table><thead><tr><th>Sr</th><th>Code</th><th>Item</th><th>Make/Size</th><th>Unit</th><th>Qty</th><th>Rate</th><th>GST %</th><th>Tax Paid %</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table>` : ""}<div class="total">Total Amount: ${money(total)}</div><div class="remarks"><b>Remarks / Approval comments</b><br/>${esc(header.remarks || header.approvalremarks || header.comments)}</div><div class="sign"><div>Prepared By</div><div>Checked By</div><div>Approved By</div><div>Accounts</div></div></div></body></html>`);
+  win.document.close();
+  win.focus();
+};
+
+function CashApprovalEditor({ reviewMode = false }) {
+  const [vendors, setVendors] = useState([]);
+  const [itemsMaster, setItemsMaster] = useState([]);
+  const [rows, setRows] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [form, setForm] = useState({ subject: "", supplierName: "", supplierid: "", status: "Pending", approvalNo: "", remarks: "" });
+  const [itemDraft, setItemDraft] = useState({ item: "", itemcode: "", makeSize: "", unit: "", quantity: 1, rate: "", gst: "", taxPaidRate: "" });
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const editable = !reviewMode && text(form.status || "Pending").toLowerCase() === "pending";
+  const load = async () => {
+    try {
+      const [vendorRows, itemRows, cashRows] = await Promise.all([getRows("vendords2"), getRows("itemmasterds2"), getRows("cashapprovalds2")]);
+      setVendors(vendorRows);
+      setItemsMaster(itemRows);
+      setRows(reviewMode ? cashRows.filter((row) => text(row.status || "Pending").toLowerCase() === "pending") : cashRows.filter((row) => sameEmail(row.user, currentUser())));
+    } catch (err) {
+      setError(err.message || "Unable to load cash approval data");
+    }
+  };
+  useEffect(() => { load(); }, [reviewMode]);
+  const reset = () => {
+    setSelected(null);
+    setForm({ subject: "", supplierName: "", supplierid: "", status: "Pending", approvalNo: "", remarks: "" });
+    setItemDraft({ item: "", itemcode: "", makeSize: "", unit: "", quantity: 1, rate: "", gst: "", taxPaidRate: "" });
+  };
+  const openRow = (row) => {
+    setSelected(row);
+    setForm({ subject: row.subject || "", supplierName: row.supplierName || "", supplierid: row.supplierid || "", status: row.status || "Pending", approvalNo: row.approvalNo || "", remarks: row.remarks || row.approvalremarks || "" });
+  };
+  const currentItems = Array.isArray(selected?.items) ? selected.items : [];
+  const setCurrentItems = (nextItems) => setSelected((prev) => ({ ...(prev || {}), items: nextItems }));
+  const addItem = () => {
+    if (!itemDraft.item) {
+      setError("Select item");
+      return;
+    }
+    const line = { ...itemDraft, totalAmount: cashLineTotal(itemDraft), srNo: currentItems.length + 1 };
+    setCurrentItems([...currentItems, line]);
+    setItemDraft({ item: "", itemcode: "", makeSize: "", unit: "", quantity: 1, rate: "", gst: "", taxPaidRate: "" });
+  };
+  const save = async () => {
+    try {
+      if (reviewMode) throw new Error("Use approve/reject in review mode");
+      const items = currentItems;
+      if (!form.subject || !form.supplierName || !items.length) throw new Error("Subject, supplier and at least one item are required");
+      if (!editable) throw new Error("Only pending requests can be edited");
+      const approvalNo = form.approvalNo || humanCode("CA");
+      const totalAmount = items.reduce((sum, item) => sum + num(item.totalAmount), 0);
+      const payload = { ...form, id: selected?._id, approvalNo, date: selected?.date || today(), items, totalAmount, status: "Pending", remarks: form.remarks };
+      const saved = await saveRow("cashapprovalds2", payload);
+      setSelected(saved);
+      setMessage("Cash approval request saved");
+      await load();
+    } catch (err) {
+      setError(err.message || "Unable to save cash approval");
+    }
+  };
+  const deleteRequest = async () => {
+    try {
+      if (!selected?._id) throw new Error("Select request");
+      if (!editable) throw new Error("Only pending requests can be deleted");
+      await ep1.post("/api/v2/purchase2/cashapprovalds2/delete", { id: selected._id, colid: global1.colid });
+      setMessage("Cash approval request deleted");
+      reset();
+      await load();
+    } catch (err) {
+      setError(err.message || "Unable to delete");
+    }
+  };
+  const approveReject = async (status) => {
+    try {
+      if (!selected?._id) throw new Error("Select request");
+      const saved = await saveRow("cashapprovalds2", { ...selected, id: selected._id, status, approvalremarks: form.remarks, approvedBy: currentName(), approvedByEmail: currentUser(), approvedDate: today() });
+      setSelected(saved);
+      setMessage(`Request ${status}`);
+      await load();
+    } catch (err) {
+      setError(err.message || "Unable to update status");
+    }
+  };
+  return (
+    <Page title={reviewMode ? "Cash Approval Review" : "Cash Approval"} subtitle={reviewMode ? "Approve, reject and print pending imprest/cash approval requests." : "Create cash approval requests with editable item rows while the request is pending."} message={message} error={error}>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={3}><TextField size="small" label="Subject" value={form.subject} onChange={(e) => setForm((p) => ({ ...p, subject: e.target.value }))} fullWidth disabled={reviewMode || !editable} /></Grid>
+          <Grid item xs={12} md={3}><Autocomplete options={vendors} value={vendors.find((v) => text(v.vendorname || v.name) === text(form.supplierName)) || null} getOptionLabel={(o) => o.vendorname || o.name || ""} onChange={(_, v) => setForm((p) => ({ ...p, supplierName: v?.vendorname || v?.name || "", supplierid: v?._id || "" }))} renderInput={(params) => <TextField {...params} label="Supplier" size="small" />} disabled={reviewMode || !editable} /></Grid>
+          <Grid item xs={12} md={2}><TextField size="small" label="Approval No" value={form.approvalNo || "Auto"} fullWidth InputProps={{ readOnly: true }} /></Grid>
+          <Grid item xs={12} md={2}><TextField size="small" label="Status" value={form.status || "Pending"} fullWidth InputProps={{ readOnly: true }} /></Grid>
+          <Grid item xs={12} md={2}><TextField size="small" label="Remarks" value={form.remarks} onChange={(e) => setForm((p) => ({ ...p, remarks: e.target.value }))} fullWidth /></Grid>
+        </Grid>
+      </Paper>
+      {!reviewMode && <Paper sx={{ p: 2, mb: 2 }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} md={3}><Autocomplete options={itemsMaster} filterOptions={filterItemOptions} getOptionLabel={itemLabel} value={itemsMaster.find((i) => text(i.itemname) === text(itemDraft.item)) || null} onChange={(_, v) => setItemDraft((p) => ({ ...p, item: v?.itemname || "", itemcode: v?.itemcode || "", unit: v?.unit || "" }))} renderInput={(params) => <TextField {...params} label="Item" size="small" />} disabled={!editable} /></Grid>
+          <Grid item xs={12} md={2}><TextField size="small" label="Make/Size" value={itemDraft.makeSize} onChange={(e) => setItemDraft((p) => ({ ...p, makeSize: e.target.value }))} fullWidth disabled={!editable} /></Grid>
+          <Grid item xs={6} md={1}><TextField size="small" label="Unit" value={itemDraft.unit} onChange={(e) => setItemDraft((p) => ({ ...p, unit: e.target.value }))} fullWidth disabled={!editable} /></Grid>
+          <Grid item xs={6} md={1}><TextField size="small" type="number" label="Qty" value={itemDraft.quantity} onChange={(e) => setItemDraft((p) => ({ ...p, quantity: e.target.value }))} fullWidth disabled={!editable} /></Grid>
+          <Grid item xs={6} md={1}><TextField size="small" type="number" label="Rate" value={itemDraft.rate} onChange={(e) => setItemDraft((p) => ({ ...p, rate: e.target.value }))} fullWidth disabled={!editable} /></Grid>
+          <Grid item xs={6} md={1}><TextField size="small" type="number" label="GST %" value={itemDraft.gst} onChange={(e) => setItemDraft((p) => ({ ...p, gst: e.target.value }))} fullWidth disabled={!editable} /></Grid>
+          <Grid item xs={6} md={1}><TextField size="small" type="number" label="Tax Paid %" value={itemDraft.taxPaidRate} onChange={(e) => setItemDraft((p) => ({ ...p, taxPaidRate: e.target.value }))} fullWidth disabled={!editable} /></Grid>
+          <Grid item xs={12} md={2}><Button variant="contained" onClick={addItem} disabled={!editable}>Add item</Button></Grid>
+        </Grid>
+      </Paper>}
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <DataGrid autoHeight rows={currentItems.map((item, index) => ({ ...item, id: index }))} processRowUpdate={(row) => { const next = currentItems.map((item, index) => index === row.id ? { ...item, ...row, totalAmount: cashLineTotal(row) } : item); setCurrentItems(next); return row; }} columns={[
+          { field: "itemcode", headerName: "Code", width: 120 },
+          { field: "item", headerName: "Item", flex: 1, minWidth: 180 },
+          { field: "makeSize", headerName: "Make/Size", width: 140, editable },
+          { field: "unit", headerName: "Unit", width: 90, editable },
+          { field: "quantity", headerName: "Qty", width: 90, editable, type: "number" },
+          { field: "rate", headerName: "Rate", width: 100, editable, type: "number" },
+          { field: "gst", headerName: "GST", width: 90, editable, type: "number" },
+          { field: "taxPaidRate", headerName: "Tax Paid", width: 110, editable, type: "number" },
+          { field: "totalAmount", headerName: "Total", width: 120 },
+          { field: "action", headerName: "Action", width: 110, renderCell: (params) => <Button color="error" size="small" disabled={!editable} onClick={() => setCurrentItems(currentItems.filter((_, index) => index !== params.row.id))}>Delete</Button> }
+        ]} slots={{ toolbar: GridToolbar }} />
+        <Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: "wrap" }}>
+          {!reviewMode && <Button startIcon={<Save />} variant="contained" onClick={save} disabled={!editable}>Save request</Button>}
+          {!reviewMode && <Button color="error" variant="outlined" onClick={deleteRequest} disabled={!selected?._id || !editable}>Delete request</Button>}
+          {reviewMode && <Button color="success" variant="contained" onClick={() => approveReject("Approved")} disabled={!selected?._id}>Approve</Button>}
+          {reviewMode && <Button color="error" variant="outlined" onClick={() => approveReject("Rejected")} disabled={!selected?._id}>Reject</Button>}
+          <Button startIcon={<Print />} variant="outlined" disabled={!selected?._id} onClick={() => printCashDocument("CASH APPROVAL", { ...selected, ...form }, currentItems)}>Print</Button>
+          <Button variant="outlined" onClick={reset}>New</Button>
+        </Stack>
+      </Paper>
+      <Paper sx={{ p: 2 }}>
+        <Typography variant="h6" fontWeight={800}>{reviewMode ? "Pending requests" : "My cash approval requests"}</Typography>
+        <DataGrid autoHeight rows={rows.map((row) => ({ ...row, id: row._id }))} columns={[
+          { field: "approvalNo", headerName: "Approval No", width: 170 },
+          { field: "subject", headerName: "Subject", flex: 1, minWidth: 180 },
+          { field: "supplierName", headerName: "Supplier", width: 180 },
+          { field: "totalAmount", headerName: "Amount", width: 120 },
+          { field: "status", headerName: "Status", width: 120 },
+          { field: "actions", headerName: "Open", width: 100, renderCell: (p) => <Button size="small" onClick={() => openRow(p.row)}>Open</Button> }
+        ]} slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true } }} />
+      </Paper>
+    </Page>
+  );
+}
+
+export function Purchase2CashApprovalPage() {
+  return <CashApprovalEditor />;
+}
+
+export function Purchase2CashApprovalReviewPage() {
+  return <CashApprovalEditor reviewMode />;
+}
+
+function ImprestPanel() {
+  const [rows, setRows] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [form, setForm] = useState({ officername: "", amount: "", impdate: today(), status: "Pending", imprestcode: "" });
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const load = async () => {
+    try {
+      setRows(await getRows("pimprestds2"));
+    } catch (err) {
+      setError(err.message || "Unable to load imprest");
+    }
+  };
+  useEffect(() => { load(); }, []);
+  const open = (row) => {
+    setSelected(row);
+    setForm({ officername: row.officername || "", amount: row.amount || "", impdate: row.impdate ? String(row.impdate).slice(0, 10) : today(), status: row.status || "Pending", imprestcode: row.imprestcode || "" });
+  };
+  const reset = () => {
+    setSelected(null);
+    setForm({ officername: "", amount: "", impdate: today(), status: "Pending", imprestcode: "" });
+  };
+  const save = async () => {
+    try {
+      if (!form.officername || !form.amount || !form.impdate) throw new Error("Officer name, amount and date are required");
+      const saved = await saveRow("pimprestds2", { ...form, id: selected?._id, imprestcode: form.imprestcode || humanCode("IMP") });
+      setSelected(saved);
+      setMessage("Imprest saved");
+      await load();
+    } catch (err) {
+      setError(err.message || "Unable to save imprest");
+    }
+  };
+  const remove = async () => {
+    try {
+      if (!selected?._id) throw new Error("Select imprest");
+      await ep1.post("/api/v2/purchase2/pimprestds2/delete", { id: selected._id, colid: global1.colid });
+      reset();
+      setMessage("Imprest deleted");
+      await load();
+    } catch (err) {
+      setError(err.message || "Unable to delete imprest");
+    }
+  };
+  return (
+    <Stack spacing={2}>
+      {message && <Alert severity="success">{message}</Alert>}
+      {error && <Alert severity="error">{error}</Alert>}
+      <Paper sx={{ p: 2 }}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={3}><TextField size="small" label="Officer Name" value={form.officername} onChange={(e) => setForm((p) => ({ ...p, officername: e.target.value }))} fullWidth /></Grid>
+          <Grid item xs={12} md={2}><TextField size="small" type="number" label="Amount" value={form.amount} onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))} fullWidth /></Grid>
+          <Grid item xs={12} md={2}><TextField size="small" type="date" label="Date" value={form.impdate} InputLabelProps={{ shrink: true }} onChange={(e) => setForm((p) => ({ ...p, impdate: e.target.value }))} fullWidth /></Grid>
+          <Grid item xs={12} md={2}><TextField size="small" label="Imprest Code" value={form.imprestcode || "Auto"} fullWidth InputProps={{ readOnly: true }} /></Grid>
+          <Grid item xs={12} md={3}><Stack direction="row" spacing={1} flexWrap="wrap"><Button variant="contained" onClick={save}>Save</Button><Button color="error" variant="outlined" disabled={!selected?._id} onClick={remove}>Delete</Button><Button startIcon={<Print />} variant="outlined" disabled={!selected?._id} onClick={() => printCashDocument("IMPREST", { ...selected, ...form }, [])}>Print</Button><Button variant="outlined" onClick={reset}>New</Button></Stack></Grid>
+        </Grid>
+      </Paper>
+      <Paper sx={{ p: 2 }}>
+        <DataGrid autoHeight rows={rows.map((row) => ({ ...row, id: row._id }))} columns={[
+          { field: "imprestcode", headerName: "Imprest Code", width: 170 },
+          { field: "officername", headerName: "Officer", flex: 1, minWidth: 180 },
+          { field: "amount", headerName: "Amount", width: 120 },
+          { field: "impdate", headerName: "Date", width: 140 },
+          { field: "status", headerName: "Status", width: 120 },
+          { field: "actions", headerName: "Open", width: 100, renderCell: (p) => <Button size="small" onClick={() => open(p.row)}>Open</Button> }
+        ]} slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true } }} />
+      </Paper>
+    </Stack>
+  );
+}
+
+export function Purchase2PeWorkbenchPage() {
+  const [mainTab, setMainTab] = useState("po");
+  const [subTab, setSubTab] = useState("store");
+  const [assignments, setAssignments] = useState([]);
+  const [prs, setPrs] = useState([]);
+  const [pos, setPos] = useState([]);
+  const [selectedAssignment, setSelectedAssignment] = useState(null);
+  const [selectedPo, setSelectedPo] = useState(null);
+  const [poItems, setPoItems] = useState([]);
+  const [vendors, setVendors] = useState([]);
+  const [vendor, setVendor] = useState(null);
+  const [terms, setTerms] = useState("");
+  const [warranty, setWarranty] = useState("");
+  const [items, setItems] = useState([]);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const load = async () => {
+    try {
+      const [assignmentRows, prRows, poRows, vendorRows] = await Promise.all([getRows("storepoassignmentds2"), getRows("storeprrequestds2"), getRows("storepoorderds2"), getRows("vendorsds2")]);
+      const email = text(currentUser()).toLowerCase();
+      setAssignments(assignmentRows.filter((row) => sameEmail(row.assignedtoemail, email)));
+      setPrs(prRows);
+      setPos(poRows.filter((row) => sameEmail(row.creatorEmail || row.user, email)));
+      setVendors(vendorRows);
+    } catch (err) {
+      setError(err.message || "Unable to load workbench");
+    }
+  };
+  useEffect(() => { load(); }, []);
+  const loadAssignmentItems = async (assignment) => {
+    setSelectedAssignment(assignment);
+    const prItems = assignment?.prnumber ? await getRows("storeprrequestitemsds2", [{ field: "prnumber", value: assignment.prnumber }]) : [];
+    setItems(prItems);
+  };
+  const createPo = async (empty = false) => {
+    try {
+      if (!vendor) throw new Error("Select vendor");
+      const sourceItems = empty ? items : (items.length ? items : await getRows("storeprrequestitemsds2", [{ field: "prnumber", value: selectedAssignment?.prnumber }]));
+      if (!sourceItems.length) throw new Error("Add items or select a PR with items");
+      const poid = humanCode("PO");
+      const priced = sourceItems.map((item) => ({ ...item, vendor: vendor.vendorname, vendorid: vendor._id, price: item.price || item.estimatedprice || item.rate || 0, total: calcLineTotal({ ...item, price: item.price || item.estimatedprice || item.rate || 0 }) }));
+      const total = priced.reduce((sum, item) => sum + num(item.total), 0);
+      const sig = await getUserSignature();
+      const header = await saveRow("storepoorderds2", { poid, prnumber: empty ? "" : selectedAssignment?.prnumber, vendor: vendor.vendorname, vendorid: vendor._id, price: total, netprice: total, actualAmount: total, poType: empty ? "Empty" : "Standard", postatus: "Draft", approvalStatus: "Draft", creatorName: currentName(), creatorEmail: currentUser(), creatorSignature: sig.signaturelink || "", terms, warranty, createdtime: nowTime() });
+      await Promise.all(priced.map((item) => saveRow("storepoitemsds2", { ...item, poid, postatus: "Draft" })));
+      if (selectedAssignment && !empty) await updateRow("storepoassignmentds2", selectedAssignment, { status: "PO Created", poid });
+      sendPurchase2Notification("PO Generated", { poid, prnumber: empty ? "" : selectedAssignment?.prnumber, amount: total, status: "Draft" });
+      setSelectedPo(header);
+      setPoItems(priced);
+      setMessage(`PO ${poid} created`);
+      await load();
+    } catch (err) {
+      setError(err.message || "Unable to create PO");
+    }
+  };
+  const openPo = async (po) => {
+    setSelectedPo(po);
+    setTerms(po.terms || "");
+    setWarranty(po.warranty || "");
+    setPoItems(await getRows("storepoitemsds2", [{ field: "poid", value: po.poid }]));
+  };
+  const submitPo = async () => {
+    try {
+      if (!selectedPo?._id) throw new Error("Open a PO");
+      const updated = await updateRow("storepoorderds2", selectedPo, { postatus: "Submitted", approvalStatus: "Pending", terms, warranty, submittedtime: nowTime() });
+      setSelectedPo(updated);
+      setMessage("PO submitted");
+      await load();
+    } catch (err) {
+      setError(err.message || "Unable to submit PO");
+    }
+  };
+  return (
+    <Page title="PE Workbench" subtitle="Unified purchase executive workbench for PO workflow and imprest management." message={message} error={error}>
+      <Paper sx={{ p: 2 }}>
+        <Tabs value={mainTab} onChange={(_, v) => setMainTab(v)}><Tab value="po" label="PO Workflow" /><Tab value="imprest" label="Imprest Management" /></Tabs>
+        {mainTab === "po" && <Box sx={{ mt: 2 }}>
+          <Tabs value={subTab} onChange={(_, v) => setSubTab(v)}><Tab value="store" label="Store Requests" /><Tab value="create" label="Create PO" /><Tab value="manage" label="Manage PO" /></Tabs>
+          {subTab === "store" && <DataGrid sx={{ mt: 2 }} autoHeight rows={assignments.map((row) => ({ ...row, id: row._id }))} columns={[{ field: "prnumber", headerName: "PR", width: 170 }, { field: "assigneddate", headerName: "Assigned Date", width: 150 }, { field: "assignedby", headerName: "Assigned By", width: 180 }, { field: "status", headerName: "Status", width: 130 }, { field: "remarks", headerName: "Remarks", flex: 1 }, { field: "actions", headerName: "Select", width: 110, renderCell: (p) => <Button size="small" onClick={() => { loadAssignmentItems(p.row); setSubTab("create"); }}>Create PO</Button> }]} slots={{ toolbar: GridToolbar }} />}
+          {subTab === "create" && <Box sx={{ mt: 2 }}><Grid container spacing={2}><Grid item xs={12} md={4}><Autocomplete options={assignments} value={selectedAssignment} onChange={(_, v) => loadAssignmentItems(v)} getOptionLabel={(o) => `${o.prnumber || ""} - ${o.status || ""}`} renderInput={(params) => <TextField {...params} label="Select assigned PR, optional" size="small" />} /></Grid><Grid item xs={12} md={4}><Autocomplete options={vendors} value={vendor} onChange={(_, v) => setVendor(v)} getOptionLabel={(o) => o.vendorname || o.name || ""} renderInput={(params) => <TextField {...params} label="Vendor" size="small" />} /></Grid><Grid item xs={12} md={4}><Stack direction="row" spacing={1}><Button variant="contained" onClick={() => createPo(false)}>Create PO from PR</Button><Button variant="outlined" onClick={() => createPo(true)}>Create Empty PO</Button></Stack></Grid><Grid item xs={12} md={6}><TextField label="Terms" value={terms} onChange={(e) => setTerms(e.target.value)} multiline minRows={3} fullWidth /></Grid><Grid item xs={12} md={6}><TextField label="Warranty" value={warranty} onChange={(e) => setWarranty(e.target.value)} multiline minRows={3} fullWidth /></Grid></Grid><Box sx={{ mt: 2 }}><ItemsEditor items={items} setItems={setItems} showMake showPrice showUnit /></Box></Box>}
+          {subTab === "manage" && <Box sx={{ mt: 2 }}><Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 2 }}><Button startIcon={<Refresh />} onClick={load}>Refresh</Button><Button variant="contained" disabled={!selectedPo?._id || text(selectedPo.postatus).toLowerCase() !== "draft"} onClick={submitPo}>Submit PO</Button><Button startIcon={<Print />} variant="outlined" disabled={!selectedPo?._id} onClick={() => printPurchase2(selectedPo.poType === "Local" ? "localPo" : "po", { header: { ...selectedPo, terms, warranty }, items: poItems })}>Print PO</Button></Stack><Grid container spacing={2}><Grid item xs={12} md={6}><TextField label="Terms" value={terms} onChange={(e) => setTerms(e.target.value)} multiline minRows={3} fullWidth /></Grid><Grid item xs={12} md={6}><TextField label="Warranty" value={warranty} onChange={(e) => setWarranty(e.target.value)} multiline minRows={3} fullWidth /></Grid></Grid><DataGrid sx={{ mt: 2 }} autoHeight rows={pos.map((row) => ({ ...row, id: row._id }))} columns={[{ field: "poid", headerName: "PO", width: 170 }, { field: "prnumber", headerName: "PR", width: 160 }, { field: "vendor", headerName: "Vendor", flex: 1 }, { field: "postatus", headerName: "PO Status", width: 140 }, { field: "approvalStatus", headerName: "Approval", width: 140 }, { field: "actualAmount", headerName: "Amount", width: 120 }, { field: "actions", headerName: "Open", width: 100, renderCell: (p) => <Button size="small" onClick={() => openPo(p.row)}>Open</Button> }]} slots={{ toolbar: GridToolbar }} />{selectedPo && <DataGrid sx={{ mt: 2 }} autoHeight rows={poItems.map((row, index) => ({ ...row, id: index }))} columns={[{ field: "itemname", headerName: "Item", flex: 1 }, { field: "make", headerName: "Make", width: 150 }, { field: "quantity", headerName: "Qty", width: 100 }, { field: "price", headerName: "Rate", width: 100 }, { field: "total", headerName: "Total", width: 120 }]} />}</Box>}
+        </Box>}
+        {mainTab === "imprest" && <Box sx={{ mt: 2 }}><ImprestPanel /></Box>}
+      </Paper>
+    </Page>
+  );
 }
 
 const reportDate = (value) => {

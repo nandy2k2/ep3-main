@@ -110,7 +110,8 @@ export function menuitemsall() {
             ["/helpaihelpdesk", "AI Helpdesk help"],
             ["/helplibrarynew", "Library New help"],
             ["/helppurchase2", "Purchase 2 help"],
-            ["/helpcodeeditor", "Code editor help"]
+            ["/helpcodeeditor", "Code editor help"],
+            ["/helpaicodingagents", "AI Agent Coding help"]
           ].map(([to, label]) => (
             <ListItem button component={RouterLink} to={to} key={to}>
               <ListItemIcon>
@@ -265,6 +266,18 @@ export function menuitemsall() {
               <AutoModeIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Code editor interactive" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/ai-code-editor">
+            <ListItemIcon>
+              <AutoModeIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="AI code editor" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/ai-coding-agents">
+            <ListItemIcon>
+              <AutoModeIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="AI Agents" />}
           </ListItem>
         </AccordionDetails>
       </Accordion>
@@ -4220,6 +4233,10 @@ export function menuitemsall() {
             ["/purchase2-store-item-user", "Store item user"],
             ["/purchase2-po-assignment", "Assign PO creator"],
             ["/purchase2-local-po", "Local PO"],
+            ["/purchase2-cash-approval", "Cash Approval"],
+            ["/purchase2-cash-approval-review", "Cash Approval Review"],
+            ["/purchase2-pe-workbench", "PE workbench"],
+            ["/purchase2/purchase2mailconfigds2", "Purchase 2 mail configuration"],
             ["/purchase2-po-approval-workflow", "PO approval workflow"],
             ["/purchase2-manage-po-admin", "Manage PO admin"],
             ["/purchase2-manage-po-creator", "Manage PO creator"],
