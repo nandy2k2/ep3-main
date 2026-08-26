@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Card,
@@ -280,6 +281,175 @@ export function TeamAttendanceReportPage() {
           </Grid>
           <Paper sx={{ p: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
             <Box sx={{ height: 560 }}><DataGrid rows={dashboard?.table || []} columns={columns} loading={loading} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} sx={gridSx} /></Box>
+          </Paper>
+        </Box>
+      </Box>
+    </MenuPageShell>
+  );
+}
+
+export function HrDailyAttendanceReportPage() {
+  const [filters, setFilters] = useState({ fromdate: firstDay, todate: today, department: "", role: "", employeeemail: "" });
+  const [options, setOptions] = useState({ departments: [], roles: [], users: [] });
+  const [dashboard, setDashboard] = useState(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const columns = useMemo(() => [
+    { field: "date", headerName: "Date", minWidth: 120 },
+    { field: "day", headerName: "Day", minWidth: 130 },
+    { field: "employeename", headerName: "Employee", minWidth: 190, flex: 1 },
+    { field: "employeeemail", headerName: "Email", minWidth: 230, flex: 1 },
+    { field: "department", headerName: "Department", minWidth: 170 },
+    { field: "role", headerName: "Role", minWidth: 150 },
+    { field: "designation", headerName: "Designation", minWidth: 170 },
+    { field: "status", headerName: "Status", minWidth: 110 },
+    { field: "approvalstatus", headerName: "Approval", minWidth: 130 },
+    { field: "remarks", headerName: "Remarks", minWidth: 240, flex: 1 }
+  ], []);
+
+  useEffect(() => {
+    ep1.get("/api/v2/hrattendance/options", { params: { colid: global1.colid } })
+      .then((res) => {
+        const users = Array.isArray(res.data?.users) ? res.data.users : [];
+        setOptions({
+          users,
+          departments: [...new Set(users.map((row) => row.department).filter(Boolean))].sort(),
+          roles: [...new Set(users.map((row) => row.role).filter(Boolean))].sort()
+        });
+      })
+      .catch(() => setOptions({ departments: [], roles: [], users: [] }));
+  }, []);
+
+  const setFilter = (field, value) => setFilters((prev) => ({ ...prev, [field]: value || "" }));
+
+  const load = async () => {
+    if (!filters.fromdate || !filters.todate) {
+      setError("Please select from date and to date.");
+      return;
+    }
+    try {
+      setLoading(true);
+      setError("");
+      const res = await ep1.get("/api/v2/hr-daily-absent-report/summary", { params: { ...filters, colid: global1.colid } });
+      setDashboard(res.data?.data || null);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load daily attendance report");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const userOptions = useMemo(() => options.users.map((user) => ({
+    label: `${user.name || user.email || user.user} (${user.email || user.user || ""})`,
+    value: user.email || user.user || ""
+  })), [options.users]);
+
+  return (
+    <MenuPageShell title="Daily attendance report">
+      <Box sx={{ p: 3, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
+        <style>{`
+          @media print {
+            .no-print { display: none !important; }
+            .print-area { box-shadow: none !important; border: 0 !important; }
+            body { background: white !important; color: #000 !important; }
+          }
+        `}</style>
+        <Header
+          title="Daily attendance report"
+          subtitle="Daywise list of employees marked absent in the selected date range."
+          actions={(
+            <>
+              <Button variant="contained" color="secondary" startIcon={<RefreshIcon />} onClick={load} disabled={loading}>{loading ? "Loading..." : "Load report"}</Button>
+              <Button variant="outlined" startIcon={<DownloadIcon />} onClick={() => exportCsv("daily_absent_attendance_report.csv", dashboard?.table || [], columns)} sx={{ color: "white", borderColor: "#bfdbfe" }}>Export</Button>
+              <Button variant="outlined" startIcon={<PrintIcon />} onClick={() => window.print()} sx={{ color: "white", borderColor: "#bfdbfe" }}>Print</Button>
+            </>
+          )}
+        />
+        <Paper className="no-print" sx={{ p: 2, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={2.4}><TextField fullWidth type="date" size="small" label="From date" InputLabelProps={{ shrink: true }} value={filters.fromdate} onChange={(e) => setFilter("fromdate", e.target.value)} /></Grid>
+            <Grid item xs={12} md={2.4}><TextField fullWidth type="date" size="small" label="To date" InputLabelProps={{ shrink: true }} value={filters.todate} onChange={(e) => setFilter("todate", e.target.value)} /></Grid>
+            <Grid item xs={12} md={2.4}>
+              <Autocomplete size="small" options={options.departments} value={filters.department || null} onChange={(_, value) => setFilter("department", value)} renderInput={(params) => <TextField {...params} label="Department" />} />
+            </Grid>
+            <Grid item xs={12} md={2.4}>
+              <Autocomplete size="small" options={options.roles} value={filters.role || null} onChange={(_, value) => setFilter("role", value)} renderInput={(params) => <TextField {...params} label="Role" />} />
+            </Grid>
+            <Grid item xs={12} md={2.4}>
+              <Autocomplete
+                size="small"
+                options={userOptions}
+                value={userOptions.find((option) => option.value === filters.employeeemail) || null}
+                onChange={(_, value) => setFilter("employeeemail", value?.value || "")}
+                renderInput={(params) => <TextField {...params} label="Employee" />}
+              />
+            </Grid>
+          </Grid>
+        </Paper>
+        {error && <Alert className="no-print" severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {!dashboard && (
+          <Alert className="no-print" severity="info" sx={{ mb: 2 }}>
+            Select filters and click Load report. No attendance data is loaded before that.
+          </Alert>
+        )}
+        <Box className="print-area">
+          <PrintHeader title="Daily Attendance Report - Absent Employees" fromdate={filters.fromdate} todate={filters.todate} institution={dashboard?.institution || {}} />
+          <Cards cards={dashboard?.cards || []} />
+          <Grid container spacing={2} sx={{ mb: 2 }}>
+            <Grid item xs={12} md={6}>
+              <ChartCard title="Daywise Absent Count">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dashboard?.charts?.daywise || []}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} interval={0} angle={-25} textAnchor="end" height={86} />
+                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <Tooltip />
+                    <Bar dataKey="count" name="Absent" fill="#dc2626" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <ChartCard title="Departmentwise">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Tooltip />
+                    <Legend />
+                    <Pie data={dashboard?.charts?.departmentwise || []} dataKey="count" nameKey="label" outerRadius={90} label>
+                      {(dashboard?.charts?.departmentwise || []).map((entry, index) => <Cell key={entry.label} fill={palette[index % palette.length]} />)}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </ChartCard>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <ChartCard title="Rolewise">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Tooltip />
+                    <Legend />
+                    <Pie data={dashboard?.charts?.rolewise || []} dataKey="count" nameKey="label" outerRadius={90} label>
+                      {(dashboard?.charts?.rolewise || []).map((entry, index) => <Cell key={entry.label} fill={palette[(index + 2) % palette.length]} />)}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </ChartCard>
+            </Grid>
+          </Grid>
+          <Paper sx={{ p: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
+            <Typography fontWeight={900} sx={{ mb: 1 }}>Absent Employee Details</Typography>
+            <Box sx={{ height: 620 }}>
+              <DataGrid
+                rows={dashboard?.table || []}
+                columns={columns}
+                loading={loading}
+                slots={{ toolbar: GridToolbar }}
+                pageSizeOptions={[25, 50, 100]}
+                sx={gridSx}
+                disableRowSelectionOnClick
+              />
+            </Box>
           </Paper>
         </Box>
       </Box>

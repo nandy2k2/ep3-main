@@ -37,14 +37,14 @@ const money = (value) => Number(value || 0).toLocaleString("en-IN", { maximumFra
 const shortDate = (value) => (value ? String(value).slice(0, 10) : "");
 
 const bookFields = [
-  "libraryid", "libraryname", "accessionno", "title", "author", "classification", "publisher", "publisheraddress",
+  "libraryid", "libraryname", "accessionno", "title", "author", "classification", "classificationnumber", "publisher", "publisheraddress",
   "isbn", "category", "subject", "edition", "publicationyear", "language", "rackno", "shelfno", "location",
   "supplier", "invoiceno", "invoicedate", "keywords", "purchasedate",
   "price", "pages", "status", "remarks"
 ];
 const bookLabels = {
   libraryid: "Library", libraryname: "Library",
-  accessionno: "Accession No", title: "Title", author: "Author", classification: "Classification", publisher: "Publisher",
+  accessionno: "Accession No", title: "Title", author: "Author", classification: "Classification", classificationnumber: "Classification Number", publisher: "Publisher",
   publisheraddress: "Publisher Address", isbn: "ISBN",
   category: "Category", subject: "Subject", edition: "Edition", publicationyear: "Publication Year",
   language: "Language", rackno: "Rack No", shelfno: "Shelf No", location: "Location", supplier: "Supplier",
@@ -370,6 +370,7 @@ export function LibraryBookMasterPage() {
     { field: "title", headerName: "Title", minWidth: 240, flex: 1 },
     { field: "author", headerName: "Author", minWidth: 180 },
     { field: "classification", headerName: "Classification", minWidth: 170 },
+    { field: "classificationnumber", headerName: "Classification Number", minWidth: 190 },
     { field: "publisher", headerName: "Publisher", minWidth: 170 },
     { field: "publisheraddress", headerName: "Publisher Address", minWidth: 230 },
     { field: "invoiceno", headerName: "Invoice No", minWidth: 140 },

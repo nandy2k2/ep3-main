@@ -48,6 +48,7 @@ const blankClass = {
   durationminutes: "",
   module: "",
   topic: "",
+  lecturetype: "Theory",
   workcompleted: "",
   onlineenabled: "No",
   onlineclassstatus: "Scheduled",
@@ -73,6 +74,7 @@ const filterFields = [
   { field: "roomid", label: "Room ID" },
   { field: "roomno", label: "Room No" },
   { field: "classdate", label: "Class Date" },
+  { field: "lecturetype", label: "Lecture Type" },
   { field: "status", label: "Status" }
 ];
 
@@ -146,6 +148,7 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
 
   const sectionMode = mode === "section";
   const classGroupMode = mode === "classgroup";
+  const manager2Mode = mode === "manager2";
 
   useEffect(() => {
     loadRows();
@@ -155,9 +158,9 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
   }, []);
 
   useEffect(() => {
-    if (sectionMode) loadSectionOptions();
+    if (sectionMode || manager2Mode) loadSectionOptions();
     if (classGroupMode) loadClassGroupOptions();
-  }, [form.academicyear, form.regulation, form.programcode, form.semester, form.coursecode, form.facultyemail, sectionMode, classGroupMode]);
+  }, [form.academicyear, form.regulation, form.programcode, form.semester, form.coursecode, form.facultyemail, sectionMode, classGroupMode, manager2Mode]);
 
   const loadInstitution = async () => {
     try {
@@ -452,6 +455,7 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
       durationminutes: row.durationminutes || "",
       module: row.module || "",
       topic: row.topic || "",
+      lecturetype: row.lecturetype || "Theory",
       workcompleted: row.workcompleted || "",
       onlineenabled: row.onlineenabled || "No",
       onlineclassstatus: row.onlineclassstatus || "Scheduled",
@@ -518,6 +522,7 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
       durationminutes: 60,
       module: "Module 1",
       topic: "Introduction",
+      lecturetype: manager2Mode ? "Theory" : "",
       workcompleted: "",
       onlineenabled: "No",
       onlineclassstatus: "Scheduled",
@@ -571,6 +576,7 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
       durationminutes: 60,
       module: "Module 1",
       topic: "Introduction",
+      lecturetype: manager2Mode ? "Theory" : "",
       workcompleted: "",
       onlineenabled: "No",
       onlineclassstatus: "Scheduled",
@@ -663,7 +669,7 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
     { field: "roomno", headerName: "Room No", width: 130 },
     { field: "major", headerName: "Major", width: 180 },
     { field: "semester", headerName: "Semester", width: 110 },
-    ...(sectionMode ? [{ field: "section", headerName: "Section", width: 120 }] : []),
+    ...(sectionMode || manager2Mode ? [{ field: "section", headerName: "Section", width: 120 }] : []),
     ...(classGroupMode ? [{ field: "classgroup", headerName: "Class Group", width: 160 }] : []),
     { field: "course", headerName: "Course", width: 220 },
     { field: "coursecode", headerName: "Course Code", width: 140 },
@@ -673,6 +679,7 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
     { field: "durationminutes", headerName: "Duration Minutes", width: 150 },
     { field: "module", headerName: "Module", width: 140 },
     { field: "topic", headerName: "Topic", width: 220 },
+    ...(manager2Mode ? [{ field: "lecturetype", headerName: "Lecture Type", width: 140 }] : []),
     { field: "workcompleted", headerName: "Work Completed", width: 260 },
     { field: "onlineenabled", headerName: "Online", width: 110 },
     { field: "onlineclassstatus", headerName: "Online Status", width: 140 },
@@ -694,10 +701,11 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
     ["academicyear", "Academic Year"], ["regulation", "Regulation"], ["program", "Program"], ["programcode", "Program Code"],
     ["faculty", "Faculty"], ["facultyemail", "Faculty Email"], ["campus", "Campus"], ["building", "Building"], ["floor", "Floor"], ["roomid", "Room ID"], ["roomno", "Room No"],
     ["major", "Major"], ["semester", "Semester"],
-    ...(sectionMode ? [["section", "Section"]] : []),
+    ...(sectionMode || manager2Mode ? [["section", "Section"]] : []),
     ...(classGroupMode ? [["classgroup", "Class Group"]] : []),
     ["course", "Course"], ["coursecode", "Course Code"], ["classdate", "Class Date", "date"], ["classtime", "Class Time", "time"],
     ["period", "Period"], ["durationminutes", "Duration in minutes", "number"], ["module", "Module"], ["topic", "Topic"],
+    ...(manager2Mode ? [["lecturetype", "Lecture Type"]] : []),
     ["workcompleted", "Work Completed"], ["onlineenabled", "Online Enabled"], ["onlineclassstatus", "Online Class Status"], ["status", "Status"]
   ];
   const courseMapDropdownFields = new Set(["academicyear", "regulation", "program", "programcode", "major", "semester", "course", "coursecode"]);
@@ -780,6 +788,15 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
                   <TextField select fullWidth label={label} value={form.section} onChange={(e) => updateForm("section", e.target.value)}>
                     <MenuItem value="">Select</MenuItem>
                     {sectionOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                  </TextField>
+                </Grid>
+              );
+            }
+            if (field === "lecturetype") {
+              return (
+                <Grid item xs={12} md={2} key={field}>
+                  <TextField select fullWidth label={label} value={form.lecturetype} onChange={(e) => updateForm("lecturetype", e.target.value)}>
+                    {["Theory", "Practical", "Additional"].map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
                   </TextField>
                 </Grid>
               );
@@ -1158,4 +1175,8 @@ export function NepLmsSectionwiseTimetablePage() {
 
 export function NepLmsClassGroupwiseTimetablePage() {
   return <NepLmsTimetableManagerPage mode="classgroup" pageTitle="Classgroupwise Timetable" />;
+}
+
+export function NepLmsTimetableManager2Page() {
+  return <NepLmsTimetableManagerPage mode="manager2" pageTitle="Timetable Manager 2" />;
 }

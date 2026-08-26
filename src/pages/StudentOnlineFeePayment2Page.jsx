@@ -17,6 +17,8 @@ const validPhone = (value) => {
 
 const columns = [
   { field: "academicyear", headerName: "Year", minWidth: 110 },
+  { field: "program", headerName: "Program", minWidth: 170 },
+  { field: "programcode", headerName: "Program Code", minWidth: 140 },
   { field: "feegroup", headerName: "Fee Group", minWidth: 180, flex: 1 },
   { field: "feeitem", headerName: "Fee Item", minWidth: 240, flex: 1 },
   { field: "feecategory", headerName: "Category", minWidth: 130 },
@@ -34,6 +36,7 @@ export default function StudentOnlineFeePayment2Page() {
   const [fees, setFees] = useState([]);
   const [gateways, setGateways] = useState([]);
   const [selectedGatewayId, setSelectedGatewayId] = useState("");
+  const [studentUser, setStudentUser] = useState(null);
   const [loading, setLoading] = useState(false);
   const [paying, setPaying] = useState(false);
   const [message, setMessage] = useState("");
@@ -58,6 +61,7 @@ export default function StudentOnlineFeePayment2Page() {
         ep1.get("/api/v2/studentonlinepayment/pending", { params: { colid, regno } }),
         ep1.get("/api/v2/mastergateway", { params: { colid, status: "Active" } })
       ]);
+      setStudentUser(feeRes.data.studentuser || null);
       setFees(feeRes.data.data || []);
       const activeGateways = (gatewayRes.data.data || []).filter((gateway) => String(gateway.status || "").toLowerCase() === "active");
       setGateways(activeGateways);
@@ -103,12 +107,12 @@ export default function StudentOnlineFeePayment2Page() {
         user: global1.user || "",
         email: validEmail(global1.email) || validEmail(global1.user),
         phone: validPhone(global1.phone),
-        program: global1.program || "",
-        programcode: global1.programcode || "",
-        regulation: global1.regulation || "",
-        academicyear: global1.academicyear || "",
-        semester: global1.semester || "",
-        section: global1.section || ""
+        program: studentUser?.program || global1.program || "",
+        programcode: studentUser?.programcode || global1.programcode || "",
+        regulation: studentUser?.regulation || global1.regulation || "",
+        academicyear: studentUser?.academicyear || global1.academicyear || "",
+        semester: studentUser?.semester || global1.semester || "",
+        section: studentUser?.section || global1.section || ""
       });
       const session = sessionRes.data.data;
       const gatewayName = normalizedGateway(selectedGateway.gatewayname);
@@ -150,7 +154,18 @@ export default function StudentOnlineFeePayment2Page() {
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Grid container spacing={2} sx={{ mb: 2 }}>
           <Grid item xs={12} md={4}><Card><CardContent><Stack direction="row" spacing={1} alignItems="center"><AccountBalanceWallet color="primary" /><Typography fontWeight={800}>Past Due Amount</Typography></Stack><Typography variant="h4" fontWeight={900}>Rs. {currency(totalPayable)}</Typography><Chip size="small" label={`${pastDueFees.length} item(s) auto selected`} /></CardContent></Card></Grid>
-          <Grid item xs={12} md={8}><Paper sx={{ p: 2 }}><Grid container spacing={2}><Grid item xs={12} md={7}><FormControl fullWidth size="small"><InputLabel>Payment Gateway</InputLabel><Select label="Payment Gateway" value={selectedGatewayId} onChange={(e) => setSelectedGatewayId(e.target.value)}>{gateways.map((gateway) => <MenuItem key={gateway._id} value={gateway._id}>{gateway.gatewayname} {gateway.default === "Yes" ? "(Default)" : ""}</MenuItem>)}</Select></FormControl></Grid><Grid item xs={12} md={5}><Button fullWidth variant="contained" startIcon={<Payment />} onClick={startPayment} disabled={paying || totalPayable <= 0 || !selectedGatewayId}>{paying ? "Starting payment..." : "Pay all past due fees"}</Button></Grid></Grid></Paper></Grid>
+          <Grid item xs={12} md={8}>
+            <Paper sx={{ p: 2 }}>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
+                <Chip label={`Program: ${studentUser?.program || pastDueFees[0]?.program || global1.program || "-"}`} />
+                <Chip color="primary" label={`Program Code: ${studentUser?.programcode || pastDueFees[0]?.programcode || global1.programcode || "-"}`} />
+              </Stack>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={7}><FormControl fullWidth size="small"><InputLabel>Payment Gateway</InputLabel><Select label="Payment Gateway" value={selectedGatewayId} onChange={(e) => setSelectedGatewayId(e.target.value)}>{gateways.map((gateway) => <MenuItem key={gateway._id} value={gateway._id}>{gateway.gatewayname} {gateway.default === "Yes" ? "(Default)" : ""}</MenuItem>)}</Select></FormControl></Grid>
+                <Grid item xs={12} md={5}><Button fullWidth variant="contained" startIcon={<Payment />} onClick={startPayment} disabled={paying || totalPayable <= 0 || !selectedGatewayId}>{paying ? "Starting payment..." : "Pay all past due fees"}</Button></Grid>
+              </Grid>
+            </Paper>
+          </Grid>
         </Grid>
         <Paper sx={{ height: 560 }}>
           <DataGrid rows={pastDueFees} columns={columns} getRowId={(row) => row._id} loading={loading} pageSizeOptions={[10, 25, 50, 100]} initialState={{ pagination: { paginationModel: { pageSize: 25 } } }} slots={{ toolbar: GridToolbar }} />

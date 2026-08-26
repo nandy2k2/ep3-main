@@ -18,6 +18,8 @@ import {
   Paper,
   Select,
   Stack,
+  Tab,
+  Tabs,
   Typography
 } from "@mui/material";
 import {
@@ -52,6 +54,11 @@ const colors = ["#1e88e5", "#43a047", "#fb8c00", "#8e24aa", "#00acc1", "#e53935"
 
 const fmtDate = (value) => value ? new Date(value).toLocaleDateString() : "-";
 const fmtDateTime = (value) => value ? new Date(value).toLocaleString() : "-";
+const routeTo = (link) => {
+  const value = String(link || "").trim();
+  if (!value) return "";
+  return value.startsWith("/") ? value : `/${value}`;
+};
 
 const StatCard = ({ icon, label, value, color }) => (
   <Card sx={{ height: "100%", borderRadius: 2, border: "1px solid #e5e7eb" }}>
@@ -92,8 +99,18 @@ const SimpleList = ({ title, rows, empty, renderRow, action }) => (
 export default function NepLmsFacultyDashboardPage() {
   const [data, setData] = useState(null);
   const [academicYear, setAcademicYear] = useState("");
+  const [taskCategory, setTaskCategory] = useState("");
+  const [taskTab, setTaskTab] = useState(0);
+  const [pendingTasks, setPendingTasks] = useState({ rows: [], categories: [], summary: {} });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const loadPendingTasks = async (year = academicYear, category = taskCategory) => {
+    const res = await ep1.get("/api/v2/academic-new-tasks/faculty-pending", {
+      params: { colid: global1.colid, facultyemail: global1.user, academicyear: year, category }
+    });
+    setPendingTasks(res.data || { rows: [], categories: [], summary: {} });
+  };
 
   const loadDashboard = async (year = academicYear) => {
     try {
@@ -109,6 +126,7 @@ export default function NepLmsFacultyDashboardPage() {
       });
       setData(res.data || null);
       if (!year && res.data?.summary?.academicYear) setAcademicYear(res.data.summary.academicYear);
+      await loadPendingTasks(year || res.data?.summary?.academicYear || "");
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load faculty dashboard");
     } finally {
@@ -130,6 +148,71 @@ export default function NepLmsFacultyDashboardPage() {
       { name: "Absent", value: Math.max(0, Number((100 - percentage).toFixed(2))) }
     ];
   }, [summary.attendancePercentage]);
+  const taskRows = taskTab === 0 ? (pendingTasks.open || []) : (pendingTasks.overdue || []);
+  const taskCategories = pendingTasks.categories || [];
+  const taskSummary = pendingTasks.summary || {};
+
+  const taskPanel = (
+    <Grid container spacing={2} sx={{ mb: 2 }}>
+      <Grid item xs={12}>
+        <Paper sx={{ p: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} sx={{ mb: 1 }}>
+            <Box>
+              <Typography variant="h6" fontWeight={800}>Tasks</Typography>
+              <Typography variant="body2" color="text.secondary">Open and overdue tasks assigned to you</Typography>
+            </Box>
+            <Stack direction="row" spacing={1}>
+              <FormControl size="small" sx={{ minWidth: 190 }}>
+                <InputLabel>Category</InputLabel>
+                <Select
+                  label="Category"
+                  value={taskCategory}
+                  onChange={(event) => {
+                    setTaskCategory(event.target.value);
+                    loadPendingTasks(academicYear, event.target.value).catch(() => {});
+                  }}
+                >
+                  <MenuItem value="">All</MenuItem>
+                  {taskCategories.map((category) => <MenuItem key={category} value={category}>{category}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <Button component={RouterLink} to="/my-academic-tasks" size="small" startIcon={<Assignment />}>My Tasks</Button>
+            </Stack>
+          </Stack>
+          <Tabs value={taskTab} onChange={(_, value) => setTaskTab(value)} sx={{ mb: 1 }}>
+            <Tab label={`Open (${taskSummary.open || 0})`} />
+            <Tab label={`Overdue (${taskSummary.overdue || 0})`} />
+          </Tabs>
+          {taskRows.length ? (
+            <Box sx={{ display: "flex", gap: 1.5, overflowX: "auto", pb: 1 }}>
+              {taskRows.map((task) => {
+                const isOverdue = task.duedate && new Date(task.duedate) < new Date() && !/^completed$/i.test(task.status || "");
+                const target = routeTo(task.pagelink);
+                return (
+                  <Card key={task._id} variant="outlined" sx={{ minWidth: 300, maxWidth: 340, borderLeft: `5px solid ${isOverdue ? "#dc2626" : "#2563eb"}`, flex: "0 0 auto" }}>
+                    <CardContent>
+                      <Stack direction="row" justifyContent="space-between" spacing={1}>
+                        <Typography fontWeight={900} noWrap title={task.task}>{task.task || "Task"}</Typography>
+                        <Chip size="small" color={isOverdue ? "error" : "primary"} label={isOverdue ? "Overdue" : (task.status || "Open")} />
+                      </Stack>
+                      <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.75 }}>
+                        <Chip size="small" variant="outlined" label={task.category || "General"} />
+                        <Chip size="small" color={/critical|high/i.test(task.criticality || "") ? "error" : "default"} variant="outlined" label={task.criticality || "Normal"} />
+                      </Stack>
+                      <Typography variant="body2" sx={{ mt: 1 }}>Start: <b>{fmtDate(task.startdate)}</b></Typography>
+                      <Typography variant="body2">Due: <b>{fmtDate(task.duedate)}</b></Typography>
+                      {task.comments && <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>{task.comments}</Typography>}
+                      {target && <Button component={RouterLink} to={target} size="small" variant="contained" sx={{ mt: 1.25 }}>Open</Button>}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </Box>
+          ) : <Alert severity="success">No {taskTab === 0 ? "open" : "overdue"} tasks for the selected category.</Alert>}
+        </Paper>
+      </Grid>
+    </Grid>
+  );
 
   return (
     <MenuPageShell title="Faculty Dashboard">
@@ -182,6 +265,8 @@ export default function NepLmsFacultyDashboardPage() {
         <Grid item xs={12} sm={6} md={3}><StatCard icon={<Event />} label="Upcoming Classes" value={summary.upcomingClasses || 0} color="#fb8c00" /></Grid>
         <Grid item xs={12} sm={6} md={3}><StatCard icon={<WarningAmber />} label="Below 70%" value={`${summary.lowAttendanceStudents || 0} att / ${summary.lowScoreStudents || 0} score`} color="#e53935" /></Grid>
       </Grid>
+
+      {taskPanel}
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid item xs={12} md={8}>

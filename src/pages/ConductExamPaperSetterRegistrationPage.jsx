@@ -52,6 +52,7 @@ const htmlEscape = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => 
 
 export default function ConductExamPaperSetterRegistrationPage() {
   const [courses, setCourses] = useState([]);
+  const [exams, setExams] = useState([]);
   const [users, setUsers] = useState([]);
   const [rows, setRows] = useState([]);
   const [institution, setInstitution] = useState(null);
@@ -78,6 +79,7 @@ export default function ConductExamPaperSetterRegistrationPage() {
   const loadOptions = async (params = {}) => {
     const res = await ep1.get("/api/v2/conductexam/papersetter-options", { params: { colid: global1.colid, ...params } });
     setCourses(res.data?.courses || []);
+    setExams(res.data?.exams || []);
     setUsers(res.data?.users || []);
   };
 
@@ -107,6 +109,7 @@ export default function ConductExamPaperSetterRegistrationPage() {
 
   const dropdowns = useMemo(() => {
     const byYear = courses.filter((row) => !form.academicyear || row.academicyear === form.academicyear);
+    const examMastersByYear = exams.filter((row) => !form.academicyear || row.academicyear === form.academicyear);
     const byExam = byYear.filter((row) => !form.examcode || row.examcode === form.examcode);
     const byRegulation = byExam.filter((row) => !form.regulation || row.regulation === form.regulation);
     const byProgram = byRegulation.filter((row) => !form.programcode || row.programcode === form.programcode);
@@ -119,8 +122,11 @@ export default function ConductExamPaperSetterRegistrationPage() {
       if (row.coursecode) courseMap.set(row.coursecode, row);
     });
     return {
-      academicyears: uniq(courses.map((row) => row.academicyear)),
-      exams: uniq(byYear.map((row) => `${row.examcode}||${row.exam}`)).map((value) => {
+      academicyears: uniq([...courses.map((row) => row.academicyear), ...exams.map((row) => row.academicyear)]),
+      exams: uniq([
+        ...byYear.map((row) => `${row.examcode}||${row.exam}`),
+        ...examMastersByYear.map((row) => `${row.examcode}||${row.examname || row.exam}`)
+      ]).map((value) => {
         const [examcode, exam] = value.split("||");
         return { examcode, exam };
       }),
@@ -128,15 +134,15 @@ export default function ConductExamPaperSetterRegistrationPage() {
       programs: [...programMap.values()].sort((a, b) => a.program.localeCompare(b.program)),
       coursesList: [...courseMap.values()].sort((a, b) => a.course.localeCompare(b.course))
     };
-  }, [courses, form]);
+  }, [courses, exams, form]);
 
   const filterOptions = useMemo(() => ({
-    academicyear: uniq([...courses.map((row) => row.academicyear), ...rows.map((row) => row.academicyear)]),
-    examcode: uniq([...courses.map((row) => row.examcode), ...rows.map((row) => row.examcode)]),
+    academicyear: uniq([...courses.map((row) => row.academicyear), ...exams.map((row) => row.academicyear), ...rows.map((row) => row.academicyear)]),
+    examcode: uniq([...courses.map((row) => row.examcode), ...exams.map((row) => row.examcode), ...rows.map((row) => row.examcode)]),
     regulation: uniq([...courses.map((row) => row.regulation), ...rows.map((row) => row.regulation)]),
     programcode: uniq([...courses.map((row) => row.programcode), ...rows.map((row) => row.programcode)]),
     coursecode: uniq([...courses.map((row) => row.coursecode), ...rows.map((row) => row.coursecode)])
-  }), [courses, rows]);
+  }), [courses, exams, rows]);
 
   const setCourseDetails = (coursecode) => {
     const selected = dropdowns.coursesList.find((row) => row.coursecode === coursecode);

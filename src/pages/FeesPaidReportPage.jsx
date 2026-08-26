@@ -90,7 +90,7 @@ function chartRows(rows, valueKey = "paidamount") {
   }));
 }
 
-export default function FeesPaidReportPage() {
+export default function FeesPaidReportPage({ report2 = false }) {
   const [rows, setRows] = useState([]);
   const [summaries, setSummaries] = useState({});
   const [totals, setTotals] = useState({ count: 0, amount: 0, paidamount: 0, concession: 0, balance: 0 });
@@ -194,6 +194,7 @@ export default function FeesPaidReportPage() {
 
   const detailColumns = [
     { field: "academicyear", headerName: "Year", minWidth: 120 },
+    ...(report2 ? [{ field: "program", headerName: "Program", minWidth: 180, flex: 1 }] : []),
     { field: "programcode", headerName: "Program Code", minWidth: 130 },
     { field: "student", headerName: "Student", minWidth: 180, flex: 1 },
     { field: "regno", headerName: "Reg No", minWidth: 140 },
@@ -205,7 +206,17 @@ export default function FeesPaidReportPage() {
     { field: "concession", headerName: "Concession", minWidth: 130, type: "number" },
     { field: "paidamount", headerName: "Paid Amount", minWidth: 130, type: "number" },
     { field: "balance", headerName: "Balance", minWidth: 120, type: "number" },
-    { field: "paymode", headerName: "Pay Mode", minWidth: 120 }
+    { field: "paymode", headerName: "Pay Mode", minWidth: 120 },
+    ...(report2 ? [
+      { field: "paymentreference", headerName: "Payment Reference", minWidth: 190, flex: 1 },
+      { field: "paydetails", headerName: "Pay Details", minWidth: 190, flex: 1 },
+      { field: "onlinepaymentrefno", headerName: "Online Ref No", minWidth: 170 },
+      { field: "gatewayrefno", headerName: "Gateway Ref No", minWidth: 170 },
+      { field: "gateway", headerName: "Gateway", minWidth: 130 },
+      { field: "gatewaytype", headerName: "Gateway Type", minWidth: 140 },
+      { field: "paymentstatus", headerName: "Payment Status", minWidth: 150 },
+      { field: "transactiondescription", headerName: "Transaction Details", minWidth: 220, flex: 1 }
+    ] : [])
   ];
 
   const summaryColumns = [
@@ -262,7 +273,7 @@ export default function FeesPaidReportPage() {
   const printRows = rows.slice(0, 24);
 
   return (
-    <MenuPageShell title="Fees paid report">
+    <MenuPageShell title={report2 ? "Fees paid report 2" : "Fees paid report"}>
       <style>
         {`
           @media print {
@@ -277,8 +288,8 @@ export default function FeesPaidReportPage() {
       <Box sx={{ p: 3 }}>
         <Stack className="no-print" direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
           <Box>
-            <Typography variant="h5" fontWeight={900}>Fees paid report</Typography>
-            <Typography variant="body2" color="text.secondary">Programwise student fee paid details from student ledger</Typography>
+            <Typography variant="h5" fontWeight={900}>{report2 ? "Fees paid report 2" : "Fees paid report"}</Typography>
+            <Typography variant="body2" color="text.secondary">{report2 ? "Student fee paid transactions with program and payment reference details" : "Programwise student fee paid details from student ledger"}</Typography>
           </Box>
           <Stack direction="row" spacing={1}>
             <Button variant="outlined" startIcon={<PrintIcon />} onClick={() => window.print()}>Print Preview</Button>
@@ -387,7 +398,7 @@ export default function FeesPaidReportPage() {
             loading={loading}
             autoHeight
             slots={{ toolbar: GridToolbar }}
-            slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "fees_paid_report" } } }}
+            slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: report2 ? "fees_paid_report_2" : "fees_paid_report" } } }}
             pageSizeOptions={[10, 25, 50, 100]}
             initialState={{ pagination: { paginationModel: { pageSize: 10, page: 0 } } }}
             sx={{ minWidth: 1900, "& .MuiDataGrid-virtualScroller": { overflowX: "auto" } }}
@@ -399,7 +410,7 @@ export default function FeesPaidReportPage() {
             {institution?.logolink && <Box component="img" src={institution.logolink} alt="Logo" sx={{ width: 62, height: 62, objectFit: "contain" }} />}
             <Typography variant="h6" fontWeight={900}>{institution?.institutionname || global1.insname || "Institution"}</Typography>
             <Typography variant="body2">{institution?.address || ""}</Typography>
-            <Typography variant="subtitle1" fontWeight={900} sx={{ mt: 0.5 }}>Fees Paid Report</Typography>
+            <Typography variant="subtitle1" fontWeight={900} sx={{ mt: 0.5 }}>{report2 ? "Fees Paid Report 2" : "Fees Paid Report"}</Typography>
             <Typography variant="caption">{activeFilterText}</Typography>
           </Stack>
 
@@ -424,7 +435,7 @@ export default function FeesPaidReportPage() {
 
           <Box sx={{ border: "1px solid #cbd5e1", borderBottom: 0, fontSize: 11 }}>
             <Grid container sx={{ bgcolor: "#eef2ff", fontWeight: 900 }}>
-              {["Program", "Student", "Reg No", "Fee Group", "Category", "Paid Date", "Amount", "Paid", "Concession", "Balance"].map((head, index) => (
+              {(report2 ? ["Program", "Student", "Reg No", "Fee Group", "Category", "Paid Date", "Payment Ref", "Amount", "Paid", "Balance"] : ["Program", "Student", "Reg No", "Fee Group", "Category", "Paid Date", "Amount", "Paid", "Concession", "Balance"]).map((head, index) => (
                 <Grid item xs={index < 2 ? 1.5 : 1.1} key={head} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.5 }}>
                   {head}
                 </Grid>
@@ -438,9 +449,10 @@ export default function FeesPaidReportPage() {
                 <Grid item xs={1.1} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.45 }}>{row.feegroup}</Grid>
                 <Grid item xs={1.1} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.45 }}>{row.feecategory}</Grid>
                 <Grid item xs={1.1} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.45 }}>{shortDate(row.paiddate)}</Grid>
+                {report2 && <Grid item xs={1.1} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.45 }}>{row.paymentreference}</Grid>}
                 <Grid item xs={1.1} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.45, textAlign: "right" }}>{money(row.amount)}</Grid>
                 <Grid item xs={1.1} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.45, textAlign: "right" }}>{money(row.paidamount)}</Grid>
-                <Grid item xs={1.1} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.45, textAlign: "right" }}>{money(row.concession)}</Grid>
+                {!report2 && <Grid item xs={1.1} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.45, textAlign: "right" }}>{money(row.concession)}</Grid>}
                 <Grid item xs={1.2} sx={{ borderBottom: "1px solid #cbd5e1", p: 0.45, textAlign: "right" }}>{money(row.balance)}</Grid>
               </Grid>
             ))}

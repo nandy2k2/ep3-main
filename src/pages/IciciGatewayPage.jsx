@@ -55,7 +55,7 @@ export const IciciGatewayConfigFormPage = ({ programMode = false }) => {
     setError("");
     try {
       const [configRes, programRes] = await Promise.all([
-        ep1.get("/api/v2/icicigatewayconfig", { params: { colid } }),
+        ep1.get("/api/v2/icicigatewayconfig", { params: { colid, mode: programMode ? "program" : "common" } }),
         programMode ? ep1.get("/api/v2/mprograms-management", { params: { colid } }).catch(() => ({ data: { data: [] } })) : Promise.resolve({ data: { data: [] } })
       ]);
       setRows(configRes.data.data || []);
@@ -82,6 +82,9 @@ export const IciciGatewayConfigFormPage = ({ programMode = false }) => {
     try {
       const payload = {
         ...form,
+        mode: programMode ? "program" : "common",
+        program: programMode ? form.program : "",
+        programcode: programMode ? form.programcode : "",
         colid,
         name: currentName,
         user: currentUser,
@@ -106,8 +109,8 @@ export const IciciGatewayConfigFormPage = ({ programMode = false }) => {
   const editRow = (row) => {
     setForm({
       id: row._id,
-      program: row.program || "",
-      programcode: row.programcode || "",
+      program: programMode ? row.program || "" : "",
+      programcode: programMode ? row.programcode || "" : "",
       merchantid: row.merchantid || "",
       aggregatorid: row.aggregatorid || "",
       secretkey: row.secretkey || "",
@@ -159,8 +162,10 @@ export const IciciGatewayConfigFormPage = ({ programMode = false }) => {
         </Stack>
       )
     },
-    { field: "program", headerName: "Program", minWidth: 180, flex: 1 },
-    { field: "programcode", headerName: "Program Code", minWidth: 150 },
+    ...(programMode ? [
+      { field: "program", headerName: "Program", minWidth: 180, flex: 1 },
+      { field: "programcode", headerName: "Program Code", minWidth: 150 }
+    ] : []),
     { field: "merchantid", headerName: "Merchant ID", minWidth: 180, flex: 1 },
     { field: "aggregatorid", headerName: "Aggregator ID", minWidth: 180, flex: 1 },
     { field: "secretkey", headerName: "Secret key", minWidth: 220, flex: 1 },

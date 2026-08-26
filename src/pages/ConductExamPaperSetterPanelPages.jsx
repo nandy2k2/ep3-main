@@ -27,6 +27,7 @@ const blankRegistration = { academicyear: "", regulation: "", exam: "", examcode
 
 const useConductExamOptions = () => {
   const [courses, setCourses] = useState([]);
+  const [exams, setExams] = useState([]);
   const [users, setUsers] = useState([]);
   const [busy, setBusy] = useState(false);
   const load = async () => {
@@ -34,13 +35,14 @@ const useConductExamOptions = () => {
     try {
       const res = await ep1.get("/api/v2/conductexam/papersetter-options", { params: { colid: global1.colid } });
       setCourses(res.data?.courses || []);
+      setExams(res.data?.exams || []);
       setUsers(res.data?.users || []);
     } finally {
       setBusy(false);
     }
   };
   useEffect(() => { load(); }, []);
-  return { courses, users, busy };
+  return { courses, exams, users, busy };
 };
 
 const usePanelOptions = () => {
@@ -418,7 +420,7 @@ export function ConductExamPaperSetterPanelApprovalPage() {
 }
 
 export function ConductExamPaperSetterRegistration2Page() {
-  const { courses } = useConductExamOptions();
+  const { courses, exams } = useConductExamOptions();
   const { panels, loadPanels } = usePanelOptions();
   const [form, setForm] = useState(blankRegistration);
   const [filters, setFilters] = useState({ academicyear: "", examcode: "", regulation: "", programcode: "", coursecode: "" });
@@ -439,6 +441,7 @@ export function ConductExamPaperSetterRegistration2Page() {
 
   const dropdowns = useMemo(() => {
     const byYear = courses.filter((row) => !form.academicyear || row.academicyear === form.academicyear);
+    const examMastersByYear = exams.filter((row) => !form.academicyear || row.academicyear === form.academicyear);
     const byExam = byYear.filter((row) => !form.examcode || row.examcode === form.examcode);
     const byReg = byExam.filter((row) => !form.regulation || row.regulation === form.regulation);
     const byProg = byReg.filter((row) => !form.programcode || row.programcode === form.programcode);
@@ -447,16 +450,19 @@ export function ConductExamPaperSetterRegistration2Page() {
     const courseMap = new Map();
     byProg.forEach((row) => row.coursecode && courseMap.set(row.coursecode, row));
     return {
-      academicyears: uniq(courses.map((r) => r.academicyear)),
-      exams: uniq(byYear.map((r) => `${r.examcode}||${r.exam}`)).map((v) => { const [examcode, exam] = v.split("||"); return { examcode, exam }; }),
+      academicyears: uniq([...courses.map((r) => r.academicyear), ...exams.map((r) => r.academicyear)]),
+      exams: uniq([
+        ...byYear.map((r) => `${r.examcode}||${r.exam}`),
+        ...examMastersByYear.map((r) => `${r.examcode}||${r.examname || r.exam}`)
+      ]).map((v) => { const [examcode, exam] = v.split("||"); return { examcode, exam }; }),
       regulations: uniq(byExam.map((r) => r.regulation)),
       programs: [...programs.values()],
       coursesList: [...courseMap.values()]
     };
-  }, [courses, form]);
+  }, [courses, exams, form]);
 
   const filteredPanels = useMemo(() => panels.filter((panel) => (!form.academicyear || panel.academicyear === form.academicyear) && (!form.regulation || panel.regulation === form.regulation) && (!form.programcode || panel.programcode === form.programcode)), [panels, form]);
-  const filterOptions = useMemo(() => ({ academicyear: uniq(courses.map((r) => r.academicyear)), examcode: uniq(courses.map((r) => r.examcode)), regulation: uniq(courses.map((r) => r.regulation)), programcode: uniq(courses.map((r) => r.programcode)), coursecode: uniq(courses.map((r) => r.coursecode)) }), [courses]);
+  const filterOptions = useMemo(() => ({ academicyear: uniq([...courses.map((r) => r.academicyear), ...exams.map((r) => r.academicyear)]), examcode: uniq([...courses.map((r) => r.examcode), ...exams.map((r) => r.examcode)]), regulation: uniq(courses.map((r) => r.regulation)), programcode: uniq(courses.map((r) => r.programcode)), coursecode: uniq(courses.map((r) => r.coursecode)) }), [courses, exams]);
 
   const loadMembers = async (panel) => {
     setApprovedMembers([]);
