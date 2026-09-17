@@ -30,6 +30,10 @@ const emptyTicketForm = { title: "", details: "", startdate: "", starttime: "", 
 const safeDate = (value) => value ? String(value).slice(0, 10) : "";
 const safeDateTime = (value) => value ? String(value).replace("T", " ").slice(0, 16) : "";
 const globalSupportPasswordParam = () => ({ supportpassword: sessionStorage.getItem(globalSupportSessionKey) || "" });
+const displayValue = (value) => {
+  if (value === 0) return "0";
+  return value ? String(value) : "-";
+};
 
 function Shell({ title, children }) {
   return (
@@ -122,6 +126,29 @@ function TicketDetails({ selected, details, loadDetails, canRespond, onChanged, 
     setError("");
   }, [selected?._id]);
   if (!selected) return <Paper sx={{ p: 2 }}><Typography color="text.secondary">Select a ticket to view details.</Typography></Paper>;
+  const ticket = details || selected;
+  const detailItems = [
+    ["Ticket No", ticket.ticketno],
+    ["Institution", ticket.institutionname || global1.insname],
+    ["Colid", ticket.colid],
+    ["Title", ticket.title],
+    ["Category", ticket.category],
+    ["Priority", ticket.priority],
+    ["Status", ticket.status],
+    ["Start Date/Time", safeDateTime(ticket.startdatetime)],
+    ["Raised By", ticket.raisedby],
+    ["Raised By Email", ticket.raisedbyemail],
+    ["Raised By Role", ticket.raisedbyrole],
+    ["Raised Date", safeDateTime(ticket.createdAt)],
+    ["Assigned To", ticket.assignedto],
+    ["Assigned To Email", ticket.assignedtoemail],
+    ["Assigned Date", safeDateTime(ticket.assignedat)],
+    ["First Response", safeDateTime(ticket.firstresponseat)],
+    ["Closed Date", safeDateTime(ticket.closedat)],
+    ["Last Updated", safeDateTime(ticket.updatedAt)],
+    ["Created User", ticket.user],
+    ["Mongo ID", ticket._id]
+  ];
   const assign = async () => {
     try {
       setError("");
@@ -165,12 +192,26 @@ function TicketDetails({ selected, details, loadDetails, canRespond, onChanged, 
     <Paper sx={{ p: 2 }}>
       {message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      <Typography variant="h6" fontWeight={900}>{selected.ticketno} - {selected.title}</Typography>
+      <Typography variant="h6" fontWeight={900}>{ticket.ticketno} - {ticket.title}</Typography>
       <Grid container spacing={2} sx={{ mt: 1 }}>
-        <Grid item xs={12} md={6}><Typography><strong>Status:</strong> {details?.status || selected.status}</Typography></Grid>
-        <Grid item xs={12} md={6}><Typography><strong>Raised by:</strong> {selected.raisedby || selected.raisedbyemail}</Typography></Grid>
-        <Grid item xs={12}><Typography sx={{ whiteSpace: "pre-wrap" }}>{details?.details || selected.details}</Typography></Grid>
-        <Grid item xs={12}><Typography fontWeight={800}>Ticket attachments</Typography><AttachmentLinks attachments={details?.attachments || selected.attachments || []} /></Grid>
+        <Grid item xs={12}>
+          <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "#f8fafc" }}>
+            <Typography fontWeight={900} sx={{ mb: 1 }}>Ticket information</Typography>
+            <Grid container spacing={1}>
+              {detailItems.map(([label, value]) => (
+                <Grid item xs={12} sm={6} md={4} key={label}>
+                  <Typography variant="caption" color="text.secondary">{label}</Typography>
+                  <Typography sx={{ overflowWrap: "anywhere" }}>{displayValue(value)}</Typography>
+                </Grid>
+              ))}
+            </Grid>
+          </Paper>
+        </Grid>
+        <Grid item xs={12}>
+          <Typography fontWeight={800}>Original query / details</Typography>
+          <Typography sx={{ whiteSpace: "pre-wrap", mt: 0.5 }}>{ticket.details || "-"}</Typography>
+        </Grid>
+        <Grid item xs={12}><Typography fontWeight={800}>Ticket attachments</Typography><AttachmentLinks attachments={ticket.attachments || []} /></Grid>
       </Grid>
       <Box sx={{ mt: 2 }}>
         <Typography fontWeight={900} sx={{ mb: 1 }}>Responses</Typography>

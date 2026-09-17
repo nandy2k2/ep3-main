@@ -33,6 +33,7 @@ const filterFields = [
 
 const currency = (value) => Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const shortDate = (value) => (value ? new Date(value).toLocaleString("en-IN") : "");
+const canGenerateReceipt = (status) => ["paid", "success"].includes(String(status || "").trim().toLowerCase());
 
 const makeRows = (payments) => payments.flatMap((payment) => {
   const items = payment.ledgeritems?.length ? payment.ledgeritems : [{}];
@@ -48,6 +49,7 @@ const makeRows = (payments) => payments.flatMap((payment) => {
     regno: payment.regno,
     studentemail: payment.studentemail,
     academicyear: item.academicyear || payment.academicyear,
+    program: payment.program,
     programcode: payment.programcode,
     semester: item.semester || payment.semester,
     feegroup: item.feegroup,
@@ -65,7 +67,11 @@ const makeRows = (payments) => payments.flatMap((payment) => {
   }));
 });
 
-export default function StudentOnlinePaymentReportPage({ studentOnly = false }) {
+export default function StudentOnlinePaymentReportPage(props) {
+  return <StudentOnlinePaymentReportPageBase {...props} />;
+}
+
+export function StudentOnlinePaymentReportPageBase({ studentOnly = false, includeProgramNameInReceipt = false, pageTitle, pageSubtitle }) {
   const [filters, setFilters] = useState([{ field: "paymentstatus", value: "" }]);
   const [fromdate, setFromdate] = useState("");
   const [todate, setTodate] = useState("");
@@ -73,6 +79,7 @@ export default function StudentOnlinePaymentReportPage({ studentOnly = false }) 
   const [payments, setPayments] = useState([]);
   const [selectedReceipt, setSelectedReceipt] = useState(null);
   const [institution, setInstitution] = useState(null);
+  const [programMap, setProgramMap] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -121,9 +128,21 @@ export default function StudentOnlinePaymentReportPage({ studentOnly = false }) 
     ep1.get("/api/v2/salary-payment/institution", { params: { colid: global1.colid } })
       .then((res) => setInstitution(res.data?.data || null))
       .catch(() => setInstitution(null));
+    if (includeProgramNameInReceipt) {
+      ep1.get("/api/v2/mprograms-management", { params: { colid: global1.colid } })
+        .then((res) => {
+          const nextMap = {};
+          (res.data?.data || []).forEach((program) => {
+            const code = String(program?.programcode || "").trim();
+            if (code && !nextMap[code]) nextMap[code] = program.program || program.name || "";
+          });
+          setProgramMap(nextMap);
+        })
+        .catch(() => setProgramMap({}));
+    }
     loadOptions();
     loadPayments();
-  }, []);
+  }, [includeProgramNameInReceipt]);
 
   const updateFilter = (index, key, value) => {
     setFilters((prev) => prev.map((filter, i) => (i === index ? { ...filter, [key]: value, ...(key === "field" ? { value: "" } : {}) } : filter)));
@@ -141,6 +160,12 @@ export default function StudentOnlinePaymentReportPage({ studentOnly = false }) 
     const institutionName = institution?.institutionname || institution?.insname || global1.insname || "Institution";
     const institutionAddress = institution?.address || institution?.insaddress || "";
     const logo = institution?.logo || institution?.logolink || "";
+    const programCode = String(payment.programcode || "").trim();
+    const programName = programMap[programCode] || payment.program || "";
+    const programRows = includeProgramNameInReceipt
+      ? `<tr><td style="padding:5px;font-weight:700;">Program Name</td><td style="padding:5px;">${programName}</td><td style="padding:5px;font-weight:700;">Program Code</td><td style="padding:5px;">${programCode}</td></tr>
+         <tr><td style="padding:5px;font-weight:700;">Semester</td><td style="padding:5px;">${payment.semester || ""}</td><td style="padding:5px;font-weight:700;">Academic Year</td><td style="padding:5px;">${payment.academicyear || ""}</td></tr>`
+      : `<tr><td style="padding:5px;font-weight:700;">Program</td><td style="padding:5px;">${programName || payment.programcode || ""}</td><td style="padding:5px;font-weight:700;">Semester</td><td style="padding:5px;">${payment.semester || ""}</td></tr>`;
     const items = payment?.ledgeritems?.length ? payment.ledgeritems : [];
     const rowsHtml = items.map((item, index) => `
       <tr>
@@ -163,7 +188,7 @@ export default function StudentOnlinePaymentReportPage({ studentOnly = false }) 
         <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:14px;">
           <tbody>
             <tr><td style="padding:5px;font-weight:700;">Student</td><td style="padding:5px;">${payment.student || ""}</td><td style="padding:5px;font-weight:700;">Reg No</td><td style="padding:5px;">${payment.regno || ""}</td></tr>
-            <tr><td style="padding:5px;font-weight:700;">Program</td><td style="padding:5px;">${payment.program || payment.programcode || ""}</td><td style="padding:5px;font-weight:700;">Semester</td><td style="padding:5px;">${payment.semester || ""}</td></tr>
+            ${programRows}
             <tr><td style="padding:5px;font-weight:700;">Reference No</td><td style="padding:5px;">${payment.gatewayrefno || payment.refno || ""}</td><td style="padding:5px;font-weight:700;">Payment Date</td><td style="padding:5px;">${shortDate(payment.paiddate || payment.updatedAt)}</td></tr>
             <tr><td style="padding:5px;font-weight:700;">Gateway</td><td style="padding:5px;">${payment.gateway || ""}</td><td style="padding:5px;font-weight:700;">Status</td><td style="padding:5px;">${payment.paymentstatus || ""}</td></tr>
           </tbody>
@@ -198,6 +223,10 @@ export default function StudentOnlinePaymentReportPage({ studentOnly = false }) 
 
   const printReceipt = (payment) => {
     if (!payment) return;
+    if (!canGenerateReceipt(payment.paymentstatus)) {
+      setError("Receipt can be generated only when payment status is Paid or Success.");
+      return;
+    }
     const win = window.open("", "_blank");
     win.document.write(`<html><head><title>Online Fee Receipt</title></head><body>${receiptHtml(payment)}</body></html>`);
     win.document.close();
@@ -214,18 +243,27 @@ export default function StudentOnlinePaymentReportPage({ studentOnly = false }) 
       sortable: false,
       filterable: false,
       renderCell: (params) => (
-        <Button
-          size="small"
-          startIcon={<ReceiptLong />}
-          onClick={(event) => {
-            event.stopPropagation();
-            const payment = paymentById.get(params.row.paymentid);
-            setSelectedReceipt(payment || null);
-            printReceipt(payment);
-          }}
-        >
-          Receipt
-        </Button>
+        <Tooltip title={canGenerateReceipt(params.row.paymentstatus) ? "Generate receipt" : "Receipt is available only for Paid or Success payments"}>
+          <span>
+            <Button
+              size="small"
+              startIcon={<ReceiptLong />}
+              disabled={!canGenerateReceipt(params.row.paymentstatus)}
+              onClick={(event) => {
+                event.stopPropagation();
+                const payment = paymentById.get(params.row.paymentid);
+                if (!canGenerateReceipt(payment?.paymentstatus)) {
+                  setError("Receipt can be generated only when payment status is Paid or Success.");
+                  return;
+                }
+                setSelectedReceipt(payment || null);
+                printReceipt(payment);
+              }}
+            >
+              Receipt
+            </Button>
+          </span>
+        </Tooltip>
       )
     },
     { field: "paiddate", headerName: "Paid Date", minWidth: 170, valueGetter: (params) => shortDate(params.row.paiddate) },
@@ -235,6 +273,7 @@ export default function StudentOnlinePaymentReportPage({ studentOnly = false }) 
     { field: "student", headerName: "Student", minWidth: 200, flex: 1 },
     { field: "regno", headerName: "Reg No", minWidth: 150 },
     { field: "academicyear", headerName: "Year", minWidth: 110 },
+    ...(includeProgramNameInReceipt ? [{ field: "program", headerName: "Program", minWidth: 190 }] : []),
     { field: "programcode", headerName: "Program Code", minWidth: 130 },
     { field: "feegroup", headerName: "Fee Group", minWidth: 170 },
     { field: "feeitem", headerName: "Fee Item", minWidth: 220, flex: 1 },
@@ -243,12 +282,12 @@ export default function StudentOnlinePaymentReportPage({ studentOnly = false }) 
   ];
 
   return (
-    <MenuPageShell title={studentOnly ? "My online payments" : "Online payment"} menuType={studentOnly ? "student" : undefined}>
+    <MenuPageShell title={pageTitle || (studentOnly ? "My online payments" : "Online payment")} menuType={studentOnly ? "student" : undefined}>
       <Box sx={{ p: { xs: 2, md: 3 } }}>
         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", md: "center" }} spacing={2} sx={{ mb: 2 }}>
           <Box>
-            <Typography variant="h5" fontWeight={800}>{studentOnly ? "My Online Payments" : "Online Payment Report"}</Typography>
-            <Typography variant="body2" color="text.secondary">{studentOnly ? "Your online fee payment records and printable receipts." : "Student-wise, fee-wise online payment records with date range and dynamic filters."}</Typography>
+            <Typography variant="h5" fontWeight={800}>{pageTitle || (studentOnly ? "My Online Payments" : "Online Payment Report")}</Typography>
+            <Typography variant="body2" color="text.secondary">{pageSubtitle || (studentOnly ? "Your online fee payment records and printable receipts." : "Student-wise, fee-wise online payment records with date range and dynamic filters.")}</Typography>
           </Box>
           <Stack direction="row" spacing={1}>
             <Button variant="outlined" startIcon={<Refresh />} onClick={loadPayments} disabled={loading}>Refresh</Button>
@@ -327,7 +366,14 @@ export default function StudentOnlinePaymentReportPage({ studentOnly = false }) 
           <Paper sx={{ p: 2, mt: 2, borderRadius: 2 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
               <Typography variant="h6" fontWeight={800}>Selected Receipt Preview</Typography>
-              <Button variant="outlined" startIcon={<Print />} onClick={() => printReceipt(selectedReceipt)}>Print Receipt</Button>
+              <Button
+                variant="outlined"
+                startIcon={<Print />}
+                disabled={!canGenerateReceipt(selectedReceipt?.paymentstatus)}
+                onClick={() => printReceipt(selectedReceipt)}
+              >
+                Print Receipt
+              </Button>
             </Stack>
             <Box dangerouslySetInnerHTML={{ __html: receiptHtml(selectedReceipt) }} />
           </Paper>

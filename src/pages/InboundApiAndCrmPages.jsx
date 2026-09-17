@@ -314,12 +314,20 @@ export function CrmBulkAssignmentPage() {
 
 export function CrmFormLinkPage() {
   const [rows, setRows] = useState([]);
+  const [options, setOptions] = useState({ sources: [], stages: [] });
   const [form, setForm] = useState({ formname: "CRM Lead Form", source: "Website", pipeline_stage: "New Lead", leadstatus: "Active", status: "Active" });
   const [editingId, setEditingId] = useState("");
   const [message, setMessage] = useState("");
   const load = async () => {
-    const res = await ep1.get("/api/v2/crm-form-links", { params: { colid: global1.colid } });
-    setRows(res.data?.data || []);
+    const [linksRes, optionsRes] = await Promise.all([
+      ep1.get("/api/v2/crm-form-links", { params: { colid: global1.colid } }),
+      ep1.get("/api/v2/crm-management/options", { params: { colid: global1.colid } })
+    ]);
+    setRows(linksRes.data?.data || []);
+    setOptions({
+      sources: (optionsRes.data?.sources || []).map((item) => item.source_name).filter(Boolean),
+      stages: (optionsRes.data?.stages || []).map((item) => item.stagename || item.name).filter(Boolean)
+    });
   };
   useEffect(() => { load(); }, []);
   const save = async () => {
@@ -343,9 +351,14 @@ export function CrmFormLinkPage() {
           {message && <Alert severity="success" onClose={() => setMessage("")}>{message}</Alert>}
           <Paper sx={{ p: 2 }}>
             <Grid container spacing={2}>
-              {["formname", "source", "pipeline_stage", "leadstatus"].map((field) => (
-                <Grid item xs={12} md={3} key={field}><TextField fullWidth label={field} value={form[field]} onChange={(e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))} /></Grid>
-              ))}
+              <Grid item xs={12} md={3}><TextField fullWidth label="Form name" value={form.formname} onChange={(e) => setForm((prev) => ({ ...prev, formname: e.target.value }))} /></Grid>
+              <Grid item xs={12} md={3}>
+                <Autocomplete freeSolo options={options.sources} value={form.source || null} onInputChange={(_, value) => setForm((prev) => ({ ...prev, source: value || "" }))} renderInput={(params) => <TextField {...params} label="Source" />} />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Autocomplete freeSolo options={options.stages} value={form.pipeline_stage || null} onInputChange={(_, value) => setForm((prev) => ({ ...prev, pipeline_stage: value || "" }))} renderInput={(params) => <TextField {...params} label="Pipeline stage" />} />
+              </Grid>
+              <Grid item xs={12} md={3}><TextField fullWidth label="Lead status" value={form.leadstatus} onChange={(e) => setForm((prev) => ({ ...prev, leadstatus: e.target.value }))} /></Grid>
               <Grid item xs={12} md={3}><TextField select fullWidth label="Status" value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}><MenuItem value="Active">Active</MenuItem><MenuItem value="Inactive">Inactive</MenuItem></TextField></Grid>
               <Grid item xs={12} md={3}><Button fullWidth variant="contained" sx={{ height: 56 }} onClick={save}>{editingId ? "Update" : "Create Link"}</Button></Grid>
             </Grid>
@@ -367,10 +380,11 @@ export function CrmFormLinkPage() {
 
 export function CrmAiAgentPage() {
   const [programs, setPrograms] = useState([]);
+  const [stageOptions, setStageOptions] = useState(["All"]);
   const [agents, setAgents] = useState([]);
   const [logs, setLogs] = useState([]);
   const [selectedProgram, setSelectedProgram] = useState(null);
-  const [form, setForm] = useState({ id: "", level: "", agentname: "CRM Email Agent", status: "Active", levels: [{ ...blankLevel }] });
+  const [form, setForm] = useState({ id: "", level: "", pipeline_stage: "All", agentname: "CRM Email Agent", repeat: "No", repeatminutes: 1440, status: "Active", levels: [{ ...blankLevel }] });
   const [selectedRows, setSelectedRows] = useState([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -384,6 +398,7 @@ export function CrmAiAgentPage() {
       ]);
       setPrograms(programRes.data?.data || []);
       setAgents(agentRes.data?.data || []);
+      setStageOptions(["All", ...new Set((agentRes.data?.stages || []).map((item) => item.stagename || item.name).filter(Boolean))]);
       setLogs(logRes.data?.data || []);
     } catch (error) {
       setMessage(error.response?.data?.message || "Unable to load CRM AI agents.");
@@ -399,7 +414,7 @@ export function CrmAiAgentPage() {
     try {
       await ep1.post("/api/v2/crm-ai-agents", { ...form, colid: global1.colid, program: selectedProgram.program, programcode: selectedProgram.programcode, user: global1.user, username: global1.name });
       setMessage("CRM AI agent saved.");
-      setForm({ id: "", level: "", agentname: "CRM Email Agent", status: "Active", levels: [{ ...blankLevel }] });
+      setForm({ id: "", level: "", pipeline_stage: "All", agentname: "CRM Email Agent", repeat: "No", repeatminutes: 1440, status: "Active", levels: [{ ...blankLevel }] });
       setSelectedProgram(null);
       await load();
     } catch (error) {
@@ -414,6 +429,21 @@ export function CrmAiAgentPage() {
     setSelectedRows([]);
     load();
   };
+  const editAgent = (row) => {
+    const selected = programs.find((program) => program.programcode === row.programcode && (!row.program || program.program === row.program)) || null;
+    setSelectedProgram(selected || { program: row.program, programcode: row.programcode, level: row.level });
+    setForm({
+      id: row._id,
+      level: row.level || "",
+      pipeline_stage: row.pipeline_stage || "All",
+      agentname: row.agentname || "CRM Email Agent",
+      repeat: row.repeat || "No",
+      repeatminutes: row.repeatminutes || 1440,
+      status: row.status || "Active",
+      levels: row.levels?.length ? row.levels : [{ ...blankLevel }]
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
   return (
     <MenuPageShell title="CRM AI Agent">
       <Box sx={{ p: 2, bgcolor: "#f6f8fb", minHeight: "100vh" }}>
@@ -422,9 +452,12 @@ export function CrmAiAgentPage() {
           {message && <Alert severity={/unable|select/i.test(message) ? "warning" : "success"} onClose={() => setMessage("")}>{message}</Alert>}
           <Paper sx={{ p: 2 }}>
             <Grid container spacing={2}>
-              <Grid item xs={12} md={5}><Autocomplete options={programs} value={selectedProgram} getOptionLabel={(p) => `${p.program || p.name || ""} ${p.programcode ? `(${p.programcode})` : ""} ${p.level ? `- ${p.level}` : ""}`} onChange={(_, value) => { setSelectedProgram(value); setForm((prev) => ({ ...prev, level: value?.level || "" })); }} renderInput={(params) => <TextField {...params} label="Program / Program code" />} /></Grid>
+              <Grid item xs={12} md={4}><Autocomplete options={programs} value={selectedProgram} getOptionLabel={(p) => `${p.program || p.name || ""} ${p.programcode ? `(${p.programcode})` : ""} ${p.level ? `- ${p.level}` : ""}`} onChange={(_, value) => { setSelectedProgram(value); setForm((prev) => ({ ...prev, level: value?.level || "" })); }} renderInput={(params) => <TextField {...params} label="Program / Program code" />} /></Grid>
               <Grid item xs={12} md={2}><TextField fullWidth label="Level" value={form.level} onChange={(e) => setForm((prev) => ({ ...prev, level: e.target.value }))} /></Grid>
+              <Grid item xs={12} md={3}><Autocomplete freeSolo options={stageOptions} value={form.pipeline_stage || "All"} onInputChange={(_, value) => setForm((prev) => ({ ...prev, pipeline_stage: value || "All" }))} renderInput={(params) => <TextField {...params} label="Pipeline stage" />} /></Grid>
               <Grid item xs={12} md={3}><TextField fullWidth label="Agent name" value={form.agentname} onChange={(e) => setForm((prev) => ({ ...prev, agentname: e.target.value }))} /></Grid>
+              <Grid item xs={12} md={2}><TextField select fullWidth label="Repeat" value={form.repeat} onChange={(e) => setForm((prev) => ({ ...prev, repeat: e.target.value }))}><MenuItem value="No">No</MenuItem><MenuItem value="Yes">Yes</MenuItem></TextField></Grid>
+              <Grid item xs={12} md={2}><TextField fullWidth type="number" label="Repeat minutes" disabled={form.repeat !== "Yes"} value={form.repeatminutes} onChange={(e) => setForm((prev) => ({ ...prev, repeatminutes: e.target.value }))} /></Grid>
               <Grid item xs={12} md={2}><TextField select fullWidth label="Status" value={form.status} onChange={(e) => setForm((prev) => ({ ...prev, status: e.target.value }))}><MenuItem value="Active">Active</MenuItem><MenuItem value="Inactive">Inactive</MenuItem></TextField></Grid>
             </Grid>
             <Stack spacing={1.2} sx={{ mt: 2 }}>
@@ -447,10 +480,14 @@ export function CrmAiAgentPage() {
           <Paper sx={{ p: 1 }}>
             <Stack direction="row" alignItems="center" sx={{ p: 1 }}><Typography fontWeight={900} sx={{ flex: 1 }}>Configured Agents</Typography><Button color="error" startIcon={<Delete />} disabled={!selectedRows.length} onClick={() => del(selectedRows)}>Bulk Delete</Button></Stack>
             <DataGrid rows={agents.map((row) => ({ ...row, id: row._id }))} columns={[
+              { field: "actions", headerName: "Action", width: 100, sortable: false, renderCell: ({ row }) => <Button size="small" onClick={() => editAgent(row)}>Edit</Button> },
               { field: "program", headerName: "Program", minWidth: 200, flex: 1 },
               { field: "programcode", headerName: "Program Code", minWidth: 150 },
               { field: "level", headerName: "Level", minWidth: 120 },
+              { field: "pipeline_stage", headerName: "Pipeline Stage", minWidth: 170 },
               { field: "agentname", headerName: "Agent", minWidth: 200 },
+              { field: "repeat", headerName: "Repeat", width: 110 },
+              { field: "repeatminutes", headerName: "Repeat Minutes", minWidth: 150 },
               { field: "status", headerName: "Status", minWidth: 110 },
               { field: "delayminutes", headerName: "Delay in minutes", minWidth: 180, valueGetter: ({ row }) => (row.levels || []).map((item) => `L${item.level}: ${item.delayminutes}`).join(", ") }
             ]} checkboxSelection onRowSelectionModelChange={(ids) => setSelectedRows(ids)} autoHeight loading={loading} slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true } }} pageSizeOptions={[10, 25, 50, 100]} />
@@ -461,6 +498,7 @@ export function CrmAiAgentPage() {
               { field: "leadname", headerName: "Lead", minWidth: 170 },
               { field: "email", headerName: "Email", minWidth: 220 },
               { field: "programcode", headerName: "Program Code", minWidth: 150 },
+              { field: "pipeline_stage", headerName: "Pipeline Stage", minWidth: 170 },
               { field: "level", headerName: "Level", width: 90 },
               { field: "status", headerName: "Status", minWidth: 120 },
               { field: "subject", headerName: "Subject", minWidth: 240, flex: 1 },
@@ -514,10 +552,10 @@ export function PublicCrmFormPage() {
             <Grid item xs={12} md={6}><TextField fullWidth label="Name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} required /></Grid>
             <Grid item xs={12} md={6}><TextField fullWidth label="Email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} /></Grid>
             <Grid item xs={12} md={6}><TextField fullWidth label="Phone" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} /></Grid>
-            <Grid item xs={12} md={6}><TextField fullWidth label="Program level" value={form.programlevel} onChange={(e) => setForm((p) => ({ ...p, programlevel: e.target.value }))} /></Grid>
             <Grid item xs={12}>
               <Autocomplete options={programs} value={program} getOptionLabel={(p) => `${p.program || p.name || ""} ${p.programcode ? `(${p.programcode})` : ""}`} onChange={(_, value) => setForm((p) => ({ ...p, program: value?.program || value?.name || "", programcode: value?.programcode || "", programlevel: value?.level || p.programlevel }))} renderInput={(params) => <TextField {...params} label="Program interested" />} />
             </Grid>
+            <Grid item xs={12} md={6}><TextField fullWidth disabled label="Level" value={form.programlevel} helperText="Auto selected based on the selected program" /></Grid>
             <Grid item xs={12} md={6}><TextField select fullWidth label="Category" value={form.category} onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}>{["General", "SC", "ST", "OBC", "Others"].map((item) => <MenuItem value={item} key={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12}><TextField fullWidth multiline minRows={3} label="Comments" value={form.comments} onChange={(e) => setForm((p) => ({ ...p, comments: e.target.value }))} /></Grid>
           </Grid>

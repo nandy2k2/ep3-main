@@ -23,11 +23,12 @@ import MenuPageShell from "./MenuPageShell";
 const uniq = (items) => [...new Set(items.map((item) => String(item || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 const label = (row, primary = "panelname") => row ? `${row[primary] || ""}${row.programcode ? ` (${row.programcode})` : ""}` : "";
 const blankPanel = { academicyear: "", regulation: "", program: "", programcode: "", panelname: "", description: "", status: "Active" };
-const blankRegistration = { academicyear: "", regulation: "", exam: "", examcode: "", program: "", programcode: "", type: "", subject: "", semester: "", course: "", coursecode: "", moderatorname: "", moderatoremail: "", startdate: "", enddate: "", admindocuments: [], status: "assigned" };
+const blankRegistration = { academicyear: "", regulation: "", exam: "", examcode: "", program: "", programcode: "", type: "", subject: "", semester: "", course: "", coursecode: "", component: "", moderatorname: "", moderatoremail: "", startdate: "", enddate: "", admindocuments: [], status: "assigned" };
 
 const useConductExamOptions = () => {
   const [courses, setCourses] = useState([]);
   const [users, setUsers] = useState([]);
+  const [components, setComponents] = useState([]);
   const [busy, setBusy] = useState(false);
   const load = async () => {
     setBusy(true);
@@ -35,12 +36,13 @@ const useConductExamOptions = () => {
       const res = await ep1.get("/api/v2/conductexam/moderator-options", { params: { colid: global1.colid } });
       setCourses(res.data?.courses || []);
       setUsers(res.data?.users || []);
+      setComponents(res.data?.components || []);
     } finally {
       setBusy(false);
     }
   };
   useEffect(() => { load(); }, []);
-  return { courses, users, busy };
+  return { courses, users, components, busy };
 };
 
 const usePanelOptions = () => {
@@ -418,7 +420,7 @@ export function ConductExamModeratorPanelApprovalPage() {
 }
 
 export function ConductExamModeratorRegistration2Page() {
-  const { courses } = useConductExamOptions();
+  const { courses, components } = useConductExamOptions();
   const { panels, loadPanels } = usePanelOptions();
   const [form, setForm] = useState(blankRegistration);
   const [filters, setFilters] = useState({ academicyear: "", examcode: "", regulation: "", programcode: "", coursecode: "" });
@@ -446,14 +448,21 @@ export function ConductExamModeratorRegistration2Page() {
     byReg.forEach((row) => row.programcode && programs.set(row.programcode, { program: row.program, programcode: row.programcode }));
     const courseMap = new Map();
     byProg.forEach((row) => row.coursecode && courseMap.set(row.coursecode, row));
+    const componentRows = components
+      .filter((row) => !form.academicyear || row.academicyear === form.academicyear)
+      .filter((row) => !form.regulation || row.regulation === form.regulation)
+      .filter((row) => !form.programcode || row.programcode === form.programcode)
+      .filter((row) => !form.semester || String(row.semester || "") === String(form.semester || ""))
+      .filter((row) => !form.coursecode || row.coursecode === form.coursecode);
     return {
       academicyears: uniq(courses.map((r) => r.academicyear)),
       exams: uniq(byYear.map((r) => `${r.examcode}||${r.exam}`)).map((v) => { const [examcode, exam] = v.split("||"); return { examcode, exam }; }),
       regulations: uniq(byExam.map((r) => r.regulation)),
       programs: [...programs.values()],
-      coursesList: [...courseMap.values()]
+      coursesList: [...courseMap.values()],
+      components: uniq(componentRows.map((row) => row.assessmentcomponent || row.component))
     };
-  }, [courses, form]);
+  }, [courses, components, form]);
 
   const filteredPanels = useMemo(() => panels.filter((panel) => (!form.academicyear || panel.academicyear === form.academicyear) && (!form.regulation || panel.regulation === form.regulation) && (!form.programcode || panel.programcode === form.programcode)), [panels, form]);
   const filterOptions = useMemo(() => ({ academicyear: uniq(courses.map((r) => r.academicyear)), examcode: uniq(courses.map((r) => r.examcode)), regulation: uniq(courses.map((r) => r.regulation)), programcode: uniq(courses.map((r) => r.programcode)), coursecode: uniq(courses.map((r) => r.coursecode)) }), [courses]);
@@ -538,7 +547,7 @@ export function ConductExamModeratorRegistration2Page() {
 
   const setCourseDetails = (coursecode) => {
     const selectedCourse = dropdowns.coursesList.find((row) => row.coursecode === coursecode);
-    setForm((prev) => ({ ...prev, coursecode, course: selectedCourse?.course || "", type: selectedCourse?.type || "", subject: selectedCourse?.subject || "", semester: selectedCourse?.semester || "" }));
+    setForm((prev) => ({ ...prev, coursecode, course: selectedCourse?.course || "", type: selectedCourse?.type || "", subject: selectedCourse?.subject || "", semester: selectedCourse?.semester || "", component: "" }));
   };
 
   const columns = [
@@ -547,6 +556,7 @@ export function ConductExamModeratorRegistration2Page() {
     { field: "program", headerName: "Program", minWidth: 160, flex: 1 },
     { field: "course", headerName: "Course", minWidth: 190, flex: 1 },
     { field: "coursecode", headerName: "Course Code", width: 140 },
+    { field: "component", headerName: "Component", width: 150 },
     { field: "moderatorname", headerName: "Moderator", width: 180 },
     { field: "moderatoremail", headerName: "Moderator Email", width: 220 },
     { field: "startdate", headerName: "Start Date", width: 130, valueGetter: (params) => params.row.startdate ? String(params.row.startdate).slice(0, 10) : "" },
@@ -567,10 +577,11 @@ export function ConductExamModeratorRegistration2Page() {
         <Paper elevation={0} sx={{ p: 2, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
           <Grid container spacing={2}>
             <Grid item xs={12} md={2}><Autocomplete options={dropdowns.academicyears} value={form.academicyear} onChange={(e, v) => { setForm({ ...blankRegistration, academicyear: v || "" }); setSelectedPanel(null); setApprovedMembers([]); }} renderInput={(params) => <TextField {...params} label="Academic Year" />} /></Grid>
-            <Grid item xs={12} md={3}><Autocomplete options={dropdowns.exams} value={dropdowns.exams.find((x) => x.examcode === form.examcode) || null} getOptionLabel={(option) => option ? `${option.exam || ""} (${option.examcode || ""})` : ""} onChange={(e, v) => setForm((prev) => ({ ...prev, examcode: v?.examcode || "", exam: v?.exam || "", regulation: "", program: "", programcode: "", course: "", coursecode: "" }))} renderInput={(params) => <TextField {...params} label="Exam" />} /></Grid>
-            <Grid item xs={12} md={2}><Autocomplete options={dropdowns.regulations} value={form.regulation} onChange={(e, v) => setForm((prev) => ({ ...prev, regulation: v || "", program: "", programcode: "", course: "", coursecode: "" }))} renderInput={(params) => <TextField {...params} label="Regulation" />} /></Grid>
-            <Grid item xs={12} md={3}><Autocomplete options={dropdowns.programs} value={dropdowns.programs.find((x) => x.programcode === form.programcode) || null} getOptionLabel={(option) => option ? `${option.program || ""} (${option.programcode || ""})` : ""} onChange={(e, v) => setForm((prev) => ({ ...prev, program: v?.program || "", programcode: v?.programcode || "", course: "", coursecode: "" }))} renderInput={(params) => <TextField {...params} label="Program" />} /></Grid>
+            <Grid item xs={12} md={3}><Autocomplete options={dropdowns.exams} value={dropdowns.exams.find((x) => x.examcode === form.examcode) || null} getOptionLabel={(option) => option ? `${option.exam || ""} (${option.examcode || ""})` : ""} onChange={(e, v) => setForm((prev) => ({ ...prev, examcode: v?.examcode || "", exam: v?.exam || "", regulation: "", program: "", programcode: "", course: "", coursecode: "", component: "" }))} renderInput={(params) => <TextField {...params} label="Exam" />} /></Grid>
+            <Grid item xs={12} md={2}><Autocomplete options={dropdowns.regulations} value={form.regulation} onChange={(e, v) => setForm((prev) => ({ ...prev, regulation: v || "", program: "", programcode: "", course: "", coursecode: "", component: "" }))} renderInput={(params) => <TextField {...params} label="Regulation" />} /></Grid>
+            <Grid item xs={12} md={3}><Autocomplete options={dropdowns.programs} value={dropdowns.programs.find((x) => x.programcode === form.programcode) || null} getOptionLabel={(option) => option ? `${option.program || ""} (${option.programcode || ""})` : ""} onChange={(e, v) => setForm((prev) => ({ ...prev, program: v?.program || "", programcode: v?.programcode || "", course: "", coursecode: "", component: "" }))} renderInput={(params) => <TextField {...params} label="Program" />} /></Grid>
             <Grid item xs={12} md={2}><Autocomplete options={dropdowns.coursesList} value={dropdowns.coursesList.find((x) => x.coursecode === form.coursecode) || null} getOptionLabel={(option) => option ? `${option.course || ""} (${option.coursecode || ""})` : ""} onChange={(e, v) => setCourseDetails(v?.coursecode || "")} renderInput={(params) => <TextField {...params} label="Course" />} /></Grid>
+            <Grid item xs={12} md={3}><Autocomplete options={dropdowns.components} value={form.component || ""} onChange={(e, v) => setForm((prev) => ({ ...prev, component: v || "" }))} renderInput={(params) => <TextField {...params} label="Component" />} /></Grid>
             <Grid item xs={12} md={5}><Autocomplete options={filteredPanels} value={selectedPanel} getOptionLabel={(option) => label(option)} onChange={(e, value) => { setSelectedPanel(value); loadMembers(value); }} renderInput={(params) => <TextField {...params} label="Moderator Panel" />} /></Grid>
             <Grid item xs={12} md={5}><Autocomplete options={approvedMembers} value={selectedMember} getOptionLabel={(option) => `${option.membername || ""}${option.memberemail ? ` (${option.memberemail})` : ""}`} isOptionEqualToValue={(option, value) => option._id === value._id} onChange={(e, value) => setSelectedMember(value)} renderInput={(params) => <TextField {...params} label="Approved Panel Member" />} /></Grid>
             <Grid item xs={12} md={2}><TextField fullWidth type="date" label="Start Date" InputLabelProps={{ shrink: true }} value={form.startdate} onChange={(e) => setForm({ ...form, startdate: e.target.value })} /></Grid>

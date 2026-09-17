@@ -33,6 +33,7 @@ import { Link } from "react-router-dom";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import { mainListItems } from "./menucas1";
+import TopMenuSearch from './TopMenuSearch';
 
 const sidebarWidth = 250;
 
@@ -713,6 +714,7 @@ const AdmitFromCrmPage = () => {
             <Typography component="h1" variant="h6" color="inherit" noWrap sx={{ flexGrow: 1 }}>
               Admit from CRM
             </Typography>
+            <TopMenuSearch />
             <Button color="inherit" component={Link} to="/dashdashfacnew">
               Dashboard
             </Button>

@@ -47,7 +47,7 @@ export default function ConductExamReviewPapersPage() {
   const [reviewDocuments, setReviewDocuments] = useState([]);
   const [reviewDocTitle, setReviewDocTitle] = useState("");
   const [documentDialog, setDocumentDialog] = useState(false);
-  const [filters, setFilters] = useState({ academicyear: "", examcode: "", regulation: "", programcode: "", coursecode: "", papersetteremail: "" });
+  const [filters, setFilters] = useState({ academicyear: "", examcode: "", regulation: "", programcode: "", coursecode: "", component: "", papersetteremail: "" });
   const [loading, setLoading] = useState(false);
   const [accepting, setAccepting] = useState(false);
   const [storing, setStoring] = useState(false);
@@ -77,6 +77,7 @@ export default function ConductExamReviewPapersPage() {
       regulations: uniq(byExam.map((row) => row.regulation)),
       programs: [...programMap.values()].sort((a, b) => a.program.localeCompare(b.program)),
       coursesList: [...courseMap.values()].sort((a, b) => a.course.localeCompare(b.course)),
+      components: uniq(papers.map((row) => row.component)),
       paperSetters: uniq(papers.map((row) => `${row.papersetteremail}||${row.papersettername}`)).map((value) => {
         const [email, name] = value.split("||");
         return { email, name };
@@ -243,6 +244,7 @@ export default function ConductExamReviewPapersPage() {
     { field: "program", headerName: "Program", width: 170 },
     { field: "course", headerName: "Course", minWidth: 220, flex: 1 },
     { field: "coursecode", headerName: "Course Code", width: 140 },
+    { field: "component", headerName: "Component", width: 150 },
     { field: "papersettername", headerName: "Paper Setter", width: 190 },
     { field: "status", headerName: "Status", width: 160 },
     { field: "paperstatus", headerName: "Paper Status", width: 150 },
@@ -295,6 +297,7 @@ export default function ConductExamReviewPapersPage() {
             <Grid item xs={12} md={2}><TextField select fullWidth label="Regulation" value={filters.regulation} onChange={(e) => setFilters({ ...filters, regulation: e.target.value, programcode: "", coursecode: "" })}><MenuItem value="">All</MenuItem>{dropdowns.regulations.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={2.5}><TextField select fullWidth label="Program" value={filters.programcode} onChange={(e) => setFilters({ ...filters, programcode: e.target.value, coursecode: "" })}><MenuItem value="">All</MenuItem>{dropdowns.programs.map((item) => <MenuItem key={item.programcode} value={item.programcode}>{item.program} ({item.programcode})</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={2}><TextField select fullWidth label="Course" value={filters.coursecode} onChange={(e) => setCourseDetails(e.target.value)}><MenuItem value="">All</MenuItem>{dropdowns.coursesList.map((item) => <MenuItem key={item.coursecode} value={item.coursecode}>{paperLabel(item)}</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={2}><TextField select fullWidth label="Component" value={filters.component} onChange={(e) => setFilters({ ...filters, component: e.target.value })}><MenuItem value="">All</MenuItem>{dropdowns.components.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={3}><TextField select fullWidth label="Paper Setter" value={filters.papersetteremail} onChange={(e) => setFilters({ ...filters, papersetteremail: e.target.value })}><MenuItem value="">All</MenuItem>{dropdowns.paperSetters.map((item) => <MenuItem key={item.email} value={item.email}>{item.name} ({item.email})</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={2}><Button fullWidth variant="contained" disabled={loading} onClick={() => loadPapers()} sx={{ height: 56 }}>{loading ? "Loading..." : "Load"}</Button></Grid>
           </Grid>
@@ -329,6 +332,7 @@ export default function ConductExamReviewPapersPage() {
                   ["Regulation", paper.regulation],
                   ["Subject", paper.subject],
                   ["Semester", paper.semester],
+                  ["Component", paper.component],
                   ["Paper Setter", `${paper.papersettername} (${paper.papersetteremail})`],
                   ["Status", paper.status],
                   ["Paper Status", paper.paperstatus || "Default"]

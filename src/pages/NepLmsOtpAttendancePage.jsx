@@ -61,7 +61,7 @@ export default function NepLmsOtpAttendancePage() {
       setOtps(res.data?.otps || []);
       setValidTill(res.data?.validtill || "");
       setActiveIndex(0);
-      setMessage(`Six OTPs generated. Display will rotate every 6 seconds.${res.data?.validtill ? ` Valid till ${new Date(res.data.validtill).toLocaleString()}.` : ""}`);
+      setMessage(`${res.data?.requiredotpcount || res.data?.otps?.length || 6} OTPs generated. Display will rotate every 6 seconds.${res.data?.validtill ? ` Valid till ${new Date(res.data.validtill).toLocaleString()}.` : ""}`);
     } catch (err) {
       setOtps([]);
       setActiveIndex(-1);
@@ -115,7 +115,7 @@ export default function NepLmsOtpAttendancePage() {
           <Paper sx={{ p: 3, textAlign: "center" }}>
             {displayOtp ? (
               <Stack spacing={2} alignItems="center">
-                <Chip color="primary" label={`OTP ${activeIndex + 1} of 6`} />
+                <Chip color="primary" label={`OTP ${activeIndex + 1} of ${otps.length}`} />
                 <Typography sx={{ fontSize: { xs: 54, md: 88 }, fontWeight: 900, letterSpacing: 8, color: "#102a43" }}>
                   {displayOtp}
                 </Typography>
@@ -123,7 +123,7 @@ export default function NepLmsOtpAttendancePage() {
                 <LinearProgress variant="determinate" value={(secondsLeft / 6) * 100} sx={{ width: "100%", maxWidth: 520 }} />
               </Stack>
             ) : otps.length ? (
-              <Alert severity="success">All six OTPs have been displayed.</Alert>
+              <Alert severity="success">All OTPs have been displayed.</Alert>
             ) : (
               <Typography color="text.secondary">Generate OTPs after selecting a class.</Typography>
             )}

@@ -21,6 +21,7 @@ import { mainListItems, secondaryListItems } from './menu1';
 // import Deposits from './Deposits';
 import Pract from './pract2';
 import Viewnew from './viewPage';
+import TopMenuSearch from './TopMenuSearch';
 
 const SidebarWidth = 250;
 
@@ -107,6 +108,7 @@ function DashboardContent() {
                         >
                             E-content developed
                         </Typography>
+                        <TopMenuSearch />
                         <IconButton color="inherit">
                             <Badge badgeContent={4} color="secondary">
                                 <NotificationsIcon />

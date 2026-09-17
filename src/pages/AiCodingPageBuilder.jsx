@@ -636,10 +636,14 @@ export function AiCodingPageBuilderWorkspace({
   const runnerRef = useRef(null);
 
   const loadOptions = useCallback(async () => {
-    const response = await ep1.get("/api/v2/ai-coding/options", {
-      params: { colid: global1.colid, role: global1.role, roleMenuOnly }
-    });
-    setOptions(response.data || {});
+    try {
+      const response = await ep1.get("/api/v2/ai-coding/options", {
+        params: { colid: global1.colid, role: global1.role, roleMenuOnly }
+      });
+      setOptions(response.data || {});
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load menu groups and backend models.");
+    }
   }, [roleMenuOnly]);
 
   const loadRows = useCallback(async () => {
@@ -658,7 +662,7 @@ export function AiCodingPageBuilderWorkspace({
   }, [mineOnly]);
 
   useEffect(() => {
-    loadOptions().catch(() => {});
+    loadOptions();
     loadRows();
   }, [loadOptions, loadRows]);
 

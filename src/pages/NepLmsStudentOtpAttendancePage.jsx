@@ -32,6 +32,7 @@ export default function NepLmsStudentOtpAttendancePage() {
   const [error, setError] = useState("");
 
   const selectedSession = useMemo(() => sessions.find((row) => row._id === sessionid) || null, [sessions, sessionid]);
+  const requiredOtpCount = useMemo(() => Math.min(6, Math.max(1, Number(selectedSession?.requiredotpcount || selectedSession?.otpcount || 6))), [selectedSession]);
 
   useEffect(() => {
     loadSessions();
@@ -70,8 +71,8 @@ export default function NepLmsStudentOtpAttendancePage() {
       setError("Please select a class.");
       return;
     }
-    if (otps.some((otp) => otp.length !== 6)) {
-      setError("Please enter all six 6 digit OTPs.");
+    if (otps.slice(0, requiredOtpCount).some((otp) => otp.length !== 6)) {
+      setError(`Please enter ${requiredOtpCount} valid 6 digit OTP${requiredOtpCount === 1 ? "" : "s"}.`);
       return;
     }
     setSubmitting(true);
@@ -125,7 +126,7 @@ export default function NepLmsStudentOtpAttendancePage() {
 
           <Paper sx={{ p: 2 }}>
             <Grid container spacing={2}>
-              {otps.map((otp, index) => (
+              {otps.slice(0, requiredOtpCount).map((otp, index) => (
                 <Grid item xs={12} sm={6} md={4} key={index}>
                   <TextField
                     fullWidth

@@ -34,6 +34,109 @@ const modelOptions = [
   "gemini-1.5-flash"
 ];
 
+const samplePrompts = [
+  {
+    label: "Fee receipt download check",
+    prompt: "Why fees receipt cannot be downloaded? Academic year: 2026-27; Program code: BCOM; Student name: Student Name. Check User regno and Student Ledger regno and tell whether sync is required."
+  },
+  {
+    label: "Student not shown in attendance",
+    prompt: "Why is a student not showing in attendance? Regno: REG001; Academic year: 2026-27; Regulation: R2026; Program code: BCOM; Semester: 1; Section: A; Course code: ACC101. Check student data, timetable class match and regulation course map."
+  },
+  {
+    label: "Class not shown in attendance",
+    prompt: "Why is my class not showing for attendance? Academic year: 2026-27; Regulation: R2026; Program code: BCOM; Semester: 1; Section: A; Course code: ACC101. Check workload, timetable and matching students."
+  },
+  {
+    label: "Fee item not showing",
+    prompt: "Why is a fee item not showing for a student? Regno: REG001; Academic year: 2026-27; Program code: BCOM; Semester: 1; Fee group: Tuition; Fee item: Semester Fee. Diagnose fee structure and student ledger."
+  },
+  {
+    label: "Fees application check",
+    prompt: "Run fees application diagnostic for regno REG001 and show eligible fees, already applied fees and missing fee items."
+  },
+  {
+    label: "Outstanding fees",
+    prompt: "Show outstanding fees for academic year 2026-27, program code BCOM, past due only. Summarize balance and show important rows."
+  },
+  {
+    label: "Workload by faculty",
+    prompt: "Show workload summary for faculty email faculty@example.com for academic year 2026-27 and program code BCOM. Group by course code."
+  },
+  {
+    label: "Course material missing",
+    prompt: "Check whether course material is uploaded for academic year 2026-27, regulation R2026, program code BCOM, semester 1, course code ACC101."
+  },
+  {
+    label: "Lesson plan check",
+    prompt: "Show lesson plan records for faculty email faculty@example.com, academic year 2026-27, program code BCOM and course code ACC101."
+  },
+  {
+    label: "Assignment submissions",
+    prompt: "Check assignment submissions for academic year 2026-27, program code BCOM, semester 1, course code ACC101 and summarize pending submissions."
+  },
+  {
+    label: "Quiz records",
+    prompt: "Show quiz records for academic year 2026-27, program code BCOM, semester 1 and course code ACC101."
+  },
+  {
+    label: "Timetable issue",
+    prompt: "Diagnose timetable visibility for academic year 2026-27, regulation R2026, program code BCOM, semester 1, section A and course code ACC101."
+  },
+  {
+    label: "Menu not visible",
+    prompt: "Why is a menu page not visible? Role: Faculty; Page/link: /neplmsattendance. Check menu access rows and Deny records."
+  },
+  {
+    label: "Academic dropdown blank",
+    prompt: "Academic configuration dropdown is blank. Check academic year 2026-27, regulation R2026, program code BCOM, semester 1 and course code ACC101 across program management, regulation, course map and assessment components."
+  },
+  {
+    label: "Assessment component missing",
+    prompt: "Why is assessment component not loading for academic year 2026-27, regulation R2026, program code BCOM, semester 1, course code ACC101? Check course assessment and assessment component configuration."
+  },
+  {
+    label: "User access issue",
+    prompt: "Check user details and menu access for user email user@example.com. Explain possible role, colid or access problems."
+  },
+  {
+    label: "Admin academic setup",
+    prompt: "As Admin, explain how to configure Academic Configuration from the beginning: Program, Regulation, Student Data Upload, Regulation Subjects, Regulation Course Map, Workload and Sectionwise Timetable. Include the order, required fields and common checks."
+  },
+  {
+    label: "Fees setup guide",
+    prompt: "As Admin, explain how to configure fees: fee groups, fee items, fee structure, late fine, student ledger/application, online payment gateway and receipts. Include how to check why fees or receipts are not showing."
+  },
+  {
+    label: "HR leave setup",
+    prompt: "As Admin, explain how to configure HR leaves including leave types, weekly off, holidays, employee leave eligibility, leave application approval and leave reports."
+  },
+  {
+    label: "HR payroll setup",
+    prompt: "As Admin, explain how to configure HR payroll including salary structure, due salary, attendance linkage, payroll reports and common payroll checks."
+  },
+  {
+    label: "HR attendance setup",
+    prompt: "As Admin, explain how to configure HR attendance, dummy attendance, daily attendance report, team attendance report and attendance dashboards."
+  },
+  {
+    label: "Faculty LMS workflow",
+    prompt: "As Faculty, explain how to use LMS from workload to syllabus mapping, My Syllabus, My CO, course workspace, lesson plan, course material, assignments, quiz and attendance."
+  },
+  {
+    label: "Conduct examination setup",
+    prompt: "As Admin, explain the Conduct Examination setup flow: assessment components, create exam, populate exam courses, exam scheduler, exam roll, hall ticket, attendance, marks and reports."
+  },
+  {
+    label: "Question paper management",
+    prompt: "As Admin, explain Question Paper Management from paper setter panel and registration to submit question paper, moderator panel, moderation, review and payment/status tracking."
+  },
+  {
+    label: "Exam readiness checklist",
+    prompt: "Check exam readiness for academic year 2026-27, regulation R2026, exam EXAM001, program code BCOM. Explain what needs to be configured before hall ticket and marks processing."
+  }
+];
+
 const statusColor = (status) => {
   if (status === "done") return "success";
   if (status === "running") return "primary";
@@ -58,6 +161,7 @@ function CentralAiHelpPageBase({
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [samplesOpen, setSamplesOpen] = useState(false);
   const bottomRef = useRef(null);
   const queryRef = useRef(null);
 
@@ -148,13 +252,36 @@ function CentralAiHelpPageBase({
     <MenuPageShell title={pageTitle}>
       <Box sx={{ p: { xs: 1.25, md: 1.75 }, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
         <Stack spacing={1.5}>
-          <Alert severity="info">
-            <Typography fontWeight={900}>Usage instructions</Typography>
-            <Typography variant="body2">
-              Ask operational questions like “Show workload for a faculty”, “Add a lesson plan”, or “Update attendance for this class”.
-              The bot may inspect or update permitted ERP data and continue the conversation. Changing the Gemini model requires password `kumropatash`.
-            </Typography>
-          </Alert>
+          <Paper elevation={0} sx={{ p: 1.5, borderRadius: 3, border: "1px solid #dbeafe", bgcolor: "#ffffff" }}>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }} justifyContent="space-between">
+              <Box>
+                <Typography fontWeight={900}>Sample Prompts</Typography>
+                <Typography variant="body2" color="text.secondary">Open common diagnostics and how-to guides for academic setup, fees, HR, LMS, examination and question papers.</Typography>
+              </Box>
+              <Button variant="contained" size="small" onClick={() => setSamplesOpen((value) => !value)}>
+                {samplesOpen ? "Hide sample prompts" : "Show sample prompts"}
+              </Button>
+            </Stack>
+            {samplesOpen && (
+              <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 1.25 }}>
+                {samplePrompts.map((item) => (
+                  <Button
+                    key={item.label}
+                    size="small"
+                    variant="outlined"
+                    disabled={loading}
+                    onClick={() => {
+                      setQuery(item.prompt);
+                      setTimeout(() => queryRef.current?.focus(), 50);
+                    }}
+                    sx={{ mb: 1 }}
+                  >
+                    {item.label}
+                  </Button>
+                ))}
+              </Stack>
+            )}
+          </Paper>
           {error && <Alert severity="error" onClose={() => setError("")}>{error}</Alert>}
 
           <Paper
@@ -186,7 +313,7 @@ function CentralAiHelpPageBase({
                   <Box sx={{ m: "auto", textAlign: "center", maxWidth: 620 }}>
                     <Typography variant="h5" fontWeight={900}>How can I help?</Typography>
                     <Typography color="text.secondary" sx={{ mt: 1 }}>
-                      Try asking about workload, courses, timetable, course material, assignments, lesson plans, quizzes or attendance. The bot can ask for missing details before adding or updating records.
+                      Try asking how to configure academics, fees, HR, LMS, examinations, question papers, workload, timetable, course material, assignments, quizzes or attendance. The bot can ask for missing details before adding or updating records.
                     </Typography>
                   </Box>
                 )}

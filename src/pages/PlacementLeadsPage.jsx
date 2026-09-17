@@ -32,6 +32,7 @@ import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import { mainListItems } from "./menucas1";
+import TopMenuSearch from './TopMenuSearch';
 
 const sidebarWidth = 250;
 
@@ -389,6 +390,7 @@ export default function PlacementLeadsPage() {
             <Typography component="h1" variant="h6" color="inherit" noWrap sx={{ flexGrow: 1 }}>
               Placement Leads
             </Typography>
+            <TopMenuSearch />
             <Button color="inherit" component={Link} to="/dashdashfacnew">
               Dashboard
             </Button>

@@ -22,12 +22,16 @@ import { AutoAwesome, Delete, Edit, FileDownload, Refresh, Save, UploadFile } fr
 import PrintIcon from "@mui/icons-material/Print";
 import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
-import global1 from "./global1";
+import global1, { hydrateGlobalSession } from "./global1";
 
 const statusOptions = ["Active", "Inactive"];
 const providerTypes = ["Vendor", "Inhouse", "External"];
 const rosterProviders = ["Manual", "Gemini", "Ollama"];
-const commonPayload = () => ({ colid: global1.colid, user: global1.user, name: global1.name });
+const activeSession = () => hydrateGlobalSession();
+const commonPayload = () => {
+  const session = activeSession();
+  return { colid: session.colid, user: session.user, name: session.name };
+};
 const apiBase = "/api/v2/estate-management";
 const messageFrom = (err, fallback) => err.response?.data?.message || fallback;
 
@@ -50,8 +54,8 @@ const modules = {
       { name: "location", label: "Location" },
       { name: "latitude", label: "Latitude", type: "number" },
       { name: "longitude", label: "Longitude", type: "number" },
-      { name: "director", label: "Director", source: "users", optionLabel: "name" },
-      { name: "directoremail", label: "Director Email" },
+      { name: "director", label: "Director", source: "users", optionLabel: "name", optionValue: "name" },
+      { name: "directoremail", label: "Director Email", source: "users", optionLabel: "email", optionValue: "email" },
       { name: "status", label: "Status", select: statusOptions }
     ],
     template: { campus: "Main Campus", location: "City centre", latitude: 0, longitude: 0, director: "Director Name", directoremail: "director@example.com", status: "Active" }
@@ -250,20 +254,33 @@ function FieldInput({ field, form, setForm, options }) {
   if (field.source) {
     const list = options[field.source] || [];
     const optionLabel = field.optionLabel || field.name;
-    const selected = list.find((item) => String(item[optionLabel] || "") === String(value || "")) || null;
+    const optionValue = field.optionValue || optionLabel;
+    const displayLabel = (option = {}) => {
+      if (field.source === "users") {
+        return [option.name, option.email || option.user, option.role].filter(Boolean).join(" - ");
+      }
+      return option?.[optionLabel] || "";
+    };
+    const selected = list.find((item) => {
+      const candidate = item[optionValue] || item[optionLabel] || "";
+      if (String(candidate || "") === String(value || "")) return true;
+      return field.source === "users" && field.name === "director" && String(item.name || "") === String(value || "");
+    }) || null;
     return (
       <Autocomplete
         options={list}
         value={selected}
-        getOptionLabel={(option) => option?.[optionLabel] || ""}
+        getOptionLabel={displayLabel}
+        isOptionEqualToValue={(option, selectedOption) => String(option?._id || option?.email || option?.name || "") === String(selectedOption?._id || selectedOption?.email || selectedOption?.name || "")}
         onChange={(event, option) => {
-          const patch = { [field.name]: option?.[optionLabel] || "" };
+          const patch = { [field.name]: option?.[optionValue] || option?.[optionLabel] || "" };
           if (field.name === "providername" && option) {
             patch.providerid = option._id;
             patch.servicetype = option.servicetype || form.servicetype;
           }
-          if (field.name === "director" && option) {
-            patch.directoremail = option.email || "";
+          if (field.source === "users" && option) {
+            patch.director = option.name || "";
+            patch.directoremail = option.email || option.user || "";
           }
           if (field.name === "location" && option) {
             patch.location = option.campus || option.location || "";
@@ -361,14 +378,31 @@ function CrudModulePage({ moduleName, beforeForm, rosterTools }) {
   const [error, setError] = useState("");
 
   const loadOptions = async () => {
-    const res = await ep1.get(`${apiBase}/options`, { params: { colid: global1.colid } });
-    setOptions(res.data || {});
+    try {
+      const session = activeSession();
+      if (!session.colid) {
+        setOptions({});
+        setError("College id is not available. Please login again and retry.");
+        return;
+      }
+      const res = await ep1.get(`${apiBase}/options`, { params: { colid: session.colid } });
+      const nextOptions = res.data || {};
+      if (!Array.isArray(nextOptions.users) || !nextOptions.users.length) {
+        const usersRes = await ep1.get(`${apiBase}/users`, { params: { colid: session.colid } });
+        nextOptions.users = usersRes.data?.users || [];
+      }
+      setOptions(nextOptions);
+    } catch (err) {
+      setOptions({});
+      setError(messageFrom(err, "Unable to load dropdown values"));
+    }
   };
 
   const loadRows = async () => {
     try {
+      const session = activeSession();
       setLoading(true);
-      const res = await ep1.get(`${apiBase}/${moduleName}`, { params: { colid: global1.colid, ...filters } });
+      const res = await ep1.get(`${apiBase}/${moduleName}`, { params: { colid: session.colid, ...filters } });
       setRows(res.data?.data || []);
     } catch (err) {
       setError(messageFrom(err, `Unable to load ${config.title}`));
@@ -381,6 +415,11 @@ function CrudModulePage({ moduleName, beforeForm, rosterTools }) {
 
   const save = async () => {
     try {
+      const session = activeSession();
+      if (!session.colid) {
+        setError("College id is not available. Please login again and retry.");
+        return;
+      }
       setWorking(true);
       setError("");
       setMessage("");

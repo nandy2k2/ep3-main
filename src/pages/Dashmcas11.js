@@ -21,6 +21,7 @@ import { useState } from 'react';
 // import Deposits from './Deposits';
 import ViewPage from './Viewmcas11';
 import Login from './Login';
+import TopMenuSearch from './TopMenuSearch';
 
 const SidebarWidth = 250;
 
@@ -107,6 +108,7 @@ function DashboardContent() {
                         >
                             Number of classes taught
                         </Typography>
+                        <TopMenuSearch />
                         <IconButton color="inherit">
     <Badge color="inherit">
         <Link to="/Login" style={{ textDecoration: 'none', color: 'inherit' }}> 

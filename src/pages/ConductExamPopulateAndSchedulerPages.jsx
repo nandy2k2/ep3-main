@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
   Autocomplete,
@@ -371,7 +372,13 @@ export function ConductExamPopulateCoursesPage() {
         <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
           <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2}>
             <Box><Typography variant="h5" fontWeight={900}>Populate exam courses</Typography><Typography color="text.secondary">Create exam-course rows without exam date and slot. Semester and regular/elective values are picked from Regulation Course Map.</Typography></Box>
-            <Button variant="contained" startIcon={<AutoModeIcon />} disabled={loading} onClick={populate}>{loading ? "Populating..." : "Populate"}</Button>
+            <Stack direction="row" spacing={1} flexWrap="wrap" rowGap={1}>
+              <Button component={RouterLink} to="/programmanagement" variant="outlined">Add programs</Button>
+              <Button component={RouterLink} to="/regulationmaster" variant="outlined">Add regulation</Button>
+              <Button component={RouterLink} to="/regulationsubjects" variant="outlined">Add regulation subject</Button>
+              <Button component={RouterLink} to="/regulationcoursemap" variant="outlined">Add regulation course map</Button>
+              <Button variant="contained" startIcon={<AutoModeIcon />} disabled={loading} onClick={populate}>{loading ? "Populating..." : "Populate"}</Button>
+            </Stack>
           </Stack>
         </Paper>
         {message && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setMessage("")}>{message}</Alert>}

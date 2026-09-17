@@ -32,6 +32,7 @@ const blankForm = {
   semester: "",
   course: "",
   coursecode: "",
+  component: "",
   moderatorname: "",
   moderatoremail: "",
   startdate: "",
@@ -53,6 +54,7 @@ const htmlEscape = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => 
 export default function ConductExamModeratorRegistrationPage() {
   const [courses, setCourses] = useState([]);
   const [users, setUsers] = useState([]);
+  const [components, setComponents] = useState([]);
   const [rows, setRows] = useState([]);
   const [institution, setInstitution] = useState(null);
   const [form, setForm] = useState(blankForm);
@@ -79,6 +81,7 @@ export default function ConductExamModeratorRegistrationPage() {
     const res = await ep1.get("/api/v2/conductexam/moderator-options", { params: { colid: global1.colid, ...params } });
     setCourses(res.data?.courses || []);
     setUsers(res.data?.users || []);
+    setComponents(res.data?.components || []);
   };
 
   const loadInstitution = async () => {
@@ -118,6 +121,12 @@ export default function ConductExamModeratorRegistrationPage() {
     byProgram.forEach((row) => {
       if (row.coursecode) courseMap.set(row.coursecode, row);
     });
+    const componentRows = components
+      .filter((row) => !form.academicyear || row.academicyear === form.academicyear)
+      .filter((row) => !form.regulation || row.regulation === form.regulation)
+      .filter((row) => !form.programcode || row.programcode === form.programcode)
+      .filter((row) => !form.semester || String(row.semester || "") === String(form.semester || ""))
+      .filter((row) => !form.coursecode || row.coursecode === form.coursecode);
     return {
       academicyears: uniq(courses.map((row) => row.academicyear)),
       exams: uniq(byYear.map((row) => `${row.examcode}||${row.exam}`)).map((value) => {
@@ -126,9 +135,10 @@ export default function ConductExamModeratorRegistrationPage() {
       }),
       regulations: uniq(byExam.map((row) => row.regulation)),
       programs: [...programMap.values()].sort((a, b) => a.program.localeCompare(b.program)),
-      coursesList: [...courseMap.values()].sort((a, b) => a.course.localeCompare(b.course))
+      coursesList: [...courseMap.values()].sort((a, b) => a.course.localeCompare(b.course)),
+      components: uniq(componentRows.map((row) => row.assessmentcomponent || row.component))
     };
-  }, [courses, form]);
+  }, [courses, components, form]);
 
   const filterOptions = useMemo(() => ({
     academicyear: uniq([...courses.map((row) => row.academicyear), ...rows.map((row) => row.academicyear)]),
@@ -146,7 +156,8 @@ export default function ConductExamModeratorRegistrationPage() {
       course: selected?.course || "",
       type: selected?.type || "",
       subject: selected?.subject || "",
-      semester: selected?.semester || ""
+      semester: selected?.semester || "",
+      component: ""
     }));
   };
 
@@ -232,6 +243,7 @@ export default function ConductExamModeratorRegistrationPage() {
       semester: first.semester || "1",
       course: first.course || "Financial Accounting",
       coursecode: first.coursecode || "BCOM101",
+      component: "Theory",
       moderatorname: "Moderator Name",
       moderatoremail: "moderator@example.com",
       startdate: "",
@@ -291,8 +303,8 @@ export default function ConductExamModeratorRegistrationPage() {
         <p class="salutation">Dear ${htmlEscape(group.name || "Moderator")},</p>
         <p class="note">You are appointed as moderator for the examination work listed below. Please review the submitted question paper carefully and complete moderation as per the examination rules and timeline notified by the institution.</p>
         <table>
-          <thead><tr><th>Academic Year</th><th>Exam</th><th>Exam Code</th><th>Regulation</th><th>Program</th><th>Semester</th><th>Course</th><th>Course Code</th></tr></thead>
-          <tbody>${group.rows.map((row) => `<tr><td>${htmlEscape(row.academicyear)}</td><td>${htmlEscape(row.exam)}</td><td>${htmlEscape(row.examcode)}</td><td>${htmlEscape(row.regulation)}</td><td>${htmlEscape(row.program)}</td><td>${htmlEscape(row.semester)}</td><td>${htmlEscape(row.course)}</td><td>${htmlEscape(row.coursecode)}</td></tr>`).join("")}</tbody>
+          <thead><tr><th>Academic Year</th><th>Exam</th><th>Exam Code</th><th>Regulation</th><th>Program</th><th>Semester</th><th>Course</th><th>Course Code</th><th>Component</th></tr></thead>
+          <tbody>${group.rows.map((row) => `<tr><td>${htmlEscape(row.academicyear)}</td><td>${htmlEscape(row.exam)}</td><td>${htmlEscape(row.examcode)}</td><td>${htmlEscape(row.regulation)}</td><td>${htmlEscape(row.program)}</td><td>${htmlEscape(row.semester)}</td><td>${htmlEscape(row.course)}</td><td>${htmlEscape(row.coursecode)}</td><td>${htmlEscape(row.component)}</td></tr>`).join("")}</tbody>
         </table>
         <div class="instructions"><strong>Instructions:</strong><ol><li>Maintain strict confidentiality of the paper and moderation records.</li><li>Review question quality, syllabus coverage, marks distribution, CO mapping and Bloom taxonomy alignment.</li><li>Submit moderation comments and final moderated paper within the notified timeline.</li></ol></div>
         <div class="signature"><div>Controller of Examinations</div><div>Principal / Authorized Signatory</div></div>
@@ -337,6 +349,7 @@ export default function ConductExamModeratorRegistrationPage() {
     { field: "programcode", headerName: "Program Code", width: 140 },
     { field: "course", headerName: "Course", minWidth: 180, flex: 1 },
     { field: "coursecode", headerName: "Course Code", width: 140 },
+    { field: "component", headerName: "Component", width: 150 },
     { field: "moderatorname", headerName: "Moderator", width: 180 },
     { field: "moderatoremail", headerName: "Moderator Email", width: 220 },
     { field: "startdate", headerName: "Start Date", width: 130, valueGetter: (params) => params.row.startdate ? String(params.row.startdate).slice(0, 10) : "" },
@@ -373,14 +386,15 @@ export default function ConductExamModeratorRegistrationPage() {
             <Grid item xs={12} md={2}><TextField select fullWidth label="Academic Year" value={form.academicyear} onChange={(e) => setForm({ ...blankForm, academicyear: e.target.value })}>{dropdowns.academicyears.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={3}><TextField select fullWidth label="Exam" value={form.examcode} onChange={(e) => {
               const exam = dropdowns.exams.find((item) => item.examcode === e.target.value);
-              setForm((prev) => ({ ...prev, examcode: e.target.value, exam: exam?.exam || "", regulation: "", program: "", programcode: "", course: "", coursecode: "" }));
+              setForm((prev) => ({ ...prev, examcode: e.target.value, exam: exam?.exam || "", regulation: "", program: "", programcode: "", course: "", coursecode: "", component: "" }));
             }}>{dropdowns.exams.map((item) => <MenuItem key={item.examcode} value={item.examcode}>{item.examcode} - {item.exam}</MenuItem>)}</TextField></Grid>
-            <Grid item xs={12} md={2}><TextField select fullWidth label="Regulation" value={form.regulation} onChange={(e) => setForm((prev) => ({ ...prev, regulation: e.target.value, program: "", programcode: "", course: "", coursecode: "" }))}>{dropdowns.regulations.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={2}><TextField select fullWidth label="Regulation" value={form.regulation} onChange={(e) => setForm((prev) => ({ ...prev, regulation: e.target.value, program: "", programcode: "", course: "", coursecode: "", component: "" }))}>{dropdowns.regulations.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={2.5}><TextField select fullWidth label="Program" value={form.programcode} onChange={(e) => {
               const program = dropdowns.programs.find((item) => item.programcode === e.target.value);
-              setForm((prev) => ({ ...prev, programcode: e.target.value, program: program?.program || "", course: "", coursecode: "" }));
+              setForm((prev) => ({ ...prev, programcode: e.target.value, program: program?.program || "", course: "", coursecode: "", component: "" }));
             }}>{dropdowns.programs.map((item) => <MenuItem key={item.programcode} value={item.programcode}>{item.program} ({item.programcode})</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={2.5}><TextField select fullWidth label="Course" value={form.coursecode} onChange={(e) => setCourseDetails(e.target.value)}>{dropdowns.coursesList.map((item) => <MenuItem key={item.coursecode} value={item.coursecode}>{courseLabel(item)}</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={3}><Autocomplete options={dropdowns.components} value={form.component || ""} onChange={(event, value) => setForm((prev) => ({ ...prev, component: value || "" }))} renderInput={(params) => <TextField {...params} label="Component" />} /></Grid>
             <Grid item xs={12} md={4}>
               <Autocomplete
                 multiple={!editId}

@@ -44,6 +44,16 @@ const blankFee = {
   appealfee: "",
   status: "Active"
 };
+const blankFeeMax = {
+  academicyear: "2026-27",
+  regulation: "",
+  program: "",
+  programcode: "",
+  exam: "",
+  examcode: "",
+  maxfees: "",
+  status: "Active"
+};
 const blankForm = {
   formname: "",
   formid: "",
@@ -563,6 +573,327 @@ export function ConductExamFeePage() {
   );
 }
 
+const openExamFeeMaxPrint = ({ rows = [], institution = {} }) => {
+  const logo = institutionLogo(institution);
+  const html = `
+    <html>
+      <head>
+        <title>Exam Fees Max</title>
+        <style>
+          @page { size: A4 portrait; margin: 14mm; }
+          body { margin: 0; font-family: Arial, sans-serif; color: #111; background: #fff; }
+          .toolbar { padding: 10px; text-align: right; border-bottom: 1px solid #ddd; }
+          .toolbar button { margin-left: 8px; padding: 8px 14px; }
+          .sheet { padding: 16px 20px; }
+          .header { text-align: center; border-bottom: 2px solid #111; padding-bottom: 10px; margin-bottom: 14px; }
+          .logo { max-height: 58px; max-width: 90px; object-fit: contain; margin-bottom: 4px; }
+          h1 { margin: 0; font-size: 20px; text-transform: uppercase; }
+          h2 { margin: 8px 0 0; font-size: 16px; text-transform: uppercase; }
+          .address { font-size: 12px; margin-top: 3px; }
+          table { width: 100%; border-collapse: collapse; font-size: 11px; }
+          th, td { border: 1px solid #111; padding: 6px; vertical-align: top; text-align: left; }
+          th { background: #f2f2f2; }
+          tr { page-break-inside: avoid; }
+          @media print { .toolbar { display: none; } body { background: #fff; } }
+        </style>
+      </head>
+      <body>
+        <div class="toolbar"><button onclick="window.print()">Print</button><button onclick="window.close()">Close</button></div>
+        <div class="sheet">
+          <div class="header">
+            ${logo ? `<img class="logo" src="${escapeHtml(logo)}" />` : ""}
+            <h1>${escapeHtml(institutionName(institution))}</h1>
+            <div class="address">${escapeHtml(institutionAddress(institution))}</div>
+            <h2>Exam Fees Max</h2>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Sr No</th><th>Academic Year</th><th>Regulation</th><th>Program</th><th>Program Code</th><th>Exam</th><th>Exam Code</th><th>Max Fees</th><th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(rows || []).map((row, index) => `
+                <tr>
+                  <td>${index + 1}</td>
+                  <td>${escapeHtml(row.academicyear)}</td>
+                  <td>${escapeHtml(row.regulation)}</td>
+                  <td>${escapeHtml(row.program)}</td>
+                  <td>${escapeHtml(row.programcode)}</td>
+                  <td>${escapeHtml(row.exam)}</td>
+                  <td>${escapeHtml(row.examcode)}</td>
+                  <td>${escapeHtml(money(row.maxfees))}</td>
+                  <td>${escapeHtml(row.status)}</td>
+                </tr>
+              `).join("") || `<tr><td colspan="9" style="text-align:center">No rows loaded</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </body>
+    </html>`;
+  const win = window.open("", "_blank", "width=1000,height=800");
+  win.document.write(html);
+  win.document.close();
+};
+
+export function ConductExamFeeMaxPage() {
+  const [form, setForm] = useState(blankFeeMax);
+  const [rows, setRows] = useState([]);
+  const [selected, setSelected] = useState([]);
+  const [filters, setFilters] = useState({ academicyear: "", regulation: "", programcode: "", examcode: "", status: "" });
+  const [options, setOptions] = useState({ academicyears: [], regulations: [], exams: [], programs: [], statuses: ["Active", "Inactive"] });
+  const [institution, setInstitution] = useState({});
+  const [editingId, setEditingId] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const loadOptions = async () => {
+    try {
+      const res = await ep1.get("/api/v2/conductexam/examfeesmax-options", { params: { colid: global1.colid } });
+      setOptions(res.data?.data || {});
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load options");
+    }
+  };
+
+  useEffect(() => {
+    loadOptions();
+    loadInstitutionDetails().then(setInstitution).catch(() => setInstitution({}));
+  }, []);
+
+  const selectedProgramValue = form.program && form.programcode ? `${form.program}||${form.programcode}` : "";
+  const selectedExamValue = form.exam && form.examcode ? `${form.exam}||${form.examcode}` : "";
+  const filterProgramValue = filters.program && filters.programcode ? `${filters.program}||${filters.programcode}` : "";
+  const filterExamValue = filters.exam && filters.examcode ? `${filters.exam}||${filters.examcode}` : "";
+  const programOptions = options.programs || [];
+  const examOptions = (options.exams || []).filter((row) => !form.academicyear || row.academicyear === form.academicyear);
+  const filterExamOptions = (options.exams || []).filter((row) => !filters.academicyear || row.academicyear === filters.academicyear);
+
+  const loadRows = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      setMessage("");
+      const params = { colid: global1.colid, ...filters };
+      Object.keys(params).forEach((key) => !params[key] && delete params[key]);
+      const res = await ep1.get("/api/v2/conductexam/examfeesmax", { params });
+      setRows(res.data?.data || []);
+      setMessage(`Loaded ${res.data?.data?.length || 0} exam fee max row(s)`);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load exam fee max rows");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const save = async () => {
+    try {
+      setSaving(true);
+      setError("");
+      setMessage("");
+      await ep1.post("/api/v2/conductexam/examfeesmax", { ...form, id: editingId || undefined, colid: global1.colid, user: global1.user });
+      setMessage(editingId ? "Exam fee max updated" : "Exam fee max saved");
+      setEditingId("");
+      setForm(blankFeeMax);
+      await Promise.all([loadOptions(), loadRows()]);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to save exam fee max");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const editRow = (row) => {
+    setEditingId(row._id);
+    setForm({ ...blankFeeMax, ...row });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const deleteSelected = async () => {
+    if (!selected.length) {
+      setError("Select rows to delete");
+      return;
+    }
+    if (!window.confirm("Delete selected exam fee max rows?")) return;
+    try {
+      setLoading(true);
+      await ep1.post("/api/v2/conductexam/examfeesmax-delete", { colid: global1.colid, ids: selected });
+      setSelected([]);
+      setMessage("Selected rows deleted");
+      await loadRows();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete selected rows");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const downloadTemplate = () => {
+    const sheet = XLSX.utils.json_to_sheet([{
+      academicyear: "2026-27",
+      regulation: "Regulation 2026",
+      program: "Program Name",
+      programcode: "PRG",
+      exam: "Semester Examination",
+      examcode: "SEM-2026",
+      maxfees: 2500,
+      status: "Active"
+    }]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, sheet, "Exam Fees Max");
+    XLSX.writeFile(wb, "conduct_exam_fees_max_template.xlsx");
+  };
+
+  const uploadBulk = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      setUploading(true);
+      setError("");
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer);
+      const rowsToUpload = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
+      await ep1.post("/api/v2/conductexam/examfeesmax-bulk", { colid: global1.colid, user: global1.user, rows: rowsToUpload });
+      setMessage("Bulk upload completed");
+      await Promise.all([loadOptions(), loadRows()]);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to upload exam fee max rows");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const columns = [
+    { field: "academicyear", headerName: "Academic year", width: 140 },
+    { field: "regulation", headerName: "Regulation", width: 170 },
+    { field: "program", headerName: "Program", width: 220 },
+    { field: "programcode", headerName: "Program code", width: 140 },
+    { field: "exam", headerName: "Exam", width: 220 },
+    { field: "examcode", headerName: "Exam code", width: 140 },
+    { field: "maxfees", headerName: "Max fees", width: 130, type: "number" },
+    { field: "status", headerName: "Status", width: 120 },
+    {
+      field: "actions",
+      type: "actions",
+      headerName: "Actions",
+      width: 80,
+      getActions: ({ row }) => [<GridActionsCellItem icon={<Edit />} label="Edit" onClick={() => editRow(row)} />]
+    }
+  ];
+
+  return (
+    <MenuPageShell title="Exam Fees Max">
+      <Box sx={pageBox}>
+        <BackButton />
+        <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>Exam fees max</Typography>
+        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}
+        <Paper sx={paperSx}>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>Add / edit max fee rule</Typography>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={2}><SearchSelect label="Academic year" value={form.academicyear} options={options.academicyears || []} onChange={(value) => setForm((prev) => ({ ...prev, academicyear: value, exam: "", examcode: "" }))} /></Grid>
+            <Grid item xs={12} md={2}><SearchSelect label="Regulation" value={form.regulation} options={options.regulations || []} onChange={(value) => setForm((prev) => ({ ...prev, regulation: value }))} /></Grid>
+            <Grid item xs={12} md={3}>
+              <SearchSelect
+                label="Program"
+                value={selectedProgramValue}
+                options={programOptions.map((row) => `${row.program}||${row.programcode}`)}
+                getOptionLabel={(option) => option.split("||").filter(Boolean).join(" - ")}
+                onChange={(value) => {
+                  const [program, programcode] = String(value || "").split("||");
+                  setForm((prev) => ({ ...prev, program: program || "", programcode: programcode || "" }));
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <SearchSelect
+                label="Exam"
+                value={selectedExamValue}
+                options={examOptions.map((row) => `${row.exam}||${row.examcode}`)}
+                getOptionLabel={(option) => option.split("||").filter(Boolean).join(" - ")}
+                onChange={(value) => {
+                  const [exam, examcode] = String(value || "").split("||");
+                  setForm((prev) => ({ ...prev, exam: exam || "", examcode: examcode || "" }));
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={1}><TextField fullWidth size="small" type="number" label="Max fees" value={form.maxfees} onChange={(e) => setForm((prev) => ({ ...prev, maxfees: e.target.value }))} /></Grid>
+            <Grid item xs={12} md={1}><SearchSelect label="Status" value={form.status} options={options.statuses || ["Active", "Inactive"]} onChange={(value) => setForm((prev) => ({ ...prev, status: value }))} /></Grid>
+            <Grid item xs={12}>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                <Button variant="contained" startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save />} disabled={saving} onClick={save}>{editingId ? "Update" : "Save"}</Button>
+                <Button variant="outlined" onClick={() => { setEditingId(""); setForm(blankFeeMax); }}>Clear</Button>
+              </Stack>
+            </Grid>
+          </Grid>
+        </Paper>
+
+        <Paper sx={{ ...paperSx, mt: 2 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>Dynamic filters</Typography>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={2}><SearchSelect label="Academic year" value={filters.academicyear} options={options.academicyears || []} onChange={(value) => setFilters((prev) => ({ ...prev, academicyear: value, exam: "", examcode: "" }))} /></Grid>
+            <Grid item xs={12} md={2}><SearchSelect label="Regulation" value={filters.regulation} options={options.regulations || []} onChange={(value) => setFilters((prev) => ({ ...prev, regulation: value }))} /></Grid>
+            <Grid item xs={12} md={3}>
+              <SearchSelect
+                label="Program"
+                value={filterProgramValue}
+                options={programOptions.map((row) => `${row.program}||${row.programcode}`)}
+                getOptionLabel={(option) => option.split("||").filter(Boolean).join(" - ")}
+                onChange={(value) => {
+                  const [program, programcode] = String(value || "").split("||");
+                  setFilters((prev) => ({ ...prev, program: program || "", programcode: programcode || "" }));
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <SearchSelect
+                label="Exam"
+                value={filterExamValue}
+                options={filterExamOptions.map((row) => `${row.exam}||${row.examcode}`)}
+                getOptionLabel={(option) => option.split("||").filter(Boolean).join(" - ")}
+                onChange={(value) => {
+                  const [exam, examcode] = String(value || "").split("||");
+                  setFilters((prev) => ({ ...prev, exam: exam || "", examcode: examcode || "" }));
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={2}><SearchSelect label="Status" value={filters.status} options={["", ...(options.statuses || ["Active", "Inactive"])]} onChange={(value) => setFilters((prev) => ({ ...prev, status: value }))} /></Grid>
+            <Grid item xs={12}>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1} flexWrap="wrap">
+                <Button variant="contained" startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <Refresh />} disabled={loading} onClick={loadRows}>Load</Button>
+                <Button variant="outlined" startIcon={<Print />} disabled={!rows.length} onClick={() => openExamFeeMaxPrint({ rows, institution })}>Print preview</Button>
+                <Button variant="outlined" startIcon={<Download />} onClick={downloadTemplate}>Template</Button>
+                <Button component="label" variant="outlined" startIcon={uploading ? <CircularProgress size={16} /> : <UploadFile />} disabled={uploading}>Bulk upload<input hidden type="file" accept=".xlsx,.xls,.csv" onChange={uploadBulk} /></Button>
+                <Button color="error" variant="outlined" startIcon={<Delete />} disabled={loading || !selected.length} onClick={deleteSelected}>Bulk delete</Button>
+              </Stack>
+            </Grid>
+          </Grid>
+        </Paper>
+
+        <Paper sx={{ ...paperSx, mt: 2, height: 560 }}>
+          <DataGrid
+            rows={rows}
+            columns={columns}
+            getRowId={getId}
+            loading={loading}
+            checkboxSelection
+            rowSelectionModel={selected}
+            onRowSelectionModelChange={setSelected}
+            slots={{ toolbar: GridToolbar }}
+            pageSizeOptions={[25, 50, 100]}
+            initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
+            sx={{ "& .MuiDataGrid-cell": { whiteSpace: "normal", overflowWrap: "anywhere", alignItems: "flex-start", py: 1 } }}
+          />
+        </Paper>
+      </Box>
+    </MenuPageShell>
+  );
+}
+
 export function ConductExamFormBuilderPage() {
   const { courses } = useExamCourses();
   const [rows, setRows] = useState([]);
@@ -869,10 +1200,12 @@ export function StudentExamDynamicFormPage() {
     setSelectedCourses(allCourseIds);
   }, [allCourseIds]);
 
-  const totalFee = selectedCourses.reduce((sum, key) => {
+  const rawTotalFee = selectedCourses.reduce((sum, key) => {
     const course = courseRows.find((row) => row.id === key);
     return sum + Number(course?.fee || 0);
   }, 0);
+  const configuredMaxFee = Number(context?.maxFee?.maxfees || 0);
+  const totalFee = configuredMaxFee > 0 && rawTotalFee > configuredMaxFee ? configuredMaxFee : rawTotalFee;
   const calculatedFeeRows = useMemo(() => totalFee > 0 ? [{
     id: "calculated-exam-fee",
     feegroup: "Exam Fee",
@@ -945,7 +1278,7 @@ export function StudentExamDynamicFormPage() {
         semester: context?.student?.semester,
         data,
         documents,
-        courses: selectedCourseRows
+                courses: selectedCourseRows
       });
       if (Array.isArray(res.data?.examFeeLedger)) {
         setContext((prev) => prev ? { ...prev, examFeeLedger: res.data.examFeeLedger } : prev);
@@ -1058,7 +1391,14 @@ export function StudentExamDynamicFormPage() {
             <Paper sx={{ ...paperSx, mt: 2 }}>
               <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 1 }}>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>{filters.examtype === "Regular" ? "Regular and elective courses" : "Failed supplementary courses"}</Typography>
-                <Typography sx={{ fontWeight: 800 }}>Total fee: Rs. {money(totalFee)}</Typography>
+                <Stack spacing={0.5} alignItems={{ xs: "flex-start", md: "flex-end" }}>
+                  <Typography sx={{ fontWeight: 800 }}>Payable fee: Rs. {money(totalFee)}</Typography>
+                  {configuredMaxFee > 0 && (
+                    <Typography variant="body2" color={rawTotalFee > configuredMaxFee ? "error" : "text.secondary"}>
+                      Selected total Rs. {money(rawTotalFee)} capped at Rs. {money(configuredMaxFee)}
+                    </Typography>
+                  )}
+                </Stack>
               </Stack>
               <Box sx={{ height: 420 }}>
                 <DataGrid

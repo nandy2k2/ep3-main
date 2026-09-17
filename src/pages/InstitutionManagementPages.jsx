@@ -34,6 +34,7 @@ const achievementTypes = ["Academic Project", "National award", "International a
 const categories = ["Academic", "Sports", "Extra curricular"];
 const statusOptions = ["Active", "Inactive", "Draft", "Submitted", "Approved", "Rejected", "Pending Level 1", "Pending Level 2", "Pending Level 3"];
 const accreditationTypes = ["Program", "Institute"];
+const approvalKinds = ["statute", "schoolstatute", "mou", "ordinance", "affiliation", "programaffiliation"];
 const instName = (institution = {}) => institution.institutionname || institution.insname || institution.name || global1.insname || "Institution";
 const instAddress = (institution = {}) => institution.address || institution.address1 || global1.address || "";
 const instLogo = (institution = {}) => institution.logolink || institution.logo || institution.inslogo || global1.logo || "";
@@ -95,6 +96,27 @@ const configs = {
     blank: { mouid: "", mou: "", academicyear: "", activity: "", activitydate: "", description: "", filelink: "", brochurelink: "", reportlink: "", guest: "", location: "", attendancelist: "" },
     fields: ["mouid", "mou", "academicyear", "activity", "activitydate", "description", "filelink", "brochurelink", "reportlink", "guest", "location", "attendancelist"],
     filterFields: ["mou", "academicyear", "activity", "guest", "location"]
+  },
+  ordinance: {
+    title: "Ordinance",
+    endpointKind: "ordinance",
+    blank: { academicyear: "", ordinance: "", description: "", filelink: "", startdate: "", duedate: "", approvalstatus: "Draft" },
+    fields: ["academicyear", "ordinance", "description", "filelink", "startdate", "duedate", "approvalstatus"],
+    filterFields: ["academicyear", "ordinance", "description", "approvalstatus"]
+  },
+  affiliation: {
+    title: "Institute affiliation",
+    endpointKind: "affiliation",
+    blank: { academicyear: "", affiliation: "", agency: "", startdate: "", duedate: "", approvalstatus: "Draft" },
+    fields: ["academicyear", "affiliation", "agency", "startdate", "duedate", "approvalstatus"],
+    filterFields: ["academicyear", "affiliation", "agency", "approvalstatus"]
+  },
+  programaffiliation: {
+    title: "Program affiliation",
+    endpointKind: "programaffiliation",
+    blank: { academicyear: "", program: "", programcode: "", ordinance: "", description: "", filelink: "", startdate: "", duedate: "", approvalstatus: "Draft" },
+    fields: ["academicyear", "program", "programcode", "ordinance", "description", "filelink", "startdate", "duedate", "approvalstatus"],
+    filterFields: ["academicyear", "program", "programcode", "ordinance", "description", "approvalstatus"]
   }
 };
 
@@ -241,27 +263,37 @@ export function InstitutionCrudPage({ kind }) {
         ? (params) => params.value ? <Button size="small" href={params.value} target="_blank" rel="noreferrer">Open</Button> : ""
         : undefined
     })),
+    ...(approvalKinds.includes(config.endpointKind) ? [{
+      field: "submitapproval",
+      headerName: "Submit",
+      minWidth: 140,
+      sortable: false,
+      filterable: false,
+      renderCell: (params) => /^pending|approved$/i.test(String(params.row.approvalstatus || ""))
+        ? <Typography variant="caption" color="text.secondary">{params.row.approvalstatus}</Typography>
+        : <Button size="small" variant="contained" onClick={() => submitStatute(params.row)} disabled={loading}>{loading ? "Wait" : "Submit"}</Button>
+    }] : []),
     {
       field: "actions",
       type: "actions",
       headerName: "Actions",
-      width: ["statute", "schoolstatute", "mou"].includes(config.endpointKind) ? 170 : 90,
+      width: approvalKinds.includes(config.endpointKind) ? 170 : 90,
       getActions: (params) => [
         <GridActionsCellItem icon={<EditIcon />} label="Edit" onClick={() => edit(params.row)} />,
-        ...(["statute", "schoolstatute", "mou"].includes(config.endpointKind) && !/^pending|approved$/i.test(String(params.row.approvalstatus || ""))
+        ...(approvalKinds.includes(config.endpointKind) && !/^pending|approved$/i.test(String(params.row.approvalstatus || ""))
           ? [<GridActionsCellItem icon={<SaveIcon />} label="Submit" onClick={() => submitStatute(params.row)} />]
           : [])
       ]
     }
-  ], [config.fields]);
+  ], [config.fields, config.endpointKind, loading]);
 
   const setField = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
-  const save = async () => {
+  const save = async (submitforapproval = false) => {
     try {
       setLoading(true);
       setError("");
-      await ep1.post(`/api/v2/institution-management/${config.endpointKind}`, withScope({ ...form, id: editId }));
-      setMessage(editId ? "Record updated" : "Record saved");
+      const res = await ep1.post(`/api/v2/institution-management/${config.endpointKind}`, withScope({ ...form, id: editId, submitforapproval: submitforapproval ? "Yes" : "No" }));
+      setMessage(res.data?.message || (editId ? "Record updated" : "Record saved"));
       setEditId("");
       setForm(config.blank);
       await Promise.all([loadOptions(), loadRows()]);
@@ -273,7 +305,17 @@ export function InstitutionCrudPage({ kind }) {
   };
   const edit = (row) => {
     setEditId(row._id);
-    setForm({ ...config.blank, ...row, achievementdate: dateOnly(row.achievementdate), accreditationdate: dateOnly(row.accreditationdate), validitydate: dateOnly(row.validitydate) });
+    setForm({
+      ...config.blank,
+      ...row,
+      achievementdate: dateOnly(row.achievementdate),
+      accreditationdate: dateOnly(row.accreditationdate),
+      validitydate: dateOnly(row.validitydate),
+      startdate: dateOnly(row.startdate),
+      enddate: dateOnly(row.enddate),
+      duedate: dateOnly(row.duedate),
+      activitydate: dateOnly(row.activitydate)
+    });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const remove = async () => {
@@ -344,11 +386,11 @@ export function InstitutionCrudPage({ kind }) {
     try {
       setLoading(true);
       setError("");
-      const res = await ep1.post("/api/v2/institution-management/statute/submit", withScope({ id: row._id, role: global1.role, kind: config.endpointKind }));
+      const res = await ep1.post("/api/v2/institution-management/statute/submit", withScope({ id: row._id, role: global1.role, kind: config.endpointKind, email: global1.email || global1.user, approveremail: global1.email || global1.user }));
       setMessage(res.data?.message || "Submitted for approval");
       await loadRows();
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to submit statute");
+      setError(err.response?.data?.message || `Unable to submit ${config.title}`);
     } finally {
       setLoading(false);
     }
@@ -410,13 +452,14 @@ export function InstitutionCrudPage({ kind }) {
             ))}
             <Grid item xs={12}>
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                <Button variant="contained" startIcon={<SaveIcon />} onClick={save} disabled={loading}>{loading ? "Saving..." : "Save"}</Button>
+                <Button variant="contained" startIcon={<SaveIcon />} onClick={() => save(false)} disabled={loading}>{loading ? "Saving..." : "Save"}</Button>
+                {approvalKinds.includes(config.endpointKind) && <Button variant="contained" color="secondary" onClick={() => save(true)} disabled={loading}>{loading ? "Submitting..." : "Save and submit for approval"}</Button>}
                 <Button variant="outlined" onClick={() => { setEditId(""); setForm(config.blank); }}>Clear</Button>
                 <Button variant="outlined" startIcon={<FileDownloadIcon />} onClick={downloadTemplate}>Template</Button>
                 <Button variant="outlined" component="label" startIcon={<UploadFileIcon />}>Bulk upload<input hidden type="file" accept=".csv,.json" onChange={upload} /></Button>
                 <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={remove} disabled={loading}>Bulk delete</Button>
                 <Button variant="outlined" startIcon={<PrintIcon />} onClick={() => window.print()}>Print preview</Button>
-                {["statute", "schoolstatute", "mou"].includes(config.endpointKind) && editId && <Button variant="contained" color="secondary" onClick={() => submitStatute({ _id: editId })} disabled={loading}>Submit for approval</Button>}
+                {approvalKinds.includes(config.endpointKind) && editId && <Button variant="contained" color="secondary" onClick={() => submitStatute({ _id: editId })} disabled={loading}>Submit for approval</Button>}
               </Stack>
             </Grid>
           </Grid>
@@ -466,8 +509,8 @@ function ChartCard({ title, children }) {
   );
 }
 
-const workflowBlank = { academicyear: "", level: 1, approverrole: "", approvername: "", approveremail: "", active: "Yes", comments: "" };
-const workflowFields = ["academicyear", "level", "approverrole", "approvername", "approveremail", "active", "comments"];
+const workflowBlank = { academicyear: "", level: 1, approvername: "", approveremail: "", active: "Yes", comments: "" };
+const workflowFields = ["academicyear", "level", "approvername", "approveremail", "active", "comments"];
 
 export function StatuteWorkflowPage({ workflowkind = "statute", title = "Statute approval workflow" }) {
   const [form, setForm] = useState(workflowBlank);
@@ -548,11 +591,10 @@ export function StatuteWorkflowPage({ workflowkind = "statute", title = "Statute
       event.target.value = "";
     }
   };
-  const filterConfig = { endpointKind: "workflow", filterFields: ["academicyear", "level", "approverrole", "approvername", "approveremail", "active"] };
+  const filterConfig = { endpointKind: "workflow", filterFields: ["academicyear", "level", "approvername", "approveremail", "active"] };
   const valueOptions = (field) => {
     if (field === "academicyear") return options.academicyears || [];
     if (field === "active") return ["Yes", "No"];
-    if (field === "approverrole") return [...new Set((options.users || []).map((user) => user.role).filter(Boolean))];
     if (field === "approvername") return (options.users || []).map((user) => user.name).filter(Boolean);
     if (field === "approveremail") return (options.users || []).map((user) => user.email).filter(Boolean);
     return [];
@@ -571,13 +613,12 @@ export function StatuteWorkflowPage({ workflowkind = "statute", title = "Statute
           <Grid container spacing={2}>
             <Grid item xs={12} md={3}><Autocomplete freeSolo options={options.academicyears || []} value={form.academicyear || ""} onInputChange={(_, value) => setForm((prev) => ({ ...prev, academicyear: value }))} renderInput={(params) => <TextField {...params} label="Academic year" />} /></Grid>
             <Grid item xs={12} md={2}><TextField fullWidth type="number" label="Level" value={form.level || 1} onChange={(event) => setForm((prev) => ({ ...prev, level: event.target.value }))} /></Grid>
-            <Grid item xs={12} md={3}><Autocomplete freeSolo options={[...new Set((options.users || []).map((user) => user.role).filter(Boolean))]} value={form.approverrole || ""} onInputChange={(_, value) => setForm((prev) => ({ ...prev, approverrole: value }))} renderInput={(params) => <TextField {...params} label="Approver role" />} /></Grid>
             <Grid item xs={12} md={4}>
               <Autocomplete
                 options={options.users || []}
-                getOptionLabel={(option) => option?.label || option?.name || ""}
+                getOptionLabel={(option) => typeof option === "string" ? option : `${option?.name || option?.label || ""}${option?.email ? ` - ${option.email}` : ""}`}
                 value={(options.users || []).find((user) => user.email === form.approveremail) || null}
-                onChange={(_, value) => setForm((prev) => ({ ...prev, approvername: value?.name || "", approveremail: value?.email || "", approverrole: value?.role || prev.approverrole || "" }))}
+                onChange={(_, value) => setForm((prev) => ({ ...prev, approvername: value?.name || "", approveremail: value?.email || "" }))}
                 renderInput={(params) => <TextField {...params} label="Approver" />}
               />
             </Grid>
@@ -634,36 +675,36 @@ export function StatuteApprovalPage({ kind = "statute", title = "Statute approva
       setLoading(true);
       setError("");
       const [res, institutionRes] = await Promise.all([
-        ep1.get("/api/v2/institution-management/statute-approvals", { params: withScope({ useremail: global1.user, role: global1.role, kind }) }),
+        ep1.get("/api/v2/institution-management/statute-approvals", { params: withScope({ useremail: global1.email || global1.user, email: global1.email || global1.user, role: global1.role, kind }) }),
         ep1.get("/vins", { params: { colid: global1.colid } }).catch(() => ({ data: {} }))
       ]);
       setRows(res.data?.rows || []);
       setInstitution(institutionRes.data || {});
       setSelected(null);
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to load pending statutes");
+      setError(err.response?.data?.message || `Unable to load pending ${title}`);
     } finally {
       setLoading(false);
     }
   };
   const act = async (action) => {
-    if (!selected?._id) return setError("Select a statute first");
+    if (!selected?._id) return setError(`Select a record first`);
     try {
       setLoading(true);
       setError("");
-      const res = await ep1.post("/api/v2/institution-management/statute-approve", withScope({ id: selected._id, action, comments, approvername: global1.name, approveremail: global1.user, approverrole: global1.role, kind }));
-      setMessage(res.data?.message || `Statute ${action.toLowerCase()}`);
+      const res = await ep1.post("/api/v2/institution-management/statute-approve", withScope({ id: selected._id, action, comments, approvername: global1.name, approveremail: global1.email || global1.user, email: global1.email || global1.user, approverrole: global1.role, kind }));
+      setMessage(res.data?.message || `${title} ${action.toLowerCase()}`);
       setComments("");
       await loadRows();
     } catch (err) {
-      setError(err.response?.data?.message || `Unable to ${action.toLowerCase()} statute`);
+      setError(err.response?.data?.message || `Unable to ${action.toLowerCase()} ${title}`);
     } finally {
       setLoading(false);
     }
   };
   const columns = [
     { field: "academicyear", headerName: "Academic year", minWidth: 150 },
-    { field: kind === "mou" ? "mou" : "statute", headerName: kind === "mou" ? "MoU" : "Statute", minWidth: 220, flex: 1 },
+    { field: kind === "mou" ? "mou" : kind === "affiliation" ? "affiliation" : kind === "programaffiliation" ? "ordinance" : kind === "ordinance" ? "ordinance" : "statute", headerName: kind === "mou" ? "MoU" : kind === "affiliation" ? "Affiliation" : kind === "programaffiliation" ? "Program affiliation" : kind === "ordinance" ? "Ordinance" : "Statute", minWidth: 220, flex: 1 },
     { field: "description", headerName: "Description", minWidth: 280, flex: 1 },
     { field: "approvalstatus", headerName: "Approval status", minWidth: 160 },
     { field: "pendingapprovername", headerName: "Pending approver", minWidth: 180 },
@@ -697,7 +738,7 @@ export function StatuteApprovalPage({ kind = "statute", title = "Statute approva
           </Paper>
           {selected && (
             <Paper sx={{ p: 2, mt: 2 }}>
-              <Typography variant="h6" fontWeight={900}>{selected.statute || selected.mou}</Typography>
+              <Typography variant="h6" fontWeight={900}>{selected.statute || selected.mou || selected.ordinance || selected.affiliation}</Typography>
               <Typography sx={{ whiteSpace: "pre-wrap", mb: 2 }}>{selected.description}</Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={4}><TextField fullWidth label="Academic year" value={selected.academicyear || ""} InputProps={{ readOnly: true }} /></Grid>
@@ -877,7 +918,6 @@ export function ViceChancellorDashboardPage() {
         </Paper>
         {error && <Alert className="no-print" severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Box className="print-area">
-          <PrintHeader title="Vice Chancellor Dashboard" institution={dashboard?.institution || {}} />
           <Grid container spacing={2} sx={{ mb: 2 }}>
             {(dashboard?.cards || []).map((card) => <Grid item xs={12} sm={6} md={2.4} key={card.key}><DashboardCard card={card} /></Grid>)}
           </Grid>
@@ -924,6 +964,129 @@ export function ViceChancellorDashboardPage() {
             <Typography fontWeight={900} sx={{ mb: 1 }}>Program Details</Typography>
             <Box sx={{ height: "calc(100vh - 170px)", minHeight: 640 }}>
               <DataGrid rows={dashboard?.tables?.programs || []} columns={programColumns} loading={loading} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} sx={gridSx} />
+            </Box>
+          </Paper>
+        </Box>
+      </Box>
+    </MenuPageShell>
+  );
+}
+
+export function RegistrarDashboardPage() {
+  const [filters, setFilters] = useState({ academicyear: "" });
+  const [options, setOptions] = useState({ academicyears: [] });
+  const [dashboard, setDashboard] = useState(null);
+  const [taskTab, setTaskTab] = useState("active");
+  const [detailTab, setDetailTab] = useState("ordinances");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const res = await ep1.get("/api/v2/registrar-dashboard/summary", { params: withScope({ academicyear: filters.academicyear, useremail: global1.email || global1.user, email: global1.email || global1.user }) });
+      setDashboard(res.data?.data || null);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load Registrar dashboard");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    ep1.get("/api/v2/institution-management/options", { params: withScope() })
+      .then((res) => setOptions({ academicyears: res.data?.academicyears || [] }))
+      .catch(() => setOptions({ academicyears: [] }));
+    load();
+  }, []);
+
+  const taskRows = dashboard?.tasks?.[taskTab] || [];
+  const detailRows = dashboard?.tables?.[detailTab] || [];
+  const detailFields = useMemo(() => {
+    const first = detailRows[0] || {};
+    return Object.keys(first).filter((key) => !["id", "_id", "__v", "approvalhistory"].includes(key)).slice(0, 12);
+  }, [detailRows]);
+  const detailColumns = detailFields.map((field) => ({
+    field,
+    headerName: field,
+    minWidth: ["description", "details", "filelink"].includes(field) ? 240 : 145,
+    flex: ["description", "details"].includes(field) ? 1 : 0,
+    renderCell: field === "filelink" ? (params) => params.value ? <Button href={params.value} target="_blank" rel="noreferrer" size="small">Open</Button> : "" : undefined
+  }));
+  const taskColumns = [
+    { field: "academicyear", headerName: "Academic year", minWidth: 140 },
+    { field: "task", headerName: "Task", minWidth: 240, flex: 1 },
+    { field: "category", headerName: "Category", minWidth: 180 },
+    { field: "faculty", headerName: "Assigned to", minWidth: 180 },
+    { field: "facultyemail", headerName: "Email", minWidth: 220 },
+    { field: "startdate", headerName: "Start date", minWidth: 130 },
+    { field: "duedate", headerName: "Due date", minWidth: 130 },
+    { field: "status", headerName: "Status", minWidth: 130 },
+    { field: "pagelink", headerName: "Open", minWidth: 110, renderCell: (params) => params.value ? <Button size="small" component={RouterLink} to={String(params.value).startsWith("/") ? params.value : `/${params.value}`}>Open</Button> : "" }
+  ];
+
+  return (
+    <MenuPageShell title="Registrar dashboard">
+      <Box sx={{ p: 3, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
+        <style>{`@media print {.no-print{display:none!important}.print-area{box-shadow:none!important;border:0!important} body{background:white!important;color:#000!important}}`}</style>
+        <Paper className="no-print" elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2, background: "linear-gradient(135deg,#0f172a,#0f766e)" }}>
+          <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2}>
+            <Box>
+              <Typography variant="h4" color="white" fontWeight={950}>Registrar dashboard</Typography>
+              <Typography sx={{ color: "#ccfbf1" }}>Institution governance, legal records, circulars, minutes, and approval tasks.</Typography>
+            </Box>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <Autocomplete
+                freeSolo
+                options={options.academicyears || []}
+                value={filters.academicyear || ""}
+                onInputChange={(_, value) => setFilters((prev) => ({ ...prev, academicyear: value || "" }))}
+                renderInput={(params) => <TextField {...params} size="small" label="Academic year" sx={{ bgcolor: "white", borderRadius: 1, minWidth: 190 }} />}
+              />
+              <Button variant="contained" color="secondary" startIcon={<RefreshIcon />} onClick={load} disabled={loading}>{loading ? "Loading..." : "Load"}</Button>
+              <Button variant="outlined" startIcon={<PrintIcon />} onClick={() => window.print()} sx={{ color: "white", borderColor: "#99f6e4" }}>Print</Button>
+            </Stack>
+          </Stack>
+        </Paper>
+        {error && <Alert className="no-print" severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        <Box className="print-area">
+          <Grid container spacing={2} sx={{ mb: 2 }}>
+            {(dashboard?.cards || []).map((card) => <Grid item xs={12} sm={6} md={4} lg={2.4} key={card.key}><DashboardCard card={card} /></Grid>)}
+          </Grid>
+          <Grid container spacing={2} sx={{ mb: 2 }}>
+            <Grid item xs={12} md={4}>
+              <ChartCard title="Approval Status">
+                <ResponsiveContainer width="100%" height="100%"><BarChart data={dashboard?.charts?.approvals || []}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="label" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="count" fill="#0f766e" /></BarChart></ResponsiveContainer>
+              </ChartCard>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <ChartCard title="Circular Type">
+                <ResponsiveContainer width="100%" height="100%"><PieChart><Tooltip /><Legend /><Pie data={dashboard?.charts?.circulars || []} dataKey="count" nameKey="label" outerRadius={96} label>{(dashboard?.charts?.circulars || []).map((row, index) => <Cell key={row.label || index} fill={colors[index % colors.length]} />)}</Pie></PieChart></ResponsiveContainer>
+              </ChartCard>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <ChartCard title="Legal Case Status">
+                <ResponsiveContainer width="100%" height="100%"><BarChart data={dashboard?.charts?.legal || []}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="label" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="count" fill="#dc2626" /></BarChart></ResponsiveContainer>
+              </ChartCard>
+            </Grid>
+          </Grid>
+          <Paper sx={{ p: 2, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
+            <Tabs className="no-print" value={taskTab} onChange={(_, value) => setTaskTab(value)}>
+              <Tab value="active" label={`Active (${dashboard?.tasks?.active?.length || 0})`} />
+              <Tab value="pending" label={`Pending (${dashboard?.tasks?.pending?.length || 0})`} />
+              <Tab value="completed" label={`Completed (${dashboard?.tasks?.completed?.length || 0})`} />
+            </Tabs>
+            <Box sx={{ height: 380, mt: 2 }}>
+              <DataGrid rows={taskRows.map((row) => ({ id: row._id, ...row }))} columns={taskColumns} loading={loading} slots={{ toolbar: GridToolbar }} sx={gridSx} />
+            </Box>
+          </Paper>
+          <Paper sx={{ p: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
+            <Tabs className="no-print" value={detailTab} onChange={(_, value) => setDetailTab(value)} variant="scrollable" scrollButtons="auto">
+              {["ordinances", "affiliations", "legalCases", "circulars", "minutes", "rules", "statutes", "schoolStatutes", "mous"].map((key) => <Tab key={key} value={key} label={key.replace(/([A-Z])/g, " $1")} />)}
+            </Tabs>
+            <Box sx={{ height: "calc(100vh - 150px)", minHeight: 620, mt: 2 }}>
+              <DataGrid rows={detailRows.map((row, index) => ({ id: row._id || index, ...row }))} columns={detailColumns} loading={loading} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} sx={gridSx} />
             </Box>
           </Paper>
         </Box>

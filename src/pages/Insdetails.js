@@ -23,6 +23,7 @@ import ep1 from '../api/ep1';
 import global1 from './global1';
 import { DataGrid, GridToolbar } from '@mui/x-data-grid';
 import { mainListItems } from './menucas1';
+import TopMenuSearch from './TopMenuSearch';
 
 const sidebarWidth = 250;
 const mdTheme = createTheme();
@@ -175,6 +176,7 @@ export default function InstitutionPage() {
             <Typography component="h1" variant="h6" color="inherit" noWrap sx={{ flexGrow: 1 }}>
               Institution Details
             </Typography>
+            <TopMenuSearch />
           </Toolbar>
         </AppBarStyled>
 
@@ -183,6 +185,7 @@ export default function InstitutionPage() {
             <Typography component="h1" variant="body1" color="inherit" noWrap sx={{ flexGrow: 1 }}>
               {global1.name}
             </Typography>
+            <TopMenuSearch />
             <IconButton onClick={() => setOpen(false)}>
               <ChevronLeftIcon />
             </IconButton>

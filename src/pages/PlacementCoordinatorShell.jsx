@@ -17,6 +17,7 @@ import MenuIcon from "@mui/icons-material/Menu";
 import { Link } from "react-router-dom";
 import global1 from "./global1";
 import { mainListItems } from "./menucas1";
+import TopMenuSearch from './TopMenuSearch';
 
 const sidebarWidth = 250;
 
@@ -88,6 +89,7 @@ export default function PlacementCoordinatorShell({ title, children }) {
             <Typography component="h1" variant="h6" color="inherit" noWrap sx={{ flexGrow: 1 }}>
               {title}
             </Typography>
+            <TopMenuSearch />
             <Button color="inherit" component={Link} to="/dashdashfacnew">Dashboard</Button>
             <Button color="inherit" component={Link} to="/Login">Sign out</Button>
           </Toolbar>

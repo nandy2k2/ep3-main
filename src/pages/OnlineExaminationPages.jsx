@@ -20,6 +20,7 @@ import {
   MenuItem,
   Paper,
   Radio,
+  Slider,
   Stack,
   Tab,
   Tabs,
@@ -27,15 +28,27 @@ import {
   Typography
 } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
+import Editor, {
+  BtnBold,
+  BtnBulletList,
+  BtnClearFormatting,
+  BtnItalic,
+  BtnNumberedList,
+  BtnRedo,
+  BtnUnderline,
+  BtnUndo,
+  Toolbar
+} from "react-simple-wysiwyg";
 import { Add, AutoFixHigh, CloudUpload, Delete, Edit, Refresh, Save } from "@mui/icons-material";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import MenuPageShell from "./MenuPageShell";
+import AdvancedDrawingPad from "./QuestionDrawingPad";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 
 const initialExam = { academicyear: "", category: "", program: "", programcode: "", course: "", coursecode: "", examname: "", examcode: "", durationminutes: 60, starttime: "", endtime: "", timezone: "UTC", instructions: "", status: "Draft" };
-const initialQuestionForm = { sectionid: "", questionid: "", questiontext: "", questiontype: "MCQ", marks: 1, modules: [], topics: [], cos: [], bloomlevels: [], options: [{ optiontext: "", iscorrect: true }, { optiontext: "", iscorrect: false }], imageurl: "", fileurl: "", linkurl: "" };
+const initialQuestionForm = { sectionid: "", questionid: "", questiontext: "", questionhtml: "", mathematicalexpression: "", tabledata: [], drawingdataurl: "", questiontype: "MCQ", marks: 1, modules: [], topics: [], cos: [], bloomlevels: [], options: [{ optiontext: "", iscorrect: true }, { optiontext: "", iscorrect: false }], imageurl: "", imagefilename: "", fileurl: "", filefilename: "", linkurl: "", attachments: [], contentblocks: [] };
 const questionUploadHeaders = ["sectionname", "questiontext", "questiontype", "marks", "modules", "topics", "cos", "bloomlevels", "option1", "option2", "option3", "option4", "correctoption", "imageurl", "fileurl", "linkurl", "order"];
 const languages = ["English", "Hindi", "Bengali", "Tamil", "Telugu", "Marathi", "Gujarati", "Kannada", "Malayalam", "Punjabi", "Urdu", "French", "Spanish"];
 const geminiModels = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
@@ -53,9 +66,310 @@ const fmtZone = (value, timeZone) => {
 const dtLocal = (value) => value ? String(value).slice(0, 16) : "";
 const rowsOf = (rows) => (rows || []).map((row) => ({ ...row, id: row._id }));
 const uniqueValues = (rows, field) => [...new Set((rows || []).map((row) => row?.[field]).filter(Boolean))].sort();
+const mathSymbols = ["√", "∑", "∫", "π", "θ", "≤", "≥", "≠", "∞", "±", "÷", "×", "²", "³", "α", "β", "γ", "Δ", "λ", "μ", "σ", "Ω"];
+const escHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char]));
+const nl2br = (value) => escHtml(value).replace(/\n/g, "<br/>");
+const sanitizeRichHtml = (value) => String(value || "")
+  .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "")
+  .replace(/\son\w+="[^"]*"/gi, "")
+  .replace(/\son\w+='[^']*'/gi, "")
+  .replace(/javascript:/gi, "");
+const renderRichText = (value) => {
+  const html = sanitizeRichHtml(value);
+  return /<[^>]+>/.test(html) ? html : nl2br(html);
+};
+const tableToHtml = (tabledata = []) => {
+  if (!Array.isArray(tabledata) || !tabledata.length) return "";
+  return `<table class="question-content-table">${tabledata.map((row) => `<tr>${(row || []).map((cell) => `<td>${nl2br(cell)}</td>`).join("")}</tr>`).join("")}</table>`;
+};
+const contentBlockHtml = (block = {}) => {
+  const type = block.blocktype || block.type;
+  if (type === "text") return `<div class="question-rich-text">${renderRichText(block.text)}</div>`;
+  if (type === "math") return `<div class="question-math">${nl2br(block.text)}</div>`;
+  if (type === "table") return tableToHtml(block.tabledata);
+  if (type === "image") return block.url ? `<div class="question-media"><img src="${escHtml(block.url)}" alt="${escHtml(block.title || block.filename || "Question image")}" /></div>` : "";
+  if (type === "drawing") return block.dataurl ? `<div class="question-media"><img src="${escHtml(block.dataurl)}" alt="${escHtml(block.title || "Question drawing")}" /></div>` : "";
+  if (type === "attachment") return block.url ? `<div class="question-attachment"><a href="${escHtml(block.url)}" target="_blank" rel="noreferrer">${escHtml(block.title || block.filename || "Attachment")}</a></div>` : "";
+  return "";
+};
+const richQuestionHtml = (question = {}) => {
+  if (Array.isArray(question.contentblocks) && question.contentblocks.length) {
+    const mainQuestion = question.questionhtml || question.questiontext;
+    const firstTextBlock = question.contentblocks.find((block) => (block.blocktype || block.type) === "text");
+    const firstTextPlain = String(firstTextBlock?.text || "").replace(/<[^>]*>/g, "").trim();
+    const mainPlain = String(mainQuestion || "").replace(/<[^>]*>/g, "").trim();
+    const mainHtml = mainPlain && mainPlain !== firstTextPlain ? `<div class="question-rich-text">${renderRichText(mainQuestion)}</div>` : "";
+    return `${mainHtml}${question.contentblocks.map(contentBlockHtml).join("")}`;
+  }
+  const textHtml = question.questionhtml ? renderRichText(question.questionhtml) : nl2br(question.questiontext);
+  const math = question.mathematicalexpression ? `<div class="question-math">${nl2br(question.mathematicalexpression)}</div>` : "";
+  const table = tableToHtml(question.tabledata);
+  const image = question.imageurl ? `<div class="question-media"><img src="${escHtml(question.imageurl)}" alt="${escHtml(question.imagefilename || "Question image")}" /></div>` : "";
+  const drawing = question.drawingdataurl ? `<div class="question-media"><img src="${escHtml(question.drawingdataurl)}" alt="Question drawing" /></div>` : "";
+  const attachments = [
+    ...(question.fileurl ? [{ title: question.filefilename || "Question file", url: question.fileurl }] : []),
+    ...((question.attachments || []).filter((item) => item.url))
+  ].map((item) => `<div class="question-attachment"><a href="${escHtml(item.url)}" target="_blank" rel="noreferrer">${escHtml(item.title || item.filename || "Attachment")}</a></div>`).join("");
+  const link = question.linkurl ? `<div class="question-attachment"><a href="${escHtml(question.linkurl)}" target="_blank" rel="noreferrer">Question link</a></div>` : "";
+  return `<div class="question-rich-text">${textHtml}</div>${math}${table}${image}${drawing}${attachments}${link}`;
+};
 
 function AttachmentLink({ url, label = "Open" }) {
   return url ? <a href={url} target="_blank" rel="noreferrer">{label}</a> : null;
+}
+
+function ToolbarButton({ children, title, command, value, disabled }) {
+  const apply = (event) => {
+    event.preventDefault();
+    if (disabled) return;
+    document.execCommand(command, false, value);
+  };
+  return <button type="button" title={title} disabled={disabled} onMouseDown={apply} style={{ minWidth: 30, minHeight: 28, border: "1px solid #cbd5e1", background: "#fff", borderRadius: 4, cursor: disabled ? "not-allowed" : "pointer" }}>{children}</button>;
+}
+
+function ToolbarSelect({ title, value, options, command, disabled }) {
+  const [selected, setSelected] = useState(value);
+  const apply = (event) => {
+    const next = event.target.value;
+    setSelected(next);
+    if (!disabled) document.execCommand(command, false, next);
+  };
+  return (
+    <select title={title} value={selected} disabled={disabled} onChange={apply} style={{ height: 30, border: "1px solid #cbd5e1", borderRadius: 4, background: "#fff" }}>
+      {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+    </select>
+  );
+}
+
+function ToolbarColor({ title, command, defaultValue, disabled }) {
+  const [value, setValue] = useState(defaultValue);
+  const apply = (event) => {
+    const next = event.target.value;
+    setValue(next);
+    if (!disabled) document.execCommand(command, false, next);
+  };
+  return (
+    <label title={title} style={{ display: "inline-flex", alignItems: "center", gap: 4, height: 30, padding: "0 6px", border: "1px solid #cbd5e1", borderRadius: 4, background: "#fff", fontSize: 12 }}>
+      {title}
+      <input type="color" value={value} disabled={disabled} onChange={apply} style={{ width: 26, height: 22, border: 0, padding: 0, background: "transparent" }} />
+    </label>
+  );
+}
+
+function RichTextBlockEditor({ value, onChange, disabled }) {
+  const fontSizes = [
+    { value: "1", label: "10" },
+    { value: "2", label: "12" },
+    { value: "3", label: "14" },
+    { value: "4", label: "16" },
+    { value: "5", label: "18" },
+    { value: "6", label: "24" },
+    { value: "7", label: "32" }
+  ];
+  return (
+    <Box sx={{ "& .rsw-editor": { border: "1px solid #cbd5e1", borderRadius: "8px", bgcolor: "#fff" }, "& .rsw-toolbar": { borderBottom: "1px solid #e5e7eb", flexWrap: "wrap", gap: "4px", p: "6px" }, "& .rsw-ce": { minHeight: 130, p: 1.25, outline: "none", "& ul": { listStyle: "disc", pl: 3 }, "& ol": { listStyle: "decimal", pl: 3 } } }}>
+      <Editor value={value || ""} disabled={disabled} placeholder="Type formatted question text..." onChange={(event) => onChange(event.target.value)}>
+        <Toolbar>
+          <BtnUndo disabled={disabled} />
+          <BtnRedo disabled={disabled} />
+          <BtnBold disabled={disabled} />
+          <BtnItalic disabled={disabled} />
+          <BtnUnderline disabled={disabled} />
+          <BtnBulletList disabled={disabled} />
+          <BtnNumberedList disabled={disabled} />
+          <ToolbarButton title="Decrease indent" command="outdent" disabled={disabled}>-</ToolbarButton>
+          <ToolbarButton title="Increase indent" command="indent" disabled={disabled}>+</ToolbarButton>
+          <ToolbarSelect title="Font size" command="fontSize" value="3" options={fontSizes} disabled={disabled} />
+          <ToolbarColor title="Text" command="foreColor" defaultValue="#111827" disabled={disabled} />
+          <ToolbarColor title="Highlight" command="hiliteColor" defaultValue="#fff3a3" disabled={disabled} />
+          <BtnClearFormatting disabled={disabled} />
+        </Toolbar>
+      </Editor>
+    </Box>
+  );
+}
+
+function QuestionTableEditor({ value = [], onChange, disabled }) {
+  const table = Array.isArray(value) ? value : [];
+  const ensureTable = () => onChange(table.length ? table : [["", ""], ["", ""]]);
+  const updateCell = (rowIndex, colIndex, cellValue) => onChange(table.map((row, rIndex) => rIndex === rowIndex ? row.map((cell, cIndex) => cIndex === colIndex ? cellValue : cell) : row));
+  const cols = Math.max(1, ...table.map((row) => row.length));
+  if (!table.length) return <Button size="small" variant="outlined" disabled={disabled} onClick={ensureTable}>Create Table</Button>;
+  return (
+    <Stack spacing={1}>
+      <Box sx={{ overflowX: "auto" }}>
+        <Box component="table" sx={{ width: "100%", borderCollapse: "collapse", "& td": { border: "1px solid #cbd5e1", p: 0.5 } }}>
+          <tbody>
+            {table.map((row, rowIndex) => (
+              <tr key={rowIndex}>
+                {Array.from({ length: cols }).map((_, colIndex) => (
+                  <td key={colIndex}>
+                    <TextField fullWidth multiline minRows={1} variant="standard" value={row[colIndex] || ""} disabled={disabled} onChange={(e) => updateCell(rowIndex, colIndex, e.target.value)} InputProps={{ disableUnderline: true, sx: { fontSize: 13, px: 1 } }} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </Box>
+      </Box>
+      <Stack direction="row" spacing={1} flexWrap="wrap">
+        <Button size="small" disabled={disabled} onClick={() => onChange([...table, Array(cols).fill("")])}>Add Row</Button>
+        <Button size="small" disabled={disabled} onClick={() => onChange(table.map((row) => [...row, ""]))}>Add Column</Button>
+        <Button size="small" color="error" disabled={disabled} onClick={() => onChange([])}>Remove Table</Button>
+      </Stack>
+    </Stack>
+  );
+}
+
+function DrawingPad({ value, onChange, disabled, initialColor = "#111827", initialBrushSize = 2, onStyleChange = () => {} }) {
+  const canvasRef = useRef(null);
+  const drawingRef = useRef(false);
+  const [color, setColor] = useState(initialColor || "#111827");
+  const [brushSize, setBrushSize] = useState(Number(initialBrushSize || 2));
+  const point = (event) => {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const source = event.touches?.[0] || event;
+    return { x: (source.clientX - rect.left) * (canvas.width / rect.width), y: (source.clientY - rect.top) * (canvas.height / rect.height) };
+  };
+  const start = (event) => {
+    if (disabled) return;
+    event.preventDefault();
+    const ctx = canvasRef.current.getContext("2d");
+    const p = point(event);
+    drawingRef.current = true;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+  };
+  const move = (event) => {
+    if (!drawingRef.current || disabled) return;
+    event.preventDefault();
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    const p = point(event);
+    ctx.lineTo(p.x, p.y);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = brushSize;
+    ctx.lineCap = "round";
+    ctx.stroke();
+  };
+  const stop = () => {
+    if (!drawingRef.current) return;
+    drawingRef.current = false;
+    onChange(canvasRef.current.toDataURL("image/png"));
+  };
+  const clear = () => {
+    const canvas = canvasRef.current;
+    canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+    onChange("");
+  };
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!value) return;
+    const image = new Image();
+    image.onload = () => ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    image.src = value;
+  }, [value]);
+  useEffect(() => { onStyleChange({ color, brushsize: brushSize }); }, [color, brushSize]);
+  return (
+    <Box>
+      <Grid container spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
+        <Grid item xs={12} md={3}><TextField fullWidth label="Brush color" type="color" value={color} disabled={disabled} onChange={(e) => setColor(e.target.value)} InputLabelProps={{ shrink: true }} /></Grid>
+        <Grid item xs={12} md={6}><Typography variant="caption" color="text.secondary">Brush size</Typography><Slider min={1} max={18} value={brushSize} disabled={disabled} onChange={(_, value) => setBrushSize(value)} valueLabelDisplay="auto" /></Grid>
+      </Grid>
+      <Box component="canvas" ref={canvasRef} width={760} height={190} onMouseDown={start} onMouseMove={move} onMouseUp={stop} onMouseLeave={stop} onTouchStart={start} onTouchMove={move} onTouchEnd={stop} sx={{ width: "100%", height: 190, bgcolor: "#fff", border: "1px solid #cbd5e1", borderRadius: 1, touchAction: "none", cursor: disabled ? "not-allowed" : "crosshair" }} />
+      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+        <Button size="small" variant="outlined" disabled={disabled} onClick={() => onChange(canvasRef.current.toDataURL("image/png"))}>Save Drawing</Button>
+        <Button size="small" color="error" variant="outlined" disabled={disabled || !value} onClick={clear}>Clear</Button>
+      </Stack>
+    </Box>
+  );
+}
+
+function OnlineQuestionContentEditor({ question, setQuestion, uploadBlockFile, disabled }) {
+  const blocks = Array.isArray(question.contentblocks) ? question.contentblocks : [];
+  const patchBlocks = (contentblocks) => setQuestion((prev) => ({ ...prev, contentblocks }));
+  const addBlock = (blocktype) => {
+    const defaults = {
+      text: { blocktype, text: question.questiontext && !blocks.length ? question.questiontext : "" },
+      math: { blocktype, text: "", color: "#111827", brushsize: 2 },
+      table: { blocktype, tabledata: [["", ""], ["", ""]] },
+      image: { blocktype, url: "", filename: "", title: "" },
+      drawing: { blocktype, dataurl: "", color: "#111827", brushsize: 2 },
+      attachment: { blocktype, url: "", filename: "", title: "" }
+    };
+    patchBlocks([...blocks, defaults[blocktype]]);
+  };
+  const updateBlock = (index, patch) => patchBlocks(blocks.map((block, itemIndex) => itemIndex === index ? { ...block, ...patch } : block));
+  const moveBlock = (index, direction) => {
+    const nextIndex = index + direction;
+    if (nextIndex < 0 || nextIndex >= blocks.length) return;
+    const next = [...blocks];
+    [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+    patchBlocks(next);
+  };
+  const uploadForBlock = async (file, blockIndex) => {
+    const data = await uploadBlockFile(file);
+    if (data?.url) updateBlock(blockIndex, { url: data.url, filename: data.filename || data.label || "" });
+  };
+  const moveQuestionText = () => {
+    if (!(question.questionhtml || question.questiontext)) return;
+    patchBlocks([{ blocktype: "text", text: renderRichText(question.questionhtml || question.questiontext) }, ...blocks]);
+    setQuestion((prev) => ({ ...prev, questiontext: "", questionhtml: "" }));
+  };
+  return (
+    <Paper variant="outlined" sx={{ p: 1.5, width: "100%", bgcolor: "#fff" }}>
+      <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 1.5 }}>
+        <Button size="small" variant="contained" disabled={disabled || !(question.questionhtml || question.questiontext)} onClick={moveQuestionText}>Move Question Text to Rich Editor</Button>
+        <Button size="small" variant="outlined" disabled={disabled} onClick={() => addBlock("text")}>Add Text</Button>
+        <Button size="small" variant="outlined" disabled={disabled} onClick={() => addBlock("math")}>Add Math</Button>
+        <Button size="small" variant="outlined" disabled={disabled} onClick={() => addBlock("table")}>Add Table</Button>
+        <Button size="small" variant="outlined" disabled={disabled} onClick={() => addBlock("image")}>Add Photo</Button>
+        <Button size="small" variant="outlined" disabled={disabled} onClick={() => addBlock("drawing")}>Add Drawing</Button>
+        <Button size="small" variant="outlined" disabled={disabled} onClick={() => addBlock("attachment")}>Add Attachment</Button>
+      </Stack>
+      {!blocks.length && <Alert severity="info">Add blocks in the exact order in which the question should appear.</Alert>}
+      <Stack spacing={1.5}>
+        {blocks.map((block, index) => (
+          <Paper key={`${block.blocktype}-${index}`} variant="outlined" sx={{ p: 1.5, bgcolor: "#f8fafc" }}>
+            <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+              <Chip size="small" label={`${index + 1}. ${block.blocktype}`} />
+              <Stack direction="row" spacing={0.5}>
+                <Button size="small" disabled={disabled || index === 0} onClick={() => moveBlock(index, -1)}>Up</Button>
+                <Button size="small" disabled={disabled || index === blocks.length - 1} onClick={() => moveBlock(index, 1)}>Down</Button>
+                <Button size="small" color="error" disabled={disabled} onClick={() => patchBlocks(blocks.filter((_, itemIndex) => itemIndex !== index))}>Delete</Button>
+              </Stack>
+            </Stack>
+            {block.blocktype === "text" && <RichTextBlockEditor value={block.text || ""} disabled={disabled} onChange={(text) => updateBlock(index, { text })} />}
+            {block.blocktype === "math" && (
+              <Box>
+                <TextField fullWidth multiline minRows={2} label="Mathematical expression" disabled={disabled} value={block.text || ""} onChange={(e) => updateBlock(index, { text: e.target.value })} />
+                <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 1 }}>{mathSymbols.map((symbol) => <Button key={symbol} size="small" variant="outlined" disabled={disabled} onClick={() => updateBlock(index, { text: `${block.text || ""}${symbol}` })} sx={{ minWidth: 34 }}>{symbol}</Button>)}</Stack>
+              </Box>
+            )}
+            {block.blocktype === "table" && <QuestionTableEditor value={block.tabledata || []} disabled={disabled} onChange={(tabledata) => updateBlock(index, { tabledata })} />}
+            {block.blocktype === "image" && (
+              <Paper variant="outlined" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); uploadForBlock(event.dataTransfer.files?.[0], index); }} sx={{ p: 2, textAlign: "center", borderStyle: "dashed", bgcolor: "#fff" }}>
+                <TextField fullWidth label="Image title" disabled={disabled} value={block.title || ""} onChange={(e) => updateBlock(index, { title: e.target.value })} sx={{ mb: 1 }} />
+                <Button component="label" variant="outlined" startIcon={<CloudUpload />} disabled={disabled}>Upload or Drop Photo<input hidden type="file" accept="image/*" onChange={(e) => uploadForBlock(e.target.files?.[0], index)} /></Button>
+                {block.url && <Box sx={{ mt: 1 }}><img src={block.url} alt={block.title || block.filename || "Question"} style={{ maxWidth: "100%", maxHeight: 180, objectFit: "contain" }} /></Box>}
+              </Paper>
+            )}
+            {block.blocktype === "drawing" && <AdvancedDrawingPad value={block.dataurl || ""} disabled={disabled} initialColor={block.color || "#111827"} initialBrushSize={block.brushsize || 2} onStyleChange={(style) => updateBlock(index, style)} onChange={(dataurl) => updateBlock(index, { dataurl })} />}
+            {block.blocktype === "attachment" && (
+              <Paper variant="outlined" onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); uploadForBlock(event.dataTransfer.files?.[0], index); }} sx={{ p: 2, textAlign: "center", borderStyle: "dashed", bgcolor: "#fff" }}>
+                <TextField fullWidth label="Attachment title" disabled={disabled} value={block.title || ""} onChange={(e) => updateBlock(index, { title: e.target.value })} sx={{ mb: 1 }} />
+                <Button component="label" variant="outlined" startIcon={<CloudUpload />} disabled={disabled}>Upload or Drop Attachment<input hidden type="file" accept="image/*,.pdf,.doc,.docx" onChange={(e) => uploadForBlock(e.target.files?.[0], index)} /></Button>
+                {block.url && <Button size="small" href={block.url} target="_blank" rel="noreferrer" sx={{ display: "block", mx: "auto", mt: 1 }}>{block.title || block.filename || "Attachment"}</Button>}
+              </Paper>
+            )}
+          </Paper>
+        ))}
+      </Stack>
+    </Paper>
+  );
 }
 
 function DynamicFilters({ fields, filters, setFilters, onApply, loading, valueOptions = {} }) {
@@ -244,7 +558,18 @@ export function OnlineExamManagementPage({ myMode = false, admissionMode = false
     fd.append("colid", global1.colid);
     fd.append("context", "question");
     const res = await ep1.post("/api/v2/online-exam/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
-    setQuestionForm((prev) => ({ ...prev, [field]: res.data?.data?.url || "" }));
+    const uploaded = res.data?.data || {};
+    setQuestionForm((prev) => ({ ...prev, [field]: uploaded.url || "", [`${field.replace(/url$/, "")}filename`]: uploaded.filename || uploaded.label || "" }));
+    return uploaded;
+  };
+  const uploadBlockFile = async (file) => {
+    if (!file) return null;
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("colid", global1.colid);
+    fd.append("context", "question-block");
+    const res = await ep1.post("/api/v2/online-exam/upload", fd, { headers: { "Content-Type": "multipart/form-data" } });
+    return res.data?.data || null;
   };
   const saveQuestion = async (payload = questionForm) => {
     if (!selectedExam?._id || !payload.sectionid) return setMessage("Select exam and section.");
@@ -322,8 +647,12 @@ export function OnlineExamManagementPage({ myMode = false, admissionMode = false
       bloomlevels: splitCell(row.bloomlevels || row.blooms),
       options: /^mcq$/i.test(questiontype) ? options.map((optiontext, index) => ({ optiontext, iscorrect: correct === String(index + 1) || correct === optiontext.toLowerCase() })) : [],
       imageurl: row.imageurl || "",
+      imagefilename: row.imagefilename || "",
       fileurl: row.fileurl || "",
+      filefilename: row.filefilename || "",
       linkurl: row.linkurl || "",
+      attachments: [],
+      contentblocks: [],
       order: row.order || 0
     };
   };
@@ -367,7 +696,10 @@ export function OnlineExamManagementPage({ myMode = false, admissionMode = false
       topics: question.topics || [],
       cos: question.cos || [],
       bloomlevels: question.bloomlevels || [],
-      options: question.options?.length ? question.options : initialQuestionForm.options
+      options: question.options?.length ? question.options : initialQuestionForm.options,
+      tabledata: question.tabledata || [],
+      attachments: question.attachments || [],
+      contentblocks: question.contentblocks || []
     });
     window.scrollTo({ top: 520, behavior: "smooth" });
   };
@@ -392,12 +724,14 @@ export function OnlineExamManagementPage({ myMode = false, admissionMode = false
           ...questionForm,
           questionid: "",
           questiontext: q.questiontext,
+          questionhtml: q.questionhtml || "",
           marks: q.marks || questionForm.marks,
           options: q.options || [],
           modules: q.modules || questionForm.modules,
           topics: q.topics || questionForm.topics,
           cos: q.cos || questionForm.cos,
-          bloomlevels: q.bloomlevels || questionForm.bloomlevels
+          bloomlevels: q.bloomlevels || questionForm.bloomlevels,
+          contentblocks: q.contentblocks || []
         });
       }
       setMessage("AI generated questions added.");
@@ -472,6 +806,9 @@ export function OnlineExamManagementPage({ myMode = false, admissionMode = false
                 <Grid item xs={12} md={3}><MultiCheckAutocomplete label="CO" options={questionOptions.cos || []} value={questionForm.cos} onChange={(value) => setQuestionForm((p) => ({ ...p, cos: value }))} /></Grid>
                 <Grid item xs={12} md={3}><MultiCheckAutocomplete label="Bloom taxonomy levels" options={questionOptions.bloomlevels || []} value={questionForm.bloomlevels} onChange={(value) => setQuestionForm((p) => ({ ...p, bloomlevels: value }))} /></Grid>
                 <Grid item xs={12}><TextField fullWidth multiline minRows={3} label="Question" value={questionForm.questiontext} onChange={(e) => setQuestionForm((p) => ({ ...p, questiontext: e.target.value }))} /></Grid>
+                <Grid item xs={12}>
+                  <OnlineQuestionContentEditor question={questionForm} setQuestion={setQuestionForm} uploadBlockFile={uploadBlockFile} disabled={loading} />
+                </Grid>
                 {questionForm.questiontype === "MCQ" && questionForm.options.map((o, i) => (
                   <Grid item xs={12} md={3} key={`opt-${i}`}>
                     <TextField fullWidth label={`Option ${i + 1}`} value={o.optiontext} onChange={(e) => setQuestionForm((p) => ({ ...p, options: p.options.map((x, idx) => idx === i ? { ...x, optiontext: e.target.value } : x) }))} />
@@ -516,7 +853,13 @@ export function OnlineExamManagementPage({ myMode = false, admissionMode = false
                             checked={selectedQuestionIds.includes(`${s._id}::${q._id}`)}
                             onChange={(e) => setSelectedQuestionIds((prev) => e.target.checked ? [...prev, `${s._id}::${q._id}`] : prev.filter((id) => id !== `${s._id}::${q._id}`))}
                           />
-                          <Typography sx={{ flex: 1 }}>{i + 1}. {q.questiontext}</Typography>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography fontWeight={800}>Question {i + 1}</Typography>
+                            <Box
+                              sx={{ mt: 0.5, "& img": { maxWidth: "100%", maxHeight: 180, objectFit: "contain" }, "& table": { borderCollapse: "collapse", width: "100%" }, "& td": { border: "1px solid #cbd5e1", p: 0.75 }, "& .question-math": { fontFamily: "Cambria Math, Georgia, serif", fontSize: 18, my: 1 } }}
+                              dangerouslySetInnerHTML={{ __html: richQuestionHtml(q) }}
+                            />
+                          </Box>
                           <Chip size="small" label={`${q.marks} marks`} />
                           <Button size="small" startIcon={<Edit />} onClick={() => editQuestion(s, q)}>Edit</Button>
                           <Button size="small" color="error" startIcon={<Delete />} onClick={() => deleteQuestion(s._id, q._id)}>Delete</Button>
@@ -863,10 +1206,10 @@ export function StudentOnlineExamPage() {
             <Grid item xs={12} md={9}>
               <Paper sx={{ p: 2, minHeight: "calc(100vh - 150px)" }}>
                 <Typography variant="h6" fontWeight={900}>{currentSection?.sectionname}</Typography>
-                <Typography sx={{ mt: 2, whiteSpace: "pre-wrap" }}>{currentQuestion?.questiontext}</Typography>
-                {currentQuestion?.imageurl && <Box sx={{ mt: 2 }}><img src={currentQuestion.imageurl} alt="question" style={{ maxWidth: "100%", maxHeight: 260 }} /></Box>}
-                {currentQuestion?.fileurl && <Typography sx={{ mt: 1 }}><AttachmentLink url={currentQuestion.fileurl} label="Question file" /></Typography>}
-                {currentQuestion?.linkurl && <Typography sx={{ mt: 1 }}><AttachmentLink url={currentQuestion.linkurl} label="Question link" /></Typography>}
+                <Box
+                  sx={{ mt: 2, color: "#111827", "& img": { maxWidth: "100%", maxHeight: 320, objectFit: "contain" }, "& table": { borderCollapse: "collapse", width: "100%", my: 1 }, "& td": { border: "1px solid #cbd5e1", p: 0.75 }, "& .question-math": { fontFamily: "Cambria Math, Georgia, serif", fontSize: 20, my: 1 }, "& a": { color: "#2563eb" } }}
+                  dangerouslySetInnerHTML={{ __html: richQuestionHtml(currentQuestion) }}
+                />
                 {/^mcq$/i.test(currentQuestion?.questiontype || currentSection?.sectiontype) ? (
                   <Stack spacing={1} sx={{ mt: 3 }}>{(currentQuestion?.options || []).map((o) => <FormControlLabel key={o._id} control={<Radio checked={currentAnswer?.selectedoptionid === o._id} onChange={() => answerPatch(currentQuestion._id, { selectedoptionid: o._id, selectedoptiontext: o.optiontext })} />} label={o.optiontext} />)}</Stack>
                 ) : (
@@ -1326,7 +1669,7 @@ export function OnlineExamResponsesPage({ myMode = false }) {
               {selected && <Stack spacing={2}>
                 <Typography fontWeight={900}>{selected.student} - {selected.examname}</Typography>
                 <Grid container spacing={1.5}><Grid item xs={12} md={3}><TextField select fullWidth label="Provider" value={evalForm.provider} onChange={(e) => setEvalForm((p) => ({ ...p, provider: e.target.value }))}><MenuItem value="Gemini">Gemini</MenuItem><MenuItem value="Ollama">Ollama</MenuItem></TextField></Grid><Grid item xs={12} md={3}><TextField select fullWidth label="Gemini model" value={evalForm.geminiModel} onChange={(e) => setEvalForm((p) => ({ ...p, geminiModel: e.target.value }))}>{geminiModels.map((m) => <MenuItem key={m} value={m}>{m}</MenuItem>)}</TextField></Grid><Grid item xs={12} md={3}><TextField select fullWidth label="Ollama" value={evalForm.ollamaConfigId} onChange={(e) => setEvalForm((p) => ({ ...p, ollamaConfigId: e.target.value }))}>{(options.ollama || []).map((o) => <MenuItem key={o._id} value={o._id}>{o.name} - {o.modelname}</MenuItem>)}</TextField></Grid><Grid item xs={12} md={3}><Button fullWidth sx={{ height: 56 }} variant="outlined" onClick={aiEval}>AI Evaluate</Button></Grid><Grid item xs={12}><TextField fullWidth label="AI evaluation rules" value={evalForm.rules} onChange={(e) => setEvalForm((p) => ({ ...p, rules: e.target.value }))} /></Grid></Grid>
-                {(selected.answers || []).map((a, i) => <Paper key={a._id} variant="outlined" sx={{ p: 1.5 }}><Typography fontWeight={900}>{i + 1}. {a.questiontext}</Typography><Typography sx={{ whiteSpace: "pre-wrap", mt: 1 }}>Answer: {a.answertext || a.selectedoptiontext}</Typography>{a.attachmenturl && <AttachmentLink url={a.attachmenturl} label="Attachment" />}<Grid container spacing={1.5} sx={{ mt: 1 }}><Grid item xs={12} md={2}><TextField fullWidth type="number" label={`Marks / ${a.maxmarks}`} value={a.marksobtained || 0} onChange={(e) => updateAnswer(a._id, { marksobtained: e.target.value })} /></Grid><Grid item xs={12} md={2}><TextField fullWidth label="Grade" value={a.grade || ""} onChange={(e) => updateAnswer(a._id, { grade: e.target.value })} /></Grid><Grid item xs={12} md={8}><TextField fullWidth label="Comments" value={a.comments || ""} onChange={(e) => updateAnswer(a._id, { comments: e.target.value })} /></Grid></Grid>{a.aicomments && <Typography color="text.secondary" sx={{ mt: 1 }}>AI: {a.aicomments}</Typography>}</Paper>)}
+                {(selected.answers || []).map((a, i) => <Paper key={a._id} variant="outlined" sx={{ p: 1.5 }}><Typography fontWeight={900}>Question {i + 1}</Typography><Box sx={{ mt: 1, "& img": { maxWidth: "100%", maxHeight: 240, objectFit: "contain" }, "& table": { borderCollapse: "collapse", width: "100%" }, "& td": { border: "1px solid #cbd5e1", p: 0.75 }, "& .question-math": { fontFamily: "Cambria Math, Georgia, serif", fontSize: 18, my: 1 } }} dangerouslySetInnerHTML={{ __html: richQuestionHtml(a) }} /><Typography sx={{ whiteSpace: "pre-wrap", mt: 1 }}>Answer: {a.answertext || a.selectedoptiontext}</Typography>{a.attachmenturl && <AttachmentLink url={a.attachmenturl} label="Attachment" />}<Grid container spacing={1.5} sx={{ mt: 1 }}><Grid item xs={12} md={2}><TextField fullWidth type="number" label={`Marks / ${a.maxmarks}`} value={a.marksobtained || 0} onChange={(e) => updateAnswer(a._id, { marksobtained: e.target.value })} /></Grid><Grid item xs={12} md={2}><TextField fullWidth label="Grade" value={a.grade || ""} onChange={(e) => updateAnswer(a._id, { grade: e.target.value })} /></Grid><Grid item xs={12} md={8}><TextField fullWidth label="Comments" value={a.comments || ""} onChange={(e) => updateAnswer(a._id, { comments: e.target.value })} /></Grid></Grid>{a.aicomments && <Typography color="text.secondary" sx={{ mt: 1 }}>AI: {a.aicomments}</Typography>}</Paper>)}
               </Stack>}
             </DialogContent>
             <DialogActions><Button onClick={() => setSelected(null)}>Close</Button><Button variant="contained" onClick={grade}>Save Grades</Button></DialogActions>
@@ -2019,10 +2362,10 @@ export function AdmissionApplicantExamPage() {
             <Grid item xs={12} md={9}>
               <Paper sx={{ p: 2, minHeight: "calc(100vh - 150px)" }}>
                 <Typography variant="h6" fontWeight={900}>{currentSection?.sectionname}</Typography>
-                <Typography sx={{ mt: 2, whiteSpace: "pre-wrap" }}>{currentQuestion?.questiontext}</Typography>
-                {currentQuestion?.imageurl && <Box sx={{ mt: 2 }}><img src={currentQuestion.imageurl} alt="question" style={{ maxWidth: "100%", maxHeight: 260 }} /></Box>}
-                {currentQuestion?.fileurl && <Typography sx={{ mt: 1 }}><AttachmentLink url={currentQuestion.fileurl} label="Question file" /></Typography>}
-                {currentQuestion?.linkurl && <Typography sx={{ mt: 1 }}><AttachmentLink url={currentQuestion.linkurl} label="Question link" /></Typography>}
+                <Box
+                  sx={{ mt: 2, color: "#111827", "& img": { maxWidth: "100%", maxHeight: 320, objectFit: "contain" }, "& table": { borderCollapse: "collapse", width: "100%", my: 1 }, "& td": { border: "1px solid #cbd5e1", p: 0.75 }, "& .question-math": { fontFamily: "Cambria Math, Georgia, serif", fontSize: 20, my: 1 }, "& a": { color: "#2563eb" } }}
+                  dangerouslySetInnerHTML={{ __html: richQuestionHtml(currentQuestion) }}
+                />
                 {/^mcq$/i.test(currentQuestion?.questiontype || currentSection?.sectiontype) ? (
                   <Stack spacing={1} sx={{ mt: 3 }}>{(currentQuestion?.options || []).map((o) => <FormControlLabel key={o._id} control={<Radio checked={currentAnswer?.selectedoptionid === o._id} onChange={() => answerPatch(currentQuestion._id, { selectedoptionid: o._id, selectedoptiontext: o.optiontext })} />} label={o.optiontext} />)}</Stack>
                 ) : (
@@ -2153,7 +2496,8 @@ export function AdmissionEntranceScoresPage() {
                 <Typography fontWeight={900}>{selected.student} - {selected.examname}</Typography>
                 {(selected.answers || []).map((answer, index) => (
                   <Paper key={answer._id || answer.questionid} variant="outlined" sx={{ p: 1.5 }}>
-                    <Typography fontWeight={800}>{index + 1}. {answer.questiontext}</Typography>
+                    <Typography fontWeight={800}>Question {index + 1}</Typography>
+                    <Box sx={{ mt: 0.5, "& img": { maxWidth: "100%", maxHeight: 220, objectFit: "contain" }, "& table": { borderCollapse: "collapse", width: "100%" }, "& td": { border: "1px solid #cbd5e1", p: 0.75 }, "& .question-math": { fontFamily: "Cambria Math, Georgia, serif", fontSize: 18, my: 1 } }} dangerouslySetInnerHTML={{ __html: richQuestionHtml(answer) }} />
                     <Typography variant="body2" sx={{ mt: 0.5 }}>Answer: {answer.answertext || answer.selectedoptiontext || "-"}</Typography>
                     <Typography variant="body2">Marks: {answer.marksobtained || 0}/{answer.maxmarks || 0}</Typography>
                     {answer.comments && <Typography variant="body2">Comments: {answer.comments}</Typography>}

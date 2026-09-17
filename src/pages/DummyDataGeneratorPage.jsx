@@ -47,7 +47,8 @@ const generatorSections = [
   { key: "examFormBuilder", label: "Exam form builder", description: "Regular and supplementary exam forms" },
   { key: "supplementaryAttendanceWorkflow", label: "Supplementary attendance workflow", description: "Categorywise approval workflow" },
   { key: "feesApprovalWorkflow", label: "Fees approval workflow", description: "Program/institution style fee approval levels" },
-  { key: "conductExam", label: "Conduct exam pages", description: "Rooms, dates, rate cards, setters, moderators and papers" }
+  { key: "conductExam", label: "Conduct exam pages", description: "Rooms, dates, rate cards, setters, moderators and papers" },
+  { key: "electiveApplications", label: "Elective applications", description: "Applied, approved and rejected elective applications" }
 ];
 
 const blank = {
@@ -62,6 +63,11 @@ const blank = {
   periodStartTime: "09:00",
   periodDurationMinutes: 60,
   periodGapMinutes: 0,
+  electiveAcademicyear: "2026-27",
+  electiveRegulation: "",
+  electiveProgram: "",
+  electiveProgramcode: "",
+  electiveSemester: "",
   includeExistingUsers: true,
   sections: generatorSections.map((section) => section.key),
   password: ""
@@ -76,6 +82,7 @@ export default function DummyDataGeneratorPage() {
   const [roleUsers, setRoleUsers] = useState([]);
   const [meta, setMeta] = useState(null);
   const [periodOptions, setPeriodOptions] = useState({ programs: [] });
+  const [electiveOptions, setElectiveOptions] = useState({ academicyears: [], regulations: [], programs: [], semesters: [] });
 
   const payload = useMemo(() => ({
     ...form,
@@ -98,6 +105,24 @@ export default function DummyDataGeneratorPage() {
       .then((res) => setPeriodOptions(res.data || { programs: [] }))
       .catch(() => setPeriodOptions({ programs: [] }));
   }, []);
+  const loadElectiveOptions = async (source = form) => {
+    const params = {
+      colid: global1.colid,
+      academicyear: source.electiveAcademicyear,
+      regulation: source.electiveRegulation,
+      programcode: source.electiveProgramcode,
+      semester: source.electiveSemester
+    };
+    const res = await ep1.get("/api/v2/nepclassenrollment/options", { params });
+    const courses = res.data?.courses || [];
+    setElectiveOptions({
+      academicyears: res.data?.academicyears || [],
+      regulations: [...new Set(courses.map((row) => row.regulation).filter(Boolean))].sort(),
+      programs: [...new Set(courses.map((row) => `${row.program || ""}|||${row.programcode || ""}`).filter((value) => !value.endsWith("|||")))].sort(),
+      semesters: [...new Set(courses.map((row) => row.semester).filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true }))
+    });
+  };
+  useEffect(() => { loadElectiveOptions().catch(() => setElectiveOptions({ academicyears: [], regulations: [], programs: [], semesters: [] })); }, []);
   const toggleSection = (key) => {
     setForm((prev) => {
       const current = new Set(prev.sections || []);
@@ -150,6 +175,39 @@ export default function DummyDataGeneratorPage() {
     } finally {
       setBusy(false);
     }
+  };
+  const generateElectivesOnly = async () => {
+    if (!form.electiveAcademicyear || !form.electiveRegulation || !form.electiveProgramcode || !form.electiveSemester) {
+      setError("Select academic year, regulation, program and semester for elective dummy data");
+      return;
+    }
+    if (!window.confirm("Generate elective dummy applications only for the selected academic year, regulation, program and semester?")) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    setSummary([]);
+    setMeta(null);
+    try {
+      const res = await ep1.post("/api/v2/dummy-data/generate", { ...payload, sectionsOnly: true, sections: ["electiveApplications"] });
+      setSummary((res.data?.summary || []).map((row, index) => ({ ...row, id: index + 1 })));
+      setRoleUsers((res.data?.roleUsers || []).map((row, index) => ({ ...row, id: row._id || index + 1 })));
+      setMeta(res.data?.meta || null);
+      setMessage(res.data?.message || "Elective dummy applications generated");
+    } catch (err) {
+      setSummary((err.response?.data?.summary || []).map((row, index) => ({ ...row, id: index + 1 })));
+      setError(err.response?.data?.message || "Unable to generate elective dummy data");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const updateElective = (field, value) => {
+    const next = { ...form, [field]: value };
+    if (field === "electiveAcademicyear") Object.assign(next, { electiveRegulation: "", electiveProgram: "", electiveProgramcode: "", electiveSemester: "" });
+    if (field === "electiveRegulation") Object.assign(next, { electiveProgram: "", electiveProgramcode: "", electiveSemester: "" });
+    if (field === "electiveProgram") Object.assign(next, { electiveSemester: "" });
+    setForm(next);
+    loadElectiveOptions(next).catch(() => {});
   };
 
   const columns = [
@@ -287,6 +345,61 @@ export default function DummyDataGeneratorPage() {
               <Grid item xs={12}>
                 <Button variant="contained" disabled={busy} startIcon={<AutoFixHigh />} onClick={generatePeriodsOnly}>
                   {busy ? "Generating..." : "Generate Periods Only"}
+                </Button>
+              </Grid>
+            </Grid>
+          </Paper>
+
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="h6" fontWeight={900} sx={{ mb: 1 }}>Elective Dummy Data</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Generate applied, approved and rejected elective applications only for the selected academic year, regulation, program and semester.
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={2.2}>
+                <Autocomplete
+                  options={electiveOptions.academicyears?.length ? electiveOptions.academicyears : years}
+                  value={form.electiveAcademicyear || null}
+                  onChange={(_, value) => updateElective("electiveAcademicyear", value || "")}
+                  renderInput={(params) => <TextField {...params} label="Academic Year" />}
+                />
+              </Grid>
+              <Grid item xs={12} md={2.2}>
+                <Autocomplete
+                  options={electiveOptions.regulations || []}
+                  value={form.electiveRegulation || null}
+                  onChange={(_, value) => updateElective("electiveRegulation", value || "")}
+                  renderInput={(params) => <TextField {...params} label="Regulation" />}
+                />
+              </Grid>
+              <Grid item xs={12} md={3.2}>
+                <Autocomplete
+                  options={electiveOptions.programs || []}
+                  value={form.electiveProgram && form.electiveProgramcode ? `${form.electiveProgram}|||${form.electiveProgramcode}` : null}
+                  onChange={(_, value) => {
+                    const [program, programcode] = String(value || "").split("|||");
+                    const next = { ...form, electiveProgram: program || "", electiveProgramcode: programcode || "", electiveSemester: "" };
+                    setForm(next);
+                    loadElectiveOptions(next).catch(() => {});
+                  }}
+                  getOptionLabel={(option) => {
+                    const [program, programcode] = String(option || "").split("|||");
+                    return programcode ? `${program} (${programcode})` : String(option || "");
+                  }}
+                  renderInput={(params) => <TextField {...params} label="Program" />}
+                />
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <Autocomplete
+                  options={electiveOptions.semesters || []}
+                  value={form.electiveSemester || null}
+                  onChange={(_, value) => updateElective("electiveSemester", value || "")}
+                  renderInput={(params) => <TextField {...params} label="Semester" />}
+                />
+              </Grid>
+              <Grid item xs={12} md={2.4}>
+                <Button fullWidth variant="contained" disabled={busy} startIcon={<AutoFixHigh />} onClick={generateElectivesOnly} sx={{ minHeight: 56 }}>
+                  {busy ? "Generating..." : "Generate Electives Only"}
                 </Button>
               </Grid>
             </Grid>

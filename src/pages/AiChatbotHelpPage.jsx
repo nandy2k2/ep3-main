@@ -5,15 +5,20 @@ import {
   Box,
   Button,
   CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
   Paper,
   Stack,
   Typography
 } from "@mui/material";
-import { SmartToy, SubdirectoryArrowRight } from "@mui/icons-material";
-import { useNavigate } from "react-router-dom";
+import { Close, SmartToy, SubdirectoryArrowRight } from "@mui/icons-material";
 import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+
+const embeddedUrl = (path) => `${path}${path.includes("?") ? "&" : "?"}embedded=1`;
 
 function BotBubble({ children }) {
   return (
@@ -39,11 +44,12 @@ function UserBubble({ children }) {
 const sortRows = (rows) => [...rows].sort((a, b) => Number(a.slno || 0) - Number(b.slno || 0) || String(a.pagename || "").localeCompare(String(b.pagename || "")));
 
 export default function AiChatbotHelpPage() {
-  const navigate = useNavigate();
   const chatBottomRef = useRef(null);
   const [rows, setRows] = useState([]);
   const [messages, setMessages] = useState([]);
   const [activeParent, setActiveParent] = useState(0);
+  const [popup, setPopup] = useState({ open: false, title: "", path: "" });
+  const [popupLoading, setPopupLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -85,8 +91,11 @@ export default function AiChatbotHelpPage() {
   const choose = (item) => {
     setMessages((prev) => [...prev, { from: "user", text: item.pagename }]);
     if (item.type === "link") {
-      setMessages((prev) => [...prev, { from: "bot", text: `Opening ${item.pagename}.` }]);
-      if (item.pagelink) navigate(item.pagelink);
+      setMessages((prev) => [...prev, { from: "bot", text: `Opening ${item.pagename} in a popup.` }]);
+      if (item.pagelink) {
+        setPopupLoading(true);
+        setPopup({ open: true, title: item.pagename || "Page", path: item.pagelink });
+      }
       return;
     }
     const nextChildren = rows.filter((row) => Number(row.parentslno || 0) === Number(item.slno || 0));
@@ -103,6 +112,11 @@ export default function AiChatbotHelpPage() {
   const goHome = () => {
     setActiveParent(0);
     setMessages((prev) => [...prev, { from: "bot", text: "Back to main options." }]);
+  };
+
+  const closePopup = () => {
+    setPopup({ open: false, title: "", path: "" });
+    setPopupLoading(false);
   };
 
   return (
@@ -180,6 +194,51 @@ export default function AiChatbotHelpPage() {
             </Stack>
           </Box>
         </Paper>
+        <Dialog
+          open={popup.open}
+          onClose={closePopup}
+          fullWidth
+          maxWidth={false}
+          PaperProps={{ sx: { width: "96vw", height: "92vh", borderRadius: 2 } }}
+        >
+          <DialogTitle sx={{ py: 1, pr: 6, fontWeight: 900 }}>
+            {popup.title}
+            <IconButton
+              aria-label="Close"
+              onClick={closePopup}
+              sx={{ position: "absolute", right: 8, top: 6 }}
+            >
+              <Close />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent dividers sx={{ p: 0, height: "100%", position: "relative" }}>
+            {popupLoading && (
+              <Stack
+                alignItems="center"
+                justifyContent="center"
+                spacing={1.5}
+                sx={{
+                  position: "absolute",
+                  inset: 0,
+                  zIndex: 2,
+                  bgcolor: "rgba(255,255,255,0.88)"
+                }}
+              >
+                <CircularProgress />
+                <Typography fontWeight={900}>Loading page...</Typography>
+              </Stack>
+            )}
+            {popup.path && (
+              <Box
+                component="iframe"
+                title={popup.title}
+                src={embeddedUrl(popup.path)}
+                onLoad={() => setPopupLoading(false)}
+                sx={{ border: 0, width: "100%", height: "100%", display: "block" }}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
       </Box>
     </MenuPageShell>
   );

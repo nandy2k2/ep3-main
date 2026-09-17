@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { styled, createTheme, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import MuiDrawer from '@mui/material/Drawer';
@@ -22,6 +22,13 @@ import MenuIcon from '@mui/icons-material/Menu';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import global1 from '../pages/global1';
+import {
+    applyColourScheme,
+    colourSchemeChangedEvent,
+    getStoredColourScheme,
+    loadColourScheme,
+    themeFromScheme
+} from '../utils/colourScheme';
 
 // Import Role Menus
 import { menupurchasepu as MenuPurchase } from '../pages/menupurchasepu';
@@ -60,6 +67,12 @@ const Drawer = styled(MuiDrawer, { shouldForwardProp: (prop) => prop !== 'open' 
             position: 'relative',
             whiteSpace: 'nowrap',
             width: drawerWidth,
+            height: '100vh',
+            maxHeight: '100vh',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            color: 'var(--campus-drawer-text)',
+            background: 'linear-gradient(180deg, var(--campus-drawer-bg) 0%, #ffffff 100%)',
             transition: theme.transitions.create('width', {
                 easing: theme.transitions.easing.sharp,
                 duration: theme.transitions.duration.enteringScreen,
@@ -80,11 +93,11 @@ const Drawer = styled(MuiDrawer, { shouldForwardProp: (prop) => prop !== 'open' 
     }),
 );
 
-const mdTheme = createTheme();
-
 function RoleLayoutContent({ children, customMenu }) {
     const [open, setOpen] = useState(true);
     const [role, setRole] = useState(global1.role);
+    const [scheme, setScheme] = useState(() => applyColourScheme(getStoredColourScheme()));
+    const mdTheme = useMemo(() => createTheme(themeFromScheme(scheme)), [scheme]);
 
     const toggleDrawer = () => {
         setOpen(!open);
@@ -104,6 +117,19 @@ function RoleLayoutContent({ children, customMenu }) {
         // Ensure role is up to date, though global1 is static object usually
         setRole(global1.role);
     }, [global1]);
+
+    useEffect(() => {
+        let mounted = true;
+        loadColourScheme().then((loaded) => {
+            if (mounted) setScheme(loaded);
+        });
+        const handler = (event) => setScheme(applyColourScheme(event.detail || getStoredColourScheme()));
+        window.addEventListener(colourSchemeChangedEvent, handler);
+        return () => {
+            mounted = false;
+            window.removeEventListener(colourSchemeChangedEvent, handler);
+        };
+    }, []);
 
     const getMenuComponent = () => {
         if (customMenu) {
@@ -130,7 +156,16 @@ function RoleLayoutContent({ children, customMenu }) {
         <ThemeProvider theme={mdTheme}>
             <Box sx={{ display: 'flex' }}>
                 <CssBaseline />
-                <AppBar position="fixed" open={open}>
+                <AppBar
+                    position="fixed"
+                    open={open}
+                    sx={{
+                        background: 'linear-gradient(135deg, var(--campus-appbar-start), var(--campus-appbar-end))',
+                        color: 'var(--campus-appbar-text)',
+                        boxShadow: '0 12px 32px rgba(63, 125, 246, 0.12)',
+                        borderBottom: '1px solid var(--campus-border)'
+                    }}
+                >
                     <Toolbar
                         sx={{
                             pr: '24px', // keep right padding when drawer closed
@@ -195,7 +230,7 @@ function RoleLayoutContent({ children, customMenu }) {
                         >
                             {global1.name}
                         </Typography>
-                        <IconButton onClick={toggleDrawer}>
+                        <IconButton onClick={toggleDrawer} sx={{ color: 'var(--campus-drawer-text)' }}>
                             <ChevronLeftIcon />
                         </IconButton>
                     </Toolbar>
@@ -206,10 +241,8 @@ function RoleLayoutContent({ children, customMenu }) {
                 <Box
                     component="main"
                     sx={{
-                        backgroundColor: (theme) =>
-                            theme.palette.mode === 'light'
-                                ? theme.palette.grey[100]
-                                : theme.palette.grey[900],
+                        background: 'linear-gradient(180deg, var(--campus-page-bg-start), var(--campus-page-bg-end))',
+                        color: 'var(--campus-text)',
                         flexGrow: 1,
                         height: '100vh',
                         overflow: 'auto',

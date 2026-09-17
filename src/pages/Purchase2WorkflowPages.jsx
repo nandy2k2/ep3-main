@@ -656,6 +656,7 @@ export function Purchase2StoreRequestReviewPage() {
   const [requests, setRequests] = useState([]);
   const [selected, setSelected] = useState(null);
   const [items, setItems] = useState([]);
+  const [selectedAllotItemIds, setSelectedAllotItemIds] = useState([]);
   const [stock, setStock] = useState([]);
   const [printData, setPrintData] = useState(null);
   const [prPrintData, setPrPrintData] = useState(null);
@@ -672,9 +673,24 @@ export function Purchase2StoreRequestReviewPage() {
   const open = async (row) => {
     setSelected(row);
     setPrPrintData(null);
+    setSelectedAllotItemIds([]);
     const child = await getRows("storerequisitionitemsds2", [{ field: "requisitionid", value: row._id }]);
-    setItems(child.length ? child : [{ ...row, requisitionid: row._id, quantity: row.quantity }]);
+    const nextItems = (child.length ? child : [{ ...row, requisitionid: row._id, quantity: row.quantity }]).map((item) => {
+      const previousQty = item.assignedquantity ?? item.issuedquantity ?? item.approvedquantity;
+      return {
+        ...item,
+        assignedquantity: previousQty === undefined || previousQty === "" ? num(item.quantity) : num(previousQty)
+      };
+    });
+    setItems(nextItems);
+    if (nextItems.some((item) => isAllottedItem(item))) setPrintData({ header: row, items: nextItems });
+    else setPrintData(null);
   };
+  const isAllottedItem = (item = {}) => {
+    const status = text(item.status).toLowerCase();
+    return num(item.issuedquantity) > 0 || num(item.approvedquantity) > 0 || num(item.allottedquantity) > 0 || status.includes("issued") || status.includes("allotted");
+  };
+  const itemRowId = (item, index) => item._id || `${text(item.itemcode) || "item"}-${index}`;
   const stockFor = (item, request = selected) => stock.find((s) => {
     const sameStore = text(s.storeid) === text(request?.storeid)
       || text(s.storeId) === text(request?.storeid)
@@ -684,13 +700,33 @@ export function Purchase2StoreRequestReviewPage() {
       || text(s.itemname).toLowerCase() === text(item.itemname).toLowerCase();
     return sameStore && sameItem;
   });
+  const allotmentRows = items.map((item, index) => {
+    const available = stockFor(item);
+    const availableQty = num(available?.quantity);
+    const assigned = item.assignedquantity === "" || item.assignedquantity === undefined ? num(item.quantity) : num(item.assignedquantity);
+    return {
+      ...item,
+      id: itemRowId(item, index),
+      _rowIndex: index,
+      available: availableQty,
+      shortage: Math.max(num(item.quantity) - availableQty, 0),
+      assignedquantity: assigned,
+      alreadyAllotted: isAllottedItem(item)
+    };
+  });
   const issue = async () => {
     try {
       if (!selected) throw new Error("Open an indent request first");
+      const selectedIds = asArray(selectedAllotItemIds).map(String);
+      if (!selectedIds.length) throw new Error("Select at least one item to allot");
       let issuedAny = false;
       let issuedLess = false;
+      const allotableRows = allotmentRows.filter((item) => !item.alreadyAllotted);
+      if (selectedIds.length < allotableRows.length) issuedLess = true;
       const updatedItems = [];
-      for (const item of items) {
+      for (const row of allotmentRows.filter((item) => selectedIds.includes(String(item.id)))) {
+        const item = { ...(items[row._rowIndex] || {}), ...row };
+        if (isAllottedItem(item)) continue;
         const available = stockFor(item);
         if (!available) throw new Error(`Store stock not found for ${item.itemname || item.itemcode}`);
         const requested = num(item.quantity);
@@ -713,6 +749,7 @@ export function Purchase2StoreRequestReviewPage() {
       setMessage("Items allotted and store stock updated");
       const displayItems = items.map((item) => updatedItems.find((updated) => updated._id === item._id || updated.itemcode === item.itemcode) || item);
       setItems(displayItems);
+      setSelectedAllotItemIds([]);
       setSelected({ ...selected, ...header });
       setPrintData({ header: { ...selected, ...header }, items: displayItems });
       await load();
@@ -760,7 +797,66 @@ export function Purchase2StoreRequestReviewPage() {
   return (
     <Page title="Indent Approval and Item Allotment" subtitle="Approve indent requests for assigned stores, allot available quantities, and print the allotment document." message={message} error={error || basicsError}>
       <Paper sx={{ p: 2 }}><Button startIcon={<Refresh />} onClick={load}>Refresh</Button><DataGrid sx={{ mt: 1 }} autoHeight rows={requests.map((r) => ({ ...r, id: r._id }))} columns={[{ field: "reqdate", headerName: "Date", width: 130 }, { field: "requestno", headerName: "Indent No", width: 170 }, { field: "departmentname", headerName: "Department", width: 180 }, { field: "requestedby", headerName: "Requested By", width: 180 }, { field: "store", headerName: "Store", width: 180 }, { field: "reqstatus", headerName: "Status", width: 150 }, { field: "actions", headerName: "Allot Items", width: 150, renderCell: (p) => <Button size="small" variant="contained" onClick={() => open(p.row)}>Allot items</Button> }]} slots={{ toolbar: GridToolbar }} /></Paper>
-      {selected && <Paper sx={{ p: 2, mt: 2 }}><Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}><Box><Typography variant="h6">Allot items for {selected.requestno || selected.reqid || selected._id}</Typography><Typography variant="body2" color="text.secondary">Enter an allotted quantity equal to or less than requested quantity and available stock.</Typography></Box><Chip label={selected.reqstatus || selected.status || "Open"} /></Stack><DataGrid autoHeight rows={items.map((item, i) => { const available = stockFor(item); const availableQty = num(available?.quantity); const previousQty = item.assignedquantity || item.issuedquantity || item.approvedquantity; return { ...item, id: i, available: availableQty, shortage: Math.max(num(item.quantity) - availableQty, 0), assignedquantity: previousQty === undefined || previousQty === "" ? Math.min(num(item.quantity), availableQty) : previousQty }; })} columns={[{ field: "itemcode", headerName: "Code", width: 130 }, { field: "itemname", headerName: "Item", flex: 1, minWidth: 220 }, { field: "unit", headerName: "Unit", width: 90 }, { field: "quantity", headerName: "Requested", width: 120 }, { field: "available", headerName: "Available", width: 120 }, { field: "shortage", headerName: "Shortage", width: 120 }, { field: "assignedquantity", headerName: "Allotted Qty", width: 150, editable: true, type: "number" }, { field: "remarks", headerName: "Remarks", flex: 1, editable: true }]} processRowUpdate={(row) => { setItems(items.map((it, idx) => idx === row.id ? { ...it, assignedquantity: num(row.assignedquantity), approvedquantity: num(row.assignedquantity), remarks: row.remarks || "" } : it)); return row; }} /><Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: "wrap" }}><Button variant="contained" onClick={issue}>Approve and allot items</Button><Button variant="outlined" color="warning" onClick={createPrFromIndent}>Create PR from shortage</Button><Button startIcon={<Print />} variant="outlined" disabled={!prPrintData} onClick={() => printPurchase2("pr", prPrintData)}>Print shortage PR</Button><Button startIcon={<Print />} variant="outlined" disabled={!printData} onClick={() => printPurchase2("indent", printData)}>Print allotment</Button></Stack></Paper>}
+      {selected && (
+        <Paper sx={{ p: 2, mt: 2 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+            <Box>
+              <Typography variant="h6">Allot items for {selected.requestno || selected.reqid || selected._id}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Select the items to allot. Already allotted items are visible but cannot be selected again.
+              </Typography>
+            </Box>
+            <Chip label={selected.reqstatus || selected.status || "Open"} />
+          </Stack>
+          <DataGrid
+            autoHeight
+            checkboxSelection
+            disableRowSelectionOnClick
+            rows={allotmentRows}
+            rowSelectionModel={selectedAllotItemIds}
+            onRowSelectionModelChange={(selection) => setSelectedAllotItemIds(asArray(selection))}
+            isRowSelectable={(params) => !params.row.alreadyAllotted}
+            columns={[
+              { field: "itemcode", headerName: "Code", width: 130 },
+              { field: "itemname", headerName: "Item", flex: 1, minWidth: 220 },
+              { field: "unit", headerName: "Unit", width: 90 },
+              { field: "quantity", headerName: "Requested", width: 120 },
+              { field: "available", headerName: "Available", width: 120 },
+              { field: "shortage", headerName: "Shortage", width: 120 },
+              {
+                field: "assignedquantity",
+                headerName: "Allotted Qty",
+                width: 150,
+                editable: true,
+                type: "number",
+                cellClassName: (params) => params.row.alreadyAllotted ? "allotted-disabled-cell" : ""
+              },
+              { field: "status", headerName: "Item Status", width: 150 },
+              { field: "remarks", headerName: "Remarks", flex: 1, minWidth: 180, editable: true }
+            ]}
+            processRowUpdate={(row) => {
+              if (row.alreadyAllotted) return row;
+              setItems((prev) => prev.map((item, idx) => idx === row._rowIndex ? {
+                ...item,
+                assignedquantity: num(row.assignedquantity),
+                remarks: row.remarks || ""
+              } : item));
+              return row;
+            }}
+            isCellEditable={(params) => !params.row.alreadyAllotted && ["assignedquantity", "remarks"].includes(params.field)}
+            slots={{ toolbar: GridToolbar }}
+            sx={{
+              "& .allotted-disabled-cell": { color: "text.disabled", bgcolor: "#f8fafc" }
+            }}
+          />
+          <Stack direction="row" spacing={1} sx={{ mt: 2, flexWrap: "wrap", rowGap: 1 }}>
+            <Button variant="contained" disabled={!selectedAllotItemIds.length} onClick={issue}>Allot selected items</Button>
+            <Button variant="outlined" color="warning" onClick={createPrFromIndent}>Create PR from shortage</Button>
+            <Button startIcon={<Print />} variant="outlined" disabled={!prPrintData} onClick={() => printPurchase2("pr", prPrintData)}>Print shortage PR</Button>
+            <Button startIcon={<Print />} variant="outlined" disabled={!selected} onClick={() => printPurchase2("indent", printData || { header: selected, items })}>Print allotment</Button>
+          </Stack>
+        </Paper>
+      )}
     </Page>
   );
 }

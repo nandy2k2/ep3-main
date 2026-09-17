@@ -33,6 +33,7 @@ const blankForm = {
   semester: "",
   course: "",
   coursecode: "",
+  component: "",
   papersettername: "",
   papersetteremail: "",
   startdate: "",
@@ -54,6 +55,7 @@ export default function ConductExamPaperSetterRegistrationPage() {
   const [courses, setCourses] = useState([]);
   const [exams, setExams] = useState([]);
   const [users, setUsers] = useState([]);
+  const [components, setComponents] = useState([]);
   const [rows, setRows] = useState([]);
   const [institution, setInstitution] = useState(null);
   const [form, setForm] = useState(blankForm);
@@ -81,6 +83,7 @@ export default function ConductExamPaperSetterRegistrationPage() {
     setCourses(res.data?.courses || []);
     setExams(res.data?.exams || []);
     setUsers(res.data?.users || []);
+    setComponents(res.data?.components || []);
   };
 
   const loadInstitution = async () => {
@@ -121,6 +124,12 @@ export default function ConductExamPaperSetterRegistrationPage() {
     byProgram.forEach((row) => {
       if (row.coursecode) courseMap.set(row.coursecode, row);
     });
+    const componentRows = components
+      .filter((row) => !form.academicyear || row.academicyear === form.academicyear)
+      .filter((row) => !form.regulation || row.regulation === form.regulation)
+      .filter((row) => !form.programcode || row.programcode === form.programcode)
+      .filter((row) => !form.semester || String(row.semester || "") === String(form.semester || ""))
+      .filter((row) => !form.coursecode || row.coursecode === form.coursecode);
     return {
       academicyears: uniq([...courses.map((row) => row.academicyear), ...exams.map((row) => row.academicyear)]),
       exams: uniq([
@@ -132,9 +141,10 @@ export default function ConductExamPaperSetterRegistrationPage() {
       }),
       regulations: uniq(byExam.map((row) => row.regulation)),
       programs: [...programMap.values()].sort((a, b) => a.program.localeCompare(b.program)),
-      coursesList: [...courseMap.values()].sort((a, b) => a.course.localeCompare(b.course))
+      coursesList: [...courseMap.values()].sort((a, b) => a.course.localeCompare(b.course)),
+      components: uniq(componentRows.map((row) => row.assessmentcomponent || row.component))
     };
-  }, [courses, exams, form]);
+  }, [courses, exams, components, form]);
 
   const filterOptions = useMemo(() => ({
     academicyear: uniq([...courses.map((row) => row.academicyear), ...exams.map((row) => row.academicyear), ...rows.map((row) => row.academicyear)]),
@@ -152,7 +162,8 @@ export default function ConductExamPaperSetterRegistrationPage() {
       course: selected?.course || "",
       type: selected?.type || "",
       subject: selected?.subject || "",
-      semester: selected?.semester || ""
+      semester: selected?.semester || "",
+      component: ""
     }));
   };
 
@@ -253,6 +264,7 @@ export default function ConductExamPaperSetterRegistrationPage() {
       semester: first.semester || "1",
       course: first.course || "Financial Accounting",
       coursecode: first.coursecode || "BCOM101",
+      component: "Theory",
       papersettername: "Paper Setter Name",
       papersetteremail: "papersetter@example.com",
       startdate: "",
@@ -312,8 +324,8 @@ export default function ConductExamPaperSetterRegistrationPage() {
         <p class="salutation">Dear ${htmlEscape(group.name || "Paper Setter")},</p>
         <p class="note">You are appointed as paper setter for the examination work listed below. Please prepare and submit the question paper as per the examination rules, confidentiality requirements and timeline notified by the institution.</p>
         <table>
-          <thead><tr><th>Academic Year</th><th>Exam</th><th>Exam Code</th><th>Regulation</th><th>Program</th><th>Semester</th><th>Course</th><th>Course Code</th></tr></thead>
-          <tbody>${group.rows.map((row) => `<tr><td>${htmlEscape(row.academicyear)}</td><td>${htmlEscape(row.exam)}</td><td>${htmlEscape(row.examcode)}</td><td>${htmlEscape(row.regulation)}</td><td>${htmlEscape(row.program)}</td><td>${htmlEscape(row.semester)}</td><td>${htmlEscape(row.course)}</td><td>${htmlEscape(row.coursecode)}</td></tr>`).join("")}</tbody>
+          <thead><tr><th>Academic Year</th><th>Exam</th><th>Exam Code</th><th>Regulation</th><th>Program</th><th>Semester</th><th>Course</th><th>Course Code</th><th>Component</th></tr></thead>
+          <tbody>${group.rows.map((row) => `<tr><td>${htmlEscape(row.academicyear)}</td><td>${htmlEscape(row.exam)}</td><td>${htmlEscape(row.examcode)}</td><td>${htmlEscape(row.regulation)}</td><td>${htmlEscape(row.program)}</td><td>${htmlEscape(row.semester)}</td><td>${htmlEscape(row.course)}</td><td>${htmlEscape(row.coursecode)}</td><td>${htmlEscape(row.component)}</td></tr>`).join("")}</tbody>
         </table>
         <div class="instructions"><strong>Instructions:</strong><ol><li>Maintain strict confidentiality of the paper and related material.</li><li>Submit the paper within the notified timeline.</li><li>Ensure the paper follows the approved syllabus, CO mapping and Bloom taxonomy requirements.</li></ol></div>
         <div class="signature"><div>Controller of Examinations</div><div>Principal / Authorized Signatory</div></div>
@@ -358,6 +370,7 @@ export default function ConductExamPaperSetterRegistrationPage() {
     { field: "programcode", headerName: "Program Code", width: 140 },
     { field: "course", headerName: "Course", minWidth: 180, flex: 1 },
     { field: "coursecode", headerName: "Course Code", width: 140 },
+    { field: "component", headerName: "Component", width: 150 },
     { field: "papersettername", headerName: "Paper Setter", width: 180 },
     { field: "papersetteremail", headerName: "Paper Setter Email", width: 220 },
     { field: "startdate", headerName: "Start Date", width: 130, valueGetter: (params) => params.row.startdate ? String(params.row.startdate).slice(0, 10) : "" },
@@ -396,12 +409,20 @@ export default function ConductExamPaperSetterRegistrationPage() {
               const exam = dropdowns.exams.find((item) => item.examcode === e.target.value);
               setForm((prev) => ({ ...blankForm, academicyear: prev.academicyear, examcode: e.target.value, exam: exam?.exam || "" }));
             }}>{dropdowns.exams.map((item) => <MenuItem key={item.examcode} value={item.examcode}>{item.exam} ({item.examcode})</MenuItem>)}</TextField></Grid>
-            <Grid item xs={12} md={2}><TextField select fullWidth label="Regulation" value={form.regulation} onChange={(e) => setForm((prev) => ({ ...prev, regulation: e.target.value, program: "", programcode: "", course: "", coursecode: "" }))}>{dropdowns.regulations.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={2}><TextField select fullWidth label="Regulation" value={form.regulation} onChange={(e) => setForm((prev) => ({ ...prev, regulation: e.target.value, program: "", programcode: "", course: "", coursecode: "", component: "" }))}>{dropdowns.regulations.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={3}><TextField select fullWidth label="Program" value={form.programcode} onChange={(e) => {
               const program = dropdowns.programs.find((item) => item.programcode === e.target.value);
-              setForm((prev) => ({ ...prev, programcode: e.target.value, program: program?.program || "", course: "", coursecode: "" }));
+              setForm((prev) => ({ ...prev, programcode: e.target.value, program: program?.program || "", course: "", coursecode: "", component: "" }));
             }}>{dropdowns.programs.map((item) => <MenuItem key={item.programcode} value={item.programcode}>{item.program} ({item.programcode})</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={2}><TextField select fullWidth label="Course" value={form.coursecode} onChange={(e) => setCourseDetails(e.target.value)}>{dropdowns.coursesList.map((item) => <MenuItem key={item.coursecode} value={item.coursecode}>{courseLabel(item)}</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={3}>
+              <Autocomplete
+                options={dropdowns.components}
+                value={form.component || ""}
+                onChange={(event, value) => setForm((prev) => ({ ...prev, component: value || "" }))}
+                renderInput={(params) => <TextField {...params} label="Component" placeholder="From assessment components" />}
+              />
+            </Grid>
             <Grid item xs={12} md={6}>
               <Autocomplete
                 multiple

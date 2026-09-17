@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -21,9 +21,15 @@ import { mainListItems as studentListItems } from "./menustud1";
 import ActivityPointBadge from "./ActivityPointBadge";
 import TopMenuSearch from "./TopMenuSearch";
 import global1 from "./global1";
+import {
+  applyColourScheme,
+  colourSchemeChangedEvent,
+  getStoredColourScheme,
+  loadColourScheme,
+  themeFromScheme
+} from "../utils/colourScheme";
 
 const drawerWidth = 250;
-const theme = createTheme();
 const menuStorageKey = "campus_menu_open";
 
 const AppBarStyled = styled(AppBar, {
@@ -51,6 +57,12 @@ const DrawerStyled = styled(Drawer, {
     position: "relative",
     whiteSpace: "nowrap",
     width: drawerWidth,
+    height: "100vh",
+    maxHeight: "100vh",
+    overflowY: "auto",
+    overflowX: "hidden",
+    color: "var(--campus-drawer-text)",
+    background: "linear-gradient(180deg, var(--campus-drawer-bg) 0%, #ffffff 100%)",
     transition: theme.transitions.create("width", {
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.enteringScreen
@@ -71,6 +83,13 @@ const DrawerStyled = styled(Drawer, {
 }));
 
 export default function MenuPageShell({ title, children, menuType }) {
+  const embedded = (() => {
+    try {
+      return new URLSearchParams(window.location.search).get("embedded") === "1";
+    } catch {
+      return false;
+    }
+  })();
   const [open, setOpen] = useState(() => {
     try {
       const saved = localStorage.getItem(menuStorageKey);
@@ -79,6 +98,21 @@ export default function MenuPageShell({ title, children, menuType }) {
       return true;
     }
   });
+  const [scheme, setScheme] = useState(() => applyColourScheme(getStoredColourScheme()));
+  const theme = useMemo(() => createTheme(themeFromScheme(scheme)), [scheme]);
+
+  useEffect(() => {
+    let mounted = true;
+    loadColourScheme().then((loaded) => {
+      if (mounted) setScheme(loaded);
+    });
+    const handler = (event) => setScheme(applyColourScheme(event.detail || getStoredColourScheme()));
+    window.addEventListener(colourSchemeChangedEvent, handler);
+    return () => {
+      mounted = false;
+      window.removeEventListener(colourSchemeChangedEvent, handler);
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -97,11 +131,31 @@ export default function MenuPageShell({ title, children, menuType }) {
     window.location.href = "/";
   };
 
+  if (embedded) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Box sx={{ minHeight: "100vh", background: "linear-gradient(180deg, var(--campus-page-bg-start), var(--campus-page-bg-end))", color: "var(--campus-text)" }}>
+          {children}
+        </Box>
+      </ThemeProvider>
+    );
+  }
+
   return (
     <ThemeProvider theme={theme}>
       <Box sx={{ display: "flex" }}>
         <CssBaseline />
-        <AppBarStyled position="absolute" open={open}>
+        <AppBarStyled
+          position="absolute"
+          open={open}
+          sx={{
+            background: "linear-gradient(135deg, var(--campus-appbar-start), var(--campus-appbar-end))",
+            color: "var(--campus-appbar-text)",
+            boxShadow: "0 12px 32px rgba(63, 125, 246, 0.12)",
+            borderBottom: "1px solid var(--campus-border)"
+          }}
+        >
           <Toolbar sx={{ pr: "24px" }}>
             <IconButton
               edge="start"
@@ -130,14 +184,22 @@ export default function MenuPageShell({ title, children, menuType }) {
             <Typography component="h1" variant="body1" color="inherit" noWrap sx={{ flexGrow: 1 }}>
               {global1.name}
             </Typography>
-            <IconButton onClick={() => setOpen(false)}>
+            <IconButton onClick={() => setOpen(false)} sx={{ color: "var(--campus-drawer-text)" }}>
               <ChevronLeftIcon />
             </IconButton>
           </Toolbar>
           <Divider />
-          <List>{menuItems({ open })}</List>
+          <List sx={{
+            pb: 3,
+            "& .MuiListItem-root": { color: "var(--campus-drawer-text)", borderRadius: 1.5, mx: open ? 1 : 0.5, my: 0.25 },
+            "& .MuiListItem-root:hover": { backgroundColor: "rgba(63, 125, 246, 0.12)" },
+            "& .MuiListItemIcon-root": { color: "var(--campus-drawer-active)", minWidth: open ? 40 : 32 },
+            "& .MuiAccordion-root": { background: "transparent", color: "var(--campus-drawer-text)", boxShadow: "none" },
+            "& .MuiAccordionSummary-root": { minHeight: 42, borderRadius: 1.5 },
+            "& .MuiAccordionSummary-root:hover": { backgroundColor: "rgba(63, 125, 246, 0.1)" }
+          }}>{menuItems({ open })}</List>
         </DrawerStyled>
-        <Box component="main" sx={{ flexGrow: 1, height: "100vh", overflow: "auto", backgroundColor: "#f6f7fb" }}>
+        <Box component="main" sx={{ flexGrow: 1, height: "100vh", overflow: "auto", background: "linear-gradient(180deg, var(--campus-page-bg-start), var(--campus-page-bg-end))", color: "var(--campus-text)" }}>
           <Toolbar />
           {children}
         </Box>

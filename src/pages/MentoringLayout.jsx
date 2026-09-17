@@ -19,6 +19,7 @@ import MenuIcon from "@mui/icons-material/Menu";
 import { mainListItems as facultyMenu } from "./menucas1";
 import { mainListItems as studentMenu } from "./menustud1";
 import global1 from "./global1";
+import TopMenuSearch from './TopMenuSearch';
 
 const drawerWidth = 250;
 
@@ -67,8 +68,26 @@ const DrawerStyled = styled(Drawer, {
 const theme = createTheme();
 
 export default function MentoringLayout({ title, children, student = false }) {
+  const embedded = (() => {
+    try {
+      return new URLSearchParams(window.location.search).get("embedded") === "1";
+    } catch {
+      return false;
+    }
+  })();
   const [open, setOpen] = useState(true);
   const Menu = student ? studentMenu : facultyMenu;
+
+  if (embedded) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Box sx={{ minHeight: "100vh", backgroundColor: "#f6f7fb", p: 2 }}>
+          {children}
+        </Box>
+      </ThemeProvider>
+    );
+  }
 
   return (
     <ThemeProvider theme={theme}>
@@ -88,6 +107,7 @@ export default function MentoringLayout({ title, children, student = false }) {
             <Typography component="h1" variant="h6" color="inherit" noWrap sx={{ flexGrow: 1 }}>
               {title}
             </Typography>
+            <TopMenuSearch />
             <Button color="inherit" component={RouterLink} to={student ? "/dashmclassenr1stud" : "/dashdashfacnew"}>
               Dashboard
             </Button>

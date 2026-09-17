@@ -22,6 +22,7 @@ import { useState } from 'react';
 import ViewPage from './Viewmscholnewstud';
 import Login from './Login';
 import global1 from './global1';
+import TopMenuSearch from './TopMenuSearch';
 
 const SidebarWidth = 250;
 
@@ -111,6 +112,7 @@ function DashboardContent() {
                         >
                             Scholarships
                         </Typography>
+                        <TopMenuSearch />
                         <IconButton color="inherit">
     <Badge color="inherit">
         <Link to="/Loginstud" style={{ textDecoration: 'none', color: 'inherit' }}> 

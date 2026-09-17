@@ -1,15 +1,6 @@
 import ep1 from "../api/ep1";
-import global1 from "../pages/global1";
+import global1, { persistGlobalSession } from "../pages/global1";
 import { configureCountryTerminology } from "./countryTerminology";
-
-const defaultDashboardForRole = (role) => {
-  const normalizedRole = String(role || "").trim().toLowerCase();
-  if (normalizedRole === "student") return "/studentdashboard";
-  if (normalizedRole === "faculty") return "/facultydashboard";
-  if (normalizedRole === "alumni") return "/alumni-new-dashboard";
-  if (normalizedRole === "admin" || normalizedRole === "all") return "/configuration";
-  return "/dashdashfacnew";
-};
 
 const hasRoleChatbotDefinition = async ({ colid, role }) => {
   const normalizedRole = String(role || "").trim().toLowerCase();
@@ -52,6 +43,7 @@ export const applyLoginSession = async (responseData, options = {}) => {
   global1.calendaryear = "2020";
   global1.assessment = "2017-18,2018-19,2019-20,2020-21,2021-22";
   global1.bulkuploadurl = "https://canvasapi5u.azurewebsites.net/";
+  persistGlobalSession();
 
   if (responseData.lastlogin) {
     const lastlogin = new Date(responseData.lastlogin);
@@ -75,6 +67,7 @@ export const applyLoginSession = async (responseData, options = {}) => {
     global1.collegecode = institution.institutioncode || "";
     if (institution.status === "Auto") global1.autorenew = "Yes";
     global1.name1 = `${responseData.name || ""}${institution.institutionname ? ` ${institution.institutionname}` : ""}`;
+    persistGlobalSession();
   } catch (err) {
     if (err.message === "Access is suspended.") throw err;
   }
@@ -103,6 +96,7 @@ export const applyLoginSession = async (responseData, options = {}) => {
     } catch {
       global1.lmsyear = "2024-25";
     }
+    persistGlobalSession();
     return "/studentdashboard";
   }
 
@@ -110,5 +104,6 @@ export const applyLoginSession = async (responseData, options = {}) => {
     return "/ai-chatbot-help";
   }
 
-  return defaultDashboardForRole(responseData.role);
+  persistGlobalSession();
+  return "/central-ai-help-bot";
 };

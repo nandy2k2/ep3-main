@@ -5,6 +5,7 @@ import {
   Box,
   Button,
   Checkbox,
+  FormControlLabel,
   Grid,
   MenuItem,
   Paper,
@@ -52,7 +53,8 @@ const parseCsv = (text) => {
 };
 
 const basePatternForm = { academicyear: "", program: "", programcode: "", pattern: "", description: "", status: "Active" };
-const baseDetailForm = { patternid: "", academicyear: "", program: "", programcode: "", pattern: "", section: "", question: "", group: "", subquestion: "", order: "", marks: "", instructions: "", status: "Active" };
+const patternQuestionTypes = ["MCQ", "Descriptive", "Case Studies"];
+const baseDetailForm = { patternid: "", academicyear: "", program: "", programcode: "", pattern: "", section: "", question: "", questiontype: "Descriptive", includemathematicalexpressions: "No", group: "", subquestion: "", order: "", marks: "", instructions: "", questionprompt: "", status: "Active" };
 
 function useCourseOptions() {
   const [courses, setCourses] = useState([]);
@@ -292,10 +294,13 @@ export function ConductExamQuestionPatternDetailsPage() {
     { field: "order", headerName: "Order", width: 90 },
     { field: "section", headerName: "Section", width: 150 },
     { field: "question", headerName: "Question", width: 150 },
+    { field: "questiontype", headerName: "Question Type", width: 150 },
+    { field: "includemathematicalexpressions", headerName: "Math", width: 100 },
     { field: "group", headerName: "Group", width: 130 },
     { field: "subquestion", headerName: "Sub Question", width: 150 },
     { field: "marks", headerName: "Marks", width: 100 },
     { field: "instructions", headerName: "Instructions", flex: 1, minWidth: 240 },
+    { field: "questionprompt", headerName: "Question Prompt", flex: 1, minWidth: 260 },
     { field: "status", headerName: "Status", width: 110 },
     { field: "actions", headerName: "Edit", width: 90, sortable: false, renderCell: (params) => <Button size="small" onClick={() => setForm({ ...baseDetailForm, ...params.row })}>Edit</Button> }
   ];
@@ -304,7 +309,7 @@ export function ConductExamQuestionPatternDetailsPage() {
       <Box sx={{ p: 3 }}>
         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
           <Box><Typography variant="h5" fontWeight={900}>Question Pattern Details</Typography><Typography color="text.secondary">Define sections, questions, optional groups and subquestions.</Typography></Box>
-          <ToolbarButtons selected={selected} onDelete={bulkDelete} onBulk={bulkUpload} saving={saving} template="section,question,group,subquestion,order,marks,instructions,status\nSection A,Q1,,a,1,5,Answer any five,Active\n" />
+          <ToolbarButtons selected={selected} onDelete={bulkDelete} onBulk={bulkUpload} saving={saving} template="section,question,questiontype,includemathematicalexpressions,group,subquestion,order,marks,instructions,questionprompt,status\nSection A,Q1,Descriptive,No,,a,1,5,Answer any five,Ask from module 1 only,Active\nSection B,Q2,MCQ,Yes,,,2,1,Answer all,Include one calculation based MCQ,Active\n" />
         </Stack>
         {message && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setMessage("")}>{message}</Alert>}
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
@@ -312,10 +317,20 @@ export function ConductExamQuestionPatternDetailsPage() {
           <Grid container spacing={2}>
             <Grid item xs={12} md={4}><Autocomplete options={patterns} getOptionLabel={(row) => `${row.pattern || ""} - ${row.program || ""} (${row.programcode || ""}) ${row.academicyear || ""}`} value={selectedPattern} onChange={(_, value) => { selectPattern(value); if (value?._id) load(value._id); }} renderInput={(params) => <TextField {...params} label="Question Pattern" />} /></Grid>
             {["section", "question", "group", "subquestion"].map((field) => <Grid item xs={12} md={2} key={field}><TextField fullWidth label={field === "subquestion" ? "Sub Question" : field[0].toUpperCase() + field.slice(1)} value={form[field]} onChange={(e) => setForm({ ...form, [field]: e.target.value })} /></Grid>)}
+            <Grid item xs={12} md={2}><TextField fullWidth select label="Question Type" value={form.questiontype} onChange={(e) => setForm({ ...form, questiontype: e.target.value })}>{patternQuestionTypes.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={3}>
+              <Paper variant="outlined" sx={{ px: 2, py: 1.2, borderRadius: 2, height: "100%", display: "flex", alignItems: "center" }}>
+                <FormControlLabel
+                  control={<Checkbox checked={form.includemathematicalexpressions === "Yes"} onChange={(e) => setForm({ ...form, includemathematicalexpressions: e.target.checked ? "Yes" : "No" })} />}
+                  label="Include mathematical questions and symbols"
+                />
+              </Paper>
+            </Grid>
             <Grid item xs={12} md={1}><TextField fullWidth type="number" label="Order" value={form.order} onChange={(e) => setForm({ ...form, order: e.target.value })} /></Grid>
             <Grid item xs={12} md={1}><TextField fullWidth type="number" label="Marks" value={form.marks} onChange={(e) => setForm({ ...form, marks: e.target.value })} /></Grid>
             <Grid item xs={12} md={2}><TextField fullWidth select label="Status" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>{["Active", "Inactive"].map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
-            <Grid item xs={12} md={8}><TextField fullWidth label="Instructions" value={form.instructions} onChange={(e) => setForm({ ...form, instructions: e.target.value })} /></Grid>
+            <Grid item xs={12} md={5}><TextField fullWidth label="Instructions" value={form.instructions} onChange={(e) => setForm({ ...form, instructions: e.target.value })} /></Grid>
+            <Grid item xs={12} md={5}><TextField fullWidth label="Question Prompt" value={form.questionprompt} onChange={(e) => setForm({ ...form, questionprompt: e.target.value })} /></Grid>
             <Grid item xs={12} md={2}><Button fullWidth variant="contained" startIcon={<SaveIcon />} disabled={saving} onClick={save} sx={{ height: 56 }}>Save</Button></Grid>
           </Grid>
         </Paper>

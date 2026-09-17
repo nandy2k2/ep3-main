@@ -15,13 +15,20 @@ import {
   Avatar,
   Box,
   Button,
+  CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
   Paper,
   Stack,
   Typography
 } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import CloseIcon from "@mui/icons-material/Close";
 import MenuPageShell from "./MenuPageShell";
 import global1 from "./global1";
+
+const embeddedUrl = (path) => `${path}${path.includes("?") ? "&" : "?"}embedded=1`;
 
 const primaryOptions = [
   {
@@ -119,15 +126,27 @@ function UserBubble({ children }) {
 }
 
 export default function FacultyChatWizardPage() {
-  const navigate = useNavigate();
   const [active, setActive] = useState(null);
   const [activeChild, setActiveChild] = useState(null);
+  const [popup, setPopup] = useState({ open: false, title: "", path: "" });
+  const [popupLoading, setPopupLoading] = useState(false);
   const selected = useMemo(() => primaryOptions.find((item) => item.key === active), [active]);
   const selectedChild = useMemo(() => selected?.children?.find((item) => item.key === activeChild), [selected, activeChild]);
 
+  const openPagePopup = (option) => {
+    if (!option?.path) return;
+    setPopupLoading(true);
+    setPopup({ open: true, title: option.label || "Page", path: option.path });
+  };
+
+  const closePopup = () => {
+    setPopup({ open: false, title: "", path: "" });
+    setPopupLoading(false);
+  };
+
   const openOption = (option) => {
     if (option.path) {
-      navigate(option.path);
+      openPagePopup(option);
       return;
     }
     setActive(option.key);
@@ -136,7 +155,7 @@ export default function FacultyChatWizardPage() {
 
   const openChildOption = (option) => {
     if (option.path) {
-      navigate(option.path);
+      openPagePopup(option);
       return;
     }
     setActiveChild(option.key);
@@ -215,7 +234,7 @@ export default function FacultyChatWizardPage() {
                       <Button
                         key={child.label}
                         variant="contained"
-                        onClick={() => navigate(child.path)}
+                        onClick={() => openPagePopup(child)}
                         sx={{ mb: 1, borderRadius: 999, textTransform: "none" }}
                       >
                         {child.label}
@@ -227,6 +246,51 @@ export default function FacultyChatWizardPage() {
             </Stack>
           </Box>
         </Paper>
+        <Dialog
+          open={popup.open}
+          onClose={closePopup}
+          fullWidth
+          maxWidth={false}
+          PaperProps={{ sx: { width: "96vw", height: "92vh", borderRadius: 2 } }}
+        >
+          <DialogTitle sx={{ py: 1, pr: 6, fontWeight: 900 }}>
+            {popup.title}
+            <IconButton
+              aria-label="Close"
+              onClick={closePopup}
+              sx={{ position: "absolute", right: 8, top: 6 }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent dividers sx={{ p: 0, height: "100%", position: "relative" }}>
+            {popupLoading && (
+              <Stack
+                alignItems="center"
+                justifyContent="center"
+                spacing={1.5}
+                sx={{
+                  position: "absolute",
+                  inset: 0,
+                  zIndex: 2,
+                  bgcolor: "rgba(255,255,255,0.88)"
+                }}
+              >
+                <CircularProgress />
+                <Typography fontWeight={900}>Loading page...</Typography>
+              </Stack>
+            )}
+            {popup.path && (
+              <Box
+                component="iframe"
+                title={popup.title}
+                src={embeddedUrl(popup.path)}
+                onLoad={() => setPopupLoading(false)}
+                sx={{ border: 0, width: "100%", height: "100%", display: "block" }}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
       </Box>
     </MenuPageShell>
   );

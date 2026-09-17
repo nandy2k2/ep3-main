@@ -145,12 +145,16 @@ const trimMetricText = (value) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed.toFixed(4).replace(/\.?0+$/, "") : text(value);
 };
+const trimMetricText2 = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1") : text(value);
+};
 const aprGradePointsTotal = (marks = []) => (marks || []).reduce((sum, row) => sum + Number(row.gpa || 0), 0);
 const aprApiValue = (marks = [], summary = {}) => {
   const creditsEarned = Number(summary?.creditsearned || 0);
   const roundedUpGradePoints = roundedUpMetricNumber(aprGradePointsTotal(marks));
   if (!creditsEarned || !Number.isFinite(roundedUpGradePoints)) return "";
-  return trimMetricText(roundedUpGradePoints / creditsEarned);
+  return trimMetricText2(roundedUpGradePoints / creditsEarned);
 };
 const hasFailOrFGrade = (marks = [], summary = {}) => {
   if (/^fail$/i.test(text(summary?.result)) || /^f$/i.test(text(summary?.overallgrade))) return true;

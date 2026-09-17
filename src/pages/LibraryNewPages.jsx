@@ -305,6 +305,7 @@ export function LibraryBookMasterPage() {
   const [filters, setFilters] = useState([{ field: "title", value: "" }]);
   const [pagination, setPagination] = useState({ page: 1, limit: 5000, total: 0, returned: 0, hasNext: false, hasPrev: false });
   const [form, setForm] = useState({ status: "Available" });
+  const [selectedIds, setSelectedIds] = useState([]);
   const [selectedCodeBook, setSelectedCodeBook] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -347,6 +348,25 @@ export function LibraryBookMasterPage() {
     if (!window.confirm("Delete this book?")) return;
     await ep1.post("/api/v2/librarynew/books/delete", { id: row._id, colid: global1.colid });
     load(pagination.page);
+  };
+  const bulkDelete = async () => {
+    const ids = Array.from(selectedIds || []);
+    if (!ids.length) {
+      setError("Select at least one book to delete.");
+      return;
+    }
+    if (!window.confirm(`Delete ${ids.length} selected book(s)?`)) return;
+    setLoading(true);
+    try {
+      const res = await ep1.post("/api/v2/librarynew/books/bulk-delete", { ids, colid: global1.colid });
+      setMessage(`${res.data?.deleted || 0} book(s) deleted.`);
+      setSelectedIds([]);
+      await load(pagination.page);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete selected books");
+    } finally {
+      setLoading(false);
+    }
   };
   const upload = async (event) => {
     const file = event.target.files?.[0];
@@ -421,6 +441,9 @@ export function LibraryBookMasterPage() {
                 <Button variant="outlined" onClick={() => setForm({ status: "Available" })}>Clear</Button>
                 <Button variant="outlined" onClick={() => downloadTemplate("library_books_template.xlsx", ["libraryid", ...bookFields.filter((field) => field !== "libraryname")])}>Download Template</Button>
                 <Button component="label" variant="outlined" startIcon={<UploadFile />}>Bulk Upload<input hidden type="file" accept=".xlsx,.xls,.csv" onChange={upload} /></Button>
+                <Button color="error" variant="outlined" startIcon={<Delete />} disabled={loading || !selectedIds.length} onClick={bulkDelete}>
+                  Bulk Delete ({selectedIds.length})
+                </Button>
               </Stack>
             </Grid>
           </Grid>
@@ -439,7 +462,18 @@ export function LibraryBookMasterPage() {
           </Stack>
         </Paper>
         <Box sx={{ height: 560 }}>
-          <DataGrid rows={rows} columns={columns} getRowId={(row) => row._id} loading={loading} slots={{ toolbar: GridToolbar }} pageSizeOptions={[25, 50, 100]} />
+          <DataGrid
+            rows={rows}
+            columns={columns}
+            getRowId={(row) => row._id}
+            loading={loading}
+            checkboxSelection
+            disableRowSelectionOnClick
+            rowSelectionModel={selectedIds}
+            onRowSelectionModelChange={(selection) => setSelectedIds(Array.from(selection?.ids || selection || []))}
+            slots={{ toolbar: GridToolbar }}
+            pageSizeOptions={[25, 50, 100]}
+          />
         </Box>
         <CodeDialog book={selectedCodeBook} open={!!selectedCodeBook} onClose={() => setSelectedCodeBook(null)} />
       </Stack>

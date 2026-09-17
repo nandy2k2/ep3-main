@@ -6,15 +6,18 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { adminMenuData } from '../utils/adminMenuData';
 import global1 from '../pages/global1';
+import TopMenuSearch from '../pages/TopMenuSearch';
 
 const NavbarContainer = styled(AppBar)(({ theme }) => ({
-    background: 'linear-gradient(90deg, #1976d2 0%, #0d47a1 100%)',
-    boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+    background: 'linear-gradient(135deg, var(--campus-appbar-start), var(--campus-appbar-end))',
+    color: 'var(--campus-appbar-text)',
+    boxShadow: '0 12px 32px rgba(63, 125, 246, 0.12)',
+    borderBottom: '1px solid var(--campus-border)',
     zIndex: 9999, // Ensure it sits on top of everything
 }));
 
 const NavButton = styled(Button)(({ theme, active }) => ({
-    color: 'white',
+    color: 'var(--campus-appbar-text)',
     textTransform: 'none',
     fontSize: '14px',
     fontWeight: 500,
@@ -23,9 +26,9 @@ const NavButton = styled(Button)(({ theme, active }) => ({
     whiteSpace: 'nowrap',
     borderRadius: '20px',
     transition: 'all 0.3s ease',
-    backgroundColor: active ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
+    backgroundColor: active ? 'rgba(63, 125, 246, 0.14)' : 'transparent',
     '&:hover': {
-        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        backgroundColor: 'rgba(63, 125, 246, 0.14)',
         transform: 'translateY(-2px)',
     },
 }));
@@ -41,17 +44,17 @@ const ScrollableMenuBox = styled(Box)({
 });
 
 const ScrollButton = styled(IconButton)(({ theme }) => ({
-    color: 'white',
+    color: 'var(--campus-appbar-text)',
     padding: '4px',
-    border: '1px solid rgba(255,255,255,0.3)',
+    border: '1px solid var(--campus-border)',
     borderRadius: '50%',
     '&:hover': {
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        borderColor: 'white',
+        backgroundColor: 'rgba(63, 125, 246, 0.1)',
+        borderColor: 'var(--campus-primary)',
     },
     '&.Mui-disabled': {
-        color: 'rgba(255,255,255,0.3)',
-        borderColor: 'rgba(255,255,255,0.1)',
+        color: 'var(--campus-muted-text)',
+        borderColor: 'var(--campus-border)',
     }
 }));
 
@@ -263,6 +266,8 @@ const AdminNavbar = () => {
                         <ChevronRightIcon />
                     </ScrollButton>
                 </Box>
+
+                <TopMenuSearch />
 
                 <Button
                     color="inherit"

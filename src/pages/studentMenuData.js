@@ -46,6 +46,7 @@ export const studentDefaultMenuGroups = [
     { path: "/studentonlinefeepayment", title: "Pay fees online" },
     { path: "/studentonlinefeepayment2", title: "Pay fees online 2" },
     { path: "/studentmyonlinepaymentreport", title: "My online payments" },
+    { path: "/studentmyonlinepaymentreport2", title: "My online payments 2" },
     { path: "/studentinstallmentrequest", title: "Apply installment" }
   ] },
   { group: "Library New", items: [

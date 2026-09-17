@@ -42,6 +42,7 @@ const blankClass = {
   classgroup: "",
   course: "",
   coursecode: "",
+  timezone: "Asia/Kolkata",
   classdate: "",
   classtime: "",
   period: "",
@@ -66,6 +67,7 @@ const filterFields = [
   { field: "classgroup", label: "Class Group" },
   { field: "course", label: "Course" },
   { field: "coursecode", label: "Course Code" },
+  { field: "timezone", label: "Timezone" },
   { field: "faculty", label: "Faculty" },
   { field: "facultyemail", label: "Faculty Email" },
   { field: "campus", label: "Campus" },
@@ -123,6 +125,36 @@ const startOfWeek = (date) => addDays(date, -date.getDay());
 const monthTitle = (year, month) => new Date(year, month, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" });
 const longDate = (date) => date.toLocaleDateString(undefined, { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
 const shortDate = (date) => date.toLocaleDateString(undefined, { day: "2-digit", month: "short" });
+const timezoneOptions = typeof Intl !== "undefined" && Intl.supportedValuesOf
+  ? Intl.supportedValuesOf("timeZone")
+  : ["UTC", "Asia/Kolkata", "America/New_York", "Europe/London", "Asia/Dubai", "Asia/Singapore", "Australia/Sydney"];
+const allTimezoneOptions = uniqueSorted(["UTC", ...timezoneOptions]);
+const timezoneOffsetLabel = (timezone) => {
+  const zone = timezone || "Asia/Kolkata";
+  try {
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: zone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23"
+    }).formatToParts(now).reduce((acc, part) => {
+      if (part.type !== "literal") acc[part.type] = part.value;
+      return acc;
+    }, {});
+    const localAsUtc = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute), Number(parts.second || 0));
+    const offsetMinutes = Math.round((localAsUtc - now.getTime()) / 60000);
+    const sign = offsetMinutes >= 0 ? "+" : "-";
+    const abs = Math.abs(offsetMinutes);
+    return `UTC${sign}${String(Math.floor(abs / 60)).padStart(2, "0")}:${String(abs % 60).padStart(2, "0")}`;
+  } catch (error) {
+    return "UTC+00:00";
+  }
+};
 
 export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle = "NEP LMS Timetable" }) {
   const [rows, setRows] = useState([]);
@@ -449,8 +481,9 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
       classgroup: row.classgroup || "",
       course: row.course || "",
       coursecode: row.coursecode || "",
-      classdate: row.classdate || "",
-      classtime: row.classtime || "",
+      timezone: row.timezone || "Asia/Kolkata",
+      classdate: row.localclassdate || row.classdate || "",
+      classtime: row.localclasstime || row.classtime || "",
       period: row.period || "",
       durationminutes: row.durationminutes || "",
       module: row.module || "",
@@ -516,6 +549,7 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
       classgroup: classGroupMode ? "Group 1" : "",
       course: "Financial Accounting",
       coursecode: "FAC101",
+      timezone: "Asia/Kolkata",
       classdate: "2026-07-01",
       classtime: "10:00",
       period: "1",
@@ -571,6 +605,7 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
       classgroup: classGroupMode ? "Group 1" : "",
       course: "Financial Accounting",
       coursecode: "FAC101",
+      timezone: "Asia/Kolkata",
       classtime: "10:00",
       period: "1",
       durationminutes: 60,
@@ -673,8 +708,11 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
     ...(classGroupMode ? [{ field: "classgroup", headerName: "Class Group", width: 160 }] : []),
     { field: "course", headerName: "Course", width: 220 },
     { field: "coursecode", headerName: "Course Code", width: 140 },
-    { field: "classdate", headerName: "Class Date", width: 130 },
-    { field: "classtime", headerName: "Class Time", width: 130 },
+    { field: "timezone", headerName: "Timezone", width: 180 },
+    { field: "localclassdate", headerName: "Local Class Date", width: 150, valueGetter: (params) => params.row.localclassdate || params.row.classdate || "" },
+    { field: "localclasstime", headerName: "Local Class Time", width: 150, valueGetter: (params) => params.row.localclasstime || params.row.classtime || "" },
+    { field: "classdate", headerName: "UTC Class Date", width: 140 },
+    { field: "classtime", headerName: "UTC Class Time", width: 140 },
     { field: "period", headerName: "Period", width: 100 },
     { field: "durationminutes", headerName: "Duration Minutes", width: 150 },
     { field: "module", headerName: "Module", width: 140 },
@@ -703,7 +741,7 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
     ["major", "Major"], ["semester", "Semester"],
     ...(sectionMode || manager2Mode ? [["section", "Section"]] : []),
     ...(classGroupMode ? [["classgroup", "Class Group"]] : []),
-    ["course", "Course"], ["coursecode", "Course Code"], ["classdate", "Class Date", "date"], ["classtime", "Class Time", "time"],
+    ["course", "Course"], ["coursecode", "Course Code"], ["timezone", "Timezone"], ["classdate", "Class Date", "date"], ["classtime", "Class Time", "time"],
     ["period", "Period"], ["durationminutes", "Duration in minutes", "number"], ["module", "Module"], ["topic", "Topic"],
     ...(manager2Mode ? [["lecturetype", "Lecture Type"]] : []),
     ["workcompleted", "Work Completed"], ["onlineenabled", "Online Enabled"], ["onlineclassstatus", "Online Class Status"], ["status", "Status"]
@@ -778,6 +816,18 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
                     getOptionLabel={(option) => `${option.name || ""}${option.email || option.user ? ` (${option.email || option.user})` : ""}`}
                     isOptionEqualToValue={(option, value) => (option._id && value._id ? option._id === value._id : (option.email || option.user) === (value.email || value.user))}
                     renderInput={(params) => <TextField {...params} label="Faculty" />}
+                  />
+                </Grid>
+              );
+            }
+            if (field === "timezone") {
+              return (
+                <Grid item xs={12} md={3} key={field}>
+                  <Autocomplete
+                    options={allTimezoneOptions}
+                    value={form.timezone || "Asia/Kolkata"}
+                    onChange={(event, value) => updateForm("timezone", value || "Asia/Kolkata")}
+                    renderInput={(params) => <TextField {...params} label="Timezone" helperText={`${timezoneOffsetLabel(form.timezone)} from server timezone UTC. Saved class date/time is converted to UTC.`} />}
                   />
                 </Grid>
               );

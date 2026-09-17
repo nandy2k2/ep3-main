@@ -364,6 +364,13 @@ function DefaultStudentListItems({ open }) {
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Course material" />}
 </ListItem>
 
+           <ListItem button component={RouterLink} to="/neplms-ai-coding-platform">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="AI Coding platform" />}
+</ListItem>
+
            <ListItem button component={RouterLink} to="/studentneplmscoursegroupworkspace">
 <ListItemIcon>
 <PersonIcon />
@@ -397,6 +404,13 @@ function DefaultStudentListItems({ open }) {
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="My Attendance Summary" />}
+</ListItem>
+
+           <ListItem button component={RouterLink} to="/student-event-attendance-request">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Event attendance request" />}
 </ListItem>
 
            <ListItem button component={RouterLink} to="/studentneplmsotpattendance">
@@ -534,6 +548,13 @@ function DefaultStudentListItems({ open }) {
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Sports activity" />}
 </ListItem>
 
+           <ListItem button component={RouterLink} to="/student-sports-ncc-nss-application">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Sports NCC NSS application" />}
+</ListItem>
+
         </AccordionDetails>
         </Accordion>
 
@@ -646,6 +667,13 @@ function DefaultStudentListItems({ open }) {
 <AccountBalanceWalletIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="My online payments" />}
+</ListItem>
+
+           <ListItem button component={RouterLink} to="/studentmyonlinepaymentreport2">
+<ListItemIcon>
+<AccountBalanceWalletIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="My online payments 2" />}
 </ListItem>
 
            <ListItem button component={RouterLink} to="/studentinstallmentrequest">
@@ -1136,6 +1164,13 @@ function DefaultStudentListItems({ open }) {
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Policy" />}
+</ListItem>
+
+<ListItem button component={RouterLink} to="/student-view-circular">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Circulars" />}
 </ListItem>
 
 
