@@ -19,6 +19,7 @@ import { Refresh } from "@mui/icons-material";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import AttendanceDiagnosticHelp from "./AttendanceDiagnosticHelp";
+import { classCalendarSortKey, classDisplayDate, classDisplayLabel, classDisplayTime } from "../utils/nepLmsTimezone";
 
 const cleanText = (value) => String(value || "").trim().toLowerCase();
 const fieldsMatch = (left, right) => cleanText(left) === cleanText(right);
@@ -40,7 +41,7 @@ const dateTitle = (date) => date.toLocaleDateString(undefined, { weekday: "long"
 const weekTitle = (start, end) => `${start.toLocaleDateString(undefined, { day: "numeric", month: "short" })} - ${end.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}`;
 const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-export const classLabel = (row = {}) => `${row.classdate || ""} ${row.classtime || ""} | ${row.coursecode || ""} - ${row.course || ""} | ${row.programcode || ""} | Sem ${row.semester || ""}`;
+export const classLabel = (row = {}) => `${classDisplayLabel(row)} | ${row.coursecode || ""} - ${row.course || ""} | ${row.programcode || ""} | Sem ${row.semester || ""}`;
 
 export default function NepLmsFacultyClassSelector({ selectedClassId, onSelectClass, title = "Select Class", initialClassId = "" }) {
   const [classes, setClasses] = useState([]);
@@ -83,7 +84,7 @@ export default function NepLmsFacultyClassSelector({ selectedClassId, onSelectCl
         const requestedClass = classRows.find((row) => row._id === initialClassId);
         if (requestedClass) {
           onSelectClass(requestedClass);
-          setCalendarDate(requestedClass.classdate || toDateInput(new Date()));
+          setCalendarDate(classDisplayDate(requestedClass) || toDateInput(new Date()));
         }
       }
       if (!assignedRows.length) setError(`No assigned courses found for ${global1.user || "-"}`);
@@ -114,7 +115,7 @@ export default function NepLmsFacultyClassSelector({ selectedClassId, onSelectCl
     const selectedDate = parseDate(calendarDate) || new Date();
     const classMap = new Map();
     filteredClasses.forEach((row) => {
-      const parsed = parseDate(row.classdate);
+      const parsed = parseDate(classDisplayDate(row));
       if (!parsed) return;
       const key = toDateInput(parsed);
       if (!classMap.has(key)) classMap.set(key, []);
@@ -130,7 +131,7 @@ export default function NepLmsFacultyClassSelector({ selectedClassId, onSelectCl
         label: date.toLocaleDateString(undefined, { day: "numeric", month: "short" }),
         isToday: key === toDateInput(new Date()),
         selected: key === calendarDate,
-        items: (classMap.get(key) || []).sort((a, b) => String(a.classtime).localeCompare(String(b.classtime)))
+        items: (classMap.get(key) || []).sort((a, b) => classCalendarSortKey(a).localeCompare(classCalendarSortKey(b)))
       };
     };
     if (calendarView === "day") {
@@ -236,7 +237,7 @@ export default function NepLmsFacultyClassSelector({ selectedClassId, onSelectCl
                         const active = selectedClassId === item._id;
                         return (
                           <Box key={item._id} onClick={(event) => { event.stopPropagation(); onSelectClass(item); }} sx={{ cursor: "pointer", bgcolor: active ? "#dcfce7" : "#eef2ff", border: active ? "1px solid #16a34a" : "1px solid #c7d2fe", borderLeft: active ? "4px solid #16a34a" : "4px solid #4f46e5", borderRadius: 1, px: 0.8, py: 0.6 }}>
-                            <Typography variant="caption" fontWeight={900} display="block">{item.classtime || "-"} | {item.coursecode}</Typography>
+                            <Typography variant="caption" fontWeight={900} display="block">{classDisplayTime(item) || "-"} | {item.coursecode}</Typography>
                             <Typography variant="caption" display="block">{item.course || item.topic || "-"}</Typography>
                             <Typography variant="caption" display="block" color="text.secondary">Sem {item.semester} | {item.major}</Typography>
                           </Box>

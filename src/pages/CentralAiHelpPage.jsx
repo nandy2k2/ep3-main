@@ -101,7 +101,7 @@ const samplePrompts = [
   },
   {
     label: "Admin academic setup",
-    prompt: "As Admin, explain how to configure Academic Configuration from the beginning: Program, Regulation, Student Data Upload, Regulation Subjects, Regulation Course Map, Workload and Sectionwise Timetable. Include the order, required fields and common checks."
+    prompt: "As Admin, explain how to configure Academic Configuration from the beginning: Program, Regulation, Student Data Upload, Regulation Group, Regulation Course Map, Workload and Sectionwise Timetable. Include the order, required fields and common checks."
   },
   {
     label: "Fees setup guide",

@@ -12,6 +12,7 @@ import {
   Container,
   FormControlLabel,
   Grid,
+  LinearProgress,
   MenuItem,
   Paper,
   Stack,
@@ -1073,4 +1074,271 @@ export function PlacementProjectReportPage({ mentor = false }) {
     w.print();
   };
   return <Shell title={mentor ? "Mentor SIP report" : "My SIP report"} student={!mentor}><Typography variant="h5" fontWeight={900} sx={{ mb: 2 }}>{mentor ? "Mentor SIP report" : "My SIP report"}</Typography><Paper sx={{ p: 2, mb: 2 }}><Stack direction={{ xs: "column", md: "row" }} spacing={2}><AssignmentSelect student={!mentor} value={assignment} onChange={setAssignment} /><Button variant="contained" onClick={load}>Load report</Button><Button startIcon={<Print />} onClick={print}>Print</Button></Stack></Paper>{report && <Paper sx={{ p: 3 }} ref={printRef}><Box className="head" sx={{ textAlign: "center" }}>{report.institution?.logolink && <img src={report.institution.logolink} alt="logo" style={{ height: 58 }} />}<Typography variant="h5" fontWeight={900}>{report.institution?.institutionname || "Institution"}</Typography><Typography>{report.institution?.address}</Typography><Typography variant="h6" fontWeight={800} sx={{ mt: 1 }}>SIP Project Report</Typography></Box>{report.student?.photo && <img className="photo" src={report.student.photo} alt="student" />}<Typography fontWeight={800}>Student details</Typography><Grid container spacing={1} sx={{ mb: 2 }}>{["name", "email", "phone", "regno", "program", "programcode", "semester", "section"].map((f) => <Grid item xs={6} md={3} key={f}><b>{f}:</b> {report.student?.[f]}</Grid>)}</Grid><Typography fontWeight={800}>Assignment</Typography><Grid container spacing={1} sx={{ mb: 2 }}>{["company", "project", "startdate", "enddate", "companycontact", "mentor"].map((f) => <Grid item xs={6} md={4} key={f}><b>{f}:</b> {report.assignment?.[f]}</Grid>)}</Grid><Typography fontWeight={800}>Stages</Typography>{(report.stages || []).map((stage) => { const entries = (report.entries || []).filter((e) => e.stageid === stage._id); return <Box className="stage" key={stage._id}><Typography fontWeight={800}>{stage.stageorder}. {stage.stagename}</Typography><Typography>{stage.description}</Typography>{entries.map((entry) => <Box key={entry._id} sx={{ mt: 1 }}><Typography><b>Date:</b> {entry.entrydate}</Typography><Typography sx={{ whiteSpace: "pre-wrap" }}>{entry.details}</Typography>{entry.filelink && <Typography><b>File:</b> {entry.filelink}</Typography>}<Typography>{entry.remarks}</Typography></Box>)}</Box>; })}</Paper>}</Shell>;
+}
+
+function printElement(ref, title = "Print") {
+  const w = window.open("", "_blank");
+  w.document.write(`<html><head><title>${title}</title><style>@page{size:A4;margin:12mm}body{font-family:Arial;color:#111;background:#fff}.no-print{display:none}table{width:100%;border-collapse:collapse;font-size:11px}td,th{border:1px solid #333;padding:5px;vertical-align:top}.header{text-align:center;margin-bottom:12px}.card{border:1px solid #ddd;padding:8px;margin-bottom:8px}@media print{button{display:none}.MuiDataGrid-toolbarContainer{display:none}}</style></head><body>${ref.current?.innerHTML || ""}</body></html>`);
+  w.document.close();
+  w.print();
+}
+
+function programLabel(item) {
+  return `${item.program || ""}${item.programcode ? ` (${item.programcode})` : ""}`.trim();
+}
+
+function ProgramPicker({ options, value, onChange, label = "Program" }) {
+  return <Autocomplete options={options.programs || []} value={(options.programs || []).find((p) => p.program === value?.program && p.programcode === value?.programcode) || null} getOptionLabel={programLabel} onChange={(_, v) => onChange(v || {})} renderInput={(params) => <TextField {...params} size="small" label={label} />} />;
+}
+
+export function PlacementInternshipPoolPage() {
+  const blank = { academicyear: "", program: "", programcode: "", companyname: "", companyemail: "", companyphone: "", companyaddress: "", contactperson: "", contactemail: "", contactphone: "", industry: "", sector: "", title: "", role: "", description: "", technologies: "", location: "", mode: "Onsite", duration: "", startdate: today, enddate: today, stipend: "", openings: 0, eligibility: "", applicationdeadline: today, status: "Active" };
+  return <CrudPage kind="internshippool" title="Internship pool" blank={blank} templateRows={[blank]} columns={[
+    { field: "academicyear", headerName: "Academic year", width: 130 },
+    { field: "program", headerName: "Program", width: 180 },
+    { field: "programcode", headerName: "Program code", width: 130 },
+    { field: "companyname", headerName: "Company", width: 180 },
+    { field: "title", headerName: "Internship title", width: 220 },
+    { field: "duration", headerName: "Duration", width: 130 },
+    { field: "location", headerName: "Location", width: 160 },
+    { field: "stipend", headerName: "Stipend", width: 120 },
+    { field: "openings", headerName: "Openings", width: 110 },
+    { field: "applicationdeadline", headerName: "Deadline", width: 120 },
+    { field: "status", headerName: "Status", width: 120 }
+  ]} renderForm={({ form, setForm, options, save, editingId }) => (
+    <Grid container spacing={2}>
+      <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Academic year" value={form.academicyear || ""} onChange={(e) => setForm((p) => ({ ...p, academicyear: e.target.value }))} /></Grid>
+      <Grid item xs={12} md={3}><ProgramPicker options={options} value={form} onChange={(p) => setForm((old) => ({ ...old, program: p.program || "", programcode: p.programcode || "" }))} /></Grid>
+      {["companyname", "companyemail", "companyphone", "contactperson", "contactemail", "contactphone", "industry", "sector", "title", "role", "location", "duration", "stipend", "openings", "eligibility"].map((f) => <Grid item xs={12} md={f === "title" || f === "eligibility" ? 3 : 2} key={f}><TextField fullWidth size="small" type={f === "openings" ? "number" : "text"} label={f} value={form[f] || ""} onChange={(e) => setForm((p) => ({ ...p, [f]: e.target.value }))} /></Grid>)}
+      <Grid item xs={12} md={2}><TextField select fullWidth size="small" label="Mode" value={form.mode || "Onsite"} onChange={(e) => setForm((p) => ({ ...p, mode: e.target.value }))}><MenuItem value="Onsite">Onsite</MenuItem><MenuItem value="Remote">Remote</MenuItem><MenuItem value="Hybrid">Hybrid</MenuItem></TextField></Grid>
+      {["startdate", "enddate", "applicationdeadline"].map((f) => <Grid item xs={12} md={2} key={f}><TextField fullWidth type="date" size="small" label={f} InputLabelProps={{ shrink: true }} value={form[f] || ""} onChange={(e) => setForm((p) => ({ ...p, [f]: e.target.value }))} /></Grid>)}
+      <Grid item xs={12} md={2}><TextField select fullWidth size="small" label="Status" value={form.status || "Active"} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}><MenuItem value="Active">Active</MenuItem><MenuItem value="Inactive">Inactive</MenuItem></TextField></Grid>
+      <Grid item xs={12}><TextField fullWidth multiline minRows={2} label="Company address" value={form.companyaddress || ""} onChange={(e) => setForm((p) => ({ ...p, companyaddress: e.target.value }))} /></Grid>
+      <Grid item xs={12}><TextField fullWidth multiline minRows={3} label="Description" value={form.description || ""} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} /></Grid>
+      <Grid item xs={12}><TextField fullWidth multiline minRows={2} label="Technologies" value={form.technologies || ""} onChange={(e) => setForm((p) => ({ ...p, technologies: e.target.value }))} /></Grid>
+      <Grid item xs={12} md={2}><Button fullWidth variant="contained" startIcon={<Save />} onClick={save}>{editingId ? "Update" : "Save"}</Button></Grid>
+    </Grid>
+  )} />;
+}
+
+export function PlacementInternshipSchedulePage() {
+  const blank = { academicyear: "", program: "", programcode: "", poolid: "", title: "", companyname: "", schedule: "", startdate: today, enddate: today, location: "", coordinator: "", coordinatoremail: "", description: "", status: "Active" };
+  return <CrudPage kind="internshipschedule" title="Programwise internship schedule" blank={blank} templateRows={[blank]} columns={[
+    { field: "academicyear", headerName: "Academic year", width: 130 },
+    { field: "program", headerName: "Program", width: 180 },
+    { field: "programcode", headerName: "Program code", width: 130 },
+    { field: "companyname", headerName: "Company", width: 180 },
+    { field: "title", headerName: "Internship", width: 200 },
+    { field: "schedule", headerName: "Schedule", width: 220 },
+    { field: "startdate", headerName: "Start", width: 110 },
+    { field: "enddate", headerName: "End", width: 110 },
+    { field: "coordinator", headerName: "Coordinator", width: 180 },
+    { field: "status", headerName: "Status", width: 120 }
+  ]} renderForm={({ form, setForm, options, save, editingId }) => (
+    <Grid container spacing={2}>
+      <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Academic year" value={form.academicyear || ""} onChange={(e) => setForm((p) => ({ ...p, academicyear: e.target.value }))} /></Grid>
+      <Grid item xs={12} md={3}><ProgramPicker options={options} value={form} onChange={(p) => setForm((old) => ({ ...old, program: p.program || "", programcode: p.programcode || "" }))} /></Grid>
+      <Grid item xs={12} md={3}><Autocomplete options={options.internshipPools || []} getOptionLabel={(o) => `${o.title || ""} - ${o.companyname || ""}`} value={(options.internshipPools || []).find((p) => p._id === form.poolid) || null} onChange={(_, v) => setForm((p) => ({ ...p, poolid: v?._id || "", title: v?.title || p.title, companyname: v?.companyname || p.companyname }))} renderInput={(params) => <TextField {...params} size="small" label="Internship pool" />} /></Grid>
+      {["title", "companyname", "schedule", "location", "coordinator", "coordinatoremail"].map((f) => <Grid item xs={12} md={f === "schedule" ? 4 : 2} key={f}><TextField fullWidth size="small" label={f} value={form[f] || ""} onChange={(e) => setForm((p) => ({ ...p, [f]: e.target.value }))} /></Grid>)}
+      {["startdate", "enddate"].map((f) => <Grid item xs={12} md={2} key={f}><TextField fullWidth type="date" size="small" label={f} InputLabelProps={{ shrink: true }} value={form[f] || ""} onChange={(e) => setForm((p) => ({ ...p, [f]: e.target.value }))} /></Grid>)}
+      <Grid item xs={12} md={2}><TextField select fullWidth size="small" label="Status" value={form.status || "Active"} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}><MenuItem value="Active">Active</MenuItem><MenuItem value="Completed">Completed</MenuItem><MenuItem value="Cancelled">Cancelled</MenuItem></TextField></Grid>
+      <Grid item xs={12}><TextField fullWidth multiline minRows={3} label="Description" value={form.description || ""} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} /></Grid>
+      <Grid item xs={12} md={2}><Button fullWidth variant="contained" startIcon={<Save />} onClick={save}>{editingId ? "Update" : "Save"}</Button></Grid>
+    </Grid>
+  )} />;
+}
+
+export function StudentPlacementInternshipPoolPage() {
+  const [rows, setRows] = useState([]);
+  const [student, setStudent] = useState(null);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const load = async () => {
+    try {
+      setLoading(true);
+      const res = await ep1.get("/api/v2/placement-new-student/internship-pools", { params: { ...basePayload(), email: global1.user, regno: global1.regno } });
+      setRows(res.data?.data || []);
+      setStudent(res.data?.student || null);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load internships");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { load(); }, []);
+  const apply = async (row) => {
+    try {
+      setError("");
+      await ep1.post("/api/v2/placement-new-student/internship-apply", { ...basePayload(), poolid: row._id, email: global1.user, regno: global1.regno });
+      setMessage("Internship application submitted for coordinator approval");
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to apply");
+    }
+  };
+  return <Shell title="Internship opportunities" student><Typography variant="h5" fontWeight={900} sx={{ mb: 1 }}>Internship opportunities</Typography>{student && <Alert severity="info" sx={{ mb: 2 }}>Showing active internships for {student.academicyear} / {student.programcode}</Alert>}{messageBlock(message, error)}{loading && <LinearProgress sx={{ mb: 2 }} />}<Grid container spacing={2}>{rows.map((item) => <Grid item xs={12} md={4} key={item._id}><Card sx={{ height: "100%" }}><CardContent><Stack spacing={1}><Typography variant="h6" fontWeight={900}>{item.title}</Typography><Typography fontWeight={700}>{item.companyname}</Typography><Typography variant="body2">{item.location} | {item.duration} | Stipend: {item.stipend || "NA"}</Typography><Typography variant="body2">{item.technologies}</Typography><Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>{item.description}</Typography><Chip label={item.applied ? `Applied - ${item.application?.approvalstatus || item.application?.status}` : `Deadline ${item.applicationdeadline || "Open"}`} color={item.applied ? "success" : "primary"} /><Button variant="contained" disabled={item.applied} onClick={() => apply(item)}>{item.applied ? "Applied" : "Apply"}</Button></Stack></CardContent></Card></Grid>)}</Grid>{!loading && !rows.length && <Alert severity="warning">No active internships found for your academic year/program.</Alert>}</Shell>;
+}
+
+export function PlacementInternshipApplicationsPage() {
+  const [rows, setRows] = useState([]);
+  const [filters, setFilters] = useState({});
+  const [selectedRows, setSelectedRows] = useState([]);
+  const [form, setForm] = useState({ approvalstatus: "Approved", coordinatorcomment: "" });
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const fields = ["academicyear", "program", "programcode", "companyname", "title", "student", "studentemail", "regno", "semester", "approvalstatus", "selected"];
+  const load = async () => {
+    try {
+      setLoading(true);
+      const res = await ep1.get("/api/v2/placement-new/internship-applications", { params: { ...basePayload(), ...filters } });
+      setRows(res.data?.data || []);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load applications");
+    } finally {
+      setLoading(false);
+    }
+  };
+  const update = async () => {
+    try {
+      if (!selectedRows.length) return setError("Select at least one application");
+      await ep1.post("/api/v2/placement-new/internship-applications/status", { ...basePayload(), name: global1.name || global1.user, ids: selectedRows, ...form });
+      setMessage("Selected internship applications updated");
+      setSelectedRows([]);
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to update");
+    }
+  };
+  return <Shell title="Internship applications"><Typography variant="h5" fontWeight={900} sx={{ mb: 1 }}>Internship applications approval</Typography>{messageBlock(message, error)}<Paper sx={{ p: 2, mb: 2 }}><Grid container spacing={2}>{fields.map((f) => <Grid item xs={12} md={2} key={f}><TextField fullWidth size="small" label={f} value={filters[f] || ""} onChange={(e) => setFilters((p) => ({ ...p, [f]: e.target.value }))} /></Grid>)}<Grid item xs={12} md={2}><TextField type="date" fullWidth size="small" label="Applied from" InputLabelProps={{ shrink: true }} value={filters.appliedFrom || ""} onChange={(e) => setFilters((p) => ({ ...p, appliedFrom: e.target.value }))} /></Grid><Grid item xs={12} md={2}><TextField type="date" fullWidth size="small" label="Applied to" InputLabelProps={{ shrink: true }} value={filters.appliedTo || ""} onChange={(e) => setFilters((p) => ({ ...p, appliedTo: e.target.value }))} /></Grid><Grid item xs={12} md={2}><Button fullWidth variant="contained" onClick={load}>Load</Button></Grid></Grid></Paper><Paper sx={{ p: 2, mb: 2 }}><Grid container spacing={2}><Grid item xs={12} md={2}><TextField select fullWidth size="small" label="Decision" value={form.approvalstatus} onChange={(e) => setForm((p) => ({ ...p, approvalstatus: e.target.value }))}><MenuItem value="Approved">Approved</MenuItem><MenuItem value="Rejected">Rejected</MenuItem><MenuItem value="Pending">Pending</MenuItem></TextField></Grid><Grid item xs={12} md={8}><TextField fullWidth size="small" label="Coordinator comment" value={form.coordinatorcomment} onChange={(e) => setForm((p) => ({ ...p, coordinatorcomment: e.target.value }))} /></Grid><Grid item xs={12} md={2}><Button fullWidth variant="contained" onClick={update} disabled={!selectedRows.length}>Update selected</Button></Grid></Grid></Paper><Paper sx={{ p: 1 }}><DataGrid rows={rows} getRowId={(r) => r._id} checkboxSelection rowSelectionModel={selectedRows} onRowSelectionModelChange={(m) => setSelectedRows(m)} loading={loading} autoHeight getRowHeight={() => "auto"} sx={gridWrapSx} slots={{ toolbar: GridToolbar }} columns={[
+    { field: "student", headerName: "Student", width: 180 }, { field: "regno", headerName: "Reg no", width: 130 }, { field: "programcode", headerName: "Program code", width: 130 }, { field: "companyname", headerName: "Company", width: 180 }, { field: "title", headerName: "Internship", width: 220 }, { field: "location", headerName: "Location", width: 150 }, { field: "stipend", headerName: "Stipend", width: 120 }, { field: "applieddate", headerName: "Applied date", width: 120 }, { field: "approvalstatus", headerName: "Approval", width: 130 }, { field: "coordinatorcomment", headerName: "Comment", width: 260 }
+  ]} /></Paper></Shell>;
+}
+
+export function PlacementInternshipNocWorkflowPage() {
+  const blank = { academicyear: "", program: "", programcode: "", level: 1, approvername: "", approveremail: "", status: "Active" };
+  return <CrudPage kind="internshipnocworkflow" title="Internship NoC workflow" blank={blank} templateRows={[blank]} columns={[
+    { field: "academicyear", headerName: "Academic year", width: 130 },
+    { field: "program", headerName: "Program", width: 180 },
+    { field: "programcode", headerName: "Program code", width: 130 },
+    { field: "level", headerName: "Level", width: 100 },
+    { field: "approvername", headerName: "Approver", width: 180 },
+    { field: "approveremail", headerName: "Approver email", width: 220 },
+    { field: "status", headerName: "Status", width: 120 }
+  ]} renderForm={({ form, setForm, options, save, editingId }) => (
+    <Grid container spacing={2}>
+      <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Academic year" value={form.academicyear || ""} onChange={(e) => setForm((p) => ({ ...p, academicyear: e.target.value }))} /></Grid>
+      <Grid item xs={12} md={3}><ProgramPicker options={options} value={form} onChange={(p) => setForm((old) => ({ ...old, program: p.program || "", programcode: p.programcode || "" }))} /></Grid>
+      <Grid item xs={12} md={1}><TextField type="number" fullWidth size="small" label="Level" value={form.level || 1} onChange={(e) => setForm((p) => ({ ...p, level: e.target.value }))} /></Grid>
+      <Grid item xs={12} md={3}><Autocomplete options={options.mentors || []} getOptionLabel={(o) => `${o.name || ""} - ${o.email || o.user || ""}`} value={(options.mentors || []).find((u) => text(u.email || u.user) === text(form.approveremail)) || null} onChange={(_, v) => setForm((p) => ({ ...p, approvername: v?.name || "", approveremail: v?.email || v?.user || "" }))} renderInput={(params) => <TextField {...params} size="small" label="Approver" />} /></Grid>
+      <Grid item xs={12} md={2}><TextField select fullWidth size="small" label="Status" value={form.status || "Active"} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}><MenuItem value="Active">Active</MenuItem><MenuItem value="Inactive">Inactive</MenuItem></TextField></Grid>
+      <Grid item xs={12} md={1}><Button fullWidth variant="contained" onClick={save}>{editingId ? "Update" : "Save"}</Button></Grid>
+    </Grid>
+  )} />;
+}
+
+export function StudentInternshipNocPage() {
+  const [form, setForm] = useState({ academicyear: global1.academicyear || "", regulation: global1.regulation || "", program: global1.program || "", programcode: global1.programcode || "", semester: global1.semester || "", companyname: "", contactperson: "", officialemail: "", mobile: "", location: "", title: "", technologies: "", offerletterlink: "", offerlettername: "", submissioncomment: "" });
+  const [rows, setRows] = useState([]);
+  const [institution, setInstitution] = useState(null);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const printRef = useRef(null);
+  const load = async () => {
+    const res = await ep1.get("/api/v2/placement-new/internship-noc", { params: { ...basePayload(), mode: "student", email: global1.user, regno: global1.regno } });
+    setRows(res.data?.data || []);
+    setInstitution(res.data?.institution || null);
+  };
+  useEffect(() => { load(); }, []);
+  const upload = async (file) => {
+    if (!file) return;
+    const data = new FormData();
+    data.append("file", file);
+    data.append("colid", global1.colid);
+    data.append("user", global1.user);
+    setUploadProgress(1);
+    const res = await ep1.post("/api/v2/placement-new/upload", data, { headers: { "Content-Type": "multipart/form-data" }, onUploadProgress: (evt) => setUploadProgress(Math.round((evt.loaded * 100) / (evt.total || evt.loaded || 1))) });
+    setForm((p) => ({ ...p, offerletterlink: res.data?.url || "", offerlettername: file.name }));
+    setUploadProgress(100);
+  };
+  const submit = async () => {
+    try {
+      setError("");
+      await ep1.post("/api/v2/placement-new/internship-noc/submit", { ...basePayload(), email: global1.user, regno: global1.regno, ...form });
+      setMessage("Internship NoC request submitted");
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to submit NoC");
+    }
+  };
+  const printNoc = (row) => {
+    setTimeout(() => printElement(printRef, "Internship NoC"), 50);
+  };
+  return <Shell title="Internship NoC" student><Typography variant="h5" fontWeight={900} sx={{ mb: 1 }}>Internship NoC application</Typography>{messageBlock(message, error)}<Paper sx={{ p: 2, mb: 2 }}><Grid container spacing={2}>{["academicyear", "regulation", "program", "programcode", "semester", "companyname", "contactperson", "officialemail", "mobile", "location", "title", "technologies"].map((f) => <Grid item xs={12} md={2} key={f}><TextField fullWidth size="small" label={f} value={form[f] || ""} onChange={(e) => setForm((p) => ({ ...p, [f]: e.target.value }))} /></Grid>)}<Grid item xs={12} md={2}><Button component="label" fullWidth variant="outlined" startIcon={<UploadFile />}>Offer letter<input hidden type="file" onChange={(e) => upload(e.target.files?.[0])} /></Button></Grid><Grid item xs={12} md={10}><TextField fullWidth size="small" label="Offer letter link" value={form.offerletterlink || ""} onChange={(e) => setForm((p) => ({ ...p, offerletterlink: e.target.value }))} /></Grid>{uploadProgress > 0 && uploadProgress < 100 && <Grid item xs={12}><LinearProgress variant="determinate" value={uploadProgress} /></Grid>}<Grid item xs={12}><TextField fullWidth multiline minRows={2} label="Student comment" value={form.submissioncomment || ""} onChange={(e) => setForm((p) => ({ ...p, submissioncomment: e.target.value }))} /></Grid><Grid item xs={12} md={2}><Button fullWidth variant="contained" onClick={submit}>Submit NoC</Button></Grid></Grid></Paper><Typography variant="h6" fontWeight={900} sx={{ mb: 1 }}>My NoC requests</Typography><Paper sx={{ p: 1 }}><DataGrid rows={rows} getRowId={(r) => r._id} autoHeight getRowHeight={() => "auto"} sx={gridWrapSx} slots={{ toolbar: GridToolbar }} columns={[
+    { field: "companyname", headerName: "Company", width: 180 }, { field: "title", headerName: "Title", width: 200 }, { field: "approvalstatus", headerName: "Status", width: 140 }, { field: "currentapprovername", headerName: "Current approver", width: 180 }, { field: "offerletterlink", headerName: "Offer letter", width: 130, renderCell: ({ value }) => value ? <Button size="small" href={value} target="_blank">Open</Button> : "" }, { field: "actions", type: "actions", width: 120, getActions: ({ row }) => [<GridActionsCellItem icon={<Print />} label="NoC" disabled={!/^approved$/i.test(text(row.approvalstatus))} onClick={() => { setRows((old) => old.map((r) => ({ ...r, _print: r._id === row._id }))); printNoc(row); }} />] }
+  ]} /></Paper><Box sx={{ display: "none" }}><Box ref={printRef}>{rows.filter((r) => r._print).map((row) => <Box key={row._id}><ReportHeader institution={institution} title="Internship NoC" /><Typography sx={{ mt: 4, whiteSpace: "pre-wrap" }}>This is to certify that {row.student} ({row.regno}), {row.program} ({row.programcode}), has been permitted to undertake internship at {row.companyname}, {row.location}, for the role/title {row.title}. The student has submitted the offer letter and the NoC request has been approved through the institutional workflow.</Typography><Grid container spacing={1} sx={{ mt: 2 }}>{["academicyear", "regulation", "semester", "contactperson", "officialemail", "mobile", "technologies", "finalapprovaldate"].map((f) => <Grid item xs={6} key={f}><b>{f}:</b> {row[f]}</Grid>)}</Grid><Typography sx={{ mt: 6, textAlign: "right" }}>Authorized Signature</Typography></Box>)}</Box></Box></Shell>;
+}
+
+export function PlacementInternshipNocApprovalPage() {
+  const [rows, setRows] = useState([]);
+  const [comments, setComments] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const load = async () => {
+    try {
+      setLoading(true);
+      const res = await ep1.get("/api/v2/placement-new/internship-noc", { params: { ...basePayload(), mode: "approver", email: global1.user } });
+      setRows(res.data?.data || []);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load pending NoC requests");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { load(); }, []);
+  const decision = async (row, action) => {
+    try {
+      await ep1.post("/api/v2/placement-new/internship-noc/decision", { ...basePayload(), name: global1.name || global1.user, id: row._id, action, comments });
+      setMessage(`NoC ${action}`);
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to update NoC");
+    }
+  };
+  return <Shell title="Internship NoC approval"><Typography variant="h5" fontWeight={900} sx={{ mb: 1 }}>Internship NoC approval</Typography>{messageBlock(message, error)}<Paper sx={{ p: 2, mb: 2 }}><TextField fullWidth multiline minRows={2} label="Approval comments" value={comments} onChange={(e) => setComments(e.target.value)} /></Paper><Paper sx={{ p: 1 }}><DataGrid rows={rows} getRowId={(r) => r._id} loading={loading} autoHeight getRowHeight={() => "auto"} sx={gridWrapSx} slots={{ toolbar: GridToolbar }} columns={[
+    { field: "student", headerName: "Student", width: 180 }, { field: "regno", headerName: "Reg no", width: 130 }, { field: "programcode", headerName: "Program code", width: 130 }, { field: "companyname", headerName: "Company", width: 180 }, { field: "title", headerName: "Title", width: 180 }, { field: "offerletterlink", headerName: "Offer letter", width: 130, renderCell: ({ value }) => value ? <Button size="small" href={value} target="_blank">Open</Button> : "" }, { field: "history", headerName: "History", width: 280, valueGetter: ({ row }) => (row.history || []).map((h) => `${h.level}-${h.action}-${h.approvername}`).join(" | ") }, { field: "actions", type: "actions", width: 160, getActions: ({ row }) => [<GridActionsCellItem icon={<Save />} label="Approve" onClick={() => decision(row, "Approved")} />, <GridActionsCellItem icon={<Delete />} label="Reject" onClick={() => decision(row, "Rejected")} />] }
+  ]} /></Paper></Shell>;
+}
+
+export function PlacementInternshipReportPage() {
+  const [filters, setFilters] = useState({});
+  const [data, setData] = useState({ pools: [], applications: [], schedules: [], summary: {}, byProgram: [], byCompany: [], byStatus: [], institution: null });
+  const [loading, setLoading] = useState(false);
+  const printRef = useRef(null);
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await ep1.get("/api/v2/placement-new/internship-report", { params: { ...basePayload(), ...filters } });
+      setData(res.data || {});
+    } finally {
+      setLoading(false);
+    }
+  };
+  const cards = [["Pools", data.summary?.pools || 0], ["Applications", data.summary?.applications || 0], ["Approved", data.summary?.approved || 0], ["Under process", data.summary?.pending || 0]];
+  return <Shell title="Internship report"><Stack direction="row" justifyContent="space-between" sx={{ mb: 2 }}><Typography variant="h5" fontWeight={900}>Internship report</Typography><Button startIcon={<Print />} onClick={() => printElement(printRef, "Internship report")}>Print preview</Button></Stack><Paper sx={{ p: 2, mb: 2 }}><Grid container spacing={2}>{["academicyear", "program", "programcode", "companyname", "title", "approvalstatus"].map((f) => <Grid item xs={12} md={2} key={f}><TextField fullWidth size="small" label={f} value={filters[f] || ""} onChange={(e) => setFilters((p) => ({ ...p, [f]: e.target.value }))} /></Grid>)}<Grid item xs={12} md={2}><Button fullWidth variant="contained" onClick={load}>Load</Button></Grid></Grid></Paper>{loading && <LinearProgress sx={{ mb: 2 }} />}<Box ref={printRef}><ReportHeader institution={data.institution} title="Internship report" /><Grid container spacing={2} sx={{ mb: 2 }}>{cards.map(([label, value]) => <Grid item xs={12} md={3} key={label}><Card><CardContent><Typography color="text.secondary">{label}</Typography><Typography variant="h4" fontWeight={900}>{value}</Typography></CardContent></Card></Grid>)}</Grid><Grid container spacing={2} sx={{ mb: 2 }}><Grid item xs={12} md={4}><Paper sx={{ p: 2, height: 300 }}><Typography fontWeight={800}>Programwise applications</Typography><ResponsiveContainer><BarChart data={data.byProgram || []}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip /><Bar dataKey="count" fill="#2563eb" /></BarChart></ResponsiveContainer></Paper></Grid><Grid item xs={12} md={4}><Paper sx={{ p: 2, height: 300 }}><Typography fontWeight={800}>Companywise applications</Typography><ResponsiveContainer><BarChart data={data.byCompany || []}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip /><Bar dataKey="count" fill="#16a34a" /></BarChart></ResponsiveContainer></Paper></Grid><Grid item xs={12} md={4}><Paper sx={{ p: 2, height: 300 }}><Typography fontWeight={800}>Status</Typography><ResponsiveContainer><PieChart><Pie data={data.byStatus || []} dataKey="count" nameKey="name" outerRadius={95}>{(data.byStatus || []).map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer></Paper></Grid></Grid><Typography variant="h6" fontWeight={900}>Applications</Typography><DataGrid rows={data.applications || []} getRowId={(r) => r._id} autoHeight getRowHeight={() => "auto"} sx={gridWrapSx} slots={{ toolbar: GridToolbar }} columns={[{ field: "student", headerName: "Student", width: 180 }, { field: "regno", headerName: "Reg no", width: 130 }, { field: "programcode", headerName: "Program code", width: 130 }, { field: "companyname", headerName: "Company", width: 180 }, { field: "title", headerName: "Internship", width: 220 }, { field: "approvalstatus", headerName: "Approval", width: 130 }, { field: "coordinatorcomment", headerName: "Comment", width: 260 }]} /><Typography variant="h6" fontWeight={900} sx={{ mt: 2 }}>Schedules</Typography><DataGrid rows={data.schedules || []} getRowId={(r) => r._id} autoHeight slots={{ toolbar: GridToolbar }} columns={[{ field: "programcode", headerName: "Program code", width: 130 }, { field: "companyname", headerName: "Company", width: 180 }, { field: "title", headerName: "Internship", width: 220 }, { field: "schedule", headerName: "Schedule", width: 240 }, { field: "startdate", headerName: "Start", width: 110 }, { field: "enddate", headerName: "End", width: 110 }]} /></Box></Shell>;
+}
+
+export function PlacementInternshipNocDashboardPage() {
+  const [academicyear, setAcademicyear] = useState("");
+  const [data, setData] = useState({ rows: [], byProgram: [], byStatus: [], summary: {}, academicyears: [], institution: null });
+  const printRef = useRef(null);
+  const load = async () => {
+    const res = await ep1.get("/api/v2/placement-new/internship-noc-dashboard", { params: { ...basePayload(), academicyear } });
+    setData(res.data || {});
+  };
+  useEffect(() => { load(); }, []);
+  return <Shell title="Internship NoC dashboard"><Stack direction="row" justifyContent="space-between" sx={{ mb: 2 }}><Typography variant="h5" fontWeight={900}>Internship NoC dashboard</Typography><Button startIcon={<Print />} onClick={() => printElement(printRef, "Internship NoC dashboard")}>Print preview</Button></Stack><Paper sx={{ p: 2, mb: 2 }}><Grid container spacing={2}><Grid item xs={12} md={3}><Autocomplete freeSolo options={data.academicyears || []} value={academicyear || ""} onInputChange={(_, v) => setAcademicyear(v || "")} renderInput={(params) => <TextField {...params} size="small" label="Academic year" />} /></Grid><Grid item xs={12} md={2}><Button fullWidth variant="contained" onClick={load}>Load</Button></Grid></Grid></Paper><Box ref={printRef}><ReportHeader institution={data.institution} title="Internship NoC dashboard" /><Grid container spacing={2} sx={{ mb: 2 }}>{[["Applied", data.summary?.applied || 0], ["Approved", data.summary?.approved || 0], ["Rejected", data.summary?.rejected || 0], ["Under process", data.summary?.underprocess || 0]].map(([label, value]) => <Grid item xs={12} md={3} key={label}><Card><CardContent><Typography color="text.secondary">{label}</Typography><Typography variant="h4" fontWeight={900}>{value}</Typography></CardContent></Card></Grid>)}</Grid><Grid container spacing={2} sx={{ mb: 2 }}><Grid item xs={12} md={8}><Paper sx={{ p: 2, height: 320 }}><Typography fontWeight={800}>Programwise NOC status</Typography><ResponsiveContainer><BarChart data={data.byProgram || []}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip /><Bar dataKey="applied" fill="#2563eb" /><Bar dataKey="approved" fill="#16a34a" /><Bar dataKey="rejected" fill="#dc2626" /><Bar dataKey="underprocess" fill="#f97316" /></BarChart></ResponsiveContainer></Paper></Grid><Grid item xs={12} md={4}><Paper sx={{ p: 2, height: 320 }}><Typography fontWeight={800}>Overall status</Typography><ResponsiveContainer><PieChart><Pie data={data.byStatus || []} dataKey="count" nameKey="name" outerRadius={100}>{(data.byStatus || []).map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer></Paper></Grid></Grid><DataGrid rows={data.rows || []} getRowId={(r) => r._id} autoHeight getRowHeight={() => "auto"} sx={gridWrapSx} slots={{ toolbar: GridToolbar }} columns={[{ field: "student", headerName: "Student", width: 180 }, { field: "regno", headerName: "Reg no", width: 130 }, { field: "programcode", headerName: "Program code", width: 130 }, { field: "companyname", headerName: "Company", width: 180 }, { field: "title", headerName: "Title", width: 200 }, { field: "approvalstatus", headerName: "Status", width: 140 }, { field: "currentapprovername", headerName: "Current approver", width: 180 }]} /></Box></Shell>;
 }

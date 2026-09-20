@@ -30,6 +30,7 @@ const emptyForm = {
   userid: "",
   program: "",
   programcode: "",
+  semester: "",
   department: ""
 };
 
@@ -58,6 +59,10 @@ export default function ProgramwiseAccessPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const semesterOptions = useMemo(() => {
+    const saved = rows.map((row) => row.semester).filter(Boolean);
+    return [...new Set(["", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", ...saved])];
+  }, [rows]);
 
   const loadAll = async () => {
     setLoading(true);
@@ -160,6 +165,7 @@ export default function ProgramwiseAccessPage() {
             userid: user?._id || "",
             program: program?.program || "",
             programcode: program?.programcode || "",
+            semester: form.semester || "",
             department: program?.department || ""
           }))
         );
@@ -192,6 +198,7 @@ export default function ProgramwiseAccessPage() {
       userid: row.userid || "",
       program: row.program || "",
       programcode: row.programcode || "",
+      semester: row.semester || "",
       department: row.department || ""
     });
   };
@@ -218,6 +225,7 @@ export default function ProgramwiseAccessPage() {
       { field: "department", headerName: "Department", minWidth: 170, flex: 1 },
       { field: "program", headerName: "Program", minWidth: 220, flex: 1 },
       { field: "programcode", headerName: "Program Code", minWidth: 150 },
+      { field: "semester", headerName: "Semester", minWidth: 120, valueGetter: (params) => params.row.semester || "All" },
       {
         field: "actions",
         type: "actions",
@@ -307,9 +315,20 @@ export default function ProgramwiseAccessPage() {
                 />
               </Grid>
               <Grid item xs={12} md={2}>
+                <Autocomplete
+                  freeSolo
+                  options={semesterOptions}
+                  value={form.semester || ""}
+                  onChange={(_, value) => setForm((prev) => ({ ...prev, semester: value || "" }))}
+                  onInputChange={(_, value) => setForm((prev) => ({ ...prev, semester: value || "" }))}
+                  getOptionLabel={(option) => option ? String(option) : "All semesters"}
+                  renderOption={(props, option) => <li {...props}>{option || "All semesters"}</li>}
+                  renderInput={(params) => <TextField {...params} label="Semester" helperText="Blank means all semesters" />}
+                />
+              </Grid>
+              <Grid item xs={12}>
                 <Stack direction="row" spacing={1}>
                   <Button
-                    fullWidth
                     variant="contained"
                     startIcon={<SaveIcon />}
                     disabled={saving || selectedUsers.length === 0 || selectedPrograms.length === 0}

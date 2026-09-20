@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Chip,
@@ -36,7 +37,9 @@ const filterFields = [
   { field: "subject", label: "Subject" },
   { field: "semester", label: "Semester" },
   { field: "course", label: "Course" },
-  { field: "coursecode", label: "Course Code" }
+  { field: "coursecode", label: "Course Code" },
+  { field: "unit", label: "Unit" },
+  { field: "module", label: "Module" }
 ];
 
 const courseMapFields = ["academicyear", "regulation", "program", "programcode", "type", "subject", "semester", "course", "coursecode"];
@@ -62,8 +65,10 @@ const blankForm = {
   semester: "",
   course: "",
   coursecode: "",
+  unit: "",
   module: "",
-  syllabus: ""
+  syllabus: "",
+  coveragepercentage: ""
 };
 
 const fieldLabels = {
@@ -75,7 +80,9 @@ const fieldLabels = {
   subject: "Subject",
   semester: "Semester",
   course: "Course",
-  coursecode: "Course Code"
+  coursecode: "Course Code",
+  unit: "Unit",
+  module: "Module"
 };
 
 const normalizeHeader = (value) => String(value || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -93,8 +100,12 @@ const headerMap = {
   semester: "semester",
   course: "course",
   coursecode: "coursecode",
+  unit: "unit",
   module: "module",
-  syllabus: "syllabus"
+  syllabus: "syllabus",
+  coveragepercentage: "coveragepercentage",
+  coveragepercent: "coveragepercentage",
+  coverage: "coveragepercentage"
 };
 
 export default function SyllabusPage() {
@@ -207,6 +218,7 @@ export default function SyllabusPage() {
     semester: source.semesters || [],
     course: source.courseNames || uniqueSorted((source.courses || []).map((item) => item.course)),
     coursecode: source.courseCodes || uniqueSorted((source.courses || []).map((item) => item.coursecode)),
+    unit: source.units || [],
     module: source.modules || []
   });
 
@@ -306,8 +318,10 @@ export default function SyllabusPage() {
       semester: row.semester || "",
       course: row.course || "",
       coursecode: row.coursecode || "",
+      unit: row.unit || "",
       module: row.module || "",
-      syllabus: row.syllabus || ""
+      syllabus: row.syllabus || "",
+      coveragepercentage: row.coveragepercentage ?? ""
     });
   };
 
@@ -335,8 +349,10 @@ export default function SyllabusPage() {
       Semester: firstCourse.semester || "1",
       Course: firstCourse.course || "",
       "Course Code": firstCourse.coursecode || "",
+      Unit: "1",
       Module: "Module 1",
-      Syllabus: "Enter module-wise syllabus here"
+      Syllabus: "Enter module-wise syllabus here",
+      "Coverage Percentage": 20
     };
     const ws = XLSX.utils.json_to_sheet([row]);
     const wb = XLSX.utils.book_new();
@@ -539,14 +555,17 @@ export default function SyllabusPage() {
     { field: "semester", headerName: "Semester", width: 110 },
     { field: "course", headerName: "Course", width: 220 },
     { field: "coursecode", headerName: "Course Code", width: 150 },
+    { field: "unit", headerName: "Unit", width: 100 },
     { field: "module", headerName: "Module", width: 160 },
     { field: "syllabus", headerName: "Syllabus", width: 420 },
+    { field: "coveragepercentage", headerName: "Coverage %", width: 130, type: "number" },
     { field: "sourcefilelink", headerName: "Source File", width: 160, renderCell: (params) => params.value ? <Button size="small" href={params.value} target="_blank" rel="noreferrer">Open</Button> : "" }
   ];
 
   const aiPreviewColumns = [
     { field: "module", headerName: "Module", flex: 0.7, minWidth: 220 },
     { field: "syllabus", headerName: "Generated Syllabus", flex: 1.6, minWidth: 520 },
+    { field: "coveragepercentage", headerName: "Coverage %", width: 130, type: "number" },
     { field: "course", headerName: "Course", flex: 0.8, minWidth: 220 },
     { field: "coursecode", headerName: "Course Code", width: 140 }
   ];
@@ -741,8 +760,28 @@ export default function SyllabusPage() {
           {renderCourseMapSelect("semester")}
           {renderCourseMapSelect("course", { xs: 12, md: 6 })}
           {renderCourseMapSelect("coursecode")}
+          <Grid item xs={12} md={2}>
+            <Autocomplete
+              freeSolo
+              options={["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", ...formOptionValues.unit]}
+              value={form.unit || ""}
+              onChange={(_, value) => setForm((prev) => ({ ...prev, unit: value || "" }))}
+              onInputChange={(_, value) => setForm((prev) => ({ ...prev, unit: value || "" }))}
+              renderInput={(params) => <TextField {...params} label="Unit" />}
+            />
+          </Grid>
           <Grid item xs={12} md={3}>
             <TextField fullWidth required label="Module" value={form.module} onChange={(e) => setForm((prev) => ({ ...prev, module: e.target.value }))} />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField
+              fullWidth
+              type="number"
+              label="Coverage %"
+              value={form.coveragepercentage || ""}
+              inputProps={{ min: 0, max: 100, step: 1 }}
+              onChange={(e) => setForm((prev) => ({ ...prev, coveragepercentage: e.target.value }))}
+            />
           </Grid>
           <Grid item xs={12}>
             <TextField fullWidth required multiline minRows={2} label="Syllabus" value={form.syllabus} onChange={(e) => setForm((prev) => ({ ...prev, syllabus: e.target.value }))} />
@@ -914,7 +953,7 @@ export default function SyllabusPage() {
           slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "syllabus" } } }}
           pageSizeOptions={[10, 25, 50, 100]}
           initialState={{ pagination: { paginationModel: { pageSize: 10, page: 0 } } }}
-          sx={{ minWidth: 2200 }}
+          sx={{ minWidth: 2450 }}
         />
       </Paper>
     </Container>

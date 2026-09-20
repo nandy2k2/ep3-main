@@ -15,10 +15,11 @@ import { Refresh, Save } from "@mui/icons-material";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MentoringLayout from "./MentoringLayout";
+import { classDisplayLabel } from "../utils/nepLmsTimezone";
 
 const label = (row = {}) => {
   const validTill = row.validtill ? ` | Valid till ${new Date(row.validtill).toLocaleTimeString()}` : "";
-  return `${row.classdate || ""} ${row.classtime || ""} | ${row.coursecode || ""} - ${row.course || ""} | Sem ${row.semester || ""}${validTill}`;
+  return `${classDisplayLabel(row)} | ${row.coursecode || ""} - ${row.course || ""} | Sem ${row.semester || ""}${validTill}`;
 };
 
 export default function NepLmsStudentOtpAttendancePage() {

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Container,
@@ -59,7 +60,10 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
     levels: defaultLevels,
     statuses: defaultStatuses,
     excluded: ["No", "Yes"],
-    sessionTypes: defaultSessionTypes
+    sessionTypes: defaultSessionTypes,
+    institutions: [],
+    faculties: [],
+    departments: []
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -71,14 +75,20 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
   const merged = (base, extra) => Array.from(new Set([...(base || []), ...(extra || [])].filter(Boolean))).sort();
 
   const loadOptions = async () => {
-    const res = await ep1.get("/api/v2/mprograms-management/options", { params: { colid } });
+    const [res, masterRes] = await Promise.all([
+      ep1.get("/api/v2/mprograms-management/options", { params: { colid } }),
+      ep1.get("/api/v2/academic-configuration/options", { params: { colid } })
+    ]);
     setOptions({
       years: merged(defaultYears, res.data.years),
       types: merged(defaultTypes, res.data.types),
       levels: merged(defaultLevels, res.data.levels),
       statuses: merged(defaultStatuses, res.data.statuses),
       excluded: merged(["No", "Yes"], res.data.excluded),
-      sessionTypes: merged(defaultSessionTypes, res.data.sessionTypes)
+      sessionTypes: merged(defaultSessionTypes, res.data.sessionTypes),
+      institutions: masterRes.data?.institutions || [],
+      faculties: masterRes.data?.faculties || [],
+      departments: masterRes.data?.departments || []
     });
   };
 
@@ -109,6 +119,18 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
   const updateForm = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
+
+  const filteredDepartments = useMemo(() => (options.departments || []).filter((item) => {
+    const itemFaculty = String(item.faculty || "").trim().toLowerCase();
+    const itemInstitution = String(item.institution || "").trim().toLowerCase();
+    const selectedFaculty = String(form.faculty || "").trim().toLowerCase();
+    const selectedInstitution = String(form.institution || "").trim().toLowerCase();
+    if (selectedFaculty && itemFaculty !== selectedFaculty) return false;
+    if (selectedInstitution && itemInstitution !== selectedInstitution) return false;
+    return String(item.department || "").trim();
+  }), [options.departments, form.faculty, form.institution]);
+
+  const departmentOptions = useMemo(() => Array.from(new Set(filteredDepartments.map((item) => String(item.department || "").trim()).filter(Boolean))).sort(), [filteredDepartments]);
 
   const resetForm = () => {
     setForm(emptyForm);
@@ -332,9 +354,33 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
           </TextField>
           <TextField size="small" label="Program" value={form.program} onChange={(e) => updateForm("program", e.target.value)} sx={{ gridColumn: { xs: "1", md: "span 2" } }} />
           <TextField size="small" label="Program code" value={form.programcode} onChange={(e) => updateForm("programcode", e.target.value)} />
-	          <TextField size="small" label="Institution" value={form.institution} onChange={(e) => updateForm("institution", e.target.value)} />
-	          <TextField size="small" label="Department" value={form.department} onChange={(e) => updateForm("department", e.target.value)} />
-	          <TextField size="small" label="Faculty" value={form.faculty} onChange={(e) => updateForm("faculty", e.target.value)} />
+          <Autocomplete
+            freeSolo
+            options={options.institutions || []}
+            value={form.institution || ""}
+            getOptionLabel={(option) => typeof option === "string" ? option : option.institution || ""}
+            onChange={(_, value) => setForm((prev) => ({ ...prev, institution: typeof value === "string" ? value : value?.institution || "", department: "" }))}
+            onInputChange={(_, value) => setForm((prev) => ({ ...prev, institution: value || "", department: "" }))}
+            renderInput={(params) => <TextField {...params} size="small" label="Institution" />}
+          />
+          <Autocomplete
+            freeSolo
+            options={options.faculties || []}
+            value={form.faculty || ""}
+            getOptionLabel={(option) => typeof option === "string" ? option : option.faculty || ""}
+            onChange={(_, value) => setForm((prev) => ({ ...prev, faculty: typeof value === "string" ? value : value?.faculty || "", department: "" }))}
+            onInputChange={(_, value) => setForm((prev) => ({ ...prev, faculty: value || "", department: "" }))}
+            renderInput={(params) => <TextField {...params} size="small" label="Faculty" />}
+          />
+          <Autocomplete
+            freeSolo
+            options={departmentOptions}
+            value={form.department || ""}
+            getOptionLabel={(option) => option || ""}
+            onChange={(_, value) => updateForm("department", value || "")}
+            onInputChange={(_, value) => updateForm("department", value || "")}
+            renderInput={(params) => <TextField {...params} size="small" label="Department" helperText="Filtered by selected faculty and institution" />}
+          />
           <TextField size="small" type="number" label="Duration in year" value={form.durationinyear} onChange={(e) => updateForm("durationinyear", e.target.value)} />
           <TextField size="small" type="number" label="Total Credits" value={form.totalcredits} onChange={(e) => updateForm("totalcredits", e.target.value)} />
           <TextField size="small" type="number" label="Intake Capacity" value={form.intakecapacity} onChange={(e) => updateForm("intakecapacity", e.target.value)} />

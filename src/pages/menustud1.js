@@ -784,6 +784,20 @@ function DefaultStudentListItems({ open }) {
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Placement jobs" />}
 </ListItem>
 
+            <ListItem button component={RouterLink} to="/student-placement-internship-pool">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Internship jobs" />}
+</ListItem>
+
+            <ListItem button component={RouterLink} to="/student-placement-internship-noc">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Internship NoC" />}
+</ListItem>
+
             <ListItem button component={RouterLink} to="/student-placement-internships">
 <ListItemIcon>
 <PersonIcon />
@@ -817,6 +831,20 @@ function DefaultStudentListItems({ open }) {
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="SIP report" />}
+</ListItem>
+
+            <ListItem button component={RouterLink} to="/student-placement-practice-test">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Placement Practice test" />}
+</ListItem>
+
+            <ListItem button component={RouterLink} to="/student-psychometric-test">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Psychometric test" />}
 </ListItem>
 
         </AccordionDetails>

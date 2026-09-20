@@ -39,7 +39,7 @@ import Editor, {
   BtnUndo,
   Toolbar
 } from "react-simple-wysiwyg";
-import { Add, AutoFixHigh, CloudUpload, Delete, Edit, Refresh, Save } from "@mui/icons-material";
+import { Add, AutoFixHigh, CloudUpload, Delete, Edit, Print, Refresh, Save } from "@mui/icons-material";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import MenuPageShell from "./MenuPageShell";
@@ -47,11 +47,28 @@ import AdvancedDrawingPad from "./QuestionDrawingPad";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 
-const initialExam = { academicyear: "", category: "", program: "", programcode: "", course: "", coursecode: "", examname: "", examcode: "", durationminutes: 60, starttime: "", endtime: "", timezone: "UTC", instructions: "", status: "Draft" };
+const initialExam = { academicyear: "", category: "", program: "", programcode: "", semester: "", course: "", coursecode: "", examname: "", examcode: "", durationminutes: 60, starttime: "", endtime: "", timezone: "UTC", instructions: "", status: "Draft" };
 const initialQuestionForm = { sectionid: "", questionid: "", questiontext: "", questionhtml: "", mathematicalexpression: "", tabledata: [], drawingdataurl: "", questiontype: "MCQ", marks: 1, modules: [], topics: [], cos: [], bloomlevels: [], options: [{ optiontext: "", iscorrect: true }, { optiontext: "", iscorrect: false }], imageurl: "", imagefilename: "", fileurl: "", filefilename: "", linkurl: "", attachments: [], contentblocks: [] };
 const questionUploadHeaders = ["sectionname", "questiontext", "questiontype", "marks", "modules", "topics", "cos", "bloomlevels", "option1", "option2", "option3", "option4", "correctoption", "imageurl", "fileurl", "linkurl", "order"];
 const languages = ["English", "Hindi", "Bengali", "Tamil", "Telugu", "Marathi", "Gujarati", "Kannada", "Malayalam", "Punjabi", "Urdu", "French", "Spanish"];
-const geminiModels = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
+const geminiModels = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
+const placementPracticeCategories = [
+  "Technical aptitude", "Quantitative aptitude", "Logical reasoning", "Verbal ability", "Coding aptitude",
+  "Data interpretation", "Problem solving", "Entrance test", "Campus recruitment", "Interview preparation",
+  "Group discussion", "HR round", "Resume screening", "Communication skills", "Business aptitude",
+  "Domain fundamentals", "Computer fundamentals", "Database concepts", "Operating systems", "Networking basics",
+  "Web development", "Data structures", "Algorithms", "Cloud fundamentals", "Cybersecurity basics",
+  "AI and ML basics", "Software testing", "Project management", "Case study", "Situational judgement",
+  "Email writing", "Presentation skills", "Numerical ability", "Analytical reasoning", "Industry awareness"
+];
+const psychometricCategories = [
+  "Personality orientation", "Career interest", "Work style", "Leadership", "Teamwork", "Communication",
+  "Emotional resilience", "Problem solving", "Decision making", "Creativity", "Adaptability", "Integrity",
+  "Motivation", "Stress response", "Learning preference", "Entrepreneurial tendency", "Analytical tendency",
+  "Service orientation", "Research orientation", "Sales orientation", "Operations orientation", "Technology orientation",
+  "Social confidence", "Detail orientation", "Risk preference", "Planning style", "Conflict handling",
+  "Self discipline", "Empathy", "Career values"
+];
 const timezoneOptions = ["UTC", "Asia/Kolkata", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "Europe/London", "Europe/Paris", "Asia/Dubai", "Asia/Singapore", "Asia/Tokyo", "Australia/Sydney"];
 const fmt = (value) => value ? new Date(value).toLocaleString() : "";
 const browserTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "Local browser timezone";
@@ -433,7 +450,7 @@ function MultiCheckAutocomplete({ label, options = [], value = [], onChange }) {
   );
 }
 
-const examFilterFields = ["academicyear", "category", "program", "programcode", "course", "coursecode", "examname", "examcode", "status", "username", "user"];
+const examFilterFields = ["academicyear", "category", "program", "programcode", "semester", "course", "coursecode", "examname", "examcode", "status", "username", "user"];
 const rowMatchesFilters = (row, filters = []) => filters.every((filter) => {
   const field = filter.field;
   const value = String(filter.value || "").trim().toLowerCase();
@@ -442,7 +459,9 @@ const rowMatchesFilters = (row, filters = []) => filters.every((filter) => {
   return String(filter.operator || "contains").toLowerCase() === "equals" ? rowValue === value : rowValue.includes(value);
 });
 
-export function OnlineExamManagementPage({ myMode = false, admissionMode = false }) {
+export function OnlineExamManagementPage({ myMode = false, admissionMode = false, examContext, pageTitle, categoryTemplates = [], psychometricMode = false }) {
+  const activeExamContext = examContext || (admissionMode ? "Admission" : "Student");
+  const activeTitle = pageTitle || (admissionMode ? "Admission Online Examination" : (myMode ? "My Online Exam" : "Online Examination"));
   const [options, setOptions] = useState({ programs: [], ollama: [] });
   const [exams, setExams] = useState([]);
   const [listFilters, setListFilters] = useState([{ field: "academicyear", operator: "contains", value: "" }]);
@@ -452,7 +471,7 @@ export function OnlineExamManagementPage({ myMode = false, admissionMode = false
   const [sectionForm, setSectionForm] = useState({ sectionname: "", sectiontype: "MCQ", instructions: "", order: 0 });
   const [questionForm, setQuestionForm] = useState(initialQuestionForm);
   const [questionOptions, setQuestionOptions] = useState({ modules: [], topics: [], cos: [], bloomlevels: [] });
-  const [ai, setAi] = useState({ provider: "Gemini", geminiModel: "gemini-2.5-flash", ollamaConfigId: "", language: "English", difficulty: "Medium", count: 5, topic: "", mapWithAi: true });
+  const [ai, setAi] = useState({ provider: "Gemini", geminiModel: "gemini-2.5-flash", ollamaConfigId: "", language: "English", difficulty: "Medium", count: 5, topic: "", mapWithAi: true, categories: [] });
   const [selectedQuestionIds, setSelectedQuestionIds] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -461,8 +480,8 @@ export function OnlineExamManagementPage({ myMode = false, admissionMode = false
     setLoading(true);
     try {
       const [opt, list] = await Promise.all([
-        ep1.get(admissionMode ? "/api/v2/admission-online-exam/options" : "/api/v2/online-exam/options", { params: { colid: global1.colid, ...(admissionMode ? { examcontext: "Admission" } : {}) } }),
-        ep1.get("/api/v2/online-exam/exams", { params: { colid: global1.colid, ...(admissionMode ? { examcontext: "Admission" } : {}), ...(!admissionMode && myMode ? { createdby: global1.user } : {}) } })
+        ep1.get(admissionMode ? "/api/v2/admission-online-exam/options" : "/api/v2/online-exam/options", { params: { colid: global1.colid, examcontext: activeExamContext } }),
+        ep1.get("/api/v2/online-exam/exams", { params: { colid: global1.colid, examcontext: activeExamContext, ...(!admissionMode && myMode ? { createdby: global1.user } : {}) } })
       ]);
       setOptions(opt.data || { programs: [], ollama: [] });
       setExams(list.data?.data || []);
@@ -499,8 +518,9 @@ export function OnlineExamManagementPage({ myMode = false, admissionMode = false
   const categoryOptions = useMemo(() => admissionMode ? (options.applicationValues?.category || options.examValues?.category || []) : [], [admissionMode, options]);
   const programOptions = useMemo(() => admissionMode ? (options.applicationValues?.programapplied || options.examValues?.program || []) : uniqueValues(courseMaps.filter((p) => !exam.academicyear || p.academicyear === exam.academicyear), "program"), [admissionMode, options, courseMaps, exam.academicyear]);
   const programCodeOptions = useMemo(() => admissionMode ? (options.applicationValues?.programcode || options.examValues?.programcode || []) : uniqueValues(courseMaps.filter((p) => (!exam.academicyear || p.academicyear === exam.academicyear) && (!exam.program || p.program === exam.program)), "programcode"), [admissionMode, options, courseMaps, exam.academicyear, exam.program]);
-  const courseOptions = useMemo(() => uniqueValues(courseMaps.filter((p) => (!exam.academicyear || p.academicyear === exam.academicyear) && (!exam.programcode || p.programcode === exam.programcode)), "course"), [courseMaps, exam.academicyear, exam.programcode]);
-  const courseCodeOptions = useMemo(() => uniqueValues(courseMaps.filter((p) => (!exam.academicyear || p.academicyear === exam.academicyear) && (!exam.programcode || p.programcode === exam.programcode) && (!exam.course || p.course === exam.course)), "coursecode"), [courseMaps, exam.academicyear, exam.programcode, exam.course]);
+  const semesterOptions = useMemo(() => uniqueValues(courseMaps.filter((p) => (!exam.academicyear || p.academicyear === exam.academicyear) && (!exam.programcode || p.programcode === exam.programcode)), "semester"), [courseMaps, exam.academicyear, exam.programcode]);
+  const courseOptions = useMemo(() => uniqueValues(courseMaps.filter((p) => (!exam.academicyear || p.academicyear === exam.academicyear) && (!exam.programcode || p.programcode === exam.programcode) && (!exam.semester || String(p.semester || "") === String(exam.semester || ""))), "course"), [courseMaps, exam.academicyear, exam.programcode, exam.semester]);
+  const courseCodeOptions = useMemo(() => uniqueValues(courseMaps.filter((p) => (!exam.academicyear || p.academicyear === exam.academicyear) && (!exam.programcode || p.programcode === exam.programcode) && (!exam.semester || String(p.semester || "") === String(exam.semester || "")) && (!exam.course || p.course === exam.course)), "coursecode"), [courseMaps, exam.academicyear, exam.programcode, exam.semester, exam.course]);
   const updateExamCourseField = (field, value) => {
     setExam((prev) => {
       const next = { ...prev, [field]: value || "" };
@@ -515,16 +535,17 @@ export function OnlineExamManagementPage({ myMode = false, admissionMode = false
         (!next.academicyear || p.academicyear === next.academicyear)
         && (!next.program || p.program === next.program)
         && (!next.programcode || p.programcode === next.programcode)
+        && (!next.semester || String(p.semester || "") === String(next.semester || ""))
         && (!next.course || p.course === next.course)
         && (!next.coursecode || p.coursecode === next.coursecode)
       );
-      return match ? { ...next, program: next.program || match.program || "", programcode: next.programcode || match.programcode || "", course: next.course || match.course || "", coursecode: next.coursecode || match.coursecode || "" } : next;
+      return match ? { ...next, program: next.program || match.program || "", programcode: next.programcode || match.programcode || "", semester: next.semester || match.semester || "", course: next.course || match.course || "", coursecode: next.coursecode || match.coursecode || "" } : next;
     });
   };
   const saveExam = async () => {
     setLoading(true);
     try {
-      await ep1.post("/api/v2/online-exam/exams", { ...exam, examcontext: admissionMode ? "Admission" : "Student", course: admissionMode ? "Admission Entrance" : exam.course, coursecode: admissionMode ? (exam.category || "ENTRANCE") : exam.coursecode, id: editingId, colid: global1.colid, user: global1.user, username: global1.name });
+      await ep1.post("/api/v2/online-exam/exams", { ...exam, examcontext: activeExamContext, course: admissionMode ? "Admission Entrance" : exam.course, coursecode: admissionMode ? (exam.category || "ENTRANCE") : exam.coursecode, id: editingId, colid: global1.colid, user: global1.user, username: global1.name });
       setExam(initialExam);
       setEditingId("");
       setMessage("Online exam saved.");
@@ -704,13 +725,16 @@ export function OnlineExamManagementPage({ myMode = false, admissionMode = false
     window.scrollTo({ top: 520, behavior: "smooth" });
   };
   const generate = async () => {
-    if (!selectedExam?._id || !questionForm.sectionid) return setMessage("Select exam and section.");
+    if (!selectedExam?._id) return setMessage("Select exam first.");
+    if (!questionForm.sectionid && !categoryTemplates.length) return setMessage("Select exam and section.");
     setLoading(true);
     try {
       const res = await ep1.post("/api/v2/online-exam/generate-questions", {
         ...ai,
         provider: ai.provider,
         colid: global1.colid,
+        examcontext: activeExamContext,
+        categories: ai.categories,
         questiontype: questionForm.questiontype,
         course: selectedExam.course,
         coursecode: selectedExam.coursecode,
@@ -719,9 +743,36 @@ export function OnlineExamManagementPage({ myMode = false, admissionMode = false
         cos: questionForm.cos,
         bloomlevels: questionForm.bloomlevels
       });
-      for (const q of (res.data?.data || [])) {
-        await saveQuestion({
+      const generatedRows = res.data?.data || [];
+      const sectionMap = new Map((selectedExam.sections || []).map((section) => [String(section.sectionname || "").trim().toLowerCase(), section._id]));
+      const ensureSection = async (sectionName) => {
+        const cleanName = String(sectionName || "").trim();
+        if (!cleanName) return questionForm.sectionid;
+        const key = cleanName.toLowerCase();
+        if (sectionMap.has(key)) return sectionMap.get(key);
+        const sectionRes = await ep1.post("/api/v2/online-exam/sections", {
+          colid: global1.colid,
+          user: global1.user,
+          examid: selectedExam._id,
+          sectionname: cleanName,
+          sectiontype: questionForm.questiontype,
+          instructions: `Generated for ${cleanName}`,
+          order: sectionMap.size + 1
+        });
+        const created = (sectionRes.data?.data?.sections || []).find((section) => String(section.sectionname || "").trim().toLowerCase() === key);
+        if (created?._id) sectionMap.set(key, created._id);
+        return created?._id || questionForm.sectionid;
+      };
+      for (const [index, q] of generatedRows.entries()) {
+        const generatedSection = q.sectionname || q.category || ai.categories?.[index % Math.max(ai.categories?.length || 1, 1)] || "";
+        const sectionid = await ensureSection(generatedSection);
+        if (!sectionid) continue;
+        await ep1.post("/api/v2/online-exam/questions", {
           ...questionForm,
+          colid: global1.colid,
+          user: global1.user,
+          examid: selectedExam._id,
+          sectionid,
           questionid: "",
           questiontext: q.questiontext,
           questionhtml: q.questionhtml || "",
@@ -734,6 +785,7 @@ export function OnlineExamManagementPage({ myMode = false, admissionMode = false
           contentblocks: q.contentblocks || []
         });
       }
+      await load();
       setMessage("AI generated questions added.");
     } catch (error) {
       setMessage(error.response?.data?.message || "Unable to generate questions.");
@@ -743,19 +795,20 @@ export function OnlineExamManagementPage({ myMode = false, admissionMode = false
   };
 
   return (
-    <MenuPageShell title={admissionMode ? "Admission Online Examination" : (myMode ? "My Online Exam" : "Online Examination")}>
+    <MenuPageShell title={activeTitle}>
       <Box sx={{ p: 2, bgcolor: "#f6f8fb", minHeight: "100vh" }}>
         <Stack spacing={2}>
-          <Stack direction="row" alignItems="center"><Typography variant="h5" fontWeight={900} sx={{ flex: 1 }}>{admissionMode ? "Admission Online Examination" : (myMode ? "My Online Exam" : "Online Examination")}</Typography><Button startIcon={<Refresh />} onClick={load}>Refresh</Button></Stack>
+          <Stack direction="row" alignItems="center"><Typography variant="h5" fontWeight={900} sx={{ flex: 1 }}>{activeTitle}</Typography><Button startIcon={<Refresh />} onClick={load}>Refresh</Button></Stack>
           {myMode && <Alert severity="info">Only exams created by {global1.name || global1.user} are shown on this page.</Alert>}
           {message && <Alert severity={/unable|select/i.test(message) ? "warning" : "success"} onClose={() => setMessage("")}>{message}</Alert>}
           {loading && <LinearProgress />}
           <Paper sx={{ p: 2 }}>
             <Grid container spacing={2}>
               <Grid item xs={12} md={2}><Autocomplete freeSolo options={yearOptions} value={exam.academicyear || ""} onInputChange={(_, value) => updateExamCourseField("academicyear", value)} onChange={(_, value) => updateExamCourseField("academicyear", value)} renderInput={(params) => <TextField {...params} label="Academic year" />} /></Grid>
-              {admissionMode && <Grid item xs={12} md={2}><Autocomplete freeSolo options={categoryOptions} value={exam.category || ""} onInputChange={(_, value) => updateExamCourseField("category", value)} onChange={(_, value) => updateExamCourseField("category", value)} renderInput={(params) => <TextField {...params} label="Category" />} /></Grid>}
+              {(admissionMode || !!categoryTemplates.length) && <Grid item xs={12} md={2}><Autocomplete freeSolo options={categoryTemplates.length ? categoryTemplates : categoryOptions} value={exam.category || ""} onInputChange={(_, value) => updateExamCourseField("category", value)} onChange={(_, value) => updateExamCourseField("category", value)} renderInput={(params) => <TextField {...params} label="Category" />} /></Grid>}
               <Grid item xs={12} md={2}><Autocomplete freeSolo options={programOptions} value={exam.program || ""} onInputChange={(_, value) => updateExamCourseField("program", value)} onChange={(_, value) => updateExamCourseField("program", value)} renderInput={(params) => <TextField {...params} label="Program" />} /></Grid>
               <Grid item xs={12} md={2}><Autocomplete freeSolo options={programCodeOptions} value={exam.programcode || ""} onInputChange={(_, value) => updateExamCourseField("programcode", value)} onChange={(_, value) => updateExamCourseField("programcode", value)} renderInput={(params) => <TextField {...params} label="Program code" />} /></Grid>
+              {!admissionMode && <Grid item xs={12} md={2}><Autocomplete freeSolo options={semesterOptions} value={exam.semester || ""} onInputChange={(_, value) => updateExamCourseField("semester", value)} onChange={(_, value) => updateExamCourseField("semester", value)} renderInput={(params) => <TextField {...params} label="Semester" />} /></Grid>}
               {!admissionMode && <Grid item xs={12} md={2}><Autocomplete freeSolo options={courseOptions} value={exam.course || ""} onInputChange={(_, value) => updateExamCourseField("course", value)} onChange={(_, value) => updateExamCourseField("course", value)} renderInput={(params) => <TextField {...params} label="Course" />} /></Grid>}
               {!admissionMode && <Grid item xs={12} md={2}><Autocomplete freeSolo options={courseCodeOptions} value={exam.coursecode || ""} onInputChange={(_, value) => updateExamCourseField("coursecode", value)} onChange={(_, value) => updateExamCourseField("coursecode", value)} renderInput={(params) => <TextField {...params} label="Course code" />} /></Grid>}
               <Grid item xs={12} md={6}><TextField fullWidth label="Exam name" value={exam.examname} onChange={(e) => setExam((p) => ({ ...p, examname: e.target.value }))} /></Grid>
@@ -777,8 +830,9 @@ export function OnlineExamManagementPage({ myMode = false, admissionMode = false
               { field: "examname", headerName: "Exam", minWidth: 180, flex: 1 },
               { field: "examcode", headerName: "Code", minWidth: 130 },
               { field: "academicyear", headerName: "Year", minWidth: 120 },
-              ...(admissionMode ? [{ field: "category", headerName: "Category", minWidth: 130 }] : []),
+              ...((admissionMode || !!categoryTemplates.length) ? [{ field: "category", headerName: "Category", minWidth: 150 }] : []),
               { field: "programcode", headerName: "Program", minWidth: 130 },
+              ...(!admissionMode ? [{ field: "semester", headerName: "Semester", minWidth: 110 }] : []),
               ...(!admissionMode ? [{ field: "coursecode", headerName: "Course", minWidth: 130 }] : []),
               { field: "starttime", headerName: "Start", minWidth: 180, valueFormatter: ({ value }) => fmt(value) },
               { field: "endtime", headerName: "End", minWidth: 180, valueFormatter: ({ value }) => fmt(value) },
@@ -837,6 +891,7 @@ export function OnlineExamManagementPage({ myMode = false, admissionMode = false
                   <Grid item xs={12} md={2}><TextField select fullWidth label="Language" value={ai.language} onChange={(e) => setAi((p) => ({ ...p, language: e.target.value }))}>{languages.map((l) => <MenuItem key={l} value={l}>{l}</MenuItem>)}</TextField></Grid>
                   <Grid item xs={12} md={2}><TextField fullWidth label="Difficulty" value={ai.difficulty} onChange={(e) => setAi((p) => ({ ...p, difficulty: e.target.value }))} /></Grid>
                   <Grid item xs={12} md={2}><TextField fullWidth type="number" label="No. questions" value={ai.count} onChange={(e) => setAi((p) => ({ ...p, count: e.target.value }))} /></Grid>
+                  {!!categoryTemplates.length && <Grid item xs={12} md={6}><MultiCheckAutocomplete label={psychometricMode ? "Psychometric categories" : "Placement question categories"} options={categoryTemplates} value={ai.categories} onChange={(value) => setAi((p) => ({ ...p, categories: value }))} /></Grid>}
                   <Grid item xs={12} md={3}><FormControlLabel control={<Checkbox checked={!!ai.mapWithAi} onChange={(e) => setAi((p) => ({ ...p, mapWithAi: e.target.checked }))} />} label="Use AI agent for CO/Bloom mapping" /></Grid>
                   <Grid item xs={12} md={10}><TextField fullWidth label="Prompt / topic" value={ai.topic} onChange={(e) => setAi((p) => ({ ...p, topic: e.target.value }))} /></Grid>
                   <Grid item xs={12} md={2}><Button fullWidth sx={{ height: 56 }} startIcon={<AutoFixHigh />} variant="contained" onClick={generate}>Generate</Button></Grid>
@@ -891,6 +946,14 @@ export function MyOnlineExamManagementPage() {
 
 export function AdmissionOnlineExamManagementPage() {
   return <OnlineExamManagementPage admissionMode />;
+}
+
+export function PlacementPracticeTestPage() {
+  return <OnlineExamManagementPage examContext="Placementpractice" pageTitle="Placement Practice Test" categoryTemplates={placementPracticeCategories} />;
+}
+
+export function PsychometricTestPage() {
+  return <OnlineExamManagementPage examContext="Psychometric" pageTitle="Psychometric Test" categoryTemplates={psychometricCategories} psychometricMode />;
 }
 
 const examLabel = (exam) => exam ? `${exam.examname || ""} (${exam.examcode || ""}) | ${exam.course || ""} (${exam.coursecode || ""}) | ${exam.status || ""}` : "";
@@ -1072,7 +1135,7 @@ export function OnlineExamCourseGroupAssignmentPage() {
   );
 }
 
-export function StudentOnlineExamPage() {
+export function StudentOnlineExamPage({ examContext = "Student", title = "Online Examination" }) {
   const [exams, setExams] = useState([]);
   const [selectedExam, setSelectedExam] = useState(null);
   const [attempt, setAttempt] = useState(null);
@@ -1089,7 +1152,7 @@ export function StudentOnlineExamPage() {
   const userZone = browserTimeZone();
 
   const load = async () => {
-    const res = await ep1.get("/api/v2/online-exam/student-exams", { params: { colid, regno } });
+    const res = await ep1.get("/api/v2/online-exam/student-exams", { params: { colid, regno, examcontext: examContext } });
     setExams(res.data?.data || []);
   };
   useEffect(() => { load().catch((e) => setMessage(e.response?.data?.message || "Unable to load exams.")); }, []);
@@ -1228,10 +1291,10 @@ export function StudentOnlineExamPage() {
   }
 
   return (
-    <MenuPageShell title="Online Exam">
+    <MenuPageShell title={title}>
       <Box sx={{ p: 2, bgcolor: "#f6f8fb", minHeight: "100vh" }}>
         <Stack spacing={2}>
-          <Typography variant="h5" fontWeight={900}>Online Examination</Typography>
+          <Typography variant="h5" fontWeight={900}>{title}</Typography>
           {message && <Alert severity="warning">{message}</Alert>}
           <Grid container spacing={2}>
             {displayedExams.map((exam) => (
@@ -1257,6 +1320,14 @@ export function StudentOnlineExamPage() {
       </Box>
     </MenuPageShell>
   );
+}
+
+export function StudentPlacementPracticeTestPage() {
+  return <StudentOnlineExamPage examContext="Placementpractice" title="Placement Practice Test" />;
+}
+
+export function StudentPsychometricTestPage() {
+  return <StudentOnlineExamPage examContext="Psychometric" title="Psychometric Test" />;
 }
 
 export function StudentOnlineExam2Page() {
@@ -1601,7 +1672,7 @@ export function StudentCourseGroupExamPage() {
   );
 }
 
-export function OnlineExamResponsesPage({ myMode = false }) {
+export function OnlineExamResponsesPage({ myMode = false, examContext = "Student", pageTitle }) {
   const [filters, setFilters] = useState([{ field: "examname", operator: "contains", value: "" }]);
   const [rows, setRows] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -1610,11 +1681,12 @@ export function OnlineExamResponsesPage({ myMode = false }) {
   const [options, setOptions] = useState({ ollama: [], responseValues: {} });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  useEffect(() => { ep1.get("/api/v2/online-exam/options", { params: { colid: global1.colid } }).then((r) => setOptions(r.data || {})); }, []);
+  const title = pageTitle || (myMode ? "My Online Exam Responses" : "Online Exam Responses");
+  useEffect(() => { ep1.get("/api/v2/online-exam/options", { params: { colid: global1.colid, examcontext: examContext } }).then((r) => setOptions(r.data || {})); }, [examContext]);
   const load = async () => {
     setLoading(true);
     try {
-      const res = await ep1.post("/api/v2/online-exam/responses", { colid: global1.colid, dynamicFilters: filters.filter((f) => f.value), ...(myMode ? { createdby: global1.user } : {}) });
+      const res = await ep1.post("/api/v2/online-exam/responses", { colid: global1.colid, examcontext: examContext, dynamicFilters: filters.filter((f) => f.value), ...(myMode ? { createdby: global1.user } : {}) });
       setRows(res.data?.data || []);
     } finally { setLoading(false); }
   };
@@ -1652,10 +1724,10 @@ export function OnlineExamResponsesPage({ myMode = false }) {
     }
   };
   return (
-    <MenuPageShell title={myMode ? "My Online Exam Responses" : "Online Exam Responses"}>
+    <MenuPageShell title={title}>
       <Box sx={{ p: 2, bgcolor: "#f6f8fb", minHeight: "100vh" }}>
         <Stack spacing={2}>
-          <Typography variant="h5" fontWeight={900}>{myMode ? "My Online Exam Responses" : "Online Exam Responses"}</Typography>
+          <Typography variant="h5" fontWeight={900}>{title}</Typography>
           {myMode && <Alert severity="info">Only responses for exams created by {global1.name || global1.user} are shown.</Alert>}
           {message && <Alert severity={/unable|select/i.test(message) ? "warning" : "success"}>{message}</Alert>}
           <DynamicFilters fields={["academicyear", "program", "programcode", "course", "coursecode", "examname", "examcode", "student", "regno", "status"]} filters={filters} setFilters={setFilters} onApply={load} loading={loading} valueOptions={options.responseValues || {}} />
@@ -1684,28 +1756,32 @@ export function MyOnlineExamResponsesPage() {
   return <OnlineExamResponsesPage myMode />;
 }
 
-export function OnlineExamReportPage({ myMode = false }) {
+export function OnlineExamReportPage({ myMode = false, examContext = "Student", pageTitle }) {
   const [filters, setFilters] = useState([{ field: "academicyear", operator: "contains", value: "" }]);
-  const [report, setReport] = useState({ data: [], summary: {}, byCourse: [] });
+  const [report, setReport] = useState({ data: [], summary: {}, byCourse: [], byCategory: [] });
   const [loading, setLoading] = useState(false);
   const load = async () => {
     setLoading(true);
     try {
-      const res = await ep1.post("/api/v2/online-exam/report", { colid: global1.colid, dynamicFilters: filters.filter((f) => f.value), ...(myMode ? { createdby: global1.user } : {}) });
-      setReport(res.data || { data: [], summary: {}, byCourse: [] });
+      const res = await ep1.post("/api/v2/online-exam/report", { colid: global1.colid, examcontext: examContext, dynamicFilters: filters.filter((f) => f.value), ...(myMode ? { createdby: global1.user } : {}) });
+      setReport(res.data || { data: [], summary: {}, byCourse: [], byCategory: [] });
     } finally { setLoading(false); }
   };
   const cards = [["Total Attempts", report.summary?.total || 0], ["Submitted", report.summary?.submitted || 0], ["Graded", report.summary?.graded || 0], ["Average Marks", report.summary?.average || 0]];
+  const title = pageTitle || (myMode ? "My Online Exam Report" : "Online Exam Report");
   return (
-    <MenuPageShell title={myMode ? "My Online Exam Report" : "Online Exam Report"}>
+    <MenuPageShell title={title}>
       <Box sx={{ p: 2, bgcolor: "#f6f8fb", minHeight: "100vh" }}>
         <Stack spacing={2}>
-          <Typography variant="h5" fontWeight={900}>{myMode ? "My Online Exam Report" : "Online Exam Report"}</Typography>
+          <Typography variant="h5" fontWeight={900}>{title}</Typography>
           {myMode && <Alert severity="info">This report is scoped to exams created by {global1.name || global1.user}.</Alert>}
-          <DynamicFilters fields={["academicyear", "programcode", "coursecode", "examname", "examcode", "student", "regno", "status"]} filters={filters} setFilters={setFilters} onApply={load} loading={loading} />
+          <DynamicFilters fields={["academicyear", "category", "program", "programcode", "coursecode", "examname", "examcode", "student", "regno", "status"]} filters={filters} setFilters={setFilters} onApply={load} loading={loading} />
           <Grid container spacing={2}>{cards.map(([label, value]) => <Grid item xs={12} md={3} key={label}><Card><CardContent><Typography color="text.secondary">{label}</Typography><Typography variant="h4" fontWeight={900}>{value}</Typography></CardContent></Card></Grid>)}</Grid>
-          <Paper sx={{ p: 2, height: 340 }}><ResponsiveContainer width="100%" height="100%"><BarChart data={report.byCourse || []}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="coursecode" /><YAxis /><Tooltip /><Legend /><Bar dataKey="attempts" fill="#2563eb" /><Bar dataKey="submitted" fill="#16a34a" /><Bar dataKey="average" fill="#f97316" /></BarChart></ResponsiveContainer></Paper>
-          <Paper sx={{ p: 1 }}><DataGrid rows={rowsOf(report.data)} columns={[{ field: "examname", headerName: "Exam", minWidth: 180 }, { field: "student", headerName: "Student", minWidth: 180 }, { field: "regno", headerName: "Regno", minWidth: 130 }, { field: "coursecode", headerName: "Course", minWidth: 120 }, { field: "status", headerName: "Status", minWidth: 120 }, { field: "marksobtained", headerName: "Marks", minWidth: 100 }, { field: "totalmarks", headerName: "Total", minWidth: 100 }]} autoHeight loading={loading} slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "online_exam_report" } } }} pageSizeOptions={[10, 25, 50, 100]} /></Paper>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}><Paper sx={{ p: 2, height: 340 }}><Typography fontWeight={900} sx={{ mb: 1 }}>Course-wise performance</Typography><ResponsiveContainer width="100%" height="88%"><BarChart data={report.byCourse || []}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="coursecode" /><YAxis /><Tooltip /><Legend /><Bar dataKey="attempts" fill="#2563eb" /><Bar dataKey="submitted" fill="#16a34a" /><Bar dataKey="average" fill="#f97316" /></BarChart></ResponsiveContainer></Paper></Grid>
+            <Grid item xs={12} md={6}><Paper sx={{ p: 2, height: 340 }}><Typography fontWeight={900} sx={{ mb: 1 }}>Category-wise performance</Typography><ResponsiveContainer width="100%" height="88%"><BarChart data={report.byCategory || []}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="category" hide /><YAxis /><Tooltip /><Legend /><Bar dataKey="attempts" fill="#7c3aed" /><Bar dataKey="submitted" fill="#0891b2" /><Bar dataKey="average" fill="#f97316" /></BarChart></ResponsiveContainer></Paper></Grid>
+          </Grid>
+          <Paper sx={{ p: 1 }}><DataGrid rows={rowsOf(report.data)} columns={[{ field: "examname", headerName: "Exam", minWidth: 180 }, { field: "category", headerName: "Category", minWidth: 150 }, { field: "student", headerName: "Student", minWidth: 180 }, { field: "regno", headerName: "Regno", minWidth: 130 }, { field: "programcode", headerName: "Program", minWidth: 120 }, { field: "coursecode", headerName: "Course", minWidth: 120 }, { field: "status", headerName: "Status", minWidth: 120 }, { field: "marksobtained", headerName: "Marks", minWidth: 100 }, { field: "totalmarks", headerName: "Total", minWidth: 100 }]} autoHeight loading={loading} slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "online_exam_report" } } }} pageSizeOptions={[10, 25, 50, 100]} /></Paper>
         </Stack>
       </Box>
     </MenuPageShell>
@@ -1714,6 +1790,521 @@ export function OnlineExamReportPage({ myMode = false }) {
 
 export function MyOnlineExamReportPage() {
   return <OnlineExamReportPage myMode />;
+}
+
+export function PlacementPracticeReportPage() {
+  return <OnlineExamReportPage examContext="Placementpractice" pageTitle="Placement Practice Test Report" />;
+}
+
+export function PlacementPracticeSummaryReportPage() {
+  return <OnlineExaminationSummaryReportPage examContext="Placementpractice" pageTitle="Placement Practice Test Summary" subtitle="Program, course, category and faculty-wise placement practice test summary." />;
+}
+
+export function PlacementPracticeDetailsPage() {
+  return <OnlineExaminationDetailsPage examContext="Placementpractice" pageTitle="Placement Practice Test Details" />;
+}
+
+export function PsychometricTestReportPage() {
+  return <OnlineExamReportPage examContext="Psychometric" pageTitle="Psychometric Test Report" />;
+}
+
+export function PsychometricTestSummaryReportPage() {
+  return <OnlineExaminationSummaryReportPage examContext="Psychometric" pageTitle="Psychometric Test Summary" subtitle="Program, course, category and faculty-wise psychometric test summary." />;
+}
+
+export function PsychometricTestDetailsPage() {
+  return <OnlineExaminationDetailsPage examContext="Psychometric" pageTitle="Psychometric Test Details" />;
+}
+
+const psychometricCareerPrediction = (scores = []) => {
+  const byName = Object.fromEntries(scores.map((score) => [String(score.category || "").toLowerCase(), Number(score.percentage || 0)]));
+  const avg = (...keys) => keys.reduce((sum, key) => sum + (byName[key] || 0), 0) / Math.max(keys.length, 1);
+  const tracks = [
+    { name: "Technology, data and product roles", score: avg("technology orientation", "analytical tendency", "problem solving", "detail orientation") },
+    { name: "Management, sales and client-facing roles", score: avg("leadership", "communication", "sales orientation", "social confidence") },
+    { name: "Research, quality and compliance roles", score: avg("research orientation", "integrity", "detail orientation", "self discipline") },
+    { name: "Creative, entrepreneurial and innovation roles", score: avg("creativity", "entrepreneurial tendency", "adaptability", "risk preference") },
+    { name: "People, training and service roles", score: avg("empathy", "service orientation", "teamwork", "communication") }
+  ].sort((a, b) => b.score - a.score);
+  return tracks[0]?.score ? tracks.slice(0, 2).map((track) => track.name).join(" / ") : "Collect more psychometric responses for a stronger prediction.";
+};
+
+export function PsychometricProfileReportPage() {
+  const [filters, setFilters] = useState([{ field: "academicyear", operator: "contains", value: "" }]);
+  const [rows, setRows] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [options, setOptions] = useState({ responseValues: {} });
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    ep1.get("/api/v2/online-exam/options", { params: { colid: global1.colid, examcontext: "Psychometric" } }).then((res) => setOptions(res.data || {}));
+  }, []);
+
+  const load = async () => {
+    setLoading(true);
+    setMessage("");
+    try {
+      const res = await ep1.post("/api/v2/online-exam/responses", { colid: global1.colid, examcontext: "Psychometric", dynamicFilters: filters.filter((f) => f.value) });
+      setRows(res.data?.data || []);
+    } catch (error) {
+      setMessage(error.response?.data?.message || "Unable to load psychometric profiles.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const profiles = useMemo(() => rows.map((attempt) => {
+    const bucket = {};
+    (attempt.answers || []).forEach((answer) => {
+      const category = answer.sectionname || answer.category || "General";
+      if (!bucket[category]) bucket[category] = { category, score: 0, total: 0 };
+      bucket[category].score += Number(answer.marksobtained || 0);
+      bucket[category].total += Number(answer.maxmarks || answer.marks || 0);
+    });
+    const scores = Object.values(bucket).map((item) => ({
+      ...item,
+      percentage: item.total ? Number(((item.score / item.total) * 100).toFixed(2)) : 0
+    })).sort((a, b) => b.percentage - a.percentage);
+    const overallTotal = scores.reduce((sum, item) => sum + item.total, 0);
+    const overallScore = scores.reduce((sum, item) => sum + item.score, 0);
+    return {
+      ...attempt,
+      categoryScores: scores,
+      overallpercentage: overallTotal ? Number(((overallScore / overallTotal) * 100).toFixed(2)) : 0,
+      strongestareas: scores.slice(0, 3).map((item) => item.category).join(", "),
+      careerprediction: psychometricCareerPrediction(scores)
+    };
+  }), [rows]);
+
+  const chartRows = useMemo(() => {
+    const aggregate = {};
+    profiles.forEach((profile) => (profile.categoryScores || []).forEach((score) => {
+      if (!aggregate[score.category]) aggregate[score.category] = { category: score.category, total: 0, count: 0 };
+      aggregate[score.category].total += score.percentage;
+      aggregate[score.category].count += 1;
+    }));
+    return Object.values(aggregate).map((row) => ({ category: row.category, average: Number((row.total / row.count).toFixed(2)) })).sort((a, b) => b.average - a.average);
+  }, [profiles]);
+
+  const cards = [
+    ["Profiles", profiles.length],
+    ["Submitted", profiles.filter((row) => /^submitted|graded$/i.test(row.status || "")).length],
+    ["Average Score", profiles.length ? Number((profiles.reduce((sum, row) => sum + row.overallpercentage, 0) / profiles.length).toFixed(2)) : 0],
+    ["Categories", chartRows.length]
+  ];
+
+  return (
+    <MenuPageShell title="Psychometric Profile Report">
+      <Box sx={{ p: 2, bgcolor: "#f6f8fb", minHeight: "100vh" }}>
+        <Stack spacing={2}>
+          <Typography variant="h5" fontWeight={900}>Psychometric Profile Report</Typography>
+          {message && <Alert severity="warning">{message}</Alert>}
+          {loading && <LinearProgress />}
+          <DynamicFilters
+            fields={["academicyear", "program", "programcode", "course", "coursecode", "examname", "examcode", "student", "regno", "status"]}
+            filters={filters}
+            setFilters={setFilters}
+            onApply={load}
+            loading={loading}
+            valueOptions={options.responseValues || {}}
+          />
+          <Grid container spacing={2}>{cards.map(([label, value]) => <Grid item xs={12} md={3} key={label}><Card><CardContent><Typography color="text.secondary">{label}</Typography><Typography variant="h4" fontWeight={900}>{value}</Typography></CardContent></Card></Grid>)}</Grid>
+          <Paper sx={{ p: 2, height: 360 }}>
+            <Typography fontWeight={900} sx={{ mb: 1 }}>Average Category Profile</Typography>
+            <ResponsiveContainer width="100%" height="88%"><BarChart data={chartRows}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="category" hide /><YAxis /><Tooltip /><Legend /><Bar dataKey="average" fill="#4f46e5" /></BarChart></ResponsiveContainer>
+          </Paper>
+          <Paper sx={{ p: 1 }}>
+            <DataGrid
+              rows={rowsOf(profiles)}
+              columns={[
+                { field: "examname", headerName: "Exam", minWidth: 180 },
+                { field: "student", headerName: "Student", minWidth: 180 },
+                { field: "regno", headerName: "Regno", minWidth: 130 },
+                { field: "programcode", headerName: "Program", minWidth: 120 },
+                { field: "overallpercentage", headerName: "Overall %", minWidth: 120 },
+                { field: "strongestareas", headerName: "Strongest areas", minWidth: 260, flex: 1 },
+                { field: "careerprediction", headerName: "Career prediction", minWidth: 320, flex: 1 },
+                { field: "view", headerName: "Profile", width: 110, renderCell: ({ row }) => <Button size="small" onClick={() => setSelected(row)}>Open</Button> }
+              ]}
+              autoHeight
+              loading={loading}
+              slots={{ toolbar: GridToolbar }}
+              slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "psychometric_profile_report" } } }}
+              pageSizeOptions={[10, 25, 50, 100]}
+              sx={{ "& .MuiDataGrid-cell": { whiteSpace: "normal", lineHeight: 1.35, py: 1 } }}
+            />
+          </Paper>
+          <Dialog open={!!selected} onClose={() => setSelected(null)} maxWidth="md" fullWidth>
+            <DialogTitle>Psychometric Profile</DialogTitle>
+            <DialogContent dividers>
+              {selected && <Stack spacing={2}>
+                <Typography fontWeight={900}>{selected.student} ({selected.regno})</Typography>
+                <Alert severity="info">{selected.careerprediction}</Alert>
+                <Paper sx={{ p: 2, height: 320 }}>
+                  <ResponsiveContainer width="100%" height="100%"><BarChart data={selected.categoryScores || []}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="category" hide /><YAxis /><Tooltip /><Legend /><Bar dataKey="percentage" fill="#16a34a" /></BarChart></ResponsiveContainer>
+                </Paper>
+                <DataGrid rows={(selected.categoryScores || []).map((row, index) => ({ ...row, id: index + 1 }))} columns={[{ field: "category", headerName: "Category", flex: 1, minWidth: 220 }, { field: "score", headerName: "Score", minWidth: 100 }, { field: "total", headerName: "Total", minWidth: 100 }, { field: "percentage", headerName: "Percentage", minWidth: 120 }]} autoHeight pageSizeOptions={[10, 25, 50]} />
+              </Stack>}
+            </DialogContent>
+            <DialogActions><Button onClick={() => setSelected(null)}>Close</Button></DialogActions>
+          </Dialog>
+        </Stack>
+      </Box>
+    </MenuPageShell>
+  );
+}
+
+export function OnlineExaminationSummaryReportPage({ examContext = "Student", pageTitle = "Online examination report", subtitle = "Course, semester and faculty-wise online examination summary." }) {
+  const [options, setOptions] = useState({ programs: [] });
+  const [filters, setFilters] = useState({ academicyear: "", program: "", programcode: "" });
+  const [report, setReport] = useState({ details: [], grouped: [], statusSummary: [], facultySummary: [], summary: {} });
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    ep1.get("/api/v2/online-exam/options", { params: { colid: global1.colid, examcontext: examContext } })
+      .then((res) => setOptions(res.data || { programs: [] }))
+      .catch(() => setMessage("Unable to load filter options."));
+  }, [examContext]);
+
+  const courseMaps = options.programs || [];
+  const academicYearOptions = useMemo(() => uniqueValues(courseMaps, "academicyear"), [courseMaps]);
+  const programOptions = useMemo(() => uniqueValues(courseMaps.filter((row) => !filters.academicyear || row.academicyear === filters.academicyear), "program"), [courseMaps, filters.academicyear]);
+  const programCodeOptions = useMemo(() => uniqueValues(courseMaps.filter((row) => (!filters.academicyear || row.academicyear === filters.academicyear) && (!filters.program || row.program === filters.program)), "programcode"), [courseMaps, filters.academicyear, filters.program]);
+  const statusChart = useMemo(() => (report.statusSummary || []).map((row) => ({ name: row.status, examinations: row.examinations, attended: row.attended })), [report.statusSummary]);
+  const facultyChart = useMemo(() => (report.facultySummary || []).slice(0, 12).map((row) => ({ name: row.faculty || row.facultyemail || "-", examinations: row.examinations, attended: row.attended })), [report.facultySummary]);
+
+  const load = async () => {
+    setLoading(true);
+    setMessage("");
+    try {
+      const res = await ep1.post("/api/v2/online-exam/examination-report", { colid: global1.colid, examcontext: examContext, ...filters });
+      setReport(res.data || { details: [], grouped: [], statusSummary: [], facultySummary: [], summary: {} });
+    } catch (error) {
+      setMessage(error.response?.data?.message || "Unable to load online examination report.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const printPreview = () => {
+    const win = window.open("", "_blank", "width=1100,height=850");
+    if (!win) return setMessage("Popup blocked. Please allow popups for print preview.");
+    const rowHtml = (report.grouped || []).map((row, index) => `
+      <tr>
+        <td>${index + 1}</td><td>${escHtml(row.academicyear)}</td><td>${escHtml(row.program)}</td><td>${escHtml(row.programcode)}</td><td>${escHtml(row.category || "-")}</td>
+        <td>${escHtml(row.semester)}</td><td>${escHtml(row.course)}</td><td>${escHtml(row.coursecode)}</td>
+        <td>${escHtml(row.faculty)}</td><td>${escHtml(row.examinations)}</td><td>${escHtml(row.attended)}</td><td>${escHtml(row.submitted)}</td><td>${escHtml(row.graded)}</td>
+      </tr>`).join("");
+    const detailHtml = (report.details || []).map((row, index) => `
+      <tr>
+        <td>${index + 1}</td><td>${escHtml(row.examname)}</td><td>${escHtml(row.examcode)}</td><td>${escHtml(row.category || "-")}</td><td>${escHtml(row.course)}</td><td>${escHtml(row.coursecode)}</td>
+        <td>${escHtml(row.semester || "-")}</td><td>${escHtml(row.faculty)}</td><td>${escHtml(row.status)}</td><td>${escHtml(fmt(row.starttime))}</td><td>${escHtml(row.attended)}</td>
+      </tr>`).join("");
+    win.document.write(`<!doctype html><html><head><title>${escHtml(pageTitle)}</title><style>
+      @page{size:A4 landscape;margin:12mm}body{font-family:Arial,sans-serif;color:#111;background:#fff}h1,h2{text-align:center;margin:4px 0}
+      .meta{text-align:center;margin-bottom:14px}.cards{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:10px 0}.card{border:1px solid #111;padding:8px;text-align:center}
+      table{width:100%;border-collapse:collapse;margin-top:10px;font-size:11px}th,td{border:1px solid #111;padding:5px;text-align:left;vertical-align:top}th{background:#f0f4ff}
+      .actions{margin:10px 0;text-align:right}@media print{.actions{display:none}}
+    </style></head><body>
+      <div class="actions"><button onclick="window.print()">Print</button><button onclick="window.close()">Close</button></div>
+      <h1>${escHtml(pageTitle)}</h1>
+      <div class="meta">${escHtml(filters.academicyear || "All academic years")} | ${escHtml(filters.program || "All programs")} | ${escHtml(filters.programcode || "All program codes")}</div>
+      <div class="cards">
+        <div class="card"><b>${report.summary?.totalExaminations || 0}</b><br/>Exams</div>
+        <div class="card"><b>${report.summary?.totalCourses || 0}</b><br/>Courses</div>
+        <div class="card"><b>${report.summary?.totalFaculty || 0}</b><br/>Faculty</div>
+        <div class="card"><b>${report.summary?.totalAttended || 0}</b><br/>Attended</div>
+        <div class="card"><b>${report.summary?.totalSubmitted || 0}</b><br/>Submitted</div>
+        <div class="card"><b>${report.summary?.totalGraded || 0}</b><br/>Graded</div>
+      </div>
+      <h2>Course Semester Faculty Summary</h2>
+      <table><thead><tr><th>#</th><th>Academic year</th><th>Program</th><th>Program code</th><th>Category</th><th>Semester</th><th>Course</th><th>Course code</th><th>Faculty</th><th>Exams</th><th>Attended</th><th>Submitted</th><th>Graded</th></tr></thead><tbody>${rowHtml}</tbody></table>
+      <h2>Exam Details</h2>
+      <table><thead><tr><th>#</th><th>Exam</th><th>Exam code</th><th>Category</th><th>Course</th><th>Course code</th><th>Semester</th><th>Faculty</th><th>Status</th><th>Scheduled</th><th>Attended</th></tr></thead><tbody>${detailHtml}</tbody></table>
+    </body></html>`);
+    win.document.close();
+  };
+
+  const cards = [
+    ["Examinations", report.summary?.totalExaminations || 0],
+    ["Courses", report.summary?.totalCourses || 0],
+    ["Faculty", report.summary?.totalFaculty || 0],
+    ["Attended", report.summary?.totalAttended || 0],
+    ["Submitted", report.summary?.totalSubmitted || 0],
+    ["Graded", report.summary?.totalGraded || 0]
+  ];
+
+  return (
+    <MenuPageShell title={pageTitle}>
+      <Box sx={{ p: 2, bgcolor: "#f6f8fb", minHeight: "100vh" }}>
+        <Stack spacing={2}>
+          <Stack direction={{ xs: "column", md: "row" }} alignItems={{ xs: "stretch", md: "center" }} spacing={1}>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="h5" fontWeight={900}>{pageTitle}</Typography>
+              <Typography color="text.secondary">{subtitle}</Typography>
+            </Box>
+            <Button variant="outlined" startIcon={<Print />} disabled={!report.grouped?.length} onClick={printPreview}>Print preview</Button>
+          </Stack>
+          {message && <Alert severity={/unable|blocked/i.test(message) ? "warning" : "info"} onClose={() => setMessage("")}>{message}</Alert>}
+          <Paper sx={{ p: 2 }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={3}><Autocomplete options={academicYearOptions} value={filters.academicyear || ""} onChange={(_, value) => setFilters((p) => ({ ...p, academicyear: value || "", program: "", programcode: "" }))} onInputChange={(_, value) => setFilters((p) => ({ ...p, academicyear: value || "", program: "", programcode: "" }))} renderInput={(params) => <TextField {...params} label="Academic year" />} /></Grid>
+              <Grid item xs={12} md={3}><Autocomplete options={programOptions} value={filters.program || ""} onChange={(_, value) => setFilters((p) => ({ ...p, program: value || "", programcode: "" }))} onInputChange={(_, value) => setFilters((p) => ({ ...p, program: value || "", programcode: "" }))} renderInput={(params) => <TextField {...params} label="Program" />} /></Grid>
+              <Grid item xs={12} md={3}><Autocomplete options={programCodeOptions} value={filters.programcode || ""} onChange={(_, value) => setFilters((p) => ({ ...p, programcode: value || "" }))} onInputChange={(_, value) => setFilters((p) => ({ ...p, programcode: value || "" }))} renderInput={(params) => <TextField {...params} label="Program code" />} /></Grid>
+              <Grid item xs={12} md={3}><Button fullWidth variant="contained" sx={{ height: 56 }} onClick={load} disabled={loading}>{loading ? "Loading..." : "Load report"}</Button></Grid>
+            </Grid>
+            {loading && <LinearProgress sx={{ mt: 2 }} />}
+          </Paper>
+          <Grid container spacing={2}>{cards.map(([label, value]) => <Grid item xs={12} sm={6} md={2} key={label}><Card><CardContent><Typography color="text.secondary">{label}</Typography><Typography variant="h4" fontWeight={900}>{value}</Typography></CardContent></Card></Grid>)}</Grid>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}><Paper sx={{ p: 2, height: 340 }}><Typography fontWeight={900} sx={{ mb: 1 }}>Status-wise examinations</Typography><ResponsiveContainer width="100%" height="88%"><BarChart data={statusChart}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip /><Legend /><Bar dataKey="examinations" fill="#2563eb" /><Bar dataKey="attended" fill="#16a34a" /></BarChart></ResponsiveContainer></Paper></Grid>
+            <Grid item xs={12} md={6}><Paper sx={{ p: 2, height: 340 }}><Typography fontWeight={900} sx={{ mb: 1 }}>Faculty-wise examinations</Typography><ResponsiveContainer width="100%" height="88%"><BarChart data={facultyChart}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" hide /><YAxis /><Tooltip /><Legend /><Bar dataKey="examinations" fill="#7c3aed" /><Bar dataKey="attended" fill="#f97316" /></BarChart></ResponsiveContainer></Paper></Grid>
+          </Grid>
+          <Paper sx={{ p: 1 }}>
+            <Typography sx={{ p: 1 }} fontWeight={900}>Course / semester / faculty summary</Typography>
+            <DataGrid rows={(report.grouped || []).map((row, index) => ({ ...row, id: index + 1 }))} columns={[
+              { field: "academicyear", headerName: "Academic year", minWidth: 130 },
+              { field: "program", headerName: "Program", minWidth: 180 },
+              { field: "programcode", headerName: "Program code", minWidth: 130 },
+              { field: "category", headerName: "Category", minWidth: 150 },
+              { field: "semester", headerName: "Semester", minWidth: 110 },
+              { field: "course", headerName: "Course", minWidth: 220, flex: 1 },
+              { field: "coursecode", headerName: "Course code", minWidth: 130 },
+              { field: "faculty", headerName: "Faculty", minWidth: 180 },
+              { field: "facultyemail", headerName: "Faculty email", minWidth: 220 },
+              { field: "examinations", headerName: "No. of exams", minWidth: 120 },
+              { field: "attended", headerName: "Attended", minWidth: 110 },
+              { field: "submitted", headerName: "Submitted", minWidth: 110 },
+              { field: "graded", headerName: "Graded", minWidth: 100 }
+            ]} autoHeight loading={loading} slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "online_examination_report_summary" } } }} pageSizeOptions={[10, 25, 50, 100]} />
+          </Paper>
+          <Paper sx={{ p: 1 }}>
+            <Typography sx={{ p: 1 }} fontWeight={900}>Examination details</Typography>
+            <DataGrid rows={(report.details || []).map((row) => ({ ...row, id: row._id }))} columns={[
+              { field: "examname", headerName: "Exam", minWidth: 200, flex: 1 },
+              { field: "examcode", headerName: "Exam code", minWidth: 130 },
+              { field: "category", headerName: "Category", minWidth: 150 },
+              { field: "academicyear", headerName: "Academic year", minWidth: 130 },
+              { field: "programcode", headerName: "Program", minWidth: 120 },
+              { field: "semester", headerName: "Semester", minWidth: 110 },
+              { field: "course", headerName: "Course", minWidth: 220 },
+              { field: "coursecode", headerName: "Course code", minWidth: 130 },
+              { field: "faculty", headerName: "Faculty", minWidth: 180 },
+              { field: "starttime", headerName: "Scheduled from", minWidth: 180, renderCell: ({ row }) => fmt(row.starttime) },
+              { field: "endtime", headerName: "Scheduled to", minWidth: 180, renderCell: ({ row }) => fmt(row.endtime) },
+              { field: "status", headerName: "Status", minWidth: 110 },
+              { field: "attended", headerName: "Attended", minWidth: 110 },
+              { field: "submitted", headerName: "Submitted", minWidth: 110 },
+              { field: "graded", headerName: "Graded", minWidth: 100 }
+            ]} autoHeight loading={loading} slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "online_examination_report_details" } } }} pageSizeOptions={[10, 25, 50, 100]} />
+          </Paper>
+        </Stack>
+      </Box>
+    </MenuPageShell>
+  );
+}
+
+export function OnlineExaminationDetailsPage({ examContext = "Student", pageTitle = "Online examination details" }) {
+  const [options, setOptions] = useState({ academicyears: [], faculty: [] });
+  const [filters, setFilters] = useState({ academicyear: "", faculty: "" });
+  const [rows, setRows] = useState([]);
+  const [summary, setSummary] = useState({});
+  const [stage, setStage] = useState("Completed");
+  const [selectedExam, setSelectedExam] = useState(null);
+  const [viewTab, setViewTab] = useState(0);
+  const [selectedResponse, setSelectedResponse] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    ep1.get("/api/v2/online-exam/examination-details-options", { params: { colid: global1.colid, examcontext: examContext } })
+      .then((res) => setOptions(res.data || { academicyears: [], faculty: [] }))
+      .catch(() => setMessage("Unable to load online examination filters."));
+  }, [examContext]);
+
+  const load = async () => {
+    if (!filters.academicyear || !filters.faculty) {
+      setMessage("Select academic year and faculty.");
+      return;
+    }
+    setLoading(true);
+    setMessage("");
+    try {
+      const res = await ep1.post("/api/v2/online-exam/examination-details", { colid: global1.colid, examcontext: examContext, ...filters });
+      setRows(res.data?.data || []);
+      setSummary(res.data?.summary || {});
+      setSelectedExam(null);
+      setSelectedResponse(null);
+    } catch (error) {
+      setMessage(error.response?.data?.message || "Unable to load online examination details.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const stageRows = useMemo(() => rows.filter((row) => row.runstage === stage), [rows, stage]);
+  const questions = useMemo(() => (selectedExam?.sections || []).flatMap((section) => (section.questions || []).map((question, index) => ({ ...question, sectionname: section.sectionname, sectiontype: section.sectiontype, sectionorder: section.order, id: `${section._id || section.sectionname}-${question._id || index}` }))), [selectedExam]);
+  const selectedExamAttempts = selectedExam?.attempts || [];
+  const cards = [
+    ["Total exams", summary.total || 0],
+    ["Completed", summary.completed || 0],
+    ["Ongoing", summary.ongoing || 0],
+    ["Pending", summary.pending || 0],
+    ["Attended", summary.attended || 0],
+    ["Submitted", summary.submitted || 0]
+  ];
+
+  const openExam = (row) => {
+    setSelectedExam(row);
+    setSelectedResponse(null);
+    setViewTab(row.runstage === "Pending" ? 0 : viewTab);
+  };
+
+  return (
+    <MenuPageShell title={pageTitle}>
+      <Box sx={{ p: 2, bgcolor: "#f6f8fb", minHeight: "100vh" }}>
+        <Stack spacing={2}>
+          <Typography variant="h5" fontWeight={900}>{pageTitle}</Typography>
+          {message && <Alert severity={/unable|select/i.test(message) ? "warning" : "info"} onClose={() => setMessage("")}>{message}</Alert>}
+          <Paper sx={{ p: 2 }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={3}>
+                <Autocomplete options={options.academicyears || []} value={filters.academicyear || ""} onChange={(_, value) => setFilters((p) => ({ ...p, academicyear: value || "" }))} onInputChange={(_, value) => setFilters((p) => ({ ...p, academicyear: value || "" }))} renderInput={(params) => <TextField {...params} label="Academic year" />} />
+              </Grid>
+              <Grid item xs={12} md={5}>
+                <Autocomplete
+                  options={options.faculty || []}
+                  value={(options.faculty || []).find((item) => item.user === filters.faculty || item.username === filters.faculty) || null}
+                  getOptionLabel={(option) => option?.label || ""}
+                  isOptionEqualToValue={(option, value) => option.user === value?.user}
+                  onChange={(_, value) => setFilters((p) => ({ ...p, faculty: value?.user || value?.username || "" }))}
+                  renderInput={(params) => <TextField {...params} label="Faculty" />}
+                />
+              </Grid>
+              <Grid item xs={12} md={2}><Button fullWidth variant="contained" sx={{ height: 56 }} disabled={loading} onClick={load}>{loading ? "Loading..." : "Load"}</Button></Grid>
+            </Grid>
+            {loading && <LinearProgress sx={{ mt: 2 }} />}
+          </Paper>
+
+          <Grid container spacing={2}>{cards.map(([label, value]) => <Grid item xs={12} sm={6} md={2} key={label}><Card><CardContent><Typography color="text.secondary">{label}</Typography><Typography variant="h4" fontWeight={900}>{value}</Typography></CardContent></Card></Grid>)}</Grid>
+
+          <Paper sx={{ p: 1 }}>
+            <Tabs value={stage} onChange={(_, value) => { setStage(value); setSelectedExam(null); setSelectedResponse(null); }} variant="scrollable">
+              <Tab value="Completed" label={`Completed (${summary.completed || 0})`} />
+              <Tab value="Pending" label={`Pending (${summary.pending || 0})`} />
+              <Tab value="Ongoing" label={`Ongoing (${summary.ongoing || 0})`} />
+            </Tabs>
+            <DataGrid
+              rows={stageRows.map((row) => ({ ...row, id: row._id }))}
+              columns={[
+                { field: "examname", headerName: "Exam", minWidth: 200, flex: 1 },
+                { field: "examcode", headerName: "Exam code", minWidth: 130 },
+                { field: "program", headerName: "Program", minWidth: 170 },
+                { field: "programcode", headerName: "Program code", minWidth: 130 },
+                { field: "semester", headerName: "Semester", minWidth: 100 },
+                { field: "course", headerName: "Course", minWidth: 220 },
+                { field: "coursecode", headerName: "Course code", minWidth: 130 },
+                { field: "starttime", headerName: "Start", minWidth: 180, renderCell: ({ row }) => fmt(row.starttime) },
+                { field: "endtime", headerName: "End", minWidth: 180, renderCell: ({ row }) => fmt(row.endtime) },
+                { field: "status", headerName: "Status", minWidth: 110 },
+                { field: "attended", headerName: "Attended", minWidth: 100 },
+                { field: "submitted", headerName: "Submitted", minWidth: 110 },
+                { field: "graded", headerName: "Graded", minWidth: 90 },
+                { field: "open", headerName: "Open", minWidth: 110, renderCell: ({ row }) => <Button size="small" onClick={() => openExam(row)}>Select</Button> }
+              ]}
+              autoHeight
+              loading={loading}
+              slots={{ toolbar: GridToolbar }}
+              slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "online_examination_details" } } }}
+              pageSizeOptions={[10, 25, 50, 100]}
+            />
+          </Paper>
+
+          {selectedExam && (
+            <Paper sx={{ p: 2 }}>
+              <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }}>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="h6" fontWeight={900}>{selectedExam.examname}</Typography>
+                  <Typography color="text.secondary">{selectedExam.course} ({selectedExam.coursecode}) | {selectedExam.runstage} | {fmt(selectedExam.starttime)}</Typography>
+                </Box>
+                {selectedExam.runstage !== "Pending" && (
+                  <Tabs value={viewTab} onChange={(_, value) => { setViewTab(value); setSelectedResponse(null); }}>
+                    <Tab label="Questions" />
+                    <Tab label="Responses" />
+                  </Tabs>
+                )}
+              </Stack>
+
+              {(selectedExam.runstage === "Pending" || viewTab === 0) && (
+                <Stack spacing={2} sx={{ mt: 2 }}>
+                  {(selectedExam.sections || []).map((section) => (
+                    <Paper key={section._id || section.sectionname} variant="outlined" sx={{ p: 1.5 }}>
+                      <Typography fontWeight={900}>{section.sectionname || "Section"} {section.sectiontype ? `(${section.sectiontype})` : ""}</Typography>
+                      {(section.questions || []).map((question, index) => (
+                        <Box key={question._id || index} sx={{ mt: 1.5, p: 1.5, border: "1px solid #e2e8f0", borderRadius: 1, bgcolor: "#fff" }}>
+                          <Typography fontWeight={900}>Question {index + 1} | Marks: {question.marks || 0}</Typography>
+                          <Box sx={{ mt: 1, "& img": { maxWidth: "100%", maxHeight: 260, objectFit: "contain" }, "& table": { borderCollapse: "collapse", width: "100%" }, "& td": { border: "1px solid #cbd5e1", p: 0.75 }, "& .question-math": { fontFamily: "Cambria Math, Georgia, serif", fontSize: 18, my: 1 } }} dangerouslySetInnerHTML={{ __html: richQuestionHtml(question) }} />
+                          {!!question.options?.length && <Stack spacing={0.5} sx={{ mt: 1 }}>{question.options.map((opt, optIndex) => <Typography key={opt._id || optIndex} color={opt.iscorrect ? "success.main" : "text.primary"}>{String.fromCharCode(65 + optIndex)}. {opt.optiontext}{opt.iscorrect ? " (Correct)" : ""}</Typography>)}</Stack>}
+                        </Box>
+                      ))}
+                    </Paper>
+                  ))}
+                  {!questions.length && <Alert severity="info">No questions are available for this examination.</Alert>}
+                </Stack>
+              )}
+
+              {selectedExam.runstage !== "Pending" && viewTab === 1 && (
+                <Grid container spacing={2} sx={{ mt: 1 }}>
+                  <Grid item xs={12} md={5}>
+                    <Paper variant="outlined" sx={{ p: 1 }}>
+                      <DataGrid
+                        rows={selectedExamAttempts.map((row) => ({ ...row, id: row._id }))}
+                        columns={[
+                          { field: "student", headerName: "Student", minWidth: 170, flex: 1 },
+                          { field: "regno", headerName: "Regno", minWidth: 120 },
+                          { field: "status", headerName: "Status", minWidth: 110 },
+                          { field: "marksobtained", headerName: "Marks", minWidth: 90 },
+                          { field: "open", headerName: "Open", minWidth: 90, renderCell: ({ row }) => <Button size="small" onClick={() => setSelectedResponse(row)}>View</Button> }
+                        ]}
+                        autoHeight
+                        slots={{ toolbar: GridToolbar }}
+                        slotProps={{ toolbar: { showQuickFilter: true } }}
+                        pageSizeOptions={[10, 25, 50]}
+                      />
+                    </Paper>
+                  </Grid>
+                  <Grid item xs={12} md={7}>
+                    {!selectedResponse && <Alert severity="info">Select a student response to view all answers, marks and AI comments.</Alert>}
+                    {selectedResponse && (
+                      <Stack spacing={2}>
+                        <Paper variant="outlined" sx={{ p: 1.5 }}>
+                          <Typography fontWeight={900}>{selectedResponse.student} ({selectedResponse.regno || "-"})</Typography>
+                          <Typography color="text.secondary">Status: {selectedResponse.status || "-"} | Marks: {selectedResponse.marksobtained || 0} / {selectedResponse.totalmarks || 0}</Typography>
+                        </Paper>
+                        {(selectedResponse.answers || []).map((answer, index) => (
+                          <Paper key={answer._id || index} variant="outlined" sx={{ p: 1.5 }}>
+                            <Typography fontWeight={900}>Question {index + 1} | Marks: {answer.marksobtained || 0} / {answer.maxmarks || 0}</Typography>
+                            <Box sx={{ mt: 1, "& img": { maxWidth: "100%", maxHeight: 240, objectFit: "contain" }, "& table": { borderCollapse: "collapse", width: "100%" }, "& td": { border: "1px solid #cbd5e1", p: 0.75 }, "& .question-math": { fontFamily: "Cambria Math, Georgia, serif", fontSize: 18, my: 1 } }} dangerouslySetInnerHTML={{ __html: richQuestionHtml(answer) }} />
+                            <Typography sx={{ whiteSpace: "pre-wrap", mt: 1 }}><b>Response:</b> {answer.answertext || answer.selectedoptiontext || "-"}</Typography>
+                            {answer.attachmenturl && <AttachmentLink url={answer.attachmenturl} label="Attachment" />}
+                            <Typography sx={{ mt: 1 }}><b>Grade:</b> {answer.grade || "-"}</Typography>
+                            <Typography sx={{ whiteSpace: "pre-wrap" }}><b>Evaluator comments:</b> {answer.comments || "-"}</Typography>
+                            <Typography sx={{ whiteSpace: "pre-wrap" }} color="text.secondary"><b>AI comments:</b> {answer.aicomments || "-"}</Typography>
+                          </Paper>
+                        ))}
+                      </Stack>
+                    )}
+                  </Grid>
+                </Grid>
+              )}
+            </Paper>
+          )}
+        </Stack>
+      </Box>
+    </MenuPageShell>
+  );
 }
 
 const admissionAssignmentFields = ["academicyear", "category", "programapplied", "programcode", "name", "email", "phone", "applicationid", "applicationnumber", "username", "applicationstatus", "enrollmentstatus", "paymentstatus"];

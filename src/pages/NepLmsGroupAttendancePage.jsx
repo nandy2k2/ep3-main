@@ -23,6 +23,7 @@ import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
 import AttendanceDiagnosticHelp from "./AttendanceDiagnosticHelp";
+import { classCalendarSortKey, classDisplayDate, classDisplayLabel, classDisplayTime } from "../utils/nepLmsTimezone";
 
 const assignmentFilterFields = [
   { field: "academicyear", label: "Academic Year" },
@@ -139,7 +140,7 @@ export default function NepLmsGroupAttendancePage({ classGroupMode = false, page
   const calendarMonths = useMemo(() => {
     const monthMap = new Map();
     filteredClasses.forEach((row) => {
-      const parsed = parseDate(row.classdate);
+      const parsed = parseDate(classDisplayDate(row));
       if (!parsed) return;
       const monthKey = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}`;
       if (!monthMap.has(monthKey)) monthMap.set(monthKey, { key: monthKey, year: parsed.getFullYear(), month: parsed.getMonth(), days: new Map() });
@@ -154,7 +155,7 @@ export default function NepLmsGroupAttendancePage({ classGroupMode = false, page
       const cells = [];
       for (let index = 0; index < firstDay; index += 1) cells.push({ key: `blank-${index}`, blank: true });
       for (let day = 1; day <= totalDays; day += 1) {
-        cells.push({ key: `${month.key}-${day}`, day, items: (month.days.get(day) || []).sort((a, b) => String(a.classtime).localeCompare(String(b.classtime))) });
+        cells.push({ key: `${month.key}-${day}`, day, items: (month.days.get(day) || []).sort((a, b) => classCalendarSortKey(a).localeCompare(classCalendarSortKey(b))) });
       }
       while (cells.length % 7 !== 0) cells.push({ key: `blank-end-${cells.length}`, blank: true });
       return { ...month, title: monthTitle(month.year, month.month), cells };
@@ -366,7 +367,7 @@ export default function NepLmsGroupAttendancePage({ classGroupMode = false, page
                         const active = selectedClass?._id === item._id;
                         return (
                           <Box key={item._id} onClick={() => setSelectedClass(item)} sx={{ cursor: "pointer", bgcolor: active ? "#dcfce7" : "#eef2ff", border: active ? "1px solid #16a34a" : "1px solid #c7d2fe", borderLeft: active ? "4px solid #16a34a" : "4px solid #4f46e5", borderRadius: 1, px: 0.8, py: 0.6 }}>
-                            <Typography variant="caption" fontWeight={900} display="block">{item.classtime || "-"} | {item.coursecode}</Typography>
+                            <Typography variant="caption" fontWeight={900} display="block">{classDisplayTime(item) || "-"} | {item.coursecode}</Typography>
                             <Typography variant="caption" display="block">{item.course || "-"}</Typography>
                             <Typography variant="caption" display="block" color="text.secondary">Sem {item.semester} | {item.major}</Typography>
                           </Box>
@@ -386,7 +387,7 @@ export default function NepLmsGroupAttendancePage({ classGroupMode = false, page
               <Grid container spacing={2} alignItems="center">
                 <Grid item xs={12} md={4}>
                   <Typography variant="h6">{selectedClass.coursecode} - {selectedClass.course}</Typography>
-                  <Typography variant="body2" color="text.secondary">{selectedClass.classdate} {selectedClass.classtime} | {selectedClass.programcode} | Sem {selectedClass.semester}</Typography>
+                  <Typography variant="body2" color="text.secondary">{classDisplayLabel(selectedClass)} | {selectedClass.programcode} | Sem {selectedClass.semester}</Typography>
                 </Grid>
                 <Grid item xs={12} md={2}>
                   <FormControl fullWidth><InputLabel>Group</InputLabel><Select label="Group" value={groupName} onChange={(e) => setGroupName(e.target.value)}>{groups.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</Select></FormControl>

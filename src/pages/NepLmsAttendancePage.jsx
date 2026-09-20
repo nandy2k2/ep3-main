@@ -22,6 +22,7 @@ import ep1 from "../api/ep1";
 import global1 from "./global1";
 import AttendanceDiagnosticHelp from "./AttendanceDiagnosticHelp";
 import MenuPageShell from "./MenuPageShell";
+import { classCalendarSortKey, classDisplayDate, classDisplayLabel, classDisplayTime } from "../utils/nepLmsTimezone";
 
 const assignmentFilterFields = [
   { field: "academicyear", label: "Academic Year" },
@@ -131,7 +132,7 @@ export default function NepLmsAttendancePage({ sectionMode = false, pageTitle = 
         }));
         if (requestedClass) {
           setSelectedClass(requestedClass);
-          setCalendarDate(requestedClass.classdate || calendarDate);
+          setCalendarDate(classDisplayDate(requestedClass) || calendarDate);
         }
       }
       if (!assignedRows.length) {
@@ -193,7 +194,7 @@ export default function NepLmsAttendancePage({ sectionMode = false, pageTitle = 
     const selectedDate = parseDate(calendarDate) || new Date();
     const classMap = new Map();
     filteredClasses.forEach((row) => {
-      const parsed = parseDate(row.classdate);
+      const parsed = parseDate(classDisplayDate(row));
       if (!parsed) return;
       const key = toDateInput(parsed);
       if (!classMap.has(key)) classMap.set(key, []);
@@ -211,7 +212,7 @@ export default function NepLmsAttendancePage({ sectionMode = false, pageTitle = 
         weekday: weekdayLabels[date.getDay()],
         isToday: key === toDateInput(new Date()),
         selected: key === calendarDate,
-        items: (classMap.get(key) || []).sort((a, b) => String(a.classtime).localeCompare(String(b.classtime)))
+        items: (classMap.get(key) || []).sort((a, b) => classCalendarSortKey(a).localeCompare(classCalendarSortKey(b)))
       };
     };
 
@@ -641,7 +642,7 @@ export default function NepLmsAttendancePage({ sectionMode = false, pageTitle = 
                                 py: 0.6
                               }}
                             >
-                              <Typography variant="caption" fontWeight={900} display="block">{item.classtime || "-"} | {item.coursecode}</Typography>
+                              <Typography variant="caption" fontWeight={900} display="block">{classDisplayTime(item) || "-"} | {item.coursecode}</Typography>
                               <Typography variant="caption" display="block">{item.course || item.topic || "-"}</Typography>
                               <Typography variant="caption" display="block" color="text.secondary">Sem {item.semester} | {item.major}</Typography>
                             </Box>
@@ -664,7 +665,7 @@ export default function NepLmsAttendancePage({ sectionMode = false, pageTitle = 
               <Box>
                 <Typography variant="h6">{selectedClass.coursecode} - {selectedClass.course}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {selectedClass.classdate} {selectedClass.classtime} | {selectedClass.programcode || selectedClass.program} | Sem {selectedClass.semester} | {selectedClass.major}
+                  {classDisplayLabel(selectedClass)} | {selectedClass.programcode || selectedClass.program} | Sem {selectedClass.semester} | {selectedClass.major}
                 </Typography>
               </Box>
               <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>

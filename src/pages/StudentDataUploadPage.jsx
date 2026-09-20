@@ -28,6 +28,7 @@ import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import SaveIcon from "@mui/icons-material/Save";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
+import AiImageFieldExtractor from "./AiImageFieldExtractor";
 import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
@@ -217,6 +218,11 @@ export default function StudentDataUploadPage() {
     ...customFields.map((field) => ({ value: `custom:${field.fieldname}`, label: field.label || field.fieldname, custom: true, fieldname: field.fieldname }))
   ], [customFields]);
 
+  const imageExtractionFields = useMemo(() => [
+    ...fields.map((field) => ({ name: field, label: labels[field] || field })),
+    ...customFields.map((field) => ({ name: field.fieldname, label: field.label || field.fieldname, custom: true }))
+  ], [customFields]);
+
   const getChoice = (value) => fieldChoices.find((item) => item.value === value);
 
   const loadCustomFields = async () => {
@@ -356,6 +362,19 @@ export default function StudentDataUploadPage() {
         [fieldname]: value
       }
     }));
+  };
+
+  const applyImageExtraction = (values = {}) => {
+    setForm((prev) => {
+      const next = { ...prev, customFields: { ...(prev.customFields || {}) } };
+      Object.entries(values).forEach(([field, value]) => {
+        if (value === undefined || value === null || value === "") return;
+        if (fields.includes(field)) next[field] = value;
+        else if (customFields.some((item) => item.fieldname === field)) next.customFields[field] = value;
+      });
+      return next;
+    });
+    setMessage("Extracted image values applied to the form");
   };
 
   const rowDataForAi = (item) => ({
@@ -838,6 +857,13 @@ export default function StudentDataUploadPage() {
 
       {message && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setMessage("")}>{message}</Alert>}
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
+
+      <AiImageFieldExtractor
+        title="AI image extraction for student data"
+        context="Student data upload page. Extract student profile and academic fields from admission forms, IDs, mark sheets or handwritten forms."
+        fields={imageExtractionFields}
+        onApply={applyImageExtraction}
+      />
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} sx={{ mb: 2 }}>

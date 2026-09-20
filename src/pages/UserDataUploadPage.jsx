@@ -26,6 +26,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import SaveIcon from "@mui/icons-material/Save";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
+import AiImageFieldExtractor from "./AiImageFieldExtractor";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 
@@ -116,6 +117,7 @@ export default function UserDataUploadPage() {
   const [filterOptions, setFilterOptions] = useState({});
   const [programOptions, setProgramOptions] = useState([]);
   const [regulationOptions, setRegulationOptions] = useState([]);
+  const [designationOptions, setDesignationOptions] = useState([]);
   const [userType, setUserType] = useState("Student");
   const [editingId, setEditingId] = useState("");
   const [loading, setLoading] = useState(false);
@@ -136,6 +138,14 @@ export default function UserDataUploadPage() {
   }, [baseFields]);
 
   const flattenedRows = useMemo(() => rows.map((row) => flattenUser(row, customFields)), [rows, customFields]);
+
+  const imageExtractionFields = useMemo(() => {
+    const visibleBase = orderedBaseFields
+      .filter((field) => userType === "Student" || !studentOnlyFields.has(field.field))
+      .map((field) => ({ name: field.field, label: fieldLabels[field.field] || field.label || field.field }));
+    const visibleCustom = customFields.map((field) => ({ name: field.fieldname, label: field.label || field.fieldname, custom: true }));
+    return [...visibleBase, ...visibleCustom];
+  }, [orderedBaseFields, customFields, userType]);
 
   const loadMeta = async () => {
     try {
@@ -160,15 +170,18 @@ export default function UserDataUploadPage() {
 
   const loadDropdownData = async () => {
     try {
-      const [programRes, regulationRes] = await Promise.all([
+      const [programRes, regulationRes, designationRes] = await Promise.all([
         ep1.get("/api/v2/mprograms-management", { params: { colid: global1.colid } }),
-        ep1.get("/api/v2/regulationmaster", { params: { colid: global1.colid, isactive: "Yes" } })
+        ep1.get("/api/v2/regulationmaster", { params: { colid: global1.colid, isactive: "Yes" } }),
+        ep1.get("/api/v2/academic-designations/options", { params: { colid: global1.colid } })
       ]);
       setProgramOptions((programRes.data?.data || []).filter((item) => item.program || item.programcode));
       setRegulationOptions((regulationRes.data?.data || []).map((item) => item.regulation).filter(Boolean));
+      setDesignationOptions(designationRes.data?.designations || []);
     } catch (err) {
       setProgramOptions([]);
       setRegulationOptions([]);
+      setDesignationOptions([]);
     }
   };
 
@@ -212,6 +225,28 @@ export default function UserDataUploadPage() {
 
   const updateCustomForm = (field, value) => {
     setCustomForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const applyImageExtraction = (values = {}) => {
+    const baseNames = new Set(orderedBaseFields.map((field) => field.field));
+    const customNames = new Set(customFields.map((field) => field.fieldname));
+    setForm((prev) => {
+      const next = { ...prev };
+      Object.entries(values).forEach(([field, value]) => {
+        if (value === undefined || value === null || value === "") return;
+        if (baseNames.has(field)) next[field] = value;
+      });
+      return next;
+    });
+    setCustomForm((prev) => {
+      const next = { ...prev };
+      Object.entries(values).forEach(([field, value]) => {
+        if (value === undefined || value === null || value === "") return;
+        if (customNames.has(field)) next[field] = value;
+      });
+      return next;
+    });
+    setMessage("Extracted image values applied to the form");
   };
 
   const toggleAutoPassword = (checked) => {
@@ -551,6 +586,21 @@ export default function UserDataUploadPage() {
       );
     }
 
+    if (field.field === "designation") {
+      return (
+        <Grid item xs={12} md={3} key={field.field}>
+          <Autocomplete
+            freeSolo
+            options={designationOptions}
+            value={form.designation || ""}
+            onInputChange={(_, value) => updateForm("designation", value)}
+            onChange={(_, value) => updateForm("designation", value || "")}
+            renderInput={(params) => <TextField {...params} fullWidth size="small" label="designation" />}
+          />
+        </Grid>
+      );
+    }
+
     return (
       <Grid item xs={12} md={3} key={field.field}>
         <TextField
@@ -692,6 +742,13 @@ export default function UserDataUploadPage() {
           </Grid>
         </Grid>
       </Paper>
+
+      <AiImageFieldExtractor
+        title={`AI image extraction for ${userType}`}
+        context={`${userType} data upload page. Extract profile, contact, role, department, program and custom fields from ID cards, joining forms, admission forms or scanned documents.`}
+        fields={imageExtractionFields}
+        onApply={applyImageExtraction}
+      />
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={1} sx={{ mb: 2 }}>

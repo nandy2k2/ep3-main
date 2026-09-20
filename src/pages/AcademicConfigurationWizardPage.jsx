@@ -3,15 +3,43 @@ import {
   AssignmentInd,
   CalendarMonth,
   Checklist,
+  CorporateFare,
+  Domain,
+  EmojiEvents,
   FactCheck,
   Map,
   MenuBook,
   School,
+  Badge,
   UploadFile
 } from "@mui/icons-material";
 import EmbeddedWizardShell from "./EmbeddedWizardShell";
 
 const steps = [
+  {
+    title: "Master institution list",
+    path: "/academic-master-institutions",
+    icon: <CorporateFare />,
+    description: "Create and verify institution master values before defining programs."
+  },
+  {
+    title: "Master faculty list",
+    path: "/academic-master-faculties",
+    icon: <Domain />,
+    description: "Create faculty or school master values used by program management."
+  },
+  {
+    title: "Designation master",
+    path: "/academic-designations",
+    icon: <Badge />,
+    description: "Create designation values used by users, workload and HR configuration."
+  },
+  {
+    title: "Department faculty",
+    path: "/academic-master-departments",
+    icon: <CorporateFare />,
+    description: "Map departments under institution and faculty so program management can cascade correctly."
+  },
   {
     title: "Program",
     path: "/programmanagement",
@@ -31,7 +59,7 @@ const steps = [
     description: "Upload or update student academic and profile records."
   },
   {
-    title: "Regulation Subjects",
+    title: "Regulation Group",
     path: "/regulationsubjects",
     icon: <Checklist />,
     description: "Define subject and course choices under the selected regulation and program."
@@ -41,6 +69,18 @@ const steps = [
     path: "/regulationcoursemap",
     icon: <Map />,
     description: "Map courses to academic year, regulation, program, semester, credits, type, faculty, institution, and department."
+  },
+  {
+    title: "PO",
+    path: "/program-outcomes",
+    icon: <EmojiEvents />,
+    description: "Define program outcomes for academic year, regulation, and program, with optional AI generation."
+  },
+  {
+    title: "CO",
+    path: "/colist",
+    icon: <FactCheck />,
+    description: "Define course outcomes after courses are mapped for the regulation and program."
   },
   {
     title: "Elective Enrollment",

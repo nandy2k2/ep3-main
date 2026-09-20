@@ -21,6 +21,7 @@ import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
 import AttendanceDiagnosticHelp from "./AttendanceDiagnosticHelp";
+import { classCalendarSortKey, classDisplayDate, classDisplayLabel, classDisplayTime } from "../utils/nepLmsTimezone";
 
 const cleanText = (value) => String(value || "").trim().toLowerCase();
 const fieldsMatch = (left, right) => cleanText(left) === cleanText(right);
@@ -117,7 +118,7 @@ export default function NepLmsPhotoAttendancePage() {
         const requestedClass = facultyClasses.find((row) => row._id === requestedClassId);
         if (requestedClass) {
           setSelectedClassId(requestedClass._id);
-          setCalendarDate(requestedClass.classdate || calendarDate);
+          setCalendarDate(classDisplayDate(requestedClass) || calendarDate);
         }
       }
       if (!assignedRows.length) setError(`No assigned courses found for ${global1.user || "-"}`);
@@ -146,7 +147,7 @@ export default function NepLmsPhotoAttendancePage() {
     const selectedDate = parseDate(calendarDate) || new Date();
     const classMap = new Map();
     filteredClasses.forEach((row) => {
-      const parsed = parseDate(row.classdate);
+      const parsed = parseDate(classDisplayDate(row));
       if (!parsed) return;
       const key = toDateInput(parsed);
       if (!classMap.has(key)) classMap.set(key, []);
@@ -163,7 +164,7 @@ export default function NepLmsPhotoAttendancePage() {
         label: date.toLocaleDateString(undefined, { day: "numeric", month: "short" }),
         isToday: key === toDateInput(new Date()),
         selected: key === calendarDate,
-        items: (classMap.get(key) || []).sort((a, b) => String(a.classtime).localeCompare(String(b.classtime)))
+        items: (classMap.get(key) || []).sort((a, b) => classCalendarSortKey(a).localeCompare(classCalendarSortKey(b)))
       };
     };
 
@@ -334,7 +335,7 @@ export default function NepLmsPhotoAttendancePage() {
     }
   };
 
-  const classLabel = (row) => `${row.classdate || ""} ${row.classtime || ""} | ${row.coursecode} - ${row.course} | ${row.programcode} | Sem ${row.semester}`;
+  const classLabel = (row) => `${classDisplayLabel(row)} | ${row.coursecode} - ${row.course} | ${row.programcode} | Sem ${row.semester}`;
 
   const studentColumns = [
     { field: "name", headerName: "Student", minWidth: 180, flex: 1 },
@@ -495,7 +496,7 @@ export default function NepLmsPhotoAttendancePage() {
                                     py: 0.6
                                   }}
                                 >
-                                  <Typography variant="caption" fontWeight={900} display="block">{item.classtime || "-"} | {item.coursecode}</Typography>
+                                  <Typography variant="caption" fontWeight={900} display="block">{classDisplayTime(item) || "-"} | {item.coursecode}</Typography>
                                   <Typography variant="caption" display="block">{item.course || item.topic || "-"}</Typography>
                                   <Typography variant="caption" display="block" color="text.secondary">Sem {item.semester} | {item.major}</Typography>
                                 </Box>

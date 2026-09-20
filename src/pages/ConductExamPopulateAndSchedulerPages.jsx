@@ -375,7 +375,7 @@ export function ConductExamPopulateCoursesPage() {
             <Stack direction="row" spacing={1} flexWrap="wrap" rowGap={1}>
               <Button component={RouterLink} to="/programmanagement" variant="outlined">Add programs</Button>
               <Button component={RouterLink} to="/regulationmaster" variant="outlined">Add regulation</Button>
-              <Button component={RouterLink} to="/regulationsubjects" variant="outlined">Add regulation subject</Button>
+              <Button component={RouterLink} to="/regulationsubjects" variant="outlined">Add regulation group</Button>
               <Button component={RouterLink} to="/regulationcoursemap" variant="outlined">Add regulation course map</Button>
               <Button variant="contained" startIcon={<AutoModeIcon />} disabled={loading} onClick={populate}>{loading ? "Populating..." : "Populate"}</Button>
             </Stack>

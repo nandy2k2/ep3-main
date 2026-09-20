@@ -23,6 +23,7 @@ import { DataGrid, GridActionsCellItem, GridToolbar } from "@mui/x-data-grid";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import { classCalendarSortKey, classDisplayDate, classDisplayLabel, classDisplayTime } from "../utils/nepLmsTimezone";
 
 const blankClass = {
   academicyear: "",
@@ -351,17 +352,17 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
   const calendarGroups = useMemo(() => {
     const map = new Map();
     filteredRows.forEach((row) => {
-      const key = row.classdate || "No Date";
+      const key = classDisplayDate(row) || "No Date";
       if (!map.has(key)) map.set(key, []);
       map.get(key).push(row);
     });
     return [...map.entries()]
       .sort(([a], [b]) => String(a).localeCompare(String(b)))
-      .map(([date, items]) => ({ date, items: items.sort((a, b) => String(a.classtime).localeCompare(String(b.classtime))) }));
+      .map(([date, items]) => ({ date, items: items.sort((a, b) => classCalendarSortKey(a).localeCompare(classCalendarSortKey(b))) }));
   }, [filteredRows]);
 
   const firstDatedRowDate = useMemo(() => {
-    const dates = filteredRows.map((row) => parseDate(row.classdate)).filter(Boolean).sort((a, b) => a - b);
+    const dates = filteredRows.map((row) => parseDate(classDisplayDate(row))).filter(Boolean).sort((a, b) => a - b);
     return dates[0] || null;
   }, [filteredRows]);
 
@@ -370,8 +371,8 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
   const dailyClasses = useMemo(() => {
     const activeDateValue = dateToInput(activeCalendarDate);
     return filteredRows
-      .filter((row) => row.classdate === activeDateValue)
-      .sort((a, b) => String(a.classtime).localeCompare(String(b.classtime)));
+      .filter((row) => classDisplayDate(row) === activeDateValue)
+      .sort((a, b) => classCalendarSortKey(a).localeCompare(classCalendarSortKey(b)));
   }, [activeCalendarDate, filteredRows]);
 
   const weeklyDays = useMemo(() => {
@@ -380,8 +381,8 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
       const date = addDays(weekStart, index);
       const dateValue = dateToInput(date);
       const items = filteredRows
-        .filter((row) => row.classdate === dateValue)
-        .sort((a, b) => String(a.classtime).localeCompare(String(b.classtime)));
+        .filter((row) => classDisplayDate(row) === dateValue)
+        .sort((a, b) => classCalendarSortKey(a).localeCompare(classCalendarSortKey(b)));
       return { key: dateValue, date, dateValue, label: weekdayLabels[date.getDay()], items };
     });
   }, [activeCalendarDate, filteredRows]);
@@ -396,7 +397,7 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
   const printableMonths = useMemo(() => {
     const monthMap = new Map();
     filteredRows.forEach((row) => {
-      const parsed = parseDate(row.classdate);
+      const parsed = parseDate(classDisplayDate(row));
       if (!parsed) return;
       const monthKey = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}`;
       if (!monthMap.has(monthKey)) {
@@ -419,7 +420,7 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
       const cells = [];
       for (let i = 0; i < firstDay; i += 1) cells.push({ key: `blank-${i}`, blank: true });
       for (let day = 1; day <= totalDays; day += 1) {
-        const items = (month.days.get(day) || []).sort((a, b) => String(a.classtime).localeCompare(String(b.classtime)));
+        const items = (month.days.get(day) || []).sort((a, b) => classCalendarSortKey(a).localeCompare(classCalendarSortKey(b)));
         cells.push({ key: `${month.key}-${day}`, day, items });
       }
       while (cells.length % 7 !== 0) cells.push({ key: `blank-end-${cells.length}`, blank: true });
@@ -688,7 +689,7 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
     }
   };
 
-  const classLabel = (row) => `${row.classdate || "-"} ${row.classtime || ""} | ${row.coursecode || ""} ${row.course || ""} | ${row.faculty || ""}`;
+  const classLabel = (row) => `${classDisplayLabel(row) || "-"} | ${row.coursecode || ""} ${row.course || ""} | ${row.faculty || ""}`;
 
   const columns = [
     { field: "academicyear", headerName: "Academic Year", width: 140 },
@@ -1103,7 +1104,7 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
               <Grid container>
                 {dailyClasses.map((row) => (
                   <Grid item xs={12} md={6} key={row._id} sx={{ borderRight: "1px solid #e2e8f0", borderBottom: "1px solid #e2e8f0", p: 1.2 }}>
-                    <Typography variant="subtitle2" fontWeight={900}>{row.classtime || "-"} | Period {row.period || "-"}</Typography>
+                    <Typography variant="subtitle2" fontWeight={900}>{classDisplayTime(row) || "-"} | Period {row.period || "-"}</Typography>
                     <Typography variant="body2" fontWeight={700}>{row.coursecode} - {row.course}</Typography>
                     <Typography variant="body2">{row.topic || row.module || "-"}</Typography>
                     <Typography variant="caption" display="block">{row.programcode || row.program} | Sem {row.semester} | {row.faculty}</Typography>
@@ -1130,7 +1131,7 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
                     {day.items.map((row) => (
                       <Box key={row._id} sx={{ bgcolor: "#eef2ff", borderLeft: "3px solid #4f46e5", px: 0.65, py: 0.45, borderRadius: 0.5 }}>
                         <Typography variant="caption" fontWeight={900} display="block" sx={{ lineHeight: 1.15 }}>
-                          {row.classtime || "-"} P{row.period || "-"} | {row.coursecode}
+                          {classDisplayTime(row) || "-"} P{row.period || "-"} | {row.coursecode}
                         </Typography>
                         <Typography variant="caption" display="block" sx={{ lineHeight: 1.15 }}>
                           {row.topic || row.course || "-"}
@@ -1183,7 +1184,7 @@ export default function NepLmsTimetableManagerPage({ mode = "default", pageTitle
                           {cell.items.map((row) => (
                             <Box key={row._id} sx={{ bgcolor: "#eef2ff", borderLeft: "3px solid #4f46e5", px: 0.55, py: 0.35, borderRadius: 0.5 }}>
                               <Typography variant="caption" fontWeight={900} display="block" sx={{ lineHeight: 1.15 }}>
-                                {row.classtime || "-"} P{row.period || "-"} | {row.coursecode}
+                                {classDisplayTime(row) || "-"} P{row.period || "-"} | {row.coursecode}
                               </Typography>
                               <Typography variant="caption" display="block" sx={{ lineHeight: 1.15 }}>
                                 {row.topic || row.course || "-"}

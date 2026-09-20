@@ -451,12 +451,12 @@ export function ConductExamPaperSetterRegistration2Page() {
     byReg.forEach((row) => row.programcode && programs.set(row.programcode, { program: row.program, programcode: row.programcode }));
     const courseMap = new Map();
     byProg.forEach((row) => row.coursecode && courseMap.set(row.coursecode, row));
-    const componentRows = components
+    const componentRows = form.coursecode ? components
       .filter((row) => !form.academicyear || row.academicyear === form.academicyear)
       .filter((row) => !form.regulation || row.regulation === form.regulation)
       .filter((row) => !form.programcode || row.programcode === form.programcode)
       .filter((row) => !form.semester || String(row.semester || "") === String(form.semester || ""))
-      .filter((row) => !form.coursecode || row.coursecode === form.coursecode);
+      .filter((row) => row.coursecode === form.coursecode) : [];
     return {
       academicyears: uniq([...courses.map((r) => r.academicyear), ...exams.map((r) => r.academicyear)]),
       exams: uniq([

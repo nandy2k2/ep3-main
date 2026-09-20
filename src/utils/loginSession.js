@@ -100,6 +100,10 @@ export const applyLoginSession = async (responseData, options = {}) => {
     return "/studentdashboard";
   }
 
+  if (normalizedRole === "all") {
+    return "/configuration";
+  }
+
   if (await hasRoleChatbotDefinition({ colid, role: responseData.role })) {
     return "/ai-chatbot-help";
   }

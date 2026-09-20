@@ -23,6 +23,7 @@ import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import { timezoneOffsetLabel, timezoneOptions } from "../utils/nepLmsTimezone";
 
 const defaultYears = ["2026-27", "2027-28", "2028-29", "2029-30", "2030-31"];
 const geminiModels = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"];
@@ -46,6 +47,7 @@ export default function NepLmsTimetableCreatorFilteredPage() {
     provider: "Gemini",
     geminiModel: "gemini-2.5-flash",
     ollamaConfigId: "",
+    timezone: "Asia/Kolkata",
     rules: ""
   });
   const [scheduled, setScheduled] = useState([]);
@@ -106,7 +108,7 @@ export default function NepLmsTimetableCreatorFilteredPage() {
     if (!window.confirm(`Save ${scheduled.length} generated classes to NEP LMS timetable?`)) return;
     setSaving(true);
     try {
-      const res = await ep1.post("/api/v2/neplms/timetable-creator/save", { colid: global1.colid, user: global1.user, rows: scheduled });
+      const res = await ep1.post("/api/v2/neplms/timetable-creator/save", { colid: global1.colid, user: global1.user, timezone: form.timezone, rows: scheduled });
       setMessage(`${res.data.saved || 0} classes saved to timetable`);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to save generated timetable");
@@ -118,6 +120,7 @@ export default function NepLmsTimetableCreatorFilteredPage() {
   const scheduledColumns = [
     { field: "classdate", headerName: "Date", width: 120 },
     { field: "classtime", headerName: "Time", width: 110 },
+    { field: "timezone", headerName: "Timezone", width: 150, valueGetter: (params) => params.row.timezone || form.timezone },
     { field: "period", headerName: "Period", width: 130 },
     { field: "program", headerName: "Program", width: 180 },
     { field: "programcode", headerName: "Program Code", width: 130 },
@@ -167,6 +170,9 @@ export default function NepLmsTimetableCreatorFilteredPage() {
               </Grid>
               <Grid item xs={12} md={2}><TextField fullWidth type="date" label="Start Date" InputLabelProps={{ shrink: true }} value={form.startdate} onChange={(e) => setField("startdate", e.target.value)} /></Grid>
               <Grid item xs={12} md={2}><TextField fullWidth type="date" label="End Date" InputLabelProps={{ shrink: true }} value={form.enddate} onChange={(e) => setField("enddate", e.target.value)} /></Grid>
+              <Grid item xs={12} md={3}>
+                <FormControl fullWidth><InputLabel>Timezone</InputLabel><Select label="Timezone" value={form.timezone} onChange={(e) => setField("timezone", e.target.value)}>{timezoneOptions.map((item) => <MenuItem key={item} value={item}>{item} ({timezoneOffsetLabel(item)})</MenuItem>)}</Select></FormControl>
+              </Grid>
               <Grid item xs={12} md={2}>
                 <FormControl fullWidth><InputLabel>AI Provider</InputLabel><Select label="AI Provider" value={form.provider} onChange={(e) => setField("provider", e.target.value)}><MenuItem value="Gemini">Gemini</MenuItem><MenuItem value="Ollama">Ollama</MenuItem></Select></FormControl>
               </Grid>

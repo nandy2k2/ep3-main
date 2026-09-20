@@ -32,6 +32,10 @@ const fallbackYears = ["2026-27", "2027-28", "2028-29", "2029-30", "2030-31"];
 const fallbackTypes = ["Major", "Minor"];
 const uniqueSorted = (values = []) => [...new Set(values.map((item) => String(item || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 const norm = (value) => String(value || "").trim().toLowerCase();
+const listFromAny = (value) => {
+  if (Array.isArray(value)) return value.map((item) => String(item || "").trim()).filter(Boolean);
+  return String(value || "").split(",").map((item) => item.trim()).filter(Boolean);
+};
 const normalizeHeader = (value) => String(value || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
 
 const blankForm = {
@@ -45,6 +49,8 @@ const blankForm = {
   course: "",
   coursecode: "",
   coursetype: "",
+  modules: [],
+  module: "",
   facultyname: "",
   facultyemail: "",
   facultydepartment: "",
@@ -64,6 +70,8 @@ const headerMap = {
   coursecode: "coursecode",
   coursetype: "coursetype",
   courseType: "coursetype",
+  module: "module",
+  modules: "module",
   facultyname: "facultyname",
   facultyemail: "facultyemail",
   facultydepartment: "facultydepartment",
@@ -77,10 +85,11 @@ export default function WorkloadAssignmentPage() {
   const [rows, setRows] = useState([]);
   const [form, setForm] = useState(blankForm);
   const [selectedCourseCodes, setSelectedCourseCodes] = useState([]);
-  const [options, setOptions] = useState({ academicyears: [], regulations: [], programs: [], types: [], subjects: [], semesters: [], courses: [], departments: [], faculty: [] });
+  const [options, setOptions] = useState({ academicyears: [], regulations: [], programs: [], types: [], subjects: [], semesters: [], courses: [], modules: [], syllabus: [], departments: [], faculty: [] });
   const [courses, setCourses] = useState([]);
   const [department, setDepartment] = useState("");
   const [faculty, setFaculty] = useState([]);
+  const [workloadRules, setWorkloadRules] = useState([]);
   const [filters, setFilters] = useState({ academicyear: "", regulation: "", programcode: "", subject: "", semester: "", facultyemail: "" });
   const [selectedRowIds, setSelectedRowIds] = useState([]);
   const [bulkProgramCode, setBulkProgramCode] = useState("");
@@ -92,6 +101,7 @@ export default function WorkloadAssignmentPage() {
 
   useEffect(() => {
     loadOptions();
+    loadWorkloadRules();
     loadRows();
   }, []);
 
@@ -122,12 +132,23 @@ export default function WorkloadAssignmentPage() {
         subjects: res.data.subjects || [],
         semesters: res.data.semesters || [],
         courses: res.data.courses || [],
+        modules: res.data.modules || [],
+        syllabus: res.data.syllabus || [],
         departments: res.data.departments || [],
         faculty: res.data.faculty || []
       });
       setFaculty(res.data.faculty || []);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load options");
+    }
+  };
+
+  const loadWorkloadRules = async () => {
+    try {
+      const res = await ep1.get("/api/v2/designation-workload-hours", { params: { colid, status: "Active" } });
+      setWorkloadRules(res.data?.data || []);
+    } catch (err) {
+      setWorkloadRules([]);
     }
   };
 
@@ -152,7 +173,9 @@ export default function WorkloadAssignmentPage() {
       const nextCourses = res.data.courses || [];
       setOptions((prev) => ({
         ...prev,
-        subjects: res.data.subjects || []
+        subjects: res.data.subjects || [],
+        modules: res.data.modules || [],
+        syllabus: res.data.syllabus || []
       }));
       setCourses(nextCourses);
       setSelectedCourseCodes((prev) => prev.filter((coursecode) => nextCourses.some((item) => item.coursecode === coursecode)));
@@ -194,6 +217,18 @@ export default function WorkloadAssignmentPage() {
   const subjectOptions = useMemo(() => uniqueSorted([...options.subjects, form.subject]), [options.subjects, form.subject]);
   const semesterOptions = useMemo(() => uniqueSorted([...options.semesters, ...courses.map((item) => item.semester), ...rows.map((row) => row.semester), form.semester]), [options.semesters, courses, rows, form.semester]);
   const departmentOptions = useMemo(() => uniqueSorted([...options.departments, ...rows.map((row) => row.facultydepartment), ...faculty.map((item) => item.department)]), [options.departments, rows, faculty]);
+  const moduleOptionsForSelectedCourses = (coursecodes = selectedCourseCodes) => {
+    const selectedSet = new Set(coursecodes);
+    const source = (options.syllabus || []).filter((row) => (
+      (!selectedSet.size || selectedSet.has(row.coursecode))
+      && (!form.academicyear || row.academicyear === form.academicyear)
+      && (!form.regulation || row.regulation === form.regulation)
+      && (!form.programcode || row.programcode === form.programcode)
+      && (!form.semester || row.semester === form.semester)
+    ));
+    return uniqueSorted(source.map((row) => row.module));
+  };
+  const moduleOptions = useMemo(() => moduleOptionsForSelectedCourses(), [options.syllabus, selectedCourseCodes, form.academicyear, form.regulation, form.programcode, form.semester]);
   const programOptions = useMemo(() => {
     const map = new Map();
     options.programs.forEach((item) => {
@@ -214,9 +249,9 @@ export default function WorkloadAssignmentPage() {
     setForm((prev) => ({
       ...prev,
       [field]: value,
-      ...(["academicyear", "regulation", "programcode", "type"].includes(field) ? { course: "", coursecode: "", coursetype: "", subject: "", semester: "" } : {}),
-      ...(field === "subject" ? { course: "", coursecode: "", coursetype: "", semester: "" } : {}),
-      ...(field === "semester" ? { course: "", coursecode: "", coursetype: "" } : {})
+      ...(["academicyear", "regulation", "programcode", "type"].includes(field) ? { course: "", coursecode: "", coursetype: "", subject: "", semester: "", modules: [], module: "" } : {}),
+      ...(field === "subject" ? { course: "", coursecode: "", coursetype: "", semester: "", modules: [], module: "" } : {}),
+      ...(field === "semester" ? { course: "", coursecode: "", coursetype: "", modules: [], module: "" } : {})
     }));
   };
 
@@ -230,6 +265,8 @@ export default function WorkloadAssignmentPage() {
       course: "",
       coursecode: "",
       coursetype: "",
+      modules: [],
+      module: "",
       subject: "",
       semester: ""
     }));
@@ -254,15 +291,44 @@ export default function WorkloadAssignmentPage() {
     && (!source.semester || norm(item.semester) === norm(source.semester))
   )) || courseList.find((item) => norm(item.coursecode) === norm(source.coursecode));
 
+  const ruleForFaculty = (programcode, designation) => {
+    const normalizedProgram = norm(programcode);
+    const normalizedDesignation = norm(designation);
+    if (!normalizedDesignation) return null;
+    const matchesDesignation = (row) => listFromAny(row.designations?.length ? row.designations : row.designation)
+      .some((item) => norm(item) === normalizedDesignation);
+    const exact = workloadRules.find((row) => norm(row.programcode) === normalizedProgram && matchesDesignation(row));
+    if (exact) return exact;
+    return workloadRules.find((row) => matchesDesignation(row)) || null;
+  };
+
+  const confirmWorkloadCapacity = async ({ facultyemail, academicyear, programcode, hoursToAssign, excludeId = "" }) => {
+    const selectedFaculty = faculty.find((item) => norm(item.email) === norm(facultyemail));
+    const rule = ruleForFaculty(programcode, selectedFaculty?.designation);
+    const maxHours = Number(rule?.workloadhours || 0);
+    if (!maxHours) return true;
+    const res = await ep1.get("/api/v2/workloadassignment", { params: { colid, academicyear, facultyemail } });
+    const assignedHours = (res.data?.data || [])
+      .filter((row) => row._id !== excludeId && row.status !== "Inactive")
+      .reduce((sum, row) => sum + Number(row.hoursperweek || 0), 0);
+    const nextTotal = assignedHours + Number(hoursToAssign || 0);
+    if (nextTotal <= maxHours) return true;
+    return window.confirm(`Assigned workload will exceed the permitted weekly workload for ${selectedFaculty?.name || facultyemail}.\n\nPermitted: ${maxHours} hour(s)\nAlready assigned: ${assignedHours} hour(s)\nTo assign now: ${hoursToAssign} hour(s)\nTotal after assignment: ${nextTotal} hour(s)\n\nDo you want to continue?`);
+  };
+
   const selectCourses = (coursecodes) => {
     const nextCodes = Array.isArray(coursecodes) ? coursecodes : [];
     setSelectedCourseCodes(nextCodes);
     const selected = findMatchingCourse(courses, { ...form, coursecode: nextCodes[0] });
+    const allowedModules = new Set(moduleOptionsForSelectedCourses(nextCodes));
+    const nextModules = listFromAny(form.modules).filter((module) => allowedModules.has(module));
     setForm((prev) => ({
       ...prev,
       course: selected?.course || "",
       coursecode: selected?.coursecode || "",
       coursetype: selected?.coursetype || "",
+      modules: nextModules,
+      module: nextModules.join(", "),
       subject: selected?.subject || prev.subject,
       semester: selected?.semester || prev.semester
     }));
@@ -277,6 +343,7 @@ export default function WorkloadAssignmentPage() {
 
   const refreshAll = async () => {
     await loadOptions();
+    await loadWorkloadRules();
     await loadRows();
   };
 
@@ -284,6 +351,14 @@ export default function WorkloadAssignmentPage() {
     event.preventDefault();
     try {
       if (editingId) {
+        const canContinue = await confirmWorkloadCapacity({
+          facultyemail: form.facultyemail,
+          academicyear: form.academicyear,
+          programcode: form.programcode,
+          hoursToAssign: Number(form.hoursperweek || 0),
+          excludeId: editingId
+        });
+        if (!canContinue) return;
         await ep1.post("/api/v2/workloadassignment/update", { ...form, colid, user: global1.user, id: editingId });
         setMessage("Record updated");
       } else {
@@ -292,6 +367,13 @@ export default function WorkloadAssignmentPage() {
           setError("Select at least one course");
           return;
         }
+        const canContinue = await confirmWorkloadCapacity({
+          facultyemail: form.facultyemail,
+          academicyear: form.academicyear,
+          programcode: form.programcode,
+          hoursToAssign: Number(form.hoursperweek || 0) * selectedCourses.length
+        });
+        if (!canContinue) return;
         for (const courseItem of selectedCourses) {
           await ep1.post("/api/v2/workloadassignment", {
             ...form,
@@ -329,6 +411,8 @@ export default function WorkloadAssignmentPage() {
       course: row.course || "",
       coursecode: row.coursecode || "",
       coursetype: row.coursetype || "",
+      modules: listFromAny(row.modules?.length ? row.modules : row.module),
+      module: row.module || listFromAny(row.modules).join(", "),
       facultyname: row.facultyname || "",
       facultyemail: row.facultyemail || "",
       facultydepartment: row.facultydepartment || "",
@@ -363,6 +447,7 @@ export default function WorkloadAssignmentPage() {
       Course: firstCourse.course || "",
       "Course Code": firstCourse.coursecode || "",
       "Course Type": firstCourse.coursetype || "",
+      Modules: "Module 1, Module 2",
       "Faculty Name": firstFaculty.name || "",
       "Faculty Email": firstFaculty.email || "",
       "Faculty Department": firstFaculty.department || "",
@@ -498,6 +583,7 @@ export default function WorkloadAssignmentPage() {
     { field: "course", headerName: "Course", width: 220 },
     { field: "coursecode", headerName: "Course Code", width: 140 },
     { field: "coursetype", headerName: "Course Type", width: 140 },
+    { field: "module", headerName: "Assigned Modules", width: 220 },
     { field: "facultyname", headerName: "Faculty Name", width: 190 },
     { field: "facultyemail", headerName: "Faculty Email", width: 230 },
     { field: "facultydepartment", headerName: "Department", width: 160 },
@@ -566,6 +652,33 @@ export default function WorkloadAssignmentPage() {
               label="Course Type"
               value={form.coursetype}
               InputProps={{ readOnly: true }}
+            />
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Autocomplete
+              multiple
+              disableCloseOnSelect
+              options={moduleOptions}
+              value={listFromAny(form.modules)}
+              onChange={(_, value) => setForm((prev) => ({ ...prev, modules: value, module: value.join(", ") }))}
+              renderOption={(props, option, { selected }) => (
+                <li {...props}>
+                  <Checkbox checked={selected} sx={{ mr: 1 }} />
+                  {option}
+                </li>
+              )}
+              renderTags={(value, getTagProps) =>
+                value.slice(0, 3).map((option, index) => (
+                  <Chip size="small" label={option} {...getTagProps({ index })} />
+                )).concat(value.length > 3 ? [<Chip key="more-modules" size="small" label={`+${value.length - 3} more`} />] : [])
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Assigned Modules"
+                  helperText="Optional. Blank means all syllabus modules are available."
+                />
+              )}
             />
           </Grid>
           <Grid item xs={12} md={2}>
@@ -662,7 +775,7 @@ export default function WorkloadAssignmentPage() {
           slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "workload_assignment" } } }}
           pageSizeOptions={[10, 25, 50, 100]}
           initialState={{ pagination: { paginationModel: { pageSize: 10, page: 0 } } }}
-          sx={{ minWidth: 2100 }}
+          sx={{ minWidth: 2320 }}
         />
       </Paper>
     </Container>

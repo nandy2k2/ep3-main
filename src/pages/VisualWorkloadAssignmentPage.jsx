@@ -116,6 +116,7 @@ export default function VisualWorkloadAssignmentPage() {
   const [courses, setCourses] = useState([]);
   const [users, setUsers] = useState([]);
   const [assignments, setAssignments] = useState([]);
+  const [workloadRules, setWorkloadRules] = useState([]);
   const [draggedCourse, setDraggedCourse] = useState(null);
   const [dropTargetEmail, setDropTargetEmail] = useState("");
   const [courseSearch, setCourseSearch] = useState("");
@@ -129,6 +130,7 @@ export default function VisualWorkloadAssignmentPage() {
 
   useEffect(() => {
     loadOptions();
+    loadWorkloadRules();
   }, []);
 
   const paramsFromFilters = (rows, prefix) => {
@@ -171,6 +173,46 @@ export default function VisualWorkloadAssignmentPage() {
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load filter options.");
     }
+  };
+
+  const loadWorkloadRules = async () => {
+    try {
+      const res = await ep1.get("/api/v2/designation-workload-hours", { params: { colid: global1.colid, status: "Active" } });
+      setWorkloadRules(res.data?.data || []);
+    } catch (err) {
+      setWorkloadRules([]);
+    }
+  };
+
+  const listFromAny = (value) => {
+    if (Array.isArray(value)) return value.map(text).filter(Boolean);
+    return text(value).split(",").map(text).filter(Boolean);
+  };
+
+  const ruleForUser = (programcode, designation) => {
+    const normalizedProgram = text(programcode).toLowerCase();
+    const normalizedDesignation = text(designation).toLowerCase();
+    if (!normalizedDesignation) return null;
+    const matchesDesignation = (row) => listFromAny(row.designations?.length ? row.designations : row.designation)
+      .some((item) => text(item).toLowerCase() === normalizedDesignation);
+    const exact = workloadRules.find((row) => text(row.programcode).toLowerCase() === normalizedProgram && matchesDesignation(row));
+    if (exact) return exact;
+    return workloadRules.find((row) => matchesDesignation(row)) || null;
+  };
+
+  const confirmWorkloadCapacity = async (user, course, hoursToAssign) => {
+    const rule = ruleForUser(course.programcode, user.designation);
+    const maxHours = Number(rule?.workloadhours || 0);
+    if (!maxHours) return true;
+    const res = await ep1.get("/api/v2/workloadassignment", {
+      params: { colid: global1.colid, academicyear: course.academicyear, facultyemail: user.email }
+    });
+    const assignedHours = (res.data?.data || [])
+      .filter((row) => row.status !== "Inactive")
+      .reduce((sum, row) => sum + Number(row.hoursperweek || 0), 0);
+    const nextTotal = assignedHours + Number(hoursToAssign || 0);
+    if (nextTotal <= maxHours) return true;
+    return window.confirm(`Assigned workload will exceed the permitted weekly workload for ${user.name || user.email}.\n\nPermitted: ${maxHours} hour(s)\nAlready assigned: ${assignedHours} hour(s)\nTo assign now: ${hoursToAssign} hour(s)\nTotal after assignment: ${nextTotal} hour(s)\n\nDo you want to continue?`);
   };
 
   const loadBoard = async () => {
@@ -223,6 +265,9 @@ export default function VisualWorkloadAssignmentPage() {
     setError("");
     setMessage("");
     try {
+      const hoursToAssign = Number(draggedCourse.hoursperweek || draggedCourse.workloadhours || draggedCourse.credit || draggedCourse.credits || 0);
+      const canContinue = await confirmWorkloadCapacity(user, draggedCourse, hoursToAssign);
+      if (!canContinue) return;
       const payload = {
         academicyear: draggedCourse.academicyear,
         regulation: draggedCourse.regulation,
@@ -237,7 +282,7 @@ export default function VisualWorkloadAssignmentPage() {
         facultyname: user.name,
         facultyemail: user.email,
         facultydepartment: user.department,
-        hoursperweek: 0,
+        hoursperweek: hoursToAssign,
         status: "Active",
         colid: global1.colid,
         user: global1.user

@@ -21,6 +21,7 @@ import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import AttendanceDiagnosticHelp from "./AttendanceDiagnosticHelp";
+import { classCalendarSortKey, classDisplayDate, classDisplayTime, timezoneOffsetLabel, timezoneOptions } from "../utils/nepLmsTimezone";
 
 const norm = (value) => String(value || "").trim().toLowerCase();
 const unique = (rows, field) => [...new Set(rows.map((row) => String(row[field] || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
@@ -129,14 +130,14 @@ function CalendarView({ rows, view, setView, activeDate, setActiveDate, onSelect
       <Box sx={{ display: "grid", gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: 1 }}>
         {dates.map((cellDate, index) => {
           const key = cellDate ? dateInput(cellDate) : `blank-${index}`;
-          const items = cellDate ? rows.filter((row) => row.classdate === key).sort((a, b) => String(a.classtime).localeCompare(String(b.classtime))) : [];
+          const items = cellDate ? rows.filter((row) => classDisplayDate(row) === key).sort((a, b) => classCalendarSortKey(a).localeCompare(classCalendarSortKey(b))) : [];
           return (
             <Box key={key} sx={{ minHeight: 130, border: "1px solid #d9e2ec", borderRadius: 1, p: 1, bgcolor: cellDate ? "#fff" : "#f8fafc" }}>
               {cellDate && <Typography fontWeight={900} fontSize={12}>{weekdays[cellDate.getDay()]} {cellDate.getDate()}</Typography>}
               <Stack spacing={0.75} sx={{ mt: 0.75 }}>
                 {items.map((item) => (
                   <Box key={item._id} onClick={() => onSelect(item)} sx={{ p: 0.75, borderRadius: 1, cursor: "pointer", bgcolor: selectedId === item._id ? "#bbdefb" : "#fff3e0", border: "1px solid #ffcc80" }}>
-                    <Typography fontSize={11} fontWeight={900}>{item.classtime || "-"} {item.course || item.coursecode || "-"}</Typography>
+                    <Typography fontSize={11} fontWeight={900}>{classDisplayTime(item) || "-"} {item.course || item.coursecode || "-"}</Typography>
                     <Typography fontSize={10}>{item.specialization || ""} {item.programcode || ""} {item.semester ? `Sem ${item.semester}` : ""}</Typography>
                     <Typography fontSize={10}>{item.faculty || item.facultyemail || "-"}</Typography>
                   </Box>
@@ -360,7 +361,7 @@ export function SpecializationStudentsPage() {
 
 export function SpecializationTimetablePage() {
   const [context] = useSpecializationContext();
-  const [form, setForm] = useState({ academicyear: "", regulation: "", program: "", programcode: "", specialization: "", course: "", coursecode: "", semester: "", classdate: today(), classtime: "10:00-11:00", period: "", durationminutes: 60, status: "Active" });
+  const [form, setForm] = useState({ academicyear: "", regulation: "", program: "", programcode: "", specialization: "", course: "", coursecode: "", semester: "", timezone: "Asia/Kolkata", classdate: today(), classtime: "10:00-11:00", period: "", durationminutes: 60, status: "Active" });
   const [faculty, setFaculty] = useState(null);
   const [faculties, setFaculties] = useState([]);
   const [rows, setRows] = useState([]);
@@ -398,6 +399,7 @@ export function SpecializationTimetablePage() {
             <Grid item xs={12} md={3}><Autocomplete size="small" options={faculties} value={faculty} onChange={(_, row) => setFaculty(row)} getOptionLabel={(row) => row ? `${row.facultyname} | ${row.facultyemail}` : ""} renderInput={(params) => <TextField {...params} label="Faculty from workload" />} /></Grid>
             <Grid item xs={12} md={3}><TextField fullWidth size="small" label="Class date" type="date" value={form.classdate} onChange={(e) => setForm((p) => ({ ...p, classdate: e.target.value }))} InputLabelProps={{ shrink: true }} /></Grid>
             <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Class time" value={form.classtime} onChange={(e) => setForm((p) => ({ ...p, classtime: e.target.value }))} /></Grid>
+            <Grid item xs={12} md={3}><Autocomplete size="small" options={timezoneOptions} value={form.timezone} onChange={(_, value) => setForm((p) => ({ ...p, timezone: value || "Asia/Kolkata" }))} renderOption={(props, option) => <li {...props}>{option} ({timezoneOffsetLabel(option)})</li>} renderInput={(params) => <TextField {...params} label="Timezone" helperText={`${timezoneOffsetLabel(form.timezone)} from UTC`} />} /></Grid>
             <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Period" value={form.period} onChange={(e) => setForm((p) => ({ ...p, period: e.target.value }))} /></Grid>
             <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Duration" type="number" value={form.durationminutes} onChange={(e) => setForm((p) => ({ ...p, durationminutes: e.target.value }))} /></Grid>
             <Grid item xs={12} md={2}><AutoField label="Status" value={form.status} options={["Active", "Inactive"]} onChange={(v) => setForm((p) => ({ ...p, status: v }))} /></Grid>
@@ -415,7 +417,7 @@ export function SpecializationTimetablePage() {
             rowSelectionModel={selectedRows}
             onRowSelectionModelChange={(ids) => setSelectedRows(Array.from(ids))}
             slots={{ toolbar: GridToolbar }}
-            columns={["classdate", "classtime", "period", "academicyear", "regulation", "programcode", "specialization", "course", "coursecode", "semester", "faculty", "facultyemail", "status"].map((field) => ({ field, headerName: field, flex: 1, minWidth: 130 }))}
+            columns={["localclassdate", "localclasstime", "timezone", "classdate", "classtime", "period", "academicyear", "regulation", "programcode", "specialization", "course", "coursecode", "semester", "faculty", "facultyemail", "status"].map((field) => ({ field, headerName: field, flex: 1, minWidth: 130 }))}
           />
         </Paper>
       </Box>

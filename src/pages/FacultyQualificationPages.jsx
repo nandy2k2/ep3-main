@@ -25,8 +25,8 @@ import global1 from "./global1";
 const clean = (value) => String(value || "").trim();
 const rowsOf = (rows) => (rows || []).map((row) => ({ ...row, id: row._id || row.courseid || `${row.coursecode}-${row.facultyemail}` }));
 const unique = (rows, field) => [...new Set((rows || []).map((row) => row?.[field]).filter(Boolean))].sort();
-const blank = { user: "", useremail: "", subject: "", expertise: "", phd: "No" };
-const filtersBlank = { user: "", useremail: "", subject: "", expertise: "", phd: "" };
+const blank = { user: "", useremail: "", program: "", programcode: "", semester: "", courses: [], coursecodes: [], subject: "", expertise: "", noofyears: "", phd: "No" };
+const filtersBlank = { user: "", useremail: "", program: "", programcode: "", semester: "", subject: "", expertise: "", phd: "" };
 
 function QualificationFormPage({ admin = false }) {
   const [options, setOptions] = useState({ users: [], subjects: [], phdOptions: ["Yes", "No"] });
@@ -41,6 +41,18 @@ function QualificationFormPage({ admin = false }) {
   const [error, setError] = useState("");
 
   const effectiveForm = useMemo(() => admin ? form : { ...form, user: global1.name, useremail: global1.user }, [admin, form]);
+  const programOptions = useMemo(() => {
+    const map = new Map();
+    (options.courses || []).forEach((row) => {
+      if (row.programcode) map.set(row.programcode, { program: row.program || "", programcode: row.programcode || "" });
+    });
+    return [...map.values()].sort((a, b) => `${a.program} ${a.programcode}`.localeCompare(`${b.program} ${b.programcode}`));
+  }, [options.courses]);
+  const courseOptions = useMemo(() => (options.courses || []).filter((row) =>
+    (!form.programcode || row.programcode === form.programcode)
+    && (!form.semester || row.semester === form.semester)
+  ), [options.courses, form.programcode, form.semester]);
+  const semesterOptions = useMemo(() => unique((options.courses || []).filter((row) => !form.programcode || row.programcode === form.programcode), "semester"), [options.courses, form.programcode]);
 
   const loadOptions = async () => {
     const res = await ep1.get("/api/v2/facultyqualification/options", { params: { colid: global1.colid } });
@@ -63,6 +75,20 @@ function QualificationFormPage({ admin = false }) {
 
   const setField = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
   const selectUser = (user) => setForm((prev) => ({ ...prev, user: user?.name || "", useremail: user?.email || "" }));
+  const selectProgram = (program) => setForm((prev) => ({
+    ...prev,
+    program: program?.program || "",
+    programcode: program?.programcode || "",
+    semester: "",
+    courses: [],
+    coursecodes: []
+  }));
+  const selectCourses = (values = []) => setForm((prev) => ({
+    ...prev,
+    courses: values.map((row) => row.course).filter(Boolean),
+    coursecodes: values.map((row) => row.coursecode).filter(Boolean),
+    subject: prev.subject || values[0]?.subject || ""
+  }));
   const reset = () => { setForm(blank); setEditingId(""); };
   const save = async () => {
     setError("");
@@ -78,7 +104,7 @@ function QualificationFormPage({ admin = false }) {
   };
   const edit = (row) => {
     setEditingId(row._id);
-    setForm({ user: row.user || "", useremail: row.useremail || "", subject: row.subject || "", expertise: row.expertise || "", phd: row.phd || "No" });
+    setForm({ user: row.user || "", useremail: row.useremail || "", program: row.program || "", programcode: row.programcode || "", semester: row.semester || "", courses: row.courses || [], coursecodes: row.coursecodes || [], subject: row.subject || "", expertise: row.expertise || "", noofyears: row.noofyears ?? "", phd: row.phd || "No" });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const remove = async (ids = selectedIds) => {
@@ -89,7 +115,7 @@ function QualificationFormPage({ admin = false }) {
     setMessage("Selected record(s) deleted.");
   };
   const downloadTemplate = () => {
-    const ws = XLSX.utils.json_to_sheet([{ user: global1.name, useremail: global1.user, subject: "Computer Science", expertise: "AI and Data Science", phd: "Yes" }]);
+    const ws = XLSX.utils.json_to_sheet([{ user: global1.name, useremail: global1.user, program: "BSc Computer Science", programcode: "BSCCS", semester: "1", course: "Programming Fundamentals", coursecode: "CS101", subject: "Computer Science", expertise: "AI and Data Science", noofyears: 5, phd: "Yes" }]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Faculty Qualification");
     XLSX.writeFile(wb, "Faculty_Qualification_Template.xlsx");
@@ -119,8 +145,14 @@ function QualificationFormPage({ admin = false }) {
   const columns = [
     { field: "user", headerName: "User", minWidth: 180, flex: 1 },
     { field: "useremail", headerName: "User email", minWidth: 220, flex: 1 },
+    { field: "program", headerName: "Program", minWidth: 180 },
+    { field: "programcode", headerName: "Program Code", minWidth: 130 },
+    { field: "semester", headerName: "Semester", minWidth: 100 },
+    { field: "coursecodes", headerName: "Course Codes", minWidth: 180, renderCell: ({ row }) => (row.coursecodes || []).join(", ") },
+    { field: "courses", headerName: "Courses", minWidth: 240, flex: 1, renderCell: ({ row }) => (row.courses || []).join(", ") },
     { field: "subject", headerName: "Subject", minWidth: 170 },
     { field: "expertise", headerName: "Expertise", minWidth: 220, flex: 1 },
+    { field: "noofyears", headerName: "No. of Years", minWidth: 120, type: "number" },
     { field: "phd", headerName: "PhD", minWidth: 90 },
     { field: "actions", headerName: "Actions", minWidth: 160, renderCell: ({ row }) => <Stack direction="row" spacing={1}><Button size="small" onClick={() => edit(row)}>Edit</Button><Button size="small" color="error" onClick={() => remove([row._id])}>Delete</Button></Stack> }
   ];
@@ -136,8 +168,12 @@ function QualificationFormPage({ admin = false }) {
           <Paper sx={{ p: 2 }}>
             <Grid container spacing={2}>
               {admin ? <Grid item xs={12} md={4}><Autocomplete options={options.users || []} getOptionLabel={(u) => `${u.name || ""} (${u.email || ""})`} value={(options.users || []).find((u) => u.email === form.useremail) || null} onChange={(_, value) => selectUser(value)} renderInput={(params) => <TextField {...params} label="Select user" />} /></Grid> : <Grid item xs={12} md={4}><TextField fullWidth label="User" value={`${global1.name || ""} (${global1.user || ""})`} InputProps={{ readOnly: true }} /></Grid>}
+              <Grid item xs={12} md={3}><Autocomplete options={programOptions} getOptionLabel={(row) => `${row.program || ""}${row.programcode ? ` (${row.programcode})` : ""}`} value={programOptions.find((row) => row.programcode === form.programcode) || null} onChange={(_, value) => selectProgram(value)} renderInput={(params) => <TextField {...params} label="Program" />} /></Grid>
+              <Grid item xs={12} md={2}><Autocomplete freeSolo options={semesterOptions} value={form.semester || ""} onInputChange={(_, value) => setForm((prev) => ({ ...prev, semester: value, courses: [], coursecodes: [] }))} onChange={(_, value) => setForm((prev) => ({ ...prev, semester: value || "", courses: [], coursecodes: [] }))} renderInput={(params) => <TextField {...params} label="Semester" />} /></Grid>
+              <Grid item xs={12} md={5}><Autocomplete multiple disableCloseOnSelect options={courseOptions} getOptionLabel={(row) => `${row.course || ""}${row.coursecode ? ` (${row.coursecode})` : ""}`} value={courseOptions.filter((row) => (form.coursecodes || []).includes(row.coursecode))} onChange={(_, values) => selectCourses(values)} renderOption={(props, option, { selected }) => <li {...props}><Checkbox checked={selected} sx={{ mr: 1 }} />{`${option.course || ""} (${option.coursecode || ""})`}</li>} renderInput={(params) => <TextField {...params} label="Course preference" />} /></Grid>
               <Grid item xs={12} md={3}><Autocomplete freeSolo options={options.subjects || []} value={form.subject || ""} onInputChange={(_, value) => setField("subject", value)} onChange={(_, value) => setField("subject", value || "")} renderInput={(params) => <TextField {...params} label="Subject" />} /></Grid>
               <Grid item xs={12} md={3}><TextField fullWidth label="Expertise" value={form.expertise} onChange={(e) => setField("expertise", e.target.value)} /></Grid>
+              <Grid item xs={12} md={2}><TextField fullWidth type="number" label="No. of Years" value={form.noofyears} onChange={(e) => setField("noofyears", e.target.value)} /></Grid>
               <Grid item xs={12} md={1}><TextField select fullWidth label="PhD" value={form.phd} onChange={(e) => setField("phd", e.target.value)}>{["Yes", "No"].map((x) => <MenuItem key={x} value={x}>{x}</MenuItem>)}</TextField></Grid>
               <Grid item xs={12} md={1}><Button fullWidth sx={{ height: 56 }} variant="contained" startIcon={<Save />} onClick={save}>{editingId ? "Update" : "Save"}</Button></Grid>
             </Grid>

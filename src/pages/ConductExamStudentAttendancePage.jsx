@@ -17,6 +17,13 @@ import MenuPageShell from "./MenuPageShell";
 
 const uniq = (items) => [...new Set(items.map((item) => String(item || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 const roomKey = (row) => [row.campus, row.building, row.room].map((item) => String(item || "").trim()).join("||");
+const todayKey = () => new Date().toISOString().slice(0, 10);
+const dateKey = (value) => {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  return String(value).slice(0, 10);
+};
 const formatDate = (value) => {
   if (!value) return "";
   const parsed = new Date(value);
@@ -28,7 +35,7 @@ export default function ConductExamStudentAttendancePage() {
   const invigilatorEmail = global1.user || global1.email || "";
   const [allocations, setAllocations] = useState([]);
   const [students, setStudents] = useState([]);
-  const [filters, setFilters] = useState({ academicyear: "", examcode: "", exam: "", examdate: "", slot: "", roomKeyValue: "" });
+  const [filters, setFilters] = useState({ academicyear: "", examcode: "", exam: "", examdate: todayKey(), slot: "", roomKeyValue: "" });
   const [selectedIds, setSelectedIds] = useState([]);
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [loadingStudents, setLoadingStudents] = useState(false);
@@ -47,7 +54,13 @@ export default function ConductExamStudentAttendancePage() {
       const res = await ep1.get("/api/v2/conductexam/invigilator-student-attendance-options", {
         params: { colid: global1.colid, invigilatoremail: invigilatorEmail }
       });
-      setAllocations(res.data?.allocations || []);
+      const nextAllocations = res.data?.allocations || [];
+      setAllocations(nextAllocations);
+      setFilters((prev) => {
+        if (prev.examdate && dateKey(prev.examdate) !== todayKey()) return prev;
+        const todayAllocation = nextAllocations.find((row) => dateKey(row.examdate) === todayKey());
+        return { ...prev, examdate: todayAllocation?.examdate || todayKey() };
+      });
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load invigilation allocations.");
     } finally {
@@ -58,7 +71,7 @@ export default function ConductExamStudentAttendancePage() {
   const dropdowns = useMemo(() => {
     const base = allocations.filter((row) => !filters.academicyear || row.academicyear === filters.academicyear);
     const examBase = base.filter((row) => !filters.examcode || row.examcode === filters.examcode);
-    const dateBase = examBase.filter((row) => !filters.examdate || row.examdate === filters.examdate);
+    const dateBase = examBase.filter((row) => !filters.examdate || dateKey(row.examdate) === dateKey(filters.examdate));
     const slotBase = dateBase.filter((row) => !filters.slot || row.slot === filters.slot);
     const roomMap = new Map();
     slotBase.forEach((row) => {
@@ -71,7 +84,7 @@ export default function ConductExamStudentAttendancePage() {
         const [examcode, exam] = value.split("||");
         return { examcode, exam };
       }),
-      examdates: uniq(examBase.map((row) => row.examdate)),
+      examdates: uniq([...examBase.map((row) => row.examdate), filters.examdate].filter(Boolean)),
       slots: uniq(dateBase.map((row) => row.slot)),
       rooms: [...roomMap.values()]
     };
@@ -81,7 +94,8 @@ export default function ConductExamStudentAttendancePage() {
 
   const selectExam = (examcode) => {
     const row = allocations.find((item) => item.examcode === examcode && (!filters.academicyear || item.academicyear === filters.academicyear));
-    setFilters((prev) => ({ ...prev, examcode, exam: row?.exam || "", examdate: "", slot: "", roomKeyValue: "" }));
+    const todayAllocation = allocations.find((item) => item.examcode === examcode && (!filters.academicyear || item.academicyear === filters.academicyear) && dateKey(item.examdate) === todayKey());
+    setFilters((prev) => ({ ...prev, examcode, exam: row?.exam || "", examdate: todayAllocation?.examdate || todayKey(), slot: "", roomKeyValue: "" }));
     setStudents([]);
     setSelectedIds([]);
   };
@@ -188,7 +202,8 @@ export default function ConductExamStudentAttendancePage() {
           <Grid container spacing={2}>
             <Grid item xs={12} md={2.4}>
               <TextField select fullWidth label="Academic Year" value={filters.academicyear} onChange={(e) => {
-                setFilters({ academicyear: e.target.value, examcode: "", exam: "", examdate: "", slot: "", roomKeyValue: "" });
+                const todayAllocation = allocations.find((item) => item.academicyear === e.target.value && dateKey(item.examdate) === todayKey());
+                setFilters({ academicyear: e.target.value, examcode: "", exam: "", examdate: todayAllocation?.examdate || todayKey(), slot: "", roomKeyValue: "" });
                 setStudents([]);
                 setSelectedIds([]);
               }}>
@@ -237,7 +252,7 @@ export default function ConductExamStudentAttendancePage() {
             </Grid>
             <Grid item xs={12} md={2}>
               <Button fullWidth variant="outlined" onClick={() => {
-                setFilters({ academicyear: "", examcode: "", exam: "", examdate: "", slot: "", roomKeyValue: "" });
+                setFilters({ academicyear: "", examcode: "", exam: "", examdate: todayKey(), slot: "", roomKeyValue: "" });
                 setStudents([]);
                 setSelectedIds([]);
               }} sx={{ height: 56 }}>

@@ -247,6 +247,54 @@ const filterMenuTree = (menuTree, allowedKeys, allowedPaths, deniedKeys, deniedP
   return React.cloneElement(menuTree, menuTree.props, accordions);
 };
 
+const allRoleMenuStorageKey = 'campus_all_role_active_menu_group';
+const allRoleCommonGroups = new Set([
+  'help',
+  'dashboard',
+  'ai help',
+  'quick setup wizard',
+  'ai coding',
+  'ai training',
+  'task new',
+  'settings'
+]);
+
+const allRoleHiddenGroups = new Set([
+  'patient management',
+  'patient admission',
+  'bed management',
+  'mrd hospital',
+  'hospital billing',
+  'patient counseling',
+  'patient counselling',
+  'hospital food',
+  'merit list gj',
+  'class and attendance',
+  'breakout rooms',
+  'leave old',
+  'academics and regulations',
+  'regulation'
+]);
+
+const filterAllRoleMenuTree = (menuTree, selectedGroup) => {
+  if (!React.isValidElement(menuTree)) {
+    return menuTree;
+  }
+
+  const selectedKey = normalizeMenuText(selectedGroup);
+  const accordions = flattenChildren(menuTree.props?.children).filter((accordion) => {
+    if (!React.isValidElement(accordion)) return false;
+    if (accordion.type === 'style') return true;
+    const summary = flattenChildren(accordion.props?.children)[0];
+    const group = normalizeMenuText(getElementText(summary));
+    if (allRoleHiddenGroups.has(group)) return false;
+    if (!selectedKey) return true;
+    return allRoleCommonGroups.has(group) || group === selectedKey;
+  });
+
+  return React.cloneElement(menuTree, menuTree.props, accordions);
+};
+
 const MenuCas1FilteredTree = () => {
   const role = global1.role || '';
   const normalizedRole = normalizeMenuText(role);
@@ -271,7 +319,18 @@ const MenuCas1FilteredTree = () => {
     loadRules();
   }, [normalizedRole]);
 
-  if (normalizedRole === 'all' || normalizedRole === 'admin') {
+  if (normalizedRole === 'all') {
+    const selectedGroup = (() => {
+      try {
+        return localStorage.getItem(allRoleMenuStorageKey) || '';
+      } catch {
+        return '';
+      }
+    })();
+    return filterAllRoleMenuTree(menuitemsall(), selectedGroup);
+  }
+
+  if (normalizedRole === 'admin') {
     return menuitemsall();
   }
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link as RouterLink } from "react-router-dom";
-import { Alert, Box, Button, Container, Grid, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Autocomplete, Box, Button, Checkbox, Chip, Container, Grid, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
 import { ArrowBack, Print, Refresh, Save } from "@mui/icons-material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import MenuPageShell from "./MenuPageShell";
@@ -16,6 +16,7 @@ export default function NepLmsElectiveEnrollmentPage() {
   const [enrollments, setEnrollments] = useState([]);
   const [institution, setInstitution] = useState(null);
   const [filters, setFilters] = useState({ academicyear: "2026-27", regulation: "", program: "", programcode: "", semester: "", course: "", coursecode: "" });
+  const [selectedCourses, setSelectedCourses] = useState([]);
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -56,24 +57,30 @@ export default function NepLmsElectiveEnrollmentPage() {
     const [program, programcode] = value.split("|||");
     setFilters((p) => ({ ...p, program: program || "", programcode: programcode || "", course: "", coursecode: "" }));
   };
-  const setCourse = (value) => {
-    const [course, coursecode] = value.split("|||");
-    setFilters((p) => ({ ...p, course: course || "", coursecode: coursecode || "" }));
-  };
-  const selectedCourse = courseOptions.find((c) => c.coursecode === filters.coursecode) || {};
   const enroll = async () => {
-    if (!filters.coursecode) return setError("Select elective course");
+    if (!selectedCourses.length) return setError("Select one or more elective courses");
     if (!selectedStudents.length) return setError("Select students");
     try {
       setBusy(true);
       const selected = students.filter((s) => selectedStudents.includes(s._id)).map((s) => ({ student: s.name, regno: s.regno, studentemail: s.email, phone: s.phone, section: s.section }));
-      const res = await ep1.post("/api/v2/nepclassenrollment/enroll", {
-        colid: global1.colid,
-        user: global1.user,
-        course: { ...filters, subject: selectedCourse.subject, type: selectedCourse.type, colid: global1.colid },
-        students: selected
-      });
-      setMessage(`Approved enrollment added for ${res.data.saved || 0} students`);
+      let saved = 0;
+      for (const selectedCourse of selectedCourses) {
+        const res = await ep1.post("/api/v2/nepclassenrollment/enroll", {
+          colid: global1.colid,
+          user: global1.user,
+          course: {
+            ...filters,
+            course: selectedCourse.course,
+            coursecode: selectedCourse.coursecode,
+            subject: selectedCourse.subject,
+            type: selectedCourse.type,
+            colid: global1.colid
+          },
+          students: selected
+        });
+        saved += Number(res.data.saved || 0);
+      }
+      setMessage(`Approved enrollment added for ${saved} student-course record${saved === 1 ? "" : "s"}`);
       loadEnrollments();
     } catch (err) {
       setError(err.response?.data?.message || "Unable to enroll students");
@@ -110,11 +117,33 @@ export default function NepLmsElectiveEnrollmentPage() {
         {error && <Alert className="no-print" severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
         <Paper className="no-print" sx={{ p: 2, mb: 2 }}>
           <Grid container spacing={2}>
-            <Grid item xs={12} md={2}><TextField select fullWidth label="Academic Year" value={filters.academicyear} onChange={(e) => setFilters((p) => ({ ...p, academicyear: e.target.value }))}>{years.map((y) => <MenuItem key={y} value={y}>{y}</MenuItem>)}</TextField></Grid>
-            <Grid item xs={12} md={2}><TextField select fullWidth label="Regulation" value={filters.regulation} onChange={(e) => setFilters((p) => ({ ...p, regulation: e.target.value }))}>{regulations.map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}</TextField></Grid>
-            <Grid item xs={12} md={3}><TextField select fullWidth label="Program" value={filters.program && filters.programcode ? `${filters.program}|||${filters.programcode}` : ""} onChange={(e) => setProgram(e.target.value)}>{programs.map((v) => { const [p, c] = v.split("|||"); return <MenuItem key={v} value={v}>{p} ({c})</MenuItem>; })}</TextField></Grid>
-            <Grid item xs={12} md={1.5}><TextField select fullWidth label="Semester" value={filters.semester} onChange={(e) => setFilters((p) => ({ ...p, semester: e.target.value, course: "", coursecode: "" }))}>{semesters.map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}</TextField></Grid>
-            <Grid item xs={12} md={3.5}><TextField select fullWidth label="Elective Course" value={filters.course && filters.coursecode ? `${filters.course}|||${filters.coursecode}` : ""} onChange={(e) => setCourse(e.target.value)}>{courseOptions.map((c) => <MenuItem key={c._id} value={`${c.course}|||${c.coursecode}`}>{c.course} ({c.coursecode})</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={2}><TextField select fullWidth label="Academic Year" value={filters.academicyear} onChange={(e) => { setFilters((p) => ({ ...p, academicyear: e.target.value, regulation: "", program: "", programcode: "", semester: "", course: "", coursecode: "" })); setSelectedCourses([]); }}>{years.map((y) => <MenuItem key={y} value={y}>{y}</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={2}><TextField select fullWidth label="Regulation" value={filters.regulation} onChange={(e) => { setFilters((p) => ({ ...p, regulation: e.target.value, program: "", programcode: "", semester: "", course: "", coursecode: "" })); setSelectedCourses([]); }}>{regulations.map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={3}><TextField select fullWidth label="Program" value={filters.program && filters.programcode ? `${filters.program}|||${filters.programcode}` : ""} onChange={(e) => { setProgram(e.target.value); setSelectedCourses([]); }}>{programs.map((v) => { const [p, c] = v.split("|||"); return <MenuItem key={v} value={v}>{p} ({c})</MenuItem>; })}</TextField></Grid>
+            <Grid item xs={12} md={1.5}><TextField select fullWidth label="Semester" value={filters.semester} onChange={(e) => { setFilters((p) => ({ ...p, semester: e.target.value, course: "", coursecode: "" })); setSelectedCourses([]); }}>{semesters.map((v) => <MenuItem key={v} value={v}>{v}</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={3.5}>
+              <Autocomplete
+                multiple
+                disableCloseOnSelect
+                options={courseOptions}
+                value={selectedCourses}
+                onChange={(_, value) => setSelectedCourses(value)}
+                getOptionLabel={(option) => option ? `${option.course || ""} (${option.coursecode || ""})` : ""}
+                isOptionEqualToValue={(option, value) => option._id === value._id}
+                renderOption={(props, option, { selected }) => (
+                  <li {...props}>
+                    <Checkbox checked={selected} sx={{ mr: 1 }} />
+                    {option.course} ({option.coursecode})
+                  </li>
+                )}
+                renderTags={(value, getTagProps) =>
+                  value.slice(0, 2).map((option, index) => (
+                    <Chip size="small" label={`${option.course} (${option.coursecode})`} {...getTagProps({ index })} />
+                  )).concat(value.length > 2 ? [<Chip key="more-courses" size="small" label={`+${value.length - 2} more`} />] : [])
+                }
+                renderInput={(params) => <TextField {...params} label="Elective Courses" helperText="Only courses mapped as Delivery Type = Elective are shown" />}
+              />
+            </Grid>
             <Grid item xs={12} md={2}><Button fullWidth variant="contained" startIcon={<Refresh />} onClick={() => { loadStudents(); loadEnrollments(); }} sx={{ height: 56 }}>Load</Button></Grid>
             <Grid item xs={12} md={2}><Button fullWidth variant="contained" color="success" startIcon={<Save />} onClick={enroll} disabled={busy} sx={{ height: 56 }}>Enroll Selected</Button></Grid>
           </Grid>

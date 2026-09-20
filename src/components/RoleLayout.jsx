@@ -16,7 +16,6 @@ import Paper from '@mui/material/Paper';
 import Link from '@mui/material/Link';
 import Button from '@mui/material/Button';
 import { useNavigate, useLocation } from 'react-router-dom';
-import HomeIcon from '@mui/icons-material/Home';
 import LogoutIcon from '@mui/icons-material/Logout';
 import MenuIcon from '@mui/icons-material/Menu';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -105,12 +104,22 @@ function RoleLayoutContent({ children, customMenu }) {
 
     const navigate = useNavigate();
     const location = useLocation();
+    const isAllRole = String(role || global1.role || '').trim().toLowerCase() === 'all';
 
     const handleLogout = () => {
         // Clear user session data if any
         localStorage.clear();
         // Redirect to login page
         window.location.href = '/Login';
+    };
+
+    const handleModuleChooser = () => {
+        try {
+            localStorage.removeItem('campus_all_role_active_menu_group');
+        } catch {
+            // Ignore storage errors and continue navigation.
+        }
+        navigate('/all-role-menu-groups');
     };
 
     useEffect(() => {
@@ -194,14 +203,15 @@ function RoleLayoutContent({ children, customMenu }) {
                         </Typography>
                         <TopMenuSearch />
                         <ActivityPointBadge sx={{ ml: 2 }} />
-                        <Button
-                            color="inherit"
-                            startIcon={<HomeIcon />}
-                            onClick={() => navigate('/dashdashfacnew')} // Redirect to Dashboard
-                            sx={{ ml: 2 }}
-                        >
-                            Home
-                        </Button>
+                        {isAllRole && (
+                            <Button
+                                color="inherit"
+                                onClick={handleModuleChooser}
+                                sx={{ ml: 2, whiteSpace: 'nowrap' }}
+                            >
+                                Module chooser
+                            </Button>
+                        )}
                         <Button
                             color="inherit"
                             startIcon={<LogoutIcon />}

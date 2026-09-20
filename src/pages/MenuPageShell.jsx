@@ -125,6 +125,15 @@ export default function MenuPageShell({ title, children, menuType }) {
   const menuItems = menuType === "student" || String(global1.role || "").toLowerCase() === "student"
     ? studentListItems
     : mainListItems;
+  const isAllRole = String(global1.role || "").trim().toLowerCase() === "all";
+
+  const openModuleChooser = () => {
+    try {
+      localStorage.removeItem("campus_all_role_active_menu_group");
+    } catch {
+      // Ignore storage errors and continue navigation.
+    }
+  };
 
   const logout = () => {
     localStorage.clear();
@@ -171,6 +180,17 @@ export default function MenuPageShell({ title, children, menuType }) {
             </Typography>
             <TopMenuSearch menuType={menuType} />
             <ActivityPointBadge sx={{ mr: 2 }} />
+            {isAllRole && (
+              <Button
+                color="inherit"
+                component={RouterLink}
+                to="/all-role-menu-groups"
+                onClick={openModuleChooser}
+                sx={{ whiteSpace: "nowrap", mr: 1 }}
+              >
+                Module chooser
+              </Button>
+            )}
             <Button color="inherit" component={RouterLink} to="/central-ticket-raise" sx={{ whiteSpace: "nowrap", mr: 1 }}>
               Raise ticket
             </Button>

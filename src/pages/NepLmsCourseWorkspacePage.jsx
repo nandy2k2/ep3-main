@@ -1438,7 +1438,21 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
     });
     return rows;
   }, [selectedQuiz, selectedQuizAttempt]);
-  const moduleOptions = useMemo(() => uniqueSorted(syllabusRows.map((row) => row.module)), [syllabusRows]);
+  const allModuleOptions = useMemo(() => uniqueSorted(syllabusRows.map((row) => row.module)), [syllabusRows]);
+  const assignedModuleOptions = useMemo(() => listFromValue(selectedCourse?.modules?.length ? selectedCourse.modules : selectedCourse?.module), [selectedCourse]);
+  const moduleOptions = useMemo(() => {
+    const allowed = assignedModuleOptions.length
+      ? allModuleOptions.filter((module) => assignedModuleOptions.includes(module))
+      : allModuleOptions;
+    const selectedValues = [
+      ...listFromValue(resourceForm.module),
+      ...listFromValue(materialForm.module),
+      ...listFromValue(lessonForm.module),
+      ...listFromValue(quizForm.module),
+      classForm.module
+    ];
+    return uniqueSorted([...allowed, ...selectedValues]);
+  }, [allModuleOptions, assignedModuleOptions, resourceForm.module, materialForm.module, lessonForm.module, quizForm.module, classForm.module]);
   const quizTopicOptions = useMemo(() => {
     const selectedModules = listFromValue(quizForm.module);
     const rows = selectedModules.length
@@ -2910,7 +2924,14 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
               <Grid item xs={12} md={2}><TextField fullWidth type="time" label="Class Time" value={classForm.classtime} onChange={(e) => setClassForm((prev) => ({ ...prev, classtime: e.target.value }))} InputLabelProps={{ shrink: true }} /></Grid>
               <Grid item xs={12} md={2}><TextField fullWidth label="Period" value={classForm.period} onChange={(e) => setClassForm((prev) => ({ ...prev, period: e.target.value }))} /></Grid>
               <Grid item xs={12} md={2}><TextField fullWidth type="number" label="Duration in minutes" value={classForm.durationminutes} onChange={(e) => setClassForm((prev) => ({ ...prev, durationminutes: e.target.value }))} /></Grid>
-              <Grid item xs={12} md={2}><TextField fullWidth label="Module" value={classForm.module} onChange={(e) => setClassForm((prev) => ({ ...prev, module: e.target.value }))} /></Grid>
+              <Grid item xs={12} md={2}>
+                <Autocomplete
+                  options={moduleOptions}
+                  value={classForm.module || null}
+                  onChange={(_, value) => setClassForm((prev) => ({ ...prev, module: value || "", topic: "" }))}
+                  renderInput={(params) => <TextField {...params} label="Module" />}
+                />
+              </Grid>
               <Grid item xs={12} md={2}><TextField fullWidth label="Topic" value={classForm.topic} onChange={(e) => setClassForm((prev) => ({ ...prev, topic: e.target.value }))} /></Grid>
               <Grid item xs={12} md={2}>
                 <TextField select fullWidth label="Online Enabled" value={classForm.onlineenabled || "No"} onChange={(e) => setClassForm((prev) => ({ ...prev, onlineenabled: e.target.value }))}>

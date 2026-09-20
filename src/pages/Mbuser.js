@@ -5,7 +5,7 @@ import {
 } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { useNavigate } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 // import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import ep1 from '../api/ep1';
@@ -42,6 +42,8 @@ export default function MbUserPage({ embedded = false, onRowsChange }) {
   const [autoPassword, setAutoPassword] = useState(false);
   const [passwordLength, setPasswordLength] = useState(12);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [designationOptions, setDesignationOptions] = useState([]);
+  const [masterOptions, setMasterOptions] = useState({ institutions: [], departments: [] });
   const navigate = useNavigate();
   const colid = global1.colid; // global1.colid later
 
@@ -54,6 +56,15 @@ export default function MbUserPage({ embedded = false, onRowsChange }) {
 
   useEffect(() => {
     fetchData();
+    ep1.get("/api/v2/academic-designations/options", { params: { colid } })
+      .then((res) => setDesignationOptions(res.data?.designations || []))
+      .catch(() => setDesignationOptions([]));
+    ep1.get("/api/v2/academic-configuration/options", { params: { colid } })
+      .then((res) => setMasterOptions({
+        institutions: res.data?.institutions || [],
+        departments: res.data?.departments || []
+      }))
+      .catch(() => setMasterOptions({ institutions: [], departments: [] }));
   }, []);
 
 //   const handleSave = async () => {
@@ -395,19 +406,47 @@ const handleBulkDelete = async () => {
             />
           </Stack>
 
-           <TextField label="Institution" fullWidth margin="dense"
-            value={form.institution}
-            onChange={(e) => setForm({ ...form, institution: e.target.value })}
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ my: 1 }}>
+            <Button size="small" variant="outlined" component={RouterLink} to="/designation-workload-hours">Designation workload hours</Button>
+            <Button size="small" variant="outlined" component={RouterLink} to="/academic-master-institutions">Add master institution</Button>
+            <Button size="small" variant="outlined" component={RouterLink} to="/academic-master-departments">Add department</Button>
+            <Button size="small" variant="outlined" component={RouterLink} to="/academic-designations">Add designation</Button>
+          </Stack>
+
+          <Autocomplete
+            freeSolo
+            options={(masterOptions.institutions || []).map((item) => item.institution || item).filter(Boolean)}
+            value={form.institution || ""}
+            onChange={(event, value) => setForm({ ...form, institution: value || "" })}
+            onInputChange={(event, value) => setForm({ ...form, institution: value || "" })}
+            renderInput={(params) => (
+              <TextField {...params} label="Institution" fullWidth margin="dense" />
+            )}
           />
 
-           <TextField label="Department" fullWidth margin="dense"
-            value={form.department}
-            onChange={(e) => setForm({ ...form, department: e.target.value })}
+          <Autocomplete
+            freeSolo
+            options={(masterOptions.departments || [])
+              .filter((item) => !form.institution || item.institution === form.institution)
+              .map((item) => item.department || item)
+              .filter(Boolean)}
+            value={form.department || ""}
+            onChange={(event, value) => setForm({ ...form, department: value || "" })}
+            onInputChange={(event, value) => setForm({ ...form, department: value || "" })}
+            renderInput={(params) => (
+              <TextField {...params} label="Department" fullWidth margin="dense" />
+            )}
           />
 
-          <TextField label="Designation" fullWidth margin="dense"
-            value={form.designation}
-            onChange={(e) => setForm({ ...form, designation: e.target.value })}
+          <Autocomplete
+            freeSolo
+            options={designationOptions}
+            value={form.designation || ""}
+            onChange={(event, value) => setForm({ ...form, designation: value || "" })}
+            onInputChange={(event, value) => setForm({ ...form, designation: value || "" })}
+            renderInput={(params) => (
+              <TextField {...params} label="Designation" fullWidth margin="dense" />
+            )}
           />
 
           <TextField label="Date of joining" type="date" fullWidth margin="dense"

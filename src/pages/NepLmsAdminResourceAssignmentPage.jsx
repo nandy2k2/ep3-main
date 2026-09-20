@@ -35,9 +35,10 @@ import {
   saveSequentialContent,
   uploadSequentialContentFile
 } from "../utils/nepLmsSequentialContentTools";
+import { timezoneOffsetLabel, timezoneOptions } from "../utils/nepLmsTimezone";
 
 const blankForm = { title: "", module: [], topic: [], description: "", order: "", employabilityrelated: "No", duedate: "", fullmarks: "", url: "", filename: "", originalname: "", status: "Active", file: null };
-const blankTimetableForm = { classdate: "", classtime: "", period: "", durationminutes: "", module: "", topic: "", workcompleted: "" };
+const blankTimetableForm = { timezone: "Asia/Kolkata", classdate: "", classtime: "", period: "", durationminutes: "", module: "", topic: "", workcompleted: "" };
 const blankQuizForm = { title: "", module: [], topic: [], startdatetime: "", enddatetime: "", status: "Active" };
 const blankSectionForm = { quizid: "", title: "" };
 const blankQuestionForm = {
@@ -798,8 +799,9 @@ export default function NepLmsAdminResourceAssignmentPage() {
   const editTimetable = (row) => {
     setEditingTimetableId(row._id);
     setTimetableForm({
-      classdate: row.classdate || "",
-      classtime: row.classtime || "",
+      timezone: row.timezone || "Asia/Kolkata",
+      classdate: row.localclassdate || row.classdate || "",
+      classtime: row.localclasstime || row.classtime || "",
       period: row.period || "",
       durationminutes: row.durationminutes || "",
       module: row.module || "",
@@ -1149,8 +1151,11 @@ export default function NepLmsAdminResourceAssignmentPage() {
         <GridActionsCellItem icon={<Delete />} label="Delete" onClick={() => deleteTimetable(params.row)} />
       ]
     },
-    { field: "classdate", headerName: "Class Date", width: 130 },
-    { field: "classtime", headerName: "Class Time", width: 130 },
+    { field: "localclassdate", headerName: "Local Class Date", width: 150, valueGetter: (params) => params.row.localclassdate || params.row.classdate || "" },
+    { field: "localclasstime", headerName: "Local Class Time", width: 150, valueGetter: (params) => params.row.localclasstime || params.row.classtime || "" },
+    { field: "timezone", headerName: "Timezone", width: 170 },
+    { field: "classdate", headerName: "UTC Class Date", width: 130 },
+    { field: "classtime", headerName: "UTC Class Time", width: 130 },
     { field: "period", headerName: "Period", width: 120 },
     { field: "durationminutes", headerName: "Duration", width: 120 },
     { field: "module", headerName: "Module", width: 170 },
@@ -1593,6 +1598,15 @@ export default function NepLmsAdminResourceAssignmentPage() {
                 </Grid>
                 <Grid item xs={12} md={2}>
                   <TextField fullWidth type="time" label="Class Time" value={timetableForm.classtime} onChange={(event) => setTimetableForm((prev) => ({ ...prev, classtime: event.target.value }))} InputLabelProps={{ shrink: true }} />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Autocomplete
+                    options={timezoneOptions}
+                    value={timetableForm.timezone || "Asia/Kolkata"}
+                    onChange={(_, value) => setTimetableForm((prev) => ({ ...prev, timezone: value || "Asia/Kolkata" }))}
+                    renderOption={(props, option) => <li {...props}>{option} ({timezoneOffsetLabel(option)})</li>}
+                    renderInput={(params) => <TextField {...params} label="Timezone" helperText={`${timezoneOffsetLabel(timetableForm.timezone)} from UTC`} />}
+                  />
                 </Grid>
                 <Grid item xs={12} md={2}>
                   <TextField fullWidth label="Period" value={timetableForm.period} onChange={(event) => setTimetableForm((prev) => ({ ...prev, period: event.target.value }))} />

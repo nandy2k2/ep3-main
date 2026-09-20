@@ -196,6 +196,7 @@ export default function FeesPaidReportPage({ report2 = false }) {
     { field: "academicyear", headerName: "Year", minWidth: 120 },
     ...(report2 ? [{ field: "program", headerName: "Program", minWidth: 180, flex: 1 }] : []),
     { field: "programcode", headerName: "Program Code", minWidth: 130 },
+    ...(report2 ? [{ field: "semester", headerName: "Semester", minWidth: 110 }] : []),
     { field: "student", headerName: "Student", minWidth: 180, flex: 1 },
     { field: "regno", headerName: "Reg No", minWidth: 140 },
     { field: "feegroup", headerName: "Fee Group", minWidth: 150 },

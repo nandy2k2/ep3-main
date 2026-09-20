@@ -227,7 +227,7 @@ export default function RegulationSubjectPage() {
       setError("Select records to delete");
       return;
     }
-    if (!window.confirm(`Delete ${selectedRows.length} selected regulation subject record(s)?`)) return;
+    if (!window.confirm(`Delete ${selectedRows.length} selected regulation group record(s)?`)) return;
     try {
       setDeleting(true);
       setError("");
@@ -269,7 +269,7 @@ export default function RegulationSubjectPage() {
     };
     const ws = XLSX.utils.json_to_sheet([row]);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Regulation Subjects");
+    XLSX.utils.book_append_sheet(wb, ws, "Regulation Group");
     XLSX.writeFile(wb, "Regulation_Subject_Template.xlsx");
   };
 
@@ -377,11 +377,11 @@ export default function RegulationSubjectPage() {
   ];
 
   return (
-    <MenuPageShell title="Regulation Subjects">
+    <MenuPageShell title="Regulation Group">
     <Container maxWidth="xl" sx={{ py: 3 }}>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
         <Box>
-          <Typography variant="h5" fontWeight={700}>Regulation Subjects</Typography>
+          <Typography variant="h5" fontWeight={700}>Regulation Group</Typography>
           <Typography variant="body2" color="text.secondary">Map regulation, academic year, program and subject type</Typography>
         </Box>
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">

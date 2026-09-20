@@ -139,14 +139,19 @@ export default function ConductExamComponentwiseAllocationPage() {
     && (!form.coursecode || row.coursecode === form.coursecode)
   )), [examiners, form]);
 
-  const courseComponents = useMemo(() => components.filter((row) => (
+  const courseComponentBase = useMemo(() => form.coursecode ? components.filter((row) => (
     (!form.academicyear || row.academicyear === form.academicyear)
     && (!form.regulation || row.regulation === form.regulation)
     && (!form.programcode || row.programcode === form.programcode)
     && (!form.semester || row.semester === form.semester)
-    && (!form.coursecode || row.coursecode === form.coursecode)
-    && (!form.componenttype || row.componenttype === form.componenttype)
-  )), [components, form]);
+    && row.coursecode === form.coursecode
+  )) : [], [components, form]);
+
+  const componentTypeOptions = useMemo(() => uniq(courseComponentBase.map((row) => row.componenttype)), [courseComponentBase]);
+
+  const courseComponents = useMemo(() => courseComponentBase.filter((row) => (
+    !form.componenttype || row.componenttype === form.componenttype
+  )), [courseComponentBase, form.componenttype]);
 
   const filterOptions = useMemo(() => {
     const source = [...rows, ...courses, ...components];
@@ -161,7 +166,14 @@ export default function ConductExamComponentwiseAllocationPage() {
       course: selected?.course || "",
       type: selected?.type || "",
       subject: selected?.subject || "",
-      semester: selected?.semester || prev.semester || ""
+      semester: selected?.semester || prev.semester || "",
+      componenttype: "",
+      scoretype: "",
+      assessmentgroup: "",
+      assessmentgrouptype: "",
+      assessmentcomponent: "",
+      maxmarks: "",
+      credits: ""
     }));
     setStudents([]);
     setSelectedComponents([]);
@@ -337,17 +349,18 @@ export default function ConductExamComponentwiseAllocationPage() {
           <Grid container spacing={2}>
             <Grid item xs={12} md={2}><TextField select fullWidth label="Academic Year" value={form.academicyear} onChange={(e) => setForm({ ...blankForm, academicyear: e.target.value })}>{dropdowns.academicyears.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={2.5}><TextField select fullWidth label="Exam" value={form.examcode} onChange={(e) => { const exam = dropdowns.exams.find((item) => item.examcode === e.target.value); setForm((prev) => ({ ...blankForm, academicyear: prev.academicyear, examcode: e.target.value, exam: exam?.exam || "" })); }}>{dropdowns.exams.map((item) => <MenuItem key={item.examcode} value={item.examcode}>{item.exam} ({item.examcode})</MenuItem>)}</TextField></Grid>
-            <Grid item xs={12} md={2}><TextField select fullWidth label="Regulation" value={form.regulation} onChange={(e) => setForm((prev) => ({ ...prev, regulation: e.target.value, program: "", programcode: "", course: "", coursecode: "" }))}>{dropdowns.regulations.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
-            <Grid item xs={12} md={2.5}><TextField select fullWidth label="Program" value={form.programcode} onChange={(e) => { const program = dropdowns.programs.find((item) => item.programcode === e.target.value); setForm((prev) => ({ ...prev, programcode: e.target.value, program: program?.program || "", semester: "", course: "", coursecode: "" })); }}>{dropdowns.programs.map((item) => <MenuItem key={item.programcode} value={item.programcode}>{item.program} ({item.programcode})</MenuItem>)}</TextField></Grid>
-            <Grid item xs={12} md={2}><TextField select fullWidth label="Semester" value={form.semester} onChange={(e) => setForm((prev) => ({ ...prev, semester: e.target.value, course: "", coursecode: "" }))}><MenuItem value="">Select</MenuItem>{dropdowns.semesters.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={2}><TextField select fullWidth label="Regulation" value={form.regulation} onChange={(e) => { setForm((prev) => ({ ...prev, regulation: e.target.value, program: "", programcode: "", course: "", coursecode: "", componenttype: "", assessmentcomponent: "" })); setSelectedComponents([]); }}>{dropdowns.regulations.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={2.5}><TextField select fullWidth label="Program" value={form.programcode} onChange={(e) => { const program = dropdowns.programs.find((item) => item.programcode === e.target.value); setForm((prev) => ({ ...prev, programcode: e.target.value, program: program?.program || "", semester: "", course: "", coursecode: "", componenttype: "", assessmentcomponent: "" })); setSelectedComponents([]); }}>{dropdowns.programs.map((item) => <MenuItem key={item.programcode} value={item.programcode}>{item.program} ({item.programcode})</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={2}><TextField select fullWidth label="Semester" value={form.semester} onChange={(e) => { setForm((prev) => ({ ...prev, semester: e.target.value, course: "", coursecode: "", componenttype: "", assessmentcomponent: "" })); setSelectedComponents([]); }}><MenuItem value="">Select</MenuItem>{dropdowns.semesters.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={3}><Autocomplete options={dropdowns.coursesList} getOptionLabel={courseLabel} value={dropdowns.coursesList.find((item) => item.coursecode === form.coursecode) || null} onChange={(_, value) => setCourseDetails(value?.coursecode || "")} renderInput={(params) => <TextField {...params} label="Course" />} /></Grid>
-            <Grid item xs={12} md={2}><TextField select fullWidth label="Component Type" value={form.componenttype} onChange={(e) => { setForm((prev) => ({ ...prev, componenttype: e.target.value, assessmentcomponent: "" })); setSelectedComponents([]); }}>{["Theory", "Practical", "Viva"].map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={2}><TextField select fullWidth label="Component Type" value={form.componenttype} disabled={!form.coursecode} helperText={!form.coursecode ? "Select course first" : ""} onChange={(e) => { setForm((prev) => ({ ...prev, componenttype: e.target.value, assessmentcomponent: "" })); setSelectedComponents([]); }}><MenuItem value="">Select</MenuItem>{componentTypeOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={5}>
               <Autocomplete
                 multiple
                 disableCloseOnSelect
                 options={courseComponents}
                 value={selectedComponents}
+                disabled={!form.coursecode}
                 isOptionEqualToValue={(option, value) => option._id === value._id}
                 getOptionLabel={componentLabel}
                 onChange={(_, value) => { setSelectedComponents(value || []); if (value?.[0]) applyComponent(value[0]); }}

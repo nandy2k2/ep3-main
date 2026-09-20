@@ -19,6 +19,8 @@ import DashboardIcon from "@mui/icons-material/Dashboard";
 import { useNavigate } from "react-router-dom";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import { AcademicMasterPage } from "./AcademicConfigurationNewPages";
+import { AcademicDesignationPage } from "./AcademicDesignationPages";
 import ProgramManagementPage from "./ProgramManagementPage";
 import Mbuser from "./Mbuser";
 import MenuAccessControlPage from "./MenuAccessControlPage";
@@ -27,6 +29,10 @@ import EmailConfigurationPage from "./EmailConfigurationPage";
 import AiConfigurationPage from "./AiConfigurationPage";
 
 const setupTabs = [
+  { key: "institutions", label: "Master Institution List" },
+  { key: "faculties", label: "Master Faculty List" },
+  { key: "designations", label: "Master Designation List" },
+  { key: "departments", label: "Faculty Department" },
   { key: "programs", label: "Program List" },
   { key: "users", label: "Non Student Users" },
   { key: "menu", label: "Menu Access Control" },
@@ -47,6 +53,10 @@ export default function ConfigurationSetupPage() {
   const [tab, setTab] = useState(0);
   const [counts, setCounts] = useState({
     programs: 0,
+    institutions: 0,
+    faculties: 0,
+    designations: 0,
+    departments: 0,
     users: 0,
     menu: 0,
     aws: 0,
@@ -76,7 +86,11 @@ export default function ConfigurationSetupPage() {
     setLoading(true);
     setError("");
     try {
-      const [programs, users, menu, aws, email, ai] = await Promise.all([
+      const [institutions, faculties, designations, departments, programs, users, menu, aws, email, ai] = await Promise.all([
+        ep1.get("/api/v2/academic-configuration/master/institution", { params: { colid } }),
+        ep1.get("/api/v2/academic-configuration/master/faculty", { params: { colid } }),
+        ep1.get("/api/v2/academic-designations", { params: { colid } }),
+        ep1.get("/api/v2/academic-configuration/master/department", { params: { colid } }),
         ep1.get("/api/v2/mprograms-management", { params: { colid } }),
         ep1.get("/mbusers", { params: { colid } }),
         ep1.get("/api/v2/menu-access", { params: { colid } }),
@@ -86,6 +100,10 @@ export default function ConfigurationSetupPage() {
       ]);
 
       setCounts({
+        institutions: getArrayLength(institutions.data),
+        faculties: getArrayLength(faculties.data),
+        designations: getArrayLength(designations.data),
+        departments: getArrayLength(departments.data),
         programs: getArrayLength(programs.data),
         users: getArrayLength(users.data),
         menu: getArrayLength(menu.data),
@@ -105,9 +123,10 @@ export default function ConfigurationSetupPage() {
   }, [colid]);
 
   const handleTabChange = (event, nextTab) => {
-    if (!hasPrograms && nextTab !== 0) {
+    const programTabIndex = setupTabs.findIndex((item) => item.key === "programs");
+    if (!hasPrograms && nextTab > programTabIndex) {
       setError("Please add at least one program before opening other configuration pages.");
-      setTab(0);
+      setTab(programTabIndex);
       return;
     }
     setError("");
@@ -116,6 +135,14 @@ export default function ConfigurationSetupPage() {
 
   const renderTabContent = () => {
     switch (setupTabs[tab].key) {
+      case "institutions":
+        return <AcademicMasterPage kind="institution" embedded onRowsChange={(rows) => updateCount("institutions", rows)} />;
+      case "faculties":
+        return <AcademicMasterPage kind="faculty" embedded onRowsChange={(rows) => updateCount("faculties", rows)} />;
+      case "designations":
+        return <AcademicDesignationPage embedded onRowsChange={(rows) => updateCount("designations", rows)} />;
+      case "departments":
+        return <AcademicMasterPage kind="department" embedded onRowsChange={(rows) => updateCount("departments", rows)} />;
       case "programs":
         return <ProgramManagementPage embedded onRowsChange={(rows) => updateCount("programs", rows)} />;
       case "users":
@@ -151,9 +178,9 @@ export default function ConfigurationSetupPage() {
               variant="contained"
               startIcon={<DashboardIcon />}
               disabled={!hasPrograms}
-              onClick={() => navigate("/dashdashfacnew")}
+              onClick={() => navigate("/all-role-menu-groups")}
             >
-              Dashboard
+              Module chooser
             </Button>
           </Stack>
         </Stack>
@@ -161,7 +188,7 @@ export default function ConfigurationSetupPage() {
         {error && <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
         {!hasPrograms && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            Add at least one program in the first tab. Other pages and the dashboard will unlock after that.
+            Add at least one program in the Program List tab. Other pages and the module chooser will unlock after that.
           </Alert>
         )}
 
@@ -201,7 +228,7 @@ export default function ConfigurationSetupPage() {
             return (
               <Tab
                 key={item.key}
-                disabled={!hasPrograms && index !== 0}
+                disabled={!hasPrograms && index > setupTabs.findIndex((entry) => entry.key === "programs")}
                 icon={complete ? <CheckCircleIcon fontSize="small" /> : <RadioButtonUncheckedIcon fontSize="small" />}
                 iconPosition="start"
                 label={item.label}

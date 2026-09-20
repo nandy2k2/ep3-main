@@ -10,6 +10,7 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import Badge from '@mui/material/Badge';
+import Button from '@mui/material/Button';
 import MenuIcon from '@mui/icons-material/Menu';
 import Drawer from '@mui/material/Drawer';
 import List from '@mui/material/List';
@@ -114,6 +115,23 @@ function DashboardContent() {
                         </Typography>
                         <TopMenuSearch />
                         <ActivityPointBadge sx={{ mr: 2 }} />
+                        {String(global1.role || '').trim().toLowerCase() === 'all' && (
+                            <Button
+                                color="inherit"
+                                component={Link}
+                                to="/all-role-menu-groups"
+                                onClick={() => {
+                                    try {
+                                        localStorage.removeItem('campus_all_role_active_menu_group');
+                                    } catch {
+                                        // Ignore storage errors and continue navigation.
+                                    }
+                                }}
+                                sx={{ mr: 1, whiteSpace: 'nowrap' }}
+                            >
+                                Module chooser
+                            </Button>
+                        )}
                         <IconButton color="inherit">
     <Badge color="inherit">
         <Link to="/Login" style={{ textDecoration: 'none', color: 'inherit' }}> 

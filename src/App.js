@@ -942,9 +942,15 @@ import RegulationCourseMapPage from "./pages/RegulationCourseMapPage";
 import RegulationReportPage from "./pages/RegulationReportPage";
 import RegulationGroupedReportPage from "./pages/RegulationGroupedReportPage";
 import AcademicConfigurationWizardPage from "./pages/AcademicConfigurationWizardPage";
+import { AcademicMasterPage, ProgramOutcomePage, MyProgramStudentsPage } from "./pages/AcademicConfigurationNewPages";
+import MasterSetupWizardPage from "./pages/MasterSetupWizardPage";
+import AllRoleMenuGatewayPage from "./pages/AllRoleMenuGatewayPage";
 import ExaminationConductWizardPage from "./pages/ExaminationConductWizardPage";
 import LmsWizardPage from "./pages/LmsWizardPage";
 import CrmSetupWizardPage from "./pages/CrmSetupWizardPage";
+import UserManagementWizardPage from "./pages/UserManagementWizardPage";
+import StudentManagementWizardPage from "./pages/StudentManagementWizardPage";
+import StudentParentManagementWizardStep from "./pages/StudentParentManagementWizardStep";
 import AcademicTemplateEmailPage from "./pages/AcademicTemplateEmailPage";
 import FacultyAcademicWizardPage from "./pages/FacultyAcademicWizardPage";
 import FacultyChatWizardPage from "./pages/FacultyChatWizardPage";
@@ -983,6 +989,7 @@ import AccreditationStatusPage from "./pages/AccreditationStatusPage";
 import WorkloadAssignmentPage from "./pages/WorkloadAssignmentPage";
 import VisualWorkloadAssignmentPage from "./pages/VisualWorkloadAssignmentPage";
 import WorkloadDynamicReportPage from "./pages/WorkloadDynamicReportPage";
+import { AcademicDesignationPage, DesignationWorkloadHoursPage, WorkloadDoctorPage } from "./pages/AcademicDesignationPages";
 import ModuleAllocationPage, { ModuleAllocationReportPage } from "./pages/ModuleAllocationPage";
 import ModulePlannerPage, { LectureProgressReportPage } from "./pages/ModulePlannerPage";
 import { AutoWorkloadAllocationPage, FacultyQualificationAdminPage, FacultyQualificationPage } from "./pages/FacultyQualificationPages";
@@ -1334,6 +1341,8 @@ import {
 import {
   OnlineExamManagementPage,
   OnlineExamCourseGroupAssignmentPage,
+  OnlineExaminationDetailsPage,
+  OnlineExaminationSummaryReportPage,
   OnlineExamReportPage,
   OnlineExamResponsesPage,
   AdmissionOnlineExamManagementPage,
@@ -1346,8 +1355,19 @@ import {
   MyOnlineExamManagementPage,
   MyOnlineExamReportPage,
   MyOnlineExamResponsesPage,
+  PlacementPracticeDetailsPage,
+  PlacementPracticeReportPage,
+  PlacementPracticeSummaryReportPage,
+  PlacementPracticeTestPage,
+  PsychometricProfileReportPage,
+  PsychometricTestDetailsPage,
+  PsychometricTestReportPage,
+  PsychometricTestSummaryReportPage,
+  PsychometricTestPage,
+  StudentPlacementPracticeTestPage,
   StudentOnlineExamPage,
   StudentOnlineExam2Page,
+  StudentPsychometricTestPage,
   StudentCourseGroupExamPage
 } from "./pages/OnlineExaminationPages";
 import DynamicAdmissionApplicationsPage from "./pages/DynamicAdmissionApplicationsPage";
@@ -1466,6 +1486,15 @@ import {
   PlacementStudentsPage,
   PlacementStudentAssignedSipPage,
   PlacementStudentInternshipProfilePage,
+  PlacementInternshipPoolPage,
+  PlacementInternshipApplicationsPage,
+  PlacementInternshipReportPage,
+  PlacementInternshipSchedulePage,
+  PlacementInternshipNocWorkflowPage,
+  PlacementInternshipNocApprovalPage,
+  PlacementInternshipNocDashboardPage,
+  StudentPlacementInternshipPoolPage,
+  StudentInternshipNocPage,
   StudentPlacementJobsPage,
   PlacementSipApplicationsPage,
   PlacementStudentMentorAssignmentPage,
@@ -1493,6 +1522,7 @@ import DynamicAdmissionToUserPage from "./pages/DynamicAdmissionToUserPage";
 import ProvisionalAdmissionLetterPage from "./pages/ProvisionalAdmissionLetterPage";
 import OfferLetterPage from "./pages/OfferLetterPage";
 import ProgramManagementPage from "./pages/ProgramManagementPage";
+import PayrollWizardPage from "./pages/PayrollWizardPage";
 import SchoolClassManagementPage from "./pages/SchoolClassManagementPage";
 import SchoolSyllabusYearPage from "./pages/SchoolSyllabusYearPage";
 import SchoolSubjectGroupPage from "./pages/SchoolSubjectGroupPage";
@@ -2039,6 +2069,18 @@ import Dashmconvtransportadmin from './pages/Dashmconvtransportadmin';
 import TransportDriverPage from './pages/TransportDriverPage';
 import TransportDriverRosterPage from './pages/TransportDriverRosterPage';
 import TransportBusPassPage from './pages/TransportBusPassPage';
+import {
+  TransportNewCrudPage,
+  TransportVehiclePage,
+  TransportRoutePage,
+  TransportSchedulePage,
+  TransportStudentApplyPage,
+  TransportSeatApprovalPage,
+  TransportSeatAssignmentPage,
+  TransportTemplatePage,
+  TransportBusPassNewPage,
+  TransportVerifyPage
+} from './pages/TransportNewPages';
 import Dashmconvguests from './pages/Dashmconvguests';
 import Dashmconvguestsadmin from './pages/Dashmconvguestsadmin';
 import Dashmconvattendees from './pages/Dashmconvattendees';
@@ -2343,6 +2385,7 @@ import FeesPivotPage from './pages/FeesPivotPage';
 import FeesPivot2Page from './pages/FeesPivot2Page';
 import FeesPaidReportPage from './pages/FeesPaidReportPage';
 import FeesPaidReport2Page from './pages/FeesPaidReport2Page';
+import MatchRegnoFromLedgerPage from './pages/MatchRegnoFromLedgerPage';
 import ProgramwiseFeesReportPage from './pages/ProgramwiseFeesReportPage';
 import PendingFeesPage from './pages/PendingFeesPage';
 import { AllReminderAgentsPage, PendingFeesAgentPage } from './pages/PendingFeesReminderPages';
@@ -3296,6 +3339,17 @@ function App() {
 <Route path="/transportdrivers" element={<TransportDriverPage />} />
 <Route path="/transportdriverroster" element={<TransportDriverRosterPage />} />
 <Route path="/transportbuspass" element={<TransportBusPassPage />} />
+<Route path="/transport-new-vehicle-types" element={<TransportNewCrudPage entity="vehicleTypes" />} />
+<Route path="/transport-new-vehicles" element={<TransportVehiclePage />} />
+<Route path="/transport-new-waypoints" element={<TransportNewCrudPage entity="waypoints" />} />
+<Route path="/transport-new-routes" element={<TransportRoutePage />} />
+<Route path="/transport-new-route-timing" element={<TransportSchedulePage />} />
+<Route path="/transport-new-student-apply" element={<TransportStudentApplyPage />} />
+<Route path="/transport-new-seat-approval" element={<TransportSeatApprovalPage />} />
+<Route path="/transport-new-seat-assignment" element={<TransportSeatAssignmentPage />} />
+<Route path="/transport-new-bus-pass-templates" element={<TransportTemplatePage />} />
+<Route path="/transport-new-bus-pass" element={<TransportBusPassNewPage />} />
+<Route path="/transport-new-verify/:qrid" element={<TransportVerifyPage />} />
 <Route path="/dashmconvguests" element={<Dashmconvguests />} />
 <Route path="/dashmconvguestsadmin" element={<Dashmconvguestsadmin />} />
 <Route path="/dashmconvattendees" element={<Dashmconvattendees />} />
@@ -3752,10 +3806,15 @@ function App() {
         <Route path="/regulationsubjects" element={<RegulationSubjectPage />} />
         <Route path="/regulationseats" element={<RegulationSeatPage />} />
         <Route path="/regulationcoursemap" element={<RegulationCourseMapPage />} />
+        <Route path="/master-setup-wizard" element={<MasterSetupWizardPage />} />
+        <Route path="/all-role-menu-groups" element={<AllRoleMenuGatewayPage />} />
         <Route path="/academic-configuration-wizard" element={<AcademicConfigurationWizardPage />} />
         <Route path="/examination-conduct-wizard-1" element={<ExaminationConductWizardPage />} />
         <Route path="/lms-wizard" element={<LmsWizardPage />} />
         <Route path="/crm-setup-wizard" element={<CrmSetupWizardPage />} />
+        <Route path="/user-management-wizard" element={<UserManagementWizardPage />} />
+        <Route path="/student-management-wizard" element={<StudentManagementWizardPage />} />
+        <Route path="/student-parent-management-wizard" element={<StudentParentManagementWizardStep />} />
         <Route path="/academic-templates" element={<AcademicTemplateEmailPage />} />
         <Route path="/facultyacademicwizard" element={<FacultyAcademicWizardPage />} />
         <Route path="/regulationreport" element={<RegulationReportPage />} />
@@ -3802,6 +3861,9 @@ function App() {
         <Route path="/workloadassignment" element={<WorkloadAssignmentPage />} />
         <Route path="/visual-workload-assignment" element={<VisualWorkloadAssignmentPage />} />
         <Route path="/workloaddynamicreport" element={<WorkloadDynamicReportPage />} />
+        <Route path="/academic-designations" element={<AcademicDesignationPage />} />
+        <Route path="/designation-workload-hours" element={<DesignationWorkloadHoursPage />} />
+        <Route path="/workload-doctor" element={<WorkloadDoctorPage />} />
         <Route path="/moduleallocation" element={<ModuleAllocationPage />} />
         <Route path="/moduleallocationreport" element={<ModuleAllocationReportPage />} />
         <Route path="/moduleplanner" element={<ModulePlannerPage />} />
@@ -3996,9 +4058,22 @@ function App() {
         <Route path="/online-exam-responses" element={<OnlineExamResponsesPage />} />
         <Route path="/my-online-exam-responses" element={<MyOnlineExamResponsesPage />} />
         <Route path="/online-exam-report" element={<OnlineExamReportPage />} />
+        <Route path="/online-examination-report" element={<OnlineExaminationSummaryReportPage />} />
+        <Route path="/online-examination-details" element={<OnlineExaminationDetailsPage />} />
         <Route path="/my-online-exam-report" element={<MyOnlineExamReportPage />} />
+        <Route path="/placement-practice-test" element={<PlacementPracticeTestPage />} />
+        <Route path="/placement-practice-test-report" element={<PlacementPracticeReportPage />} />
+        <Route path="/placement-practice-test-summary" element={<PlacementPracticeSummaryReportPage />} />
+        <Route path="/placement-practice-test-details" element={<PlacementPracticeDetailsPage />} />
+        <Route path="/psychometric-test" element={<PsychometricTestPage />} />
+        <Route path="/psychometric-test-report" element={<PsychometricTestReportPage />} />
+        <Route path="/psychometric-test-summary" element={<PsychometricTestSummaryReportPage />} />
+        <Route path="/psychometric-test-details" element={<PsychometricTestDetailsPage />} />
+        <Route path="/psychometric-profile-report" element={<PsychometricProfileReportPage />} />
         <Route path="/student-online-exam" element={<StudentOnlineExamPage />} />
         <Route path="/student-online-exam-2" element={<StudentOnlineExam2Page />} />
+        <Route path="/student-placement-practice-test" element={<StudentPlacementPracticeTestPage />} />
+        <Route path="/student-psychometric-test" element={<StudentPsychometricTestPage />} />
         <Route path="/admission-online-examination" element={<AdmissionOnlineExamManagementPage />} />
         <Route path="/admission-exam-assignment" element={<AdmissionExamAssignmentPage />} />
         <Route path="/admission-applicant-exam" element={<AdmissionApplicantExamPage />} />
@@ -4152,6 +4227,7 @@ function App() {
         <Route path="/feespivot2" element={<FeesPivot2Page />} />
         <Route path="/feespaidreport" element={<FeesPaidReportPage />} />
         <Route path="/feespaidreport2" element={<FeesPaidReport2Page />} />
+        <Route path="/match-regno-from-ledger" element={<MatchRegnoFromLedgerPage />} />
         <Route path="/programwisefeesreport" element={<ProgramwiseFeesReportPage />} />
         <Route path="/pendingfees" element={<PendingFeesPage />} />
         <Route path="/pending-fees-agent" element={<PendingFeesAgentPage />} />
@@ -4251,6 +4327,13 @@ function App() {
         <Route path="/placement-new-mentors" element={<PlacementStudentMentorAssignmentPage />} />
         <Route path="/placement-new-reports" element={<PlacementReportsPage />} />
         <Route path="/placement-new-mentor-report" element={<PlacementProjectReportPage mentor />} />
+        <Route path="/placement-new-internship-pool" element={<PlacementInternshipPoolPage />} />
+        <Route path="/placement-new-internship-applications-approval" element={<PlacementInternshipApplicationsPage />} />
+        <Route path="/placement-new-internship-schedule" element={<PlacementInternshipSchedulePage />} />
+        <Route path="/placement-new-internship-report" element={<PlacementInternshipReportPage />} />
+        <Route path="/placement-new-internship-noc-workflow" element={<PlacementInternshipNocWorkflowPage />} />
+        <Route path="/placement-new-internship-noc-approval" element={<PlacementInternshipNocApprovalPage />} />
+        <Route path="/placement-new-internship-noc-dashboard" element={<PlacementInternshipNocDashboardPage />} />
         <Route path="/training-placement-courses" element={<TrainingPlacementCoursesPage />} />
         <Route path="/training-placement-events" element={<TrainingPlacementEventsPage />} />
         <Route path="/training-placement-guest-faculty" element={<TrainingPlacementGuestFacultyPage />} />
@@ -4262,6 +4345,8 @@ function App() {
         <Route path="/student-placement-skills" element={<PlacementStudentSkillsPage />} />
         <Route path="/student-placement-sip-jobs" element={<StudentSipJobsPage />} />
         <Route path="/student-placement-jobs" element={<StudentPlacementJobsPage />} />
+        <Route path="/student-placement-internship-pool" element={<StudentPlacementInternshipPoolPage />} />
+        <Route path="/student-placement-internship-noc" element={<StudentInternshipNocPage />} />
         <Route path="/student-placement-internships" element={<PlacementStudentInternshipProfilePage />} />
         <Route path="/student-placement-sip" element={<PlacementStudentAssignedSipPage />} />
         <Route path="/student-placement-project-stages" element={<PlacementProjectStagesPage />} />
@@ -4276,6 +4361,12 @@ function App() {
         <Route path="/provisional-admission-letter" element={withMenu("Provisional Admission Letter", <ProvisionalAdmissionLetterPage />)} />
         <Route path="/offer-letter" element={<OfferLetterPage />} />
         <Route path="/programmanagement" element={<ProgramManagementPage />} />
+        <Route path="/payroll-wizard" element={<PayrollWizardPage />} />
+        <Route path="/academic-master-institutions" element={<AcademicMasterPage kind="institution" />} />
+        <Route path="/academic-master-faculties" element={<AcademicMasterPage kind="faculty" />} />
+        <Route path="/academic-master-departments" element={<AcademicMasterPage kind="department" />} />
+        <Route path="/program-outcomes" element={<ProgramOutcomePage />} />
+        <Route path="/my-program-students" element={<MyProgramStudentsPage />} />
         <Route path="/schoolclassmanagement" element={<SchoolClassManagementPage />} />
         <Route path="/schoolsyllabusyear" element={<SchoolSyllabusYearPage />} />
         <Route path="/schoolsubjectgroup" element={<SchoolSubjectGroupPage />} />
