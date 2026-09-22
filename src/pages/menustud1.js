@@ -282,6 +282,36 @@ function DefaultStudentListItems({ open }) {
       </Accordion>
 
       <Accordion>
+        <AccordionSummary aria-controls="panel-student-seminars-content" id="panel-student-seminars-header">
+          <AccountCircleIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{fontSize: 14}}>Seminars</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          <ListItem button component={RouterLink} to="/student-seminars">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="My seminars" />}
+          </ListItem>
+        </AccordionDetails>
+      </Accordion>
+
+      <Accordion>
+        <AccordionSummary aria-controls="panel-student-publications-content" id="panel-student-publications-header">
+          <AccountCircleIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{fontSize: 14}}>Publications</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          <ListItem button component={RouterLink} to="/student-publications">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="My publications" />}
+          </ListItem>
+        </AccordionDetails>
+      </Accordion>
+
+      <Accordion>
         <AccordionSummary aria-controls="panel1-content" id="panel1-header">
           <AccountCircleIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{fontSize: 14}}>Academics</Typography>}
@@ -683,6 +713,13 @@ function DefaultStudentListItems({ open }) {
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Apply installment" />}
 </ListItem>
 
+           <ListItem button component={RouterLink} to="/student-late-fee-waiver">
+<ListItemIcon>
+<AccountBalanceWalletIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Late fee waiver" />}
+</ListItem>
+
            {false && <ListItem button component={RouterLink} to="/studentdetailedledger">
 <ListItemIcon>
 <AccountBalanceWalletIcon />
@@ -782,6 +819,13 @@ function DefaultStudentListItems({ open }) {
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Placement jobs" />}
+</ListItem>
+
+            <ListItem button component={RouterLink} to="/student-placement-interest">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Placement interest" />}
 </ListItem>
 
             <ListItem button component={RouterLink} to="/student-placement-internship-pool">
@@ -1006,6 +1050,13 @@ function DefaultStudentListItems({ open }) {
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Dynamic exam form" />}
+</ListItem>
+
+          <ListItem button component={RouterLink} to="/student-atkt-form">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="ATKT form" />}
 </ListItem>
 
           <ListItem button component={RouterLink} to="/examapply">

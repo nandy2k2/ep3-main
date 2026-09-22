@@ -37,7 +37,7 @@ import {
 } from "../utils/nepLmsSequentialContentTools";
 import { timezoneOffsetLabel, timezoneOptions } from "../utils/nepLmsTimezone";
 
-const blankForm = { title: "", module: [], topic: [], description: "", order: "", employabilityrelated: "No", duedate: "", fullmarks: "", url: "", filename: "", originalname: "", status: "Active", file: null };
+const blankForm = { title: "", module: [], topic: [], description: "", order: "", employabilityrelated: "No", duedate: "", fullmarks: "", url: "", filename: "", originalname: "", status: "Published", file: null };
 const blankTimetableForm = { timezone: "Asia/Kolkata", classdate: "", classtime: "", period: "", durationminutes: "", module: "", topic: "", workcompleted: "" };
 const blankQuizForm = { title: "", module: [], topic: [], startdatetime: "", enddatetime: "", status: "Active" };
 const blankSectionForm = { quizid: "", title: "" };
@@ -70,6 +70,7 @@ const blankLessonContent = {
   quizid: "",
   mindmapid: "",
   mindmaptitle: "",
+  status: "Published",
   flashcards: [{ question: "", questionimage: "", answer: "" }]
 };
 const blankAiResourceForm = {
@@ -83,9 +84,12 @@ const blankAiResourceForm = {
 };
 const blankAiQuestionForm = { provider: "Gemini", questioncount: "5", difficulty: "Medium", language: "English", courseMaterialId: "", additionalprompt: "" };
 const blankLessonAiForm = { provider: "Gemini", geminiModel: "gemini-2.5-flash", ollamaConfigId: "", language: "English", flashcardcount: "6", additionalprompt: "" };
+const blankAiEvaluationForm = { provider: "Gemini", model: "gemini-2.5-flash", ollamaConfigId: "" };
 const resourceTypes = ["Assignment", "Course Material", "Lesson Plan", "Timetable", "Quiz"];
 const lessonContentTypes = ["Text", "File Link", "Infographics", "Video Link", "Quiz", "Mindmap", "Flash Card"];
 const geminiModels = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
+const chatGptModels = ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1", "gpt-5-mini", "gpt-5"];
+const claudeModels = ["claude-3-5-haiku-latest", "claude-3-5-sonnet-latest", "claude-3-7-sonnet-latest", "claude-sonnet-4-5"];
 const difficultyLevels = ["Easy", "Medium", "Hard"];
 const languages = [
   "English", "French", "Spanish", "Hindi", "Bengali", "Telugu", "Marathi", "Tamil", "Urdu", "Gujarati",
@@ -143,6 +147,8 @@ export default function NepLmsAdminResourceAssignmentPage() {
   const [lessonContents, setLessonContents] = useState([]);
   const [lessonProgress, setLessonProgress] = useState([]);
   const [selectedLessonResourceId, setSelectedLessonResourceId] = useState("");
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState("");
+  const [assignmentSubmissions, setAssignmentSubmissions] = useState([]);
   const [form, setForm] = useState(blankForm);
   const [timetableForm, setTimetableForm] = useState(blankTimetableForm);
   const [quizForm, setQuizForm] = useState(blankQuizForm);
@@ -152,6 +158,7 @@ export default function NepLmsAdminResourceAssignmentPage() {
   const [aiResourceForm, setAiResourceForm] = useState(blankAiResourceForm);
   const [aiQuestionForm, setAiQuestionForm] = useState(blankAiQuestionForm);
   const [lessonAiForm, setLessonAiForm] = useState(blankLessonAiForm);
+  const [aiEvaluationForm, setAiEvaluationForm] = useState(blankAiEvaluationForm);
   const [editingId, setEditingId] = useState("");
   const [editingTimetableId, setEditingTimetableId] = useState("");
   const [editingQuizId, setEditingQuizId] = useState("");
@@ -163,6 +170,7 @@ export default function NepLmsAdminResourceAssignmentPage() {
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
   const [generatingLessonFile, setGeneratingLessonFile] = useState(false);
   const [generatingFlashcards, setGeneratingFlashcards] = useState(false);
+  const [evaluatingSubmissionId, setEvaluatingSubmissionId] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -190,7 +198,7 @@ export default function NepLmsAdminResourceAssignmentPage() {
       loadTimetable(selectedCourse);
       loadQuizzes(selectedCourse);
       loadMindMaps(selectedCourse);
-      setForm(blankForm);
+      setForm({ ...blankForm, status: resourceType === "Assignment" ? "Active" : "Published" });
       setTimetableForm(blankTimetableForm);
       setQuizForm(blankQuizForm);
       setSectionForm(blankSectionForm);
@@ -208,6 +216,8 @@ export default function NepLmsAdminResourceAssignmentPage() {
       setLessonProgress([]);
       setLessonContentForm(blankLessonContent);
       setEditingLessonContentId("");
+      setSelectedAssignmentId("");
+      setAssignmentSubmissions([]);
     }
   }, [selectedCourseId, resourceType]);
 
@@ -224,6 +234,8 @@ export default function NepLmsAdminResourceAssignmentPage() {
 
   const selectedCourse = useMemo(() => courses.find((row) => row._id === selectedCourseId) || null, [courses, selectedCourseId]);
   const selectedQuiz = useMemo(() => quizzes.find((row) => row._id === sectionForm.quizid || row._id === questionForm.quizid) || null, [quizzes, sectionForm.quizid, questionForm.quizid]);
+  const assignmentOptions = useMemo(() => resources.filter((row) => row.resourcetype === "Assignment"), [resources]);
+  const selectedAssignment = useMemo(() => assignmentOptions.find((row) => row._id === selectedAssignmentId) || null, [assignmentOptions, selectedAssignmentId]);
   const selectedQuizAttemptRows = useMemo(() => {
     if (!selectedQuiz || !selectedQuizAttempt) return [];
     const answerMap = new Map((selectedQuizAttempt.answers || []).map((answer) => [String(answer.questionid || ""), answer]));
@@ -258,7 +270,7 @@ export default function NepLmsAdminResourceAssignmentPage() {
     return uniqueSorted(rows.map((row) => row.syllabus));
   }, [quizForm.module, syllabusRows]);
   const courseMaterialOptions = useMemo(() => (
-    resources.filter((row) => row.resourcetype === "Course Material")
+    resources.filter((row) => row.resourcetype === "Course Material" && String(row.status || "Published").toLowerCase() !== "draft")
   ), [resources]);
 
   const loadFaculty = async () => {
@@ -350,6 +362,31 @@ export default function NepLmsAdminResourceAssignmentPage() {
     } catch (err) {
       setResources([]);
       setError(err.response?.data?.message || "Unable to load resources");
+    }
+  };
+
+  const loadAssignmentSubmissions = async (assignmentId = selectedAssignmentId) => {
+    if (!selectedCourse || !assignmentId) {
+      setAssignmentSubmissions([]);
+      return;
+    }
+    try {
+      setLoading(true);
+      setError("");
+      const res = await ep1.get("/api/v2/neplms/assignment-submissions", {
+        params: {
+          colid: global1.colid,
+          assignmentid: assignmentId,
+          coursecode: selectedCourse.coursecode,
+          facultyemail: selectedCourse.facultyemail
+        }
+      });
+      setAssignmentSubmissions(res.data?.data || []);
+    } catch (err) {
+      setAssignmentSubmissions([]);
+      setError(err.response?.data?.message || "Unable to load assignment submissions");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -459,7 +496,7 @@ export default function NepLmsAdminResourceAssignmentPage() {
   };
 
   const resetForm = () => {
-    setForm(blankForm);
+    setForm({ ...blankForm, status: resourceType === "Assignment" ? "Active" : "Published" });
     setEditingId("");
   };
 
@@ -480,7 +517,7 @@ export default function NepLmsAdminResourceAssignmentPage() {
         employabilityrelated: optionType === "Course Material" ? form.employabilityrelated : "No",
         originalname: file.name,
         filename: file.name,
-        status: "Active"
+        status: ["Course Material", "Lesson Plan"].includes(optionType) ? (form.status || "Published") : "Active"
       }).forEach(([key, value]) => data.append(key, value || ""));
       data.append("file", file);
       const res = await ep1.post("/api/v2/neplms/resources", data, { headers: { "Content-Type": "multipart/form-data" } });
@@ -523,7 +560,7 @@ export default function NepLmsAdminResourceAssignmentPage() {
         url: form.url,
         filename: form.filename,
         originalname: form.originalname || form.filename || form.title,
-        status: form.status || "Active"
+        status: form.status || (resourceType === "Assignment" ? "Active" : "Published")
       };
       if (editingId) await ep1.post("/api/v2/neplms/resources/update", { ...payload, id: editingId });
       else {
@@ -572,6 +609,7 @@ export default function NepLmsAdminResourceAssignmentPage() {
         employabilityrelated: resourceType === "Course Material" ? form.employabilityrelated : "No",
         duedate: form.duedate,
         fullmarks: form.fullmarks,
+        status: form.status || (resourceType === "Assignment" ? "Active" : "Published"),
         provider: aiResourceForm.provider,
         model: aiResourceForm.geminiModel,
         ollamaConfigId: aiResourceForm.ollamaConfigId,
@@ -648,6 +686,7 @@ export default function NepLmsAdminResourceAssignmentPage() {
       quizid: row.quizid || "",
       mindmapid: row.mindmapid || "",
       mindmaptitle: row.mindmaptitle || "",
+      status: row.status || "Published",
       flashcards: row.flashcards?.length ? row.flashcards : [{ question: "", questionimage: "", answer: "" }]
     });
   };
@@ -751,7 +790,7 @@ export default function NepLmsAdminResourceAssignmentPage() {
       url: row.url || "",
       filename: row.filename || "",
       originalname: row.originalname || "",
-      status: row.status || "Active"
+      status: row.status || (row.resourcetype === "Assignment" ? "Active" : "Published")
     });
   };
 
@@ -763,6 +802,63 @@ export default function NepLmsAdminResourceAssignmentPage() {
       loadResources();
     } catch (err) {
       setError(err.response?.data?.message || "Unable to delete resource");
+    }
+  };
+
+  const updateSubmissionRow = (rowId, key, value) => {
+    setAssignmentSubmissions((prev) => prev.map((row) => (
+      row._id === rowId ? { ...row, [key]: value } : row
+    )));
+  };
+
+  const saveSubmissionGrade = async (row) => {
+    try {
+      setLoading(true);
+      setError("");
+      await ep1.post("/api/v2/neplms/assignment-submissions/grade", {
+        colid: global1.colid,
+        id: row._id,
+        fullmarks: row.fullmarks || selectedAssignment?.fullmarks || 0,
+        marks: row.marks,
+        facultycomments: row.facultycomments,
+        gradedby: global1.name || global1.user,
+        user: global1.user
+      });
+      setMessage("Assignment grade saved");
+      loadAssignmentSubmissions();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to save assignment grade");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const aiEvaluateSubmission = async (row) => {
+    try {
+      setEvaluatingSubmissionId(row._id);
+      setError("");
+      setMessage("");
+      const res = await ep1.post("/api/v2/neplms/assignment-submissions/ai-evaluate", {
+        colid: global1.colid,
+        id: row._id,
+        fullmarks: row.fullmarks || selectedAssignment?.fullmarks || 0,
+        provider: aiEvaluationForm.provider,
+        model: aiEvaluationForm.model,
+        ollamaConfigId: aiEvaluationForm.ollamaConfigId,
+        gradedby: global1.name || global1.user,
+        user: global1.user
+      });
+      const updated = res.data?.data;
+      if (updated?._id) {
+        setAssignmentSubmissions((prev) => prev.map((item) => item._id === updated._id ? updated : item));
+      } else {
+        loadAssignmentSubmissions();
+      }
+      setMessage("AI evaluation completed. Review marks/comments and adjust if required.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to evaluate assignment with AI");
+    } finally {
+      setEvaluatingSubmissionId("");
     }
   };
 
@@ -1034,7 +1130,7 @@ export default function NepLmsAdminResourceAssignmentPage() {
       "File Link": "",
       Filename: "",
       "Original Name": "",
-      Status: "Active"
+      Status: resourceType === "Assignment" ? "Active" : "Published"
     }]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, resourceType);
@@ -1051,7 +1147,7 @@ export default function NepLmsAdminResourceAssignmentPage() {
         const ws = wb.Sheets[wb.SheetNames[0]];
         const jsonRows = XLSX.utils.sheet_to_json(ws, { defval: "" });
         const parsed = jsonRows.map((row, index) => {
-          const item = { rowNumber: index + 2, status: "Active" };
+          const item = { rowNumber: index + 2, status: resourceType === "Assignment" ? "Active" : "Published" };
           Object.entries(row).forEach(([header, value]) => {
             const mapped = headerMap[normalizeHeader(header)];
             if (mapped) item[mapped] = value;
@@ -1096,7 +1192,7 @@ export default function NepLmsAdminResourceAssignmentPage() {
           url: row.url || "",
           filename: row.filename || "",
           originalname: row.originalname || row.filename || row.title || "",
-          status: row.status || "Active"
+          status: row.status || (resourceType === "Assignment" ? "Active" : "Published")
         }).forEach(([key, value]) => data.append(key, value || ""));
         await ep1.post("/api/v2/neplms/resources", data, { headers: { "Content-Type": "multipart/form-data" } });
         inserted += 1;
@@ -1236,6 +1332,7 @@ export default function NepLmsAdminResourceAssignmentPage() {
     { field: "title", headerName: "Title", width: 220 },
     { field: "topics", headerName: "Topics", width: 220 },
     { field: "description", headerName: "Description", width: 260 },
+    { field: "status", headerName: "Status", width: 130 },
     { field: "quiztitle", headerName: "Quiz", width: 180 },
     { field: "mindmaptitle", headerName: "Mindmap", width: 180 },
     {
@@ -1274,6 +1371,73 @@ export default function NepLmsAdminResourceAssignmentPage() {
     { field: "regno", headerName: "Reg No", width: 130 },
     { field: "email", headerName: "Email", width: 220 },
     { field: "completedat", headerName: "Completed At", width: 190, valueGetter: (params) => params.row.completedat ? new Date(params.row.completedat).toLocaleString() : "" }
+  ];
+
+  const assignmentSubmissionColumns = [
+    { field: "student", headerName: "Student", width: 180 },
+    { field: "regno", headerName: "Reg No", width: 130 },
+    { field: "email", headerName: "Email", width: 220 },
+    { field: "submitteddate", headerName: "Submitted", width: 190, valueGetter: (params) => params.row.submitteddate ? new Date(params.row.submitteddate).toLocaleString() : "" },
+    {
+      field: "url",
+      headerName: "Attachment",
+      width: 130,
+      renderCell: (params) => params.value ? <Button size="small" href={params.value} target="_blank" rel="noreferrer">Open</Button> : "-"
+    },
+    { field: "comments", headerName: "Student Comments", width: 240 },
+    {
+      field: "marksedit",
+      headerName: "Marks",
+      width: 130,
+      renderCell: ({ row }) => (
+        <TextField
+          size="small"
+          type="number"
+          value={row.marks ?? ""}
+          inputProps={{ min: 0, max: row.fullmarks || selectedAssignment?.fullmarks || "" }}
+          onKeyDown={(event) => event.stopPropagation()}
+          onChange={(event) => updateSubmissionRow(row._id, "marks", event.target.value)}
+        />
+      )
+    },
+    { field: "fullmarks", headerName: "Full Marks", width: 110 },
+    {
+      field: "facultycommentsedit",
+      headerName: "Faculty / AI Comments",
+      width: 360,
+      renderCell: ({ row }) => (
+        <TextField
+          fullWidth
+          multiline
+          minRows={2}
+          size="small"
+          value={row.facultycomments || ""}
+          onKeyDown={(event) => event.stopPropagation()}
+          onChange={(event) => updateSubmissionRow(row._id, "facultycomments", event.target.value)}
+        />
+      )
+    },
+    { field: "status", headerName: "Status", width: 130 },
+    {
+      field: "gradeactions",
+      headerName: "Actions",
+      width: 230,
+      sortable: false,
+      renderCell: ({ row }) => (
+        <Stack direction="row" spacing={1}>
+          <Button size="small" variant="contained" disabled={loading} onClick={() => saveSubmissionGrade(row)}>Save</Button>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={evaluatingSubmissionId === row._id ? <CircularProgress size={14} /> : <AutoFixHigh />}
+            disabled={Boolean(evaluatingSubmissionId)}
+            onClick={() => aiEvaluateSubmission(row)}
+          >
+            AI
+          </Button>
+        </Stack>
+      )
+    }
   ];
 
   return (
@@ -1432,8 +1596,17 @@ export default function NepLmsAdminResourceAssignmentPage() {
               <FormControl fullWidth>
                 <InputLabel>Status</InputLabel>
                 <Select label="Status" value={form.status} onChange={(event) => setForm((prev) => ({ ...prev, status: event.target.value }))}>
-                  <MenuItem value="Active">Active</MenuItem>
-                  <MenuItem value="Inactive">Inactive</MenuItem>
+                  {resourceType === "Course Material" || resourceType === "Lesson Plan" ? (
+                    [
+                      <MenuItem key="Published" value="Published">Published</MenuItem>,
+                      <MenuItem key="Draft" value="Draft">Draft</MenuItem>
+                    ]
+                  ) : (
+                    [
+                      <MenuItem key="Active" value="Active">Active</MenuItem>,
+                      <MenuItem key="Inactive" value="Inactive">Inactive</MenuItem>
+                    ]
+                  )}
                 </Select>
               </FormControl>
             </Grid>
@@ -1585,6 +1758,92 @@ export default function NepLmsAdminResourceAssignmentPage() {
             sx={{ minWidth: 1500 }}
           />
         </Paper>
+        {resourceType === "Assignment" && (
+          <Paper sx={{ p: 2, mt: 2, overflowX: "auto" }}>
+            <Typography variant="h6" fontWeight={800} sx={{ mb: 2 }}>Assignment Submissions and AI Evaluation</Typography>
+            <Grid container spacing={2} alignItems="center" sx={{ mb: 2 }}>
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth>
+                  <InputLabel>Assignment</InputLabel>
+                  <Select
+                    label="Assignment"
+                    value={selectedAssignmentId}
+                    onChange={(event) => {
+                      setSelectedAssignmentId(event.target.value);
+                      setAssignmentSubmissions([]);
+                    }}
+                  >
+                    {assignmentOptions.map((assignment) => (
+                      <MenuItem key={assignment._id} value={assignment._id}>
+                        {assignment.title || assignment.originalname || "Assignment"} {assignment.duedate ? `| Due ${assignment.duedate}` : ""}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <FormControl fullWidth>
+                  <InputLabel>AI Provider</InputLabel>
+                  <Select
+                    label="AI Provider"
+                    value={aiEvaluationForm.provider}
+                    onChange={(event) => setAiEvaluationForm((prev) => ({ ...prev, provider: event.target.value, model: event.target.value === "ChatGPT" ? "gpt-4o-mini" : event.target.value === "Claude" ? "claude-3-5-haiku-latest" : "gemini-2.5-flash" }))}
+                  >
+                    <MenuItem value="Gemini">Gemini</MenuItem>
+                    <MenuItem value="ChatGPT">ChatGPT</MenuItem>
+                    <MenuItem value="Claude">Claude</MenuItem>
+                    <MenuItem value="Ollama">Ollama</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              {aiEvaluationForm.provider === "Ollama" ? (
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth>
+                    <InputLabel>Ollama</InputLabel>
+                    <Select label="Ollama" value={aiEvaluationForm.ollamaConfigId} onChange={(event) => setAiEvaluationForm((prev) => ({ ...prev, ollamaConfigId: event.target.value }))}>
+                      {ollamaConfigs.map((item) => <MenuItem key={item._id} value={item._id}>{item.name} - {item.modelname}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              ) : (
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth>
+                    <InputLabel>Model</InputLabel>
+                    <Select label="Model" value={aiEvaluationForm.model} onChange={(event) => setAiEvaluationForm((prev) => ({ ...prev, model: event.target.value }))}>
+                      {(aiEvaluationForm.provider === "Claude" ? claudeModels : aiEvaluationForm.provider === "ChatGPT" ? chatGptModels : geminiModels).map((model) => (
+                        <MenuItem key={model} value={model}>{model}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              )}
+              <Grid item xs={12} md={3}>
+                <Button fullWidth variant="contained" startIcon={loading ? <CircularProgress size={18} color="inherit" /> : <Refresh />} disabled={!selectedAssignmentId || loading} sx={{ height: 56 }} onClick={() => loadAssignmentSubmissions()}>
+                  Load Submissions
+                </Button>
+              </Grid>
+            </Grid>
+            {selectedAssignment && (
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
+                <Chip label={`Full Marks: ${selectedAssignment.fullmarks || 0}`} />
+                <Chip label={`Status: ${selectedAssignment.status || "Active"}`} />
+                {selectedAssignment.url && <Button size="small" href={selectedAssignment.url} target="_blank" rel="noreferrer">Open assignment file</Button>}
+              </Stack>
+            )}
+            <DataGrid
+              rows={assignmentSubmissions.map((row) => ({ ...row, id: row._id }))}
+              columns={assignmentSubmissionColumns}
+              loading={loading}
+              autoHeight
+              getRowHeight={() => "auto"}
+              slots={{ toolbar: GridToolbar }}
+              slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "assignment_submissions" } } }}
+              pageSizeOptions={[10, 25, 50, 100]}
+              initialState={{ pagination: { paginationModel: { pageSize: 10, page: 0 } } }}
+              sx={{ minWidth: 1900 }}
+            />
+          </Paper>
+        )}
         </>
         )}
 
@@ -2079,7 +2338,16 @@ export default function NepLmsAdminResourceAssignmentPage() {
               <Grid item xs={12} md={4}>
                 <TextField fullWidth label="Title" value={lessonContentForm.title} onChange={(event) => setLessonContentForm((prev) => ({ ...prev, title: event.target.value }))} />
               </Grid>
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12} md={2}>
+                <FormControl fullWidth>
+                  <InputLabel>Status</InputLabel>
+                  <Select label="Status" value={lessonContentForm.status || "Published"} onChange={(event) => setLessonContentForm((prev) => ({ ...prev, status: event.target.value }))}>
+                    <MenuItem value="Published">Published</MenuItem>
+                    <MenuItem value="Draft">Draft</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={2}>
                 <TextField fullWidth label="Topics" value={lessonContentForm.topics} onChange={(event) => setLessonContentForm((prev) => ({ ...prev, topics: event.target.value }))} />
               </Grid>
               <Grid item xs={12}>

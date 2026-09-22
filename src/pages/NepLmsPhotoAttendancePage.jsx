@@ -26,6 +26,12 @@ import { classCalendarSortKey, classDisplayDate, classDisplayLabel, classDisplay
 const cleanText = (value) => String(value || "").trim().toLowerCase();
 const fieldsMatch = (left, right) => cleanText(left) === cleanText(right);
 const optionalFieldsMatch = (left, right) => !cleanText(left) || !cleanText(right) || fieldsMatch(left, right);
+const programDisplay = (row = {}) => {
+  const program = String(row.program || "").trim();
+  const programcode = String(row.programcode || "").trim();
+  if (program && programcode) return `${program} (${programcode})`;
+  return program || programcode || "-";
+};
 const uniqueSorted = (values = []) => [...new Set(values.map((item) => String(item || "").trim()).filter(Boolean))]
   .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 const parseDate = (value) => {
@@ -99,20 +105,22 @@ export default function NepLmsPhotoAttendancePage() {
       const requestedClassId = new URLSearchParams(window.location.search).get("classid");
       const assignedRows = (workloadRes.data?.data || []).filter((row) => currentUser && cleanText(row.facultyemail) === currentUser);
       const classRows = timetableRes.data?.data || [];
-      const facultyClasses = classRows.filter((classRow) => {
+      const facultyClasses = classRows.map((classRow) => {
         const classFacultyEmail = cleanText(classRow.facultyemail);
-        if (classFacultyEmail && classFacultyEmail !== currentUser) return false;
-        return assignedRows.some((assignment) => (
-          fieldsMatch(assignment.academicyear, classRow.academicyear)
-          && fieldsMatch(assignment.programcode, classRow.programcode)
-          && optionalFieldsMatch(assignment.regulation, classRow.regulation)
-          && optionalFieldsMatch(assignment.program, classRow.program)
-          && fieldsMatch(assignment.subject, classRow.major)
-          && fieldsMatch(assignment.semester, classRow.semester)
-          && fieldsMatch(assignment.coursecode, classRow.coursecode)
-          && (!classFacultyEmail || fieldsMatch(assignment.facultyemail, classRow.facultyemail))
+        if (classFacultyEmail && classFacultyEmail !== currentUser) return null;
+        const assignment = assignedRows.find((item) => (
+          fieldsMatch(item.academicyear, classRow.academicyear)
+          && fieldsMatch(item.programcode, classRow.programcode)
+          && optionalFieldsMatch(item.regulation, classRow.regulation)
+          && optionalFieldsMatch(item.program, classRow.program)
+          && fieldsMatch(item.subject, classRow.major)
+          && fieldsMatch(item.semester, classRow.semester)
+          && fieldsMatch(item.coursecode, classRow.coursecode)
+          && (!classFacultyEmail || fieldsMatch(item.facultyemail, classRow.facultyemail))
         ));
-      });
+        if (!assignment) return null;
+        return { ...classRow, program: classRow.program || assignment.program, programcode: classRow.programcode || assignment.programcode };
+      }).filter(Boolean);
       setClasses(facultyClasses);
       if (requestedClassId) {
         const requestedClass = facultyClasses.find((row) => row._id === requestedClassId);
@@ -335,7 +343,7 @@ export default function NepLmsPhotoAttendancePage() {
     }
   };
 
-  const classLabel = (row) => `${classDisplayLabel(row)} | ${row.coursecode} - ${row.course} | ${row.programcode} | Sem ${row.semester}`;
+  const classLabel = (row) => `${classDisplayLabel(row)} | ${row.coursecode} - ${row.course} | ${programDisplay(row)} | Sem ${row.semester}`;
 
   const studentColumns = [
     { field: "name", headerName: "Student", minWidth: 180, flex: 1 },
@@ -498,7 +506,7 @@ export default function NepLmsPhotoAttendancePage() {
                                 >
                                   <Typography variant="caption" fontWeight={900} display="block">{classDisplayTime(item) || "-"} | {item.coursecode}</Typography>
                                   <Typography variant="caption" display="block">{item.course || item.topic || "-"}</Typography>
-                                  <Typography variant="caption" display="block" color="text.secondary">Sem {item.semester} | {item.major}</Typography>
+                                  <Typography variant="caption" display="block" color="text.secondary">{programDisplay(item)} | Sem {item.semester} | {item.major}</Typography>
                                 </Box>
                               );
                             })}

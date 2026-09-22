@@ -6,6 +6,7 @@ import {
   Hotel,
   Payment,
   ReceiptLong,
+  Tune,
   School
 } from "@mui/icons-material";
 import EmbeddedWizardShell from "./EmbeddedWizardShell";
@@ -22,6 +23,12 @@ const steps = [
     path: "/studentphotoupload",
     icon: <CameraAlt />,
     description: "Upload student photos for profile, ID card and exam forms."
+  },
+  {
+    title: "User custom fields",
+    path: "/usercustomfields",
+    icon: <Tune />,
+    description: "Configure additional profile fields used by student upload and display pages."
   },
   {
     title: "Fees Application",

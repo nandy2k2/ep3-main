@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Box, Button, Grid, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
+import { Alert, Autocomplete, Box, Button, Grid, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import ep1 from "../api/ep1";
@@ -45,6 +45,8 @@ function ConductExamStaffPaymentPage({ mode }) {
   const [institution, setInstitution] = useState(null);
   const [filters, setFilters] = useState({ academicyear: "", examcode: "", regulation: "", programcode: "", coursecode: "" });
   const [loading, setLoading] = useState(false);
+  const [billLoading, setBillLoading] = useState(false);
+  const [selectedPersonEmail, setSelectedPersonEmail] = useState("");
   const [error, setError] = useState("");
   const printRef = useRef(null);
 
@@ -132,6 +134,113 @@ function ConductExamStaffPaymentPage({ mode }) {
   ];
 
   const pieData = rows.map((row) => ({ name: row.name || row.email, value: Number(row.amount || 0) })).filter((row) => row.value);
+  const personOptions = useMemo(() => {
+    const map = new Map();
+    (options.rows || []).forEach((row) => {
+      const email = mode === "examiner" ? row.examineremail : mode === "moderator" ? row.moderatoremail : row.papersetteremail;
+      const name = mode === "examiner" ? row.examinername : mode === "moderator" ? row.moderatorname : row.papersettername;
+      if (email) map.set(String(email).toLowerCase(), { email, name: name || email });
+    });
+    return [...map.values()].sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email));
+  }, [mode, options.rows]);
+
+  const openIndividualBill = (personRow, billInstitution = institution) => {
+    const details = personRow?.details || [];
+    const billTotals = {
+      count: details.length || Number(personRow?.count || 0),
+      amount: details.reduce((sum, row) => sum + Number(row.amount || row.rate || 0), 0) || Number(personRow?.amount || 0)
+    };
+    const detailRows = details.length ? details : [];
+    const content = `
+      <div class="header">
+        ${billInstitution?.logolink ? `<img class="logo" src="${billInstitution.logolink}" alt="Logo" />` : ""}
+        <h2>${billInstitution?.institutionname || global1.insname || "Institution"}</h2>
+        <div>${billInstitution?.address || ""}</div>
+        <h3>Individual ${config.personLabel} Bill</h3>
+      </div>
+      <div class="meta">
+        <div><b>${config.personLabel}:</b> ${personRow?.name || ""}</div>
+        <div><b>Email:</b> ${personRow?.email || ""}</div>
+        <div><b>Academic Year:</b> ${filters.academicyear || "All"}</div>
+        <div><b>Generated On:</b> ${new Date().toLocaleDateString("en-IN")}</div>
+      </div>
+      <div class="cards">
+        <div class="card"><b>${config.countLabel}</b><br />${billTotals.count || 0}</div>
+        <div class="card"><b>Total Payable</b><br />Rs. ${money(billTotals.amount)}</div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Academic Year</th><th>Exam</th><th>Exam Code</th><th>Program</th><th>Course</th><th>Course Code</th><th>Student/Reg No</th><th>Rate</th><th>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${detailRows.map((row) => `<tr>
+            <td>${row.academicyear || ""}</td>
+            <td>${row.exam || ""}</td>
+            <td>${row.examcode || ""}</td>
+            <td>${row.program || ""}</td>
+            <td>${row.course || ""}</td>
+            <td>${row.coursecode || ""}</td>
+            <td>${row.regno || row.student || ""}</td>
+            <td>${money(row.rate)}</td>
+            <td>${money(row.amount || row.rate)}</td>
+          </tr>`).join("")}
+        </tbody>
+        <tfoot><tr><th colspan="8" style="text-align:right">Total</th><th>${money(billTotals.amount)}</th></tr></tfoot>
+      </table>
+      <div class="amountwords"><b>Amount Payable:</b> Rs. ${money(billTotals.amount)}</div>
+      <div class="sign"><span>Prepared by</span><span>${config.personLabel} Signature</span><span>Authorized Signatory</span></div>
+    `;
+    const win = window.open("", "_blank", "width=1000,height=800");
+    if (!win) return setError("Popup blocked. Please allow popups for print preview.");
+    win.document.write(`<html><head><title>Individual ${config.personLabel} Bill</title><style>
+      body{font-family:Arial,sans-serif;color:#111827;margin:24px}
+      table{width:100%;border-collapse:collapse;font-size:11px;margin-top:12px}
+      th,td{border:1px solid #d1d5db;padding:6px;text-align:left;vertical-align:top}
+      th{background:#eef2ff}
+      tfoot th{background:#f8fafc}
+      .header{text-align:center;margin-bottom:14px;border-bottom:2px solid #1d4ed8;padding-bottom:10px}
+      .logo{max-height:70px;object-fit:contain}
+      .meta{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;font-size:13px;margin:12px 0}
+      .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:12px 0}
+      .card{border:1px solid #bfdbfe;background:#eff6ff;padding:10px;border-radius:6px}
+      .amountwords{margin-top:12px;font-size:13px}
+      .sign{display:flex;justify-content:space-between;margin-top:45px;font-size:13px}
+      @page{size:A4;margin:12mm}
+    </style></head><body>${content}</body></html>`);
+    win.document.close();
+    win.focus();
+    win.print();
+  };
+
+  const generateIndividualBill = async () => {
+    if (!selectedPersonEmail) {
+      setError(`Select an ${config.personLabel.toLowerCase()} first.`);
+      return;
+    }
+    try {
+      setBillLoading(true);
+      setError("");
+      const params = { colid: global1.colid };
+      ["academicyear", "regulation", "programcode", "coursecode"].forEach((key) => {
+        if (filters[key]) params[key] = filters[key];
+      });
+      const res = await ep1.get(config.endpoint, { params });
+      const billInstitution = res.data?.institution || institution;
+      if (res.data?.institution) setInstitution(res.data.institution);
+      const personRow = (res.data?.data || []).find((row) => String(row.email || "").toLowerCase() === String(selectedPersonEmail || "").toLowerCase());
+      if (!personRow) {
+        setError(`No payable records found for selected ${config.personLabel.toLowerCase()} with the current filters.`);
+        return;
+      }
+      openIndividualBill(personRow, billInstitution);
+    } catch (err) {
+      setError(err.response?.data?.message || `Unable to generate individual ${config.personLabel.toLowerCase()} bill.`);
+    } finally {
+      setBillLoading(false);
+    }
+  };
 
   return (
     <MenuPageShell title={config.title}>
@@ -158,6 +267,34 @@ function ConductExamStaffPaymentPage({ mode }) {
             <Grid item xs={12} md={2}><Button fullWidth variant="contained" onClick={loadReport} disabled={loading} sx={{ height: 56 }}>{loading ? "Loading..." : "Load Payment"}</Button></Grid>
           </Grid>
         </Paper>
+
+        {mode === "examiner" && (
+          <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #dbeafe", bgcolor: "#f8fbff", borderRadius: 2 }}>
+            <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
+              <Box>
+                <Typography variant="h6" fontWeight={900}>Individual Examiner Bill</Typography>
+                <Typography color="text.secondary">Select an examiner and generate one bill for all matching exams together. Academic year, regulation, program and course filters are respected; exam code is ignored for this bill.</Typography>
+              </Box>
+            </Stack>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={8}>
+                <Autocomplete
+                  size="small"
+                  options={personOptions}
+                  value={personOptions.find((item) => String(item.email).toLowerCase() === String(selectedPersonEmail).toLowerCase()) || null}
+                  onChange={(_, value) => setSelectedPersonEmail(value?.email || "")}
+                  getOptionLabel={(option) => option ? `${option.name || option.email} (${option.email})` : ""}
+                  renderInput={(params) => <TextField {...params} label="Select examiner" />}
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <Button fullWidth variant="contained" onClick={generateIndividualBill} disabled={billLoading || !selectedPersonEmail} sx={{ height: 42 }}>
+                  {billLoading ? "Generating..." : "Generate Individual Bill"}
+                </Button>
+              </Grid>
+            </Grid>
+          </Paper>
+        )}
 
         <Grid container spacing={2} sx={{ mb: 2 }}>
           <Grid item xs={12} md={6}>

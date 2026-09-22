@@ -6,7 +6,8 @@ import {
   CameraAlt,
   Checklist,
   Groups,
-  ManageAccounts
+  ManageAccounts,
+  Tune
 } from "@mui/icons-material";
 import EmbeddedWizardShell from "./EmbeddedWizardShell";
 
@@ -34,6 +35,12 @@ const steps = [
     path: "/userphotoupload",
     icon: <CameraAlt />,
     description: "Upload staff/faculty profile photos."
+  },
+  {
+    title: "User custom fields",
+    path: "/usercustomfields",
+    icon: <Tune />,
+    description: "Configure additional profile fields used by user upload and profile display pages."
   },
   {
     title: "Consent form setup",

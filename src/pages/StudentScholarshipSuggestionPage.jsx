@@ -70,7 +70,8 @@ export default function StudentScholarshipSuggestionPage() {
     id: item._id || index,
     scholarshipname: item.scholarshipname,
     amount: item.amount,
-    status: item.eligible ? "Suggested" : "Partial match",
+    status: item.eligible ? "Suggested" : item.categorymatch ? "Categorywise" : "Partial match",
+    scholarshiptype: item.scholarshiptype || "Govt",
     matchscore: item.matchscore || 0,
     category: item.category || "Any",
     program: item.program || "Any",
@@ -87,6 +88,7 @@ export default function StudentScholarshipSuggestionPage() {
     { field: "scholarshipname", headerName: "Scholarship", flex: 1.4, minWidth: 220 },
     { field: "amount", headerName: "Amount", width: 130, valueFormatter: ({ value }) => money(value) },
     { field: "status", headerName: "Status", width: 140 },
+    { field: "scholarshiptype", headerName: "Govt / Non Govt", width: 150 },
     { field: "matchscore", headerName: "Match %", width: 110 },
     { field: "category", headerName: "Category", width: 130 },
     { field: "programcode", headerName: "Program code", width: 140 },
@@ -112,6 +114,9 @@ export default function StudentScholarshipSuggestionPage() {
   const application = data?.application || {};
   const marks = data?.marks || {};
   const suggestedAmount = (data?.suggestions || []).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const categorywiseCount = data?.categorywise?.length || 0;
+  const govtCount = data?.govtCategorywise?.length || 0;
+  const nonGovtCount = data?.nonGovtCategorywise?.length || 0;
 
   return (
     <MenuPageShell title="Scholarship Suggestion" menuType="student">
@@ -165,6 +170,7 @@ export default function StudentScholarshipSuggestionPage() {
                 <Typography variant="overline" color="text.secondary">Suggested Scholarships</Typography>
                 <Typography variant="h4">{data?.suggestions?.length || 0}</Typography>
                 <Typography variant="body2">{money(suggestedAmount)} possible value</Typography>
+                <Typography variant="caption">Categorywise: {categorywiseCount} | Govt: {govtCount} | Non Govt: {nonGovtCount}</Typography>
               </CardContent>
             </Card>
           </Grid>

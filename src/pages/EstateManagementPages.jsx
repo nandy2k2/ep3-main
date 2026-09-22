@@ -259,10 +259,10 @@ function FieldInput({ field, form, setForm, options }) {
       if (field.source === "users") {
         return [option.name, option.email || option.user, option.role].filter(Boolean).join(" - ");
       }
-      return option?.[optionLabel] || "";
+      return option?.[optionLabel] || option?.typename || option?.name || "";
     };
     const selected = list.find((item) => {
-      const candidate = item[optionValue] || item[optionLabel] || "";
+      const candidate = item[optionValue] || item[optionLabel] || item.typename || "";
       if (String(candidate || "") === String(value || "")) return true;
       return field.source === "users" && field.name === "director" && String(item.name || "") === String(value || "");
     }) || null;
@@ -273,7 +273,7 @@ function FieldInput({ field, form, setForm, options }) {
         getOptionLabel={displayLabel}
         isOptionEqualToValue={(option, selectedOption) => String(option?._id || option?.email || option?.name || "") === String(selectedOption?._id || selectedOption?.email || selectedOption?.name || "")}
         onChange={(event, option) => {
-          const patch = { [field.name]: option?.[optionValue] || option?.[optionLabel] || "" };
+          const patch = { [field.name]: option?.[optionValue] || option?.[optionLabel] || option?.typename || "" };
           if (field.name === "providername" && option) {
             patch.providerid = option._id;
             patch.servicetype = option.servicetype || form.servicetype;

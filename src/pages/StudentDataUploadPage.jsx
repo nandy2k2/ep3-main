@@ -34,7 +34,7 @@ import ep1 from "../api/ep1";
 import global1 from "./global1";
 
 const subjectFields = ["Major", "Minor", "AEC", "SEC", "VAC", "IDC", "MDC"];
-const fields = ["name", "regno", "scholarnumber", "abcid", "password", "email", "googleemail", "excluded", "phone", "fathername", "mothername", "dob", "nationality", "address", "regulation", "program", "programcode", "Mediumofinstruction", "specialization1", "specialization2", ...subjectFields, "academicyear", "isfinalyear", "admissionyear", "rollno", "gender", "category", "state", "city", "district", "pincode", "guardianname", "guardianmobile", "guardianemail", "photo", "semester", "section"];
+const fields = ["name", "regno", "scholarnumber", "abcid", "password", "email", "googleemail", "excluded", "phone", "fathername", "mothername", "dob", "nationality", "address", "regulation", "program", "programcode", "Mediumofinstruction", "specialization1", "specialization2", ...subjectFields, "academicyear", "isfinalyear", "admissionyear", "rollno", "gender", "category", "annualincome", "freeshipcardholder", "state", "city", "district", "pincode", "guardianname", "guardianmobile", "guardianemail", "photo", "semester", "section"];
 const academicYears = ["2023-24", "2024-25", "2025-26", "2026-27", "2027-28"];
 const semesters = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
 const staticDropdownOptions = {
@@ -48,6 +48,8 @@ const staticDropdownOptions = {
   excluded: ["No", "Yes"]
   ,
   isfinalyear: ["No", "Yes"]
+  ,
+  freeshipcardholder: ["No", "Yes"]
 };
 const labels = {
   name: "Name",
@@ -83,6 +85,8 @@ const labels = {
   rollno: "Roll No",
   gender: "Gender",
   category: "Category",
+  annualincome: "Annual Income",
+  freeshipcardholder: "Freeship Card Holder",
   state: "State",
   city: "City",
   district: "District",
@@ -96,7 +100,7 @@ const labels = {
   department: "Department",
   institution: "Institution"
 };
-const viewFilterFields = ["academicyear", "isfinalyear", "program", "programcode", "Mediumofinstruction", "department", "semester", "section", "specialization1", "specialization2", "Major", "Minor", "IDC", "AEC", "SEC", "VAC", "name", "regno", "scholarnumber", "abcid", "email", "phone", "fathername", "mothername", "dob", "gender", "category", "nationality", "address", "state", "city", "district", "pincode", "institution", "excluded"];
+const viewFilterFields = ["academicyear", "isfinalyear", "program", "programcode", "Mediumofinstruction", "department", "semester", "section", "specialization1", "specialization2", "Major", "Minor", "IDC", "AEC", "SEC", "VAC", "name", "regno", "scholarnumber", "abcid", "email", "phone", "fathername", "mothername", "dob", "gender", "category", "annualincome", "freeshipcardholder", "nationality", "address", "state", "city", "district", "pincode", "institution", "excluded"];
 const blankViewFilter = { field: "academicyear", value: "" };
 const blankForm = { ...fields.reduce((acc, field) => ({ ...acc, [field]: staticDropdownOptions[field]?.[0] || "" }), {}), customFields: {} };
 const normalizeKey = (key) => String(key || "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -154,6 +158,8 @@ const valueFromRow = (row, field) => {
     rollno: ["rollno", "roll no", "roll number"],
     gender: ["gender"],
     category: ["category"],
+    annualincome: ["annualincome", "annual income", "parent annual income", "family annual income", "income"],
+    freeshipcardholder: ["freeshipcardholder", "freeship card holder", "free ship card holder", "freeship", "freeship card"],
     state: ["state"],
     city: ["city"],
     district: ["district"],

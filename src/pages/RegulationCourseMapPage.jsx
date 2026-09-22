@@ -32,7 +32,7 @@ const subjectTypes = ["Major", "Minor", "AEC", "SEC", "VAC", "IDC"];
 const courseTypes = ["Theory", "Practical"];
 const deliveryTypes = ["Compulsory", "Elective"];
 const payTypes = ["Paid", "Unpaid"];
-const electiveTypes = ["Internal", "External", "Mooc"];
+const electiveTypes = ["Open", "Programwise"];
 const filterLabels = {
   academicyear: "Academic Year",
   regulation: "Regulation",
@@ -46,6 +46,7 @@ const filterLabels = {
   deliverytype: "Delivery Type",
   paytype: "Pay Type",
   electivetype: "Elective Type",
+  prerequisitecoursecode: "Prerequisite Course Code",
   coursemastercode: "Course Master Code"
 };
 
@@ -66,8 +67,11 @@ const blankForm = {
   deliverytype: "Compulsory",
   paytype: "Unpaid",
   electivetype: "",
+  prerequisitecourse: "",
+  prerequisitecoursecode: "",
   coursemastercode: "",
   credit: 0,
+  amount: 0,
   status: "Active"
 };
 
@@ -96,10 +100,15 @@ const headerMap = {
   payType: "paytype",
   electivetype: "electivetype",
   electiveType: "electivetype",
+  prerequisitecourse: "prerequisitecourse",
+  prerequisiteCourse: "prerequisitecourse",
+  prerequisitecoursecode: "prerequisitecoursecode",
+  prerequisiteCourseCode: "prerequisitecoursecode",
   coursemastercode: "coursemastercode",
   courseMasterCode: "coursemastercode",
   credit: "credit",
   credits: "credit",
+  amount: "amount",
   status: "status"
 };
 
@@ -111,8 +120,8 @@ export default function RegulationCourseMapPage() {
   const [programs, setPrograms] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [form, setForm] = useState(blankForm);
-  const emptyFilters = { academicyear: "", regulation: "", programcode: "", faculty: "", institution: "", department: "", type: "", subject: "", coursetype: "", deliverytype: "", paytype: "", electivetype: "", coursemastercode: "" };
-  const filterFields = ["academicyear", "regulation", "programcode", "faculty", "institution", "department", "type", "subject", "coursetype", "deliverytype", "paytype", "electivetype", "coursemastercode"];
+  const emptyFilters = { academicyear: "", regulation: "", programcode: "", faculty: "", institution: "", department: "", type: "", subject: "", coursetype: "", deliverytype: "", paytype: "", electivetype: "", prerequisitecoursecode: "", coursemastercode: "" };
+  const filterFields = ["academicyear", "regulation", "programcode", "faculty", "institution", "department", "type", "subject", "coursetype", "deliverytype", "paytype", "electivetype", "prerequisitecoursecode", "coursemastercode"];
   const [filters, setFilters] = useState(emptyFilters);
   const [editingId, setEditingId] = useState("");
   const [uploadRows, setUploadRows] = useState([]);
@@ -212,6 +221,7 @@ export default function RegulationCourseMapPage() {
     deliverytype: uniqueSorted(optionRows.map((row) => row.deliverytype)),
     paytype: uniqueSorted(optionRows.map((row) => row.paytype)),
     electivetype: uniqueSorted(optionRows.map((row) => row.electivetype)),
+    prerequisitecoursecode: uniqueSorted(optionRows.map((row) => row.prerequisitecoursecode)),
     coursemastercode: uniqueSorted(optionRows.map((row) => row.coursemastercode))
   }), [optionRows]);
 
@@ -232,6 +242,14 @@ export default function RegulationCourseMapPage() {
     });
     return [...map.values()].sort((a, b) => String(a.programcode).localeCompare(String(b.programcode)));
   }, [programs, optionRows]);
+  const prerequisiteCourseOptions = useMemo(() => {
+    const map = new Map();
+    optionRows.forEach((row) => {
+      if (row.coursecode) map.set(row.coursecode, { course: row.course || "", coursecode: row.coursecode || "" });
+    });
+    if (form.coursecode) map.delete(form.coursecode);
+    return [...map.values()].sort((a, b) => `${a.course} ${a.coursecode}`.localeCompare(`${b.course} ${b.coursecode}`));
+  }, [optionRows, form.coursecode]);
   const programFilterLabels = useMemo(() => {
     const labels = {};
     optionRows.forEach((row) => {
@@ -301,8 +319,11 @@ export default function RegulationCourseMapPage() {
       deliverytype: row.deliverytype || "Compulsory",
       paytype: row.paytype || "Unpaid",
       electivetype: row.electivetype || "",
+      prerequisitecourse: row.prerequisitecourse || "",
+      prerequisitecoursecode: row.prerequisitecoursecode || "",
       coursemastercode: row.coursemastercode || "",
       credit: row.credit || 0,
+      amount: row.amount || 0,
       status: row.status || "Active"
     });
   };
@@ -361,9 +382,12 @@ export default function RegulationCourseMapPage() {
       "Course Type": "Theory",
       "Delivery Type": "Compulsory",
       "Pay Type": "Unpaid",
-      "Elective Type": "Internal",
+      "Elective Type": "Open",
+      "Prerequisite Course": "",
+      "Prerequisite Course Code": "",
       "Course Master Code": "MASTER101",
       Credit: 4,
+      Amount: 0,
       Status: "Active"
     };
     const ws = XLSX.utils.json_to_sheet([row]);
@@ -453,8 +477,11 @@ export default function RegulationCourseMapPage() {
     { field: "deliverytype", headerName: "Delivery Type", width: 150 },
     { field: "paytype", headerName: "Pay Type", width: 120 },
     { field: "electivetype", headerName: "Elective Type", width: 140 },
+    { field: "prerequisitecourse", headerName: "Prerequisite Course", width: 200 },
+    { field: "prerequisitecoursecode", headerName: "Prerequisite Course Code", width: 180 },
     { field: "coursemastercode", headerName: "Course Master Code", width: 180 },
     { field: "credit", headerName: "Credit", width: 110, type: "number" },
+    { field: "amount", headerName: "Amount", width: 120, type: "number" },
     { field: "status", headerName: "Status", width: 120 }
   ];
 
@@ -568,15 +595,40 @@ export default function RegulationCourseMapPage() {
               <InputLabel>Elective Type</InputLabel>
               <Select label="Elective Type" value={form.electivetype} onChange={(e) => updateFormValue("electivetype", e.target.value)}>
                 <MenuItem value="">Not applicable</MenuItem>
+                {form.electivetype && !electiveTypes.includes(form.electivetype) && <MenuItem value={form.electivetype}>{form.electivetype}</MenuItem>}
                 {electiveTypes.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
               </Select>
             </FormControl>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <Autocomplete
+              freeSolo
+              options={prerequisiteCourseOptions}
+              value={prerequisiteCourseOptions.find((item) => item.coursecode === form.prerequisitecoursecode) || (form.prerequisitecourse ? { course: form.prerequisitecourse, coursecode: form.prerequisitecoursecode } : null)}
+              getOptionLabel={(option) => (typeof option === "string" ? option : `${option.course || ""}${option.coursecode ? ` (${option.coursecode})` : ""}`)}
+              isOptionEqualToValue={(option, value) => option.coursecode === value.coursecode}
+              onInputChange={(_, value, reason) => {
+                if (reason === "input") setForm((prev) => ({ ...prev, prerequisitecourse: value || "" }));
+              }}
+              onChange={(_, value) => setForm((prev) => ({
+                ...prev,
+                prerequisitecourse: typeof value === "string" ? value : value?.course || "",
+                prerequisitecoursecode: typeof value === "string" ? prev.prerequisitecoursecode : value?.coursecode || ""
+              }))}
+              renderInput={(params) => <TextField {...params} label="Prerequisite Course" />}
+            />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField fullWidth label="Prerequisite Course Code" value={form.prerequisitecoursecode} onChange={(e) => updateFormValue("prerequisitecoursecode", e.target.value)} />
           </Grid>
           <Grid item xs={12} md={2}>
             <TextField fullWidth label="Course Master Code" value={form.coursemastercode} onChange={(e) => updateFormValue("coursemastercode", e.target.value)} />
           </Grid>
           <Grid item xs={12} md={1}>
             <TextField fullWidth required type="number" label="Credit" value={form.credit} onChange={(e) => updateFormValue("credit", e.target.value)} />
+          </Grid>
+          <Grid item xs={12} md={1}>
+            <TextField fullWidth type="number" label="Amount" value={form.amount} onChange={(e) => updateFormValue("amount", e.target.value)} />
           </Grid>
         </Grid>
         <Stack direction="row" spacing={1} sx={{ mt: 2 }}>

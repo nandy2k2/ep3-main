@@ -24,6 +24,12 @@ import { classCalendarSortKey, classDisplayDate, classDisplayLabel, classDisplay
 const cleanText = (value) => String(value || "").trim().toLowerCase();
 const fieldsMatch = (left, right) => cleanText(left) === cleanText(right);
 const optionalFieldsMatch = (left, right) => !cleanText(left) || !cleanText(right) || fieldsMatch(left, right);
+const programDisplay = (row = {}) => {
+  const program = String(row.program || "").trim();
+  const programcode = String(row.programcode || "").trim();
+  if (program && programcode) return `${program} (${programcode})`;
+  return program || programcode || "-";
+};
 const uniqueSorted = (values = []) => [...new Set(values.map((item) => String(item || "").trim()).filter(Boolean))]
   .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 const parseDate = (value) => {
@@ -41,7 +47,7 @@ const dateTitle = (date) => date.toLocaleDateString(undefined, { weekday: "long"
 const weekTitle = (start, end) => `${start.toLocaleDateString(undefined, { day: "numeric", month: "short" })} - ${end.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}`;
 const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-export const classLabel = (row = {}) => `${classDisplayLabel(row)} | ${row.coursecode || ""} - ${row.course || ""} | ${row.programcode || ""} | Sem ${row.semester || ""}`;
+export const classLabel = (row = {}) => `${classDisplayLabel(row)} | ${row.coursecode || ""} - ${row.course || ""} | ${programDisplay(row)} | Sem ${row.semester || ""}`;
 
 export default function NepLmsFacultyClassSelector({ selectedClassId, onSelectClass, title = "Select Class", initialClassId = "" }) {
   const [classes, setClasses] = useState([]);
@@ -65,20 +71,22 @@ export default function NepLmsFacultyClassSelector({ selectedClassId, onSelectCl
       ]);
       const currentUser = cleanText(global1.user);
       const assignedRows = (workloadRes.data?.data || []).filter((row) => currentUser && cleanText(row.facultyemail) === currentUser);
-      const classRows = (timetableRes.data?.data || []).filter((classRow) => {
+      const classRows = (timetableRes.data?.data || []).map((classRow) => {
         const classFacultyEmail = cleanText(classRow.facultyemail);
-        if (classFacultyEmail && classFacultyEmail !== currentUser) return false;
-        return assignedRows.some((assignment) => (
-          fieldsMatch(assignment.academicyear, classRow.academicyear)
-          && fieldsMatch(assignment.programcode, classRow.programcode)
-          && optionalFieldsMatch(assignment.regulation, classRow.regulation)
-          && optionalFieldsMatch(assignment.program, classRow.program)
-          && fieldsMatch(assignment.subject, classRow.major)
-          && fieldsMatch(assignment.semester, classRow.semester)
-          && fieldsMatch(assignment.coursecode, classRow.coursecode)
-          && (!classFacultyEmail || fieldsMatch(assignment.facultyemail, classRow.facultyemail))
+        if (classFacultyEmail && classFacultyEmail !== currentUser) return null;
+        const assignment = assignedRows.find((item) => (
+          fieldsMatch(item.academicyear, classRow.academicyear)
+          && fieldsMatch(item.programcode, classRow.programcode)
+          && optionalFieldsMatch(item.regulation, classRow.regulation)
+          && optionalFieldsMatch(item.program, classRow.program)
+          && fieldsMatch(item.subject, classRow.major)
+          && fieldsMatch(item.semester, classRow.semester)
+          && fieldsMatch(item.coursecode, classRow.coursecode)
+          && (!classFacultyEmail || fieldsMatch(item.facultyemail, classRow.facultyemail))
         ));
-      });
+        if (!assignment) return null;
+        return { ...classRow, program: classRow.program || assignment.program, programcode: classRow.programcode || assignment.programcode };
+      }).filter(Boolean);
       setClasses(classRows);
       if (initialClassId) {
         const requestedClass = classRows.find((row) => row._id === initialClassId);
@@ -239,7 +247,7 @@ export default function NepLmsFacultyClassSelector({ selectedClassId, onSelectCl
                           <Box key={item._id} onClick={(event) => { event.stopPropagation(); onSelectClass(item); }} sx={{ cursor: "pointer", bgcolor: active ? "#dcfce7" : "#eef2ff", border: active ? "1px solid #16a34a" : "1px solid #c7d2fe", borderLeft: active ? "4px solid #16a34a" : "4px solid #4f46e5", borderRadius: 1, px: 0.8, py: 0.6 }}>
                             <Typography variant="caption" fontWeight={900} display="block">{classDisplayTime(item) || "-"} | {item.coursecode}</Typography>
                             <Typography variant="caption" display="block">{item.course || item.topic || "-"}</Typography>
-                            <Typography variant="caption" display="block" color="text.secondary">Sem {item.semester} | {item.major}</Typography>
+                            <Typography variant="caption" display="block" color="text.secondary">{programDisplay(item)} | Sem {item.semester} | {item.major}</Typography>
                           </Box>
                         );
                       })}

@@ -95,7 +95,7 @@ const headerMap = {
   status: "status"
 };
 
-export default function AssessmentComponentPage() {
+function AssessmentComponentPage({ programwiseOnly = false } = {}) {
   const colid = useMemo(() => global1.colid, []);
   const [rows, setRows] = useState([]);
   const [form, setForm] = useState(blankForm);
@@ -132,12 +132,26 @@ export default function AssessmentComponentPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [accessPrograms, setAccessPrograms] = useState([]);
+  const [accessLoaded, setAccessLoaded] = useState(!programwiseOnly);
+  const userEmail = useMemo(() => String(global1.user || global1.email || "").trim().toLowerCase(), []);
+  const allowedProgramCodes = useMemo(() => uniqueSorted(accessPrograms.map((item) => item.programcode)), [accessPrograms]);
+  const programRestriction = () => (programwiseOnly ? { programcodes: allowedProgramCodes.length ? allowedProgramCodes.join(",") : "__no_program_access__" } : {});
 
   useEffect(() => {
-    loadOptions();
     loadAiOptions();
-    loadRows();
+    if (programwiseOnly) loadProgramwiseAccess();
+    else {
+      loadOptions();
+      loadRows();
+    }
   }, []);
+
+  useEffect(() => {
+    if (!programwiseOnly || !accessLoaded) return;
+    loadOptions();
+    loadRows();
+  }, [accessLoaded, allowedProgramCodes.join(",")]);
 
   useEffect(() => {
     loadCourses(form);
@@ -145,7 +159,7 @@ export default function AssessmentComponentPage() {
 
   const loadOptions = async () => {
     try {
-      const res = await ep1.get("/api/v2/assessmentcomponent/options", { params: { colid } });
+      const res = await ep1.get("/api/v2/assessmentcomponent/options", { params: { colid, ...programRestriction() } });
       setOptions({
         academicyears: res.data.academicyears || [],
         regulations: res.data.regulations || [],
@@ -162,6 +176,32 @@ export default function AssessmentComponentPage() {
       });
     } catch (err) {
       setError(err.response?.data?.message || "Error loading options");
+    }
+  };
+
+  const loadProgramwiseAccess = async () => {
+    try {
+      setAccessLoaded(false);
+      const res = await ep1.get("/api/v2/programwiseaccess", { params: { colid } });
+      const assigned = (res.data?.data || [])
+        .filter((item) => String(item.useremail || "").trim().toLowerCase() === userEmail)
+        .map((item) => ({
+          program: item.program || item.programcode || "",
+          programcode: item.programcode || "",
+          semester: item.semester || "",
+          department: item.department || ""
+        }))
+        .filter((item) => item.programcode);
+      const map = new Map();
+      assigned.forEach((item) => {
+        if (!map.has(item.programcode)) map.set(item.programcode, item);
+      });
+      setAccessPrograms([...map.values()].sort((a, b) => String(a.programcode || "").localeCompare(String(b.programcode || ""), undefined, { numeric: true })));
+      setAccessLoaded(true);
+    } catch (err) {
+      setAccessPrograms([]);
+      setAccessLoaded(true);
+      setError(err.response?.data?.message || "Unable to load programwise access");
     }
   };
 
@@ -195,6 +235,7 @@ export default function AssessmentComponentPage() {
       const res = await ep1.get("/api/v2/assessmentcomponent/options", {
         params: {
           colid,
+          ...programRestriction(),
           academicyear: source.academicyear,
           regulation: source.regulation,
           program: source.program,
@@ -224,6 +265,7 @@ export default function AssessmentComponentPage() {
       setLoading(true);
       setError("");
       const params = { colid };
+      Object.assign(params, programRestriction());
       Object.entries(nextFilters).forEach(([key, value]) => {
         if (value) params[key] = value;
       });
@@ -247,23 +289,23 @@ export default function AssessmentComponentPage() {
   const componentTypeOptions = useMemo(() => uniqueSorted([...componentTypes, ...(options.componenttypes || []), ...rows.map((row) => row.componenttype)]), [options.componenttypes, rows]);
   const programOptions = useMemo(() => {
     const map = new Map();
-    options.programs.forEach((item) => {
+    (programwiseOnly ? accessPrograms : options.programs).forEach((item) => {
       if (item.programcode) map.set(item.programcode, { programcode: item.programcode, program: item.program || "" });
     });
     rows.forEach((row) => {
       if (row.programcode && !map.has(row.programcode)) map.set(row.programcode, { programcode: row.programcode, program: row.program || "" });
     });
     return [...map.values()].sort((a, b) => String(a.programcode).localeCompare(String(b.programcode)));
-  }, [options.programs, rows]);
+  }, [accessPrograms, options.programs, programwiseOnly, rows]);
   const validationProgramOptions = useMemo(() => {
     const map = new Map();
-    [...options.programs, ...options.courses, ...rows].forEach((item) => {
+    [...(programwiseOnly ? accessPrograms : options.programs), ...options.courses, ...rows].forEach((item) => {
       if (item.programcode && (!validationForm.academicyear || item.academicyear === validationForm.academicyear)) {
         map.set(item.programcode, { programcode: item.programcode, program: item.program || "" });
       }
     });
     return [...map.values()].sort((a, b) => String(a.programcode || "").localeCompare(String(b.programcode || ""), undefined, { numeric: true }));
-  }, [options.programs, options.courses, rows, validationForm.academicyear]);
+  }, [accessPrograms, options.programs, options.courses, programwiseOnly, rows, validationForm.academicyear]);
   const allCourses = useMemo(() => {
     const map = new Map();
     [...options.courses, ...courses].forEach((item) => {
@@ -578,18 +620,25 @@ export default function AssessmentComponentPage() {
   ];
 
   return (
-    <MenuPageShell title="Assessment Component">
+    <MenuPageShell title={programwiseOnly ? "Programwise Assessment Components" : "Assessment Component"}>
     <Container maxWidth="xl" sx={{ py: 3 }}>
       <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
         <Box>
-          <Typography variant="h5" fontWeight={700}>Assessment Components</Typography>
-          <Typography variant="body2" color="text.secondary">Configure assessment components, marks and weightage for mapped courses.</Typography>
+          <Typography variant="h5" fontWeight={700}>{programwiseOnly ? "Programwise Assessment Components" : "Assessment Components"}</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {programwiseOnly
+              ? "Configure assessment components only for programs assigned to you in programwise access."
+              : "Configure assessment components, marks and weightage for mapped courses."}
+          </Typography>
         </Box>
         <Button component={RouterLink} to="/dashdashfacnew" variant="outlined" startIcon={<ArrowBack />}>Back</Button>
       </Stack>
 
       {message && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setMessage("")}>{message}</Alert>}
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
+      {programwiseOnly && accessLoaded && !allowedProgramCodes.length && (
+        <Alert severity="warning" sx={{ mb: 2 }}>No programwise access is assigned to your user. Please assign programs in Programwise access first.</Alert>
+      )}
 
       <Paper component="form" onSubmit={saveRow} sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={2}>
@@ -887,3 +936,9 @@ export default function AssessmentComponentPage() {
     </MenuPageShell>
   );
 }
+
+export function ProgramwiseAssessmentComponentPage() {
+  return <AssessmentComponentPage programwiseOnly />;
+}
+
+export default AssessmentComponentPage;

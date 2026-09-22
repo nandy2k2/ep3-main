@@ -56,6 +56,12 @@ const uniqueSorted = (values = []) => [...new Set(values.map((item) => String(it
 const cleanText = (value) => String(value || "").trim().toLowerCase();
 const fieldsMatch = (left, right) => cleanText(left) === cleanText(right);
 const optionalFieldsMatch = (left, right) => !cleanText(left) || !cleanText(right) || fieldsMatch(left, right);
+const programDisplay = (row = {}) => {
+  const program = String(row.program || "").trim();
+  const programcode = String(row.programcode || "").trim();
+  if (program && programcode) return `${program} (${programcode})`;
+  return program || programcode || "-";
+};
 const parseDate = (value) => {
   if (!value) return null;
   const date = new Date(`${value}T00:00:00`);
@@ -157,21 +163,22 @@ export default function NepLmsAttendancePage({ sectionMode = false, pageTitle = 
   const matchedClasses = useMemo(() => {
     if (!filteredAssignments.length) return [];
     const currentUser = cleanText(global1.user);
-    return classes.filter((classRow) => {
+    return classes.map((classRow) => {
       const classFacultyEmail = cleanText(classRow.facultyemail);
-      if (classFacultyEmail && classFacultyEmail !== currentUser) return false;
-
-      return filteredAssignments.some((assignment) => (
-        fieldsMatch(assignment.academicyear, classRow.academicyear)
-        && fieldsMatch(assignment.programcode, classRow.programcode)
-        && optionalFieldsMatch(assignment.regulation, classRow.regulation)
-        && optionalFieldsMatch(assignment.program, classRow.program)
-        && fieldsMatch(assignment.subject, classRow.major)
-        && fieldsMatch(assignment.semester, classRow.semester)
-        && fieldsMatch(assignment.coursecode, classRow.coursecode)
-        && (!classFacultyEmail || fieldsMatch(assignment.facultyemail, classRow.facultyemail))
+      if (classFacultyEmail && classFacultyEmail !== currentUser) return null;
+      const assignment = filteredAssignments.find((item) => (
+        fieldsMatch(item.academicyear, classRow.academicyear)
+        && fieldsMatch(item.programcode, classRow.programcode)
+        && optionalFieldsMatch(item.regulation, classRow.regulation)
+        && optionalFieldsMatch(item.program, classRow.program)
+        && fieldsMatch(item.subject, classRow.major)
+        && fieldsMatch(item.semester, classRow.semester)
+        && fieldsMatch(item.coursecode, classRow.coursecode)
+        && (!classFacultyEmail || fieldsMatch(item.facultyemail, classRow.facultyemail))
       ));
-    });
+      if (!assignment) return null;
+      return { ...classRow, program: classRow.program || assignment.program, programcode: classRow.programcode || assignment.programcode };
+    }).filter(Boolean);
   }, [classes, filteredAssignments]);
 
   const sectionOptions = useMemo(() => uniqueSorted(matchedClasses.map((row) => row.section)), [matchedClasses]);
@@ -543,7 +550,7 @@ export default function NepLmsAttendancePage({ sectionMode = false, pageTitle = 
                 <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "#f8fafc" }}>
                   <Typography fontWeight={800}>{assignment.coursecode} - {assignment.course}</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {assignment.academicyear} | {assignment.programcode || assignment.program} | Sem {assignment.semester}
+                    {assignment.academicyear} | {programDisplay(assignment)} | Sem {assignment.semester}
                   </Typography>
                   <Typography variant="caption" display="block">
                     Major: {assignment.subject || "-"} | Faculty: {assignment.facultyname || "-"}
@@ -644,7 +651,7 @@ export default function NepLmsAttendancePage({ sectionMode = false, pageTitle = 
                             >
                               <Typography variant="caption" fontWeight={900} display="block">{classDisplayTime(item) || "-"} | {item.coursecode}</Typography>
                               <Typography variant="caption" display="block">{item.course || item.topic || "-"}</Typography>
-                              <Typography variant="caption" display="block" color="text.secondary">Sem {item.semester} | {item.major}</Typography>
+                              <Typography variant="caption" display="block" color="text.secondary">{programDisplay(item)} | Sem {item.semester} | {item.major}</Typography>
                             </Box>
                           );
                         })}
@@ -665,7 +672,7 @@ export default function NepLmsAttendancePage({ sectionMode = false, pageTitle = 
               <Box>
                 <Typography variant="h6">{selectedClass.coursecode} - {selectedClass.course}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {classDisplayLabel(selectedClass)} | {selectedClass.programcode || selectedClass.program} | Sem {selectedClass.semester} | {selectedClass.major}
+                  {classDisplayLabel(selectedClass)} | {programDisplay(selectedClass)} | Sem {selectedClass.semester} | {selectedClass.major}
                 </Typography>
               </Box>
               <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>

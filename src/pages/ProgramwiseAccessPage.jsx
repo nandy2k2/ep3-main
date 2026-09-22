@@ -36,6 +36,7 @@ const emptyForm = {
 
 const SELECT_ALL_USERS = { _id: "__all_users__", name: "Select all users", email: "" };
 const SELECT_ALL_PROGRAMS = { _id: "__all_programs__", program: "Select all programs", programcode: "" };
+const SELECT_ALL_SEMESTERS = "__all_semesters__";
 const autocompleteFilter = createFilterOptions();
 
 function userLabel(user) {
@@ -55,13 +56,14 @@ export default function ProgramwiseAccessPage() {
   const [form, setForm] = useState(emptyForm);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [selectedPrograms, setSelectedPrograms] = useState([]);
+  const [selectedSemesters, setSelectedSemesters] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const semesterOptions = useMemo(() => {
     const saved = rows.map((row) => row.semester).filter(Boolean);
-    return [...new Set(["", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", ...saved])];
+    return [...new Set(["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", ...saved])];
   }, [rows]);
 
   const loadAll = async () => {
@@ -138,10 +140,25 @@ export default function ProgramwiseAccessPage() {
     }));
   };
 
+  const selectSemesters = (value) => {
+    const incoming = (value || []).map((item) => String(item || "").trim()).filter(Boolean);
+    if (incoming.includes(SELECT_ALL_SEMESTERS)) {
+      const allSelected = selectedSemesters.length === semesterOptions.length && semesterOptions.length > 0;
+      const next = allSelected ? [] : semesterOptions;
+      setSelectedSemesters(next);
+      setForm((prev) => ({ ...prev, semester: next.join(", ") }));
+      return;
+    }
+    const next = [...new Set(incoming.filter((item) => item !== SELECT_ALL_SEMESTERS))];
+    setSelectedSemesters(next);
+    setForm((prev) => ({ ...prev, semester: next.join(", ") }));
+  };
+
   const resetForm = () => {
     setForm(emptyForm);
     setSelectedUsers([]);
     setSelectedPrograms([]);
+    setSelectedSemesters([]);
   };
 
   const save = async () => {
@@ -149,9 +166,11 @@ export default function ProgramwiseAccessPage() {
     setError("");
     setMessage("");
     try {
-      if (form.id && selectedUsers.length === 1 && selectedPrograms.length === 1) {
+      const semesterList = selectedSemesters.length ? selectedSemesters : [""];
+      if (form.id && selectedUsers.length === 1 && selectedPrograms.length === 1 && semesterList.length === 1) {
         await ep1.post("/api/v2/programwiseaccess", {
           ...form,
+          semester: semesterList[0],
           colid: global1.colid,
           user: global1.user,
           createdby: global1.user
@@ -159,15 +178,17 @@ export default function ProgramwiseAccessPage() {
         setMessage("Program access saved.");
       } else {
         const entries = selectedUsers.flatMap((user) =>
-          selectedPrograms.map((program) => ({
-            username: user?.name || "",
-            useremail: user?.email || "",
-            userid: user?._id || "",
-            program: program?.program || "",
-            programcode: program?.programcode || "",
-            semester: form.semester || "",
-            department: program?.department || ""
-          }))
+          selectedPrograms.flatMap((program) =>
+            semesterList.map((semester) => ({
+              username: user?.name || "",
+              useremail: user?.email || "",
+              userid: user?._id || "",
+              program: program?.program || "",
+              programcode: program?.programcode || "",
+              semester,
+              department: program?.department || ""
+            }))
+          )
         );
         const res = await ep1.post("/api/v2/programwiseaccess", {
           colid: global1.colid,
@@ -189,8 +210,10 @@ export default function ProgramwiseAccessPage() {
   const editRow = (row) => {
     const user = users.find((item) => item.email === row.useremail) || null;
     const program = programs.find((item) => item.programcode === row.programcode) || null;
+    const semester = row.semester ? [row.semester] : [];
     setSelectedUsers(user ? [user] : []);
     setSelectedPrograms(program ? [program] : []);
+    setSelectedSemesters(semester);
     setForm({
       id: row._id,
       username: row.username || "",
@@ -316,14 +339,33 @@ export default function ProgramwiseAccessPage() {
               </Grid>
               <Grid item xs={12} md={2}>
                 <Autocomplete
+                  multiple
+                  disableCloseOnSelect
                   freeSolo
-                  options={semesterOptions}
-                  value={form.semester || ""}
-                  onChange={(_, value) => setForm((prev) => ({ ...prev, semester: value || "" }))}
-                  onInputChange={(_, value) => setForm((prev) => ({ ...prev, semester: value || "" }))}
-                  getOptionLabel={(option) => option ? String(option) : "All semesters"}
-                  renderOption={(props, option) => <li {...props}>{option || "All semesters"}</li>}
-                  renderInput={(params) => <TextField {...params} label="Semester" helperText="Blank means all semesters" />}
+                  options={[SELECT_ALL_SEMESTERS, ...semesterOptions]}
+                  filterOptions={(options, params) => [
+                    SELECT_ALL_SEMESTERS,
+                    ...autocompleteFilter(options.filter((option) => option !== SELECT_ALL_SEMESTERS), params)
+                  ]}
+                  value={selectedSemesters}
+                  onChange={(_, value) => selectSemesters(value)}
+                  getOptionLabel={(option) => (option === SELECT_ALL_SEMESTERS ? "Select all semesters" : String(option || ""))}
+                  renderOption={(props, option, { selected }) => {
+                    const isSelectAll = option === SELECT_ALL_SEMESTERS;
+                    const checked = isSelectAll ? selectedSemesters.length === semesterOptions.length && semesterOptions.length > 0 : selected;
+                    return (
+                      <li {...props}>
+                        <Checkbox checked={checked} sx={{ mr: 1 }} />
+                        {isSelectAll ? "Select all semesters" : option}
+                      </li>
+                    );
+                  }}
+                  renderTags={(value, getTagProps) =>
+                    value.slice(0, 2).map((option, index) => (
+                      <Chip size="small" label={option} {...getTagProps({ index })} />
+                    )).concat(value.length > 2 ? [<Chip key="more-semesters" size="small" label={`+${value.length - 2} more`} />] : [])
+                  }
+                  renderInput={(params) => <TextField {...params} label="Semester" helperText="Select one or more. Blank means all semesters." />}
                 />
               </Grid>
               <Grid item xs={12}>

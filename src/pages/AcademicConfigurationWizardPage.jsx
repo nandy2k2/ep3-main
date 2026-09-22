@@ -71,6 +71,12 @@ const steps = [
     description: "Map courses to academic year, regulation, program, semester, credits, type, faculty, institution, and department."
   },
   {
+    title: "Assessment Component",
+    path: "/assessmentcomponent",
+    icon: <FactCheck />,
+    description: "Define course-wise assessment components, marks, weightage and score type after courses are mapped."
+  },
+  {
     title: "PO",
     path: "/program-outcomes",
     icon: <EmojiEvents />,

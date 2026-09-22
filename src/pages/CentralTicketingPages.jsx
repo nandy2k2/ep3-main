@@ -34,6 +34,19 @@ const displayValue = (value) => {
   if (value === 0) return "0";
   return value ? String(value) : "-";
 };
+const wrapGridSx = {
+  "& .MuiDataGrid-cell": {
+    alignItems: "flex-start",
+    lineHeight: 1.35,
+    py: 1,
+    whiteSpace: "normal",
+    overflowWrap: "anywhere"
+  },
+  "& .MuiDataGrid-columnHeaderTitle": {
+    whiteSpace: "normal",
+    lineHeight: 1.2
+  }
+};
 
 function Shell({ title, children }) {
   return (
@@ -93,6 +106,12 @@ const ticketColumns = [
   { field: "startdatetime", headerName: "Start date/time", width: 170, valueGetter: ({ row }) => safeDateTime(row.startdatetime) },
   { field: "createdAt", headerName: "Created", width: 140, valueGetter: ({ row }) => safeDate(row.createdAt) },
   { field: "closedat", headerName: "Closed", width: 140, valueGetter: ({ row }) => safeDate(row.closedat) }
+];
+
+const ticketRaiseColumns = [
+  ...ticketColumns.slice(0, 4),
+  { field: "airesponse", headerName: "Suggested remedy", minWidth: 360, flex: 1 },
+  ...ticketColumns.slice(4)
 ];
 
 const globalTicketColumns = [
@@ -295,10 +314,23 @@ export function CentralTicketRaisePage() {
           <Grid item xs={12} md={2}><Button fullWidth variant="contained" onClick={submit}>Submit ticket</Button></Grid>
         </Grid>
       </Paper>
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={7}><Paper sx={{ p: 1 }}><DataGrid rows={rows} getRowId={(r) => r._id} autoHeight slots={{ toolbar: GridToolbar }} columns={ticketColumns} onRowClick={({ row }) => { setSelected(row); loadDetails(row._id); }} /></Paper></Grid>
-        <Grid item xs={12} md={5}><TicketDetails selected={selected} details={details} loadDetails={loadDetails} canRespond={false} onChanged={load} /></Grid>
-      </Grid>
+      <Stack spacing={2}>
+        <Paper sx={{ p: 1, width: "100%" }}>
+          <DataGrid
+            rows={rows}
+            getRowId={(r) => r._id}
+            autoHeight
+            getRowHeight={() => "auto"}
+            sx={wrapGridSx}
+            slots={{ toolbar: GridToolbar }}
+            columns={ticketRaiseColumns}
+            onRowClick={({ row }) => { setSelected(row); loadDetails(row._id); }}
+          />
+        </Paper>
+        <Box sx={{ width: "100%" }}>
+          <TicketDetails selected={selected} details={details} loadDetails={loadDetails} canRespond={false} onChanged={load} />
+        </Box>
+      </Stack>
     </Shell>
   );
 }

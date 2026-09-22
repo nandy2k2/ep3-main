@@ -64,6 +64,7 @@ export default function NepLmsElectiveEnrollmentPage() {
       setBusy(true);
       const selected = students.filter((s) => selectedStudents.includes(s._id)).map((s) => ({ student: s.name, regno: s.regno, studentemail: s.email, phone: s.phone, section: s.section }));
       let saved = 0;
+      let ledgerProcessed = 0;
       for (const selectedCourse of selectedCourses) {
         const res = await ep1.post("/api/v2/nepclassenrollment/enroll", {
           colid: global1.colid,
@@ -79,8 +80,9 @@ export default function NepLmsElectiveEnrollmentPage() {
           students: selected
         });
         saved += Number(res.data.saved || 0);
+        ledgerProcessed += Number(res.data.ledgerProcessed || 0);
       }
-      setMessage(`Approved enrollment added for ${saved} student-course record${saved === 1 ? "" : "s"}`);
+      setMessage(`Approved enrollment added for ${saved} student-course record${saved === 1 ? "" : "s"}. Elective fee ledger updated for ${ledgerProcessed} record${ledgerProcessed === 1 ? "" : "s"}.`);
       loadEnrollments();
     } catch (err) {
       setError(err.response?.data?.message || "Unable to enroll students");

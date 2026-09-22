@@ -113,6 +113,7 @@ export default function AdmissionCancellationPage() {
       });
       setSelectedStudent(res.data?.student || student);
       setFees((res.data?.data || []).map((row) => ({ ...row, refunded: 0 })));
+      setAdministrativecharges(0);
       setMessage(`Loaded ${res.data?.count || 0} paid fee item(s)`);
     } catch (err) {
       setFees([]);
@@ -127,8 +128,8 @@ export default function AdmissionCancellationPage() {
       setError("Please select one student");
       return;
     }
-    if (!fees.some((row) => Number(row.refunded || 0) > 0)) {
-      setError("Please enter refund amount against at least one item");
+    if (!fees.some((row) => Number(row.refunded || 0) > 0) && Number(administrativecharges || 0) <= 0) {
+      setError("Please enter refund amount against at least one item or click No Refund");
       return;
     }
     if (!window.confirm(`Cancel admission for ${selectedStudent.name || selectedStudent.regno}?`)) return;
@@ -172,9 +173,20 @@ export default function AdmissionCancellationPage() {
     setFees([]);
     setMessage("");
     setError("");
+    setAdministrativecharges(0);
   };
 
-  const feeColumns = [
+  const markNoRefund = () => {
+    if (!fees.length) {
+      setError("Load paid fee items before applying no refund.");
+      return;
+    }
+    setFees((prev) => prev.map((row) => ({ ...row, refunded: 0 })));
+    setAdministrativecharges(totalPaid);
+    setMessage(`No refund selected. Administrative charges set to total paid amount ${currency(totalPaid)}.`);
+  };
+
+  const feeColumns = useMemo(() => [
     { field: "academicyear", headerName: "Year", minWidth: 110 },
     { field: "feegroup", headerName: "Fee Group", minWidth: 170, flex: 1 },
     { field: "feeitem", headerName: "Fee Item", minWidth: 220, flex: 1 },
@@ -188,11 +200,11 @@ export default function AdmissionCancellationPage() {
         <TextField
           size="small"
           type="number"
-          value={params.row.refunded || ""}
+          value={params.row.refunded ?? ""}
           inputProps={{ min: 0, max: Number(params.row.paid || 0), step: "0.01" }}
           onKeyDown={(event) => event.stopPropagation()}
           onChange={(event) => {
-            const value = Math.min(Number(event.target.value || 0), Number(params.row.paid || 0));
+            const value = Math.max(0, Math.min(Number(event.target.value || 0), Number(params.row.paid || 0)));
             setFees((prev) => prev.map((row) => (row._id === params.row._id ? { ...row, refunded: value } : row)));
           }}
         />
@@ -200,7 +212,7 @@ export default function AdmissionCancellationPage() {
     },
     { field: "paiddate", headerName: "Paid Date", minWidth: 130, valueGetter: (params) => (params.row.paiddate ? new Date(params.row.paiddate).toLocaleDateString("en-IN") : "") },
     { field: "status", headerName: "Status", minWidth: 120 }
-  ];
+  ], []);
 
   return (
     <MenuPageShell title="Admission Cancellation">
@@ -296,9 +308,12 @@ export default function AdmissionCancellationPage() {
                   {selectedStudent.name} | {selectedStudent.regno} | Paid: {currency(totalPaid)} | Gross Refund: {currency(selectedRefundTotal)} | Charges: {currency(administrativecharges)} | Net Refund: {currency(netRefundTotal)}
                 </Typography>
               </Box>
-              <Button variant="contained" color="error" startIcon={<Save />} onClick={saveCancellation} disabled={saving || !fees.length}>
-                {saving ? "Saving..." : "Save Cancellation"}
-              </Button>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                <Button variant="outlined" color="warning" onClick={markNoRefund} disabled={saving || !fees.length}>No Refund</Button>
+                <Button variant="contained" color="error" startIcon={<Save />} onClick={saveCancellation} disabled={saving || !fees.length}>
+                  {saving ? "Saving..." : "Save Cancellation"}
+                </Button>
+              </Stack>
             </Stack>
             <Grid container spacing={2} sx={{ mb: 2 }}>
               <Grid item xs={12} md={3}>
@@ -318,8 +333,8 @@ export default function AdmissionCancellationPage() {
                   type="number"
                   label="Administrative Charges"
                   value={administrativecharges}
-                  inputProps={{ min: 0, max: selectedRefundTotal, step: "0.01" }}
-                  onChange={(event) => setAdministrativecharges(Math.min(Number(event.target.value || 0), selectedRefundTotal))}
+                  inputProps={{ min: 0, max: totalPaid, step: "0.01" }}
+                  onChange={(event) => setAdministrativecharges(Math.max(0, Math.min(Number(event.target.value || 0), totalPaid)))}
                 />
               </Grid>
               <Grid item xs={12}>

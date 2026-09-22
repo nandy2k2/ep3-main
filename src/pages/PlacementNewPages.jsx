@@ -32,6 +32,8 @@ const text = (value) => String(value || "").trim();
 const uniqueSorted = (values = []) => [...new Set(values.map(text).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 const basePayload = () => ({ colid: global1.colid, user: global1.user });
 const providerDefaults = { provider: "Gemini", geminiModel: "gemini-2.5-flash", ollamaConfigId: "", language: "English", prompt: "" };
+const semesterOptions = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
+const cgpaCheckOptions = ["10th", "12th", "CGPA"];
 const gridWrapSx = {
   "& .MuiDataGrid-cell": {
     alignItems: "flex-start",
@@ -235,7 +237,7 @@ export function PlacementCompanyDetailsPage() {
 export function PlacementJobPostingPage() {
   const { options, loadOptions } = usePlacementOptions();
   const [rows, setRows] = useState([]);
-  const [form, setForm] = useState({ industry: "", company: "", companyemail: "", type: "SIP", jobtitle: "", jobdetails: "", description: "", startdate: today, enddate: today, programs: [], minimumcgpa: 0, skills: "", status: "Active" });
+  const [form, setForm] = useState({ industry: "", company: "", companyemail: "", type: "SIP", jobtitle: "", jobdetails: "", description: "", startdate: today, enddate: today, programs: [], semester: [], minimumcgpa: 0, salary: 0, bondrequired: "No", joiningdate: "", termsandconditions: "", interntohire: "No", internshipsalary: 0, eligibilitycriteria: "", cgpachecking: [], atktno: 0, skills: "", status: "Active" });
   const [ai, setAi] = useState(providerDefaults);
   const [editingId, setEditingId] = useState("");
   const [selectedRows, setSelectedRows] = useState([]);
@@ -296,9 +298,19 @@ export function PlacementJobPostingPage() {
           <Grid item xs={12} md={1.5}><TextField fullWidth size="small" type="date" label="Start date" value={form.startdate} onChange={(e) => setForm((p) => ({ ...p, startdate: e.target.value }))} InputLabelProps={{ shrink: true }} /></Grid>
           <Grid item xs={12} md={1.5}><TextField fullWidth size="small" type="date" label="End date" value={form.enddate} onChange={(e) => setForm((p) => ({ ...p, enddate: e.target.value }))} InputLabelProps={{ shrink: true }} /></Grid>
           <Grid item xs={12} md={4}><Autocomplete multiple disableCloseOnSelect options={options.programs || []} value={form.programs || []} getOptionLabel={(o) => `${o.program || o.name || ""} - ${o.programcode || ""}`} isOptionEqualToValue={(o, v) => o.programcode === v.programcode} onChange={(_, v) => setForm((p) => ({ ...p, programs: v.map((item) => ({ program: item.program || item.name || "", programcode: item.programcode || "" })) }))} renderOption={(props, option, { selected }) => <li {...props}><Checkbox checked={selected} />{option.program || option.name} - {option.programcode}</li>} renderInput={(params) => <TextField {...params} size="small" label="Programs" />} /></Grid>
+          <Grid item xs={12} md={3}><Autocomplete multiple disableCloseOnSelect options={semesterOptions} value={form.semester || []} onChange={(_, v) => setForm((p) => ({ ...p, semester: v }))} renderOption={(props, option, { selected }) => <li {...props}><Checkbox checked={selected} />Semester {option}</li>} renderInput={(params) => <TextField {...params} size="small" label="Semester" />} /></Grid>
           <Grid item xs={12} md={2}><TextField fullWidth size="small" type="number" label="Minimum CGPA" value={form.minimumcgpa} onChange={(e) => setForm((p) => ({ ...p, minimumcgpa: e.target.value }))} /></Grid>
+          <Grid item xs={12} md={2}><TextField fullWidth size="small" type="number" label="Salary" value={form.salary || ""} onChange={(e) => setForm((p) => ({ ...p, salary: e.target.value }))} /></Grid>
+          <Grid item xs={12} md={2}><TextField select fullWidth size="small" label="Bond required" value={form.bondrequired || "No"} onChange={(e) => setForm((p) => ({ ...p, bondrequired: e.target.value }))}><MenuItem value="No">No</MenuItem><MenuItem value="Yes">Yes</MenuItem></TextField></Grid>
+          <Grid item xs={12} md={2}><TextField fullWidth size="small" type="date" label="Joining date" value={form.joiningdate || ""} onChange={(e) => setForm((p) => ({ ...p, joiningdate: e.target.value }))} InputLabelProps={{ shrink: true }} /></Grid>
+          <Grid item xs={12} md={2}><TextField select fullWidth size="small" label="Intern to hire" value={form.interntohire || "No"} onChange={(e) => setForm((p) => ({ ...p, interntohire: e.target.value }))}><MenuItem value="No">No</MenuItem><MenuItem value="Yes">Yes</MenuItem></TextField></Grid>
+          <Grid item xs={12} md={2}><TextField fullWidth size="small" type="number" label="Internship salary" value={form.internshipsalary || ""} onChange={(e) => setForm((p) => ({ ...p, internshipsalary: e.target.value }))} /></Grid>
+          <Grid item xs={12} md={2}><TextField fullWidth size="small" type="number" label="ATKT no" value={form.atktno || ""} onChange={(e) => setForm((p) => ({ ...p, atktno: e.target.value }))} /></Grid>
+          <Grid item xs={12} md={3}><Autocomplete multiple disableCloseOnSelect options={cgpaCheckOptions} value={form.cgpachecking || []} onChange={(_, v) => setForm((p) => ({ ...p, cgpachecking: v }))} renderOption={(props, option, { selected }) => <li {...props}><Checkbox checked={selected} />{option}</li>} renderInput={(params) => <TextField {...params} size="small" label="CGPA/percentage checking" />} /></Grid>
           <Grid item xs={12} md={3}><TextField fullWidth size="small" label="Skills" value={form.skills} onChange={(e) => setForm((p) => ({ ...p, skills: e.target.value }))} /></Grid>
           <Grid item xs={12} md={3}><TextField fullWidth size="small" label="Job details" value={form.jobdetails} onChange={(e) => setForm((p) => ({ ...p, jobdetails: e.target.value }))} /></Grid>
+          <Grid item xs={12} md={6}><TextField fullWidth multiline minRows={2} label="Eligibility criteria" value={form.eligibilitycriteria || ""} onChange={(e) => setForm((p) => ({ ...p, eligibilitycriteria: e.target.value }))} /></Grid>
+          <Grid item xs={12} md={6}><TextField fullWidth multiline minRows={2} label="Terms and conditions" value={form.termsandconditions || ""} onChange={(e) => setForm((p) => ({ ...p, termsandconditions: e.target.value }))} /></Grid>
           <Grid item xs={12}><AiControls ai={ai} setAi={setAi} options={options} /></Grid>
           <Grid item xs={12}><TextField fullWidth multiline minRows={5} label="Description" value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} /></Grid>
           <Grid item xs={12} md={2}><TextField select fullWidth size="small" label="Status" value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}><MenuItem value="Active">Active</MenuItem><MenuItem value="Inactive">Inactive</MenuItem></TextField></Grid>
@@ -308,7 +320,7 @@ export function PlacementJobPostingPage() {
       </Paper>
       <Stack direction="row" spacing={1} sx={{ mb: 2 }}><Button startIcon={<Refresh />} onClick={loadRows}>Refresh</Button><Button color="error" startIcon={<Delete />} disabled={!selectedRows.length} onClick={bulkDelete}>Bulk delete</Button></Stack>
       <Paper sx={{ p: 1 }}><DataGrid rows={rows} getRowId={(r) => r._id} checkboxSelection rowSelectionModel={selectedRows} onRowSelectionModelChange={(m) => setSelectedRows(m)} loading={loading} autoHeight slots={{ toolbar: GridToolbar }} columns={[
-        { field: "industry", headerName: "Industry", width: 150 }, { field: "company", headerName: "Company", width: 200 }, { field: "type", headerName: "Type", width: 110 }, { field: "jobtitle", headerName: "Job title", width: 220 }, { field: "startdate", headerName: "Start", width: 120 }, { field: "enddate", headerName: "End", width: 120 }, { field: "minimumcgpa", headerName: "Min CGPA", width: 110 }, { field: "skills", headerName: "Skills", width: 220 }, { field: "status", headerName: "Status", width: 110 },
+        { field: "industry", headerName: "Industry", width: 150 }, { field: "company", headerName: "Company", width: 200 }, { field: "type", headerName: "Type", width: 110 }, { field: "jobtitle", headerName: "Job title", width: 220 }, { field: "semester", headerName: "Semester", width: 150, valueGetter: ({ row }) => (row.semester || []).join(", ") }, { field: "startdate", headerName: "Start", width: 120 }, { field: "enddate", headerName: "End", width: 120 }, { field: "salary", headerName: "Salary", width: 120 }, { field: "minimumcgpa", headerName: "Min CGPA", width: 110 }, { field: "cgpachecking", headerName: "Checks", width: 150, valueGetter: ({ row }) => (row.cgpachecking || []).join(", ") }, { field: "atktno", headerName: "ATKT no", width: 100 }, { field: "skills", headerName: "Skills", width: 220 }, { field: "status", headerName: "Status", width: 110 },
         { field: "actions", type: "actions", width: 110, getActions: ({ row }) => [<GridActionsCellItem icon={<Edit />} label="Edit" onClick={() => { setEditingId(row._id); setForm({ ...form, ...row }); }} />, <GridActionsCellItem icon={<Delete />} label="Delete" onClick={() => remove(row)} />] }
       ]} /></Paper>
     </Shell>
@@ -500,6 +512,133 @@ export function StudentSipJobsPage() {
 
 export function StudentPlacementJobsPage() {
   return <StudentJobBrowser type="Placement" title="Placement jobs" />;
+}
+
+export function StudentPlacementInterestPage() {
+  const [form, setForm] = useState({ interested: "Yes", industry: "", comments: "" });
+  const [industries, setIndustries] = useState([]);
+  const [student, setStudent] = useState(null);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const load = async () => {
+    try {
+      setLoading(true);
+      const res = await ep1.get("/api/v2/placement-new-student/interest", { params: { ...basePayload(), email: global1.user, regno: global1.regno } });
+      setStudent(res.data?.student || null);
+      setIndustries(res.data?.industries || []);
+      if (res.data?.interest) setForm({ interested: res.data.interest.interested || "Yes", industry: res.data.interest.industry || "", comments: res.data.interest.comments || "" });
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load interest form");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { load(); }, []);
+  const save = async () => {
+    try {
+      setLoading(true);
+      await ep1.post("/api/v2/placement-new-student/interest", { ...basePayload(), email: global1.user, regno: global1.regno, ...form });
+      setMessage("Placement interest saved");
+      await load();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to save placement interest");
+    } finally {
+      setLoading(false);
+    }
+  };
+  return <Shell title="Placement interest" student><Typography variant="h5" fontWeight={900} sx={{ mb: 1 }}>Placement interest</Typography>{messageBlock(message, error)}{loading && <LinearProgress sx={{ mb: 2 }} />}<Paper sx={{ p: 2 }}><Grid container spacing={2}><Grid item xs={12} md={3}><TextField select fullWidth size="small" label="Interested in placement" value={form.interested} onChange={(e) => setForm((p) => ({ ...p, interested: e.target.value }))}><MenuItem value="Yes">Yes</MenuItem><MenuItem value="No">No</MenuItem></TextField></Grid><Grid item xs={12} md={4}><Autocomplete freeSolo options={industries} value={form.industry || ""} onInputChange={(_, value) => setForm((p) => ({ ...p, industry: value || "" }))} renderInput={(params) => <TextField {...params} size="small" label="Preferred industry" />} /></Grid><Grid item xs={12} md={5}><TextField fullWidth size="small" label="Comments" value={form.comments || ""} onChange={(e) => setForm((p) => ({ ...p, comments: e.target.value }))} /></Grid><Grid item xs={12}><Alert severity="info">Student details saved with this response: {student?.academicyear || global1.academicyear}, {student?.program || global1.program} ({student?.programcode || global1.programcode}), semester {student?.semester || global1.semester}.</Alert></Grid><Grid item xs={12} md={2}><Button fullWidth variant="contained" startIcon={<Save />} disabled={loading} onClick={save}>Save</Button></Grid></Grid></Paper></Shell>;
+}
+
+const interestColumns = [
+  { field: "academicyear", headerName: "Academic year", width: 130 },
+  { field: "student", headerName: "Student", width: 190 },
+  { field: "regno", headerName: "Reg no", width: 130 },
+  { field: "studentemail", headerName: "Email", width: 210 },
+  { field: "program", headerName: "Program", width: 180 },
+  { field: "programcode", headerName: "Program code", width: 130 },
+  { field: "semester", headerName: "Semester", width: 110 },
+  { field: "category", headerName: "Category", width: 120 },
+  { field: "interested", headerName: "Interested", width: 120 },
+  { field: "industry", headerName: "Industry", width: 180 },
+  { field: "comments", headerName: "Comments", width: 260 }
+];
+
+function DynamicInterestFilters({ filters, setFilters, onLoad }) {
+  const fields = ["academicyear", "regulation", "program", "programcode", "semester", "section", "department", "category", "gender", "student", "regno", "interested", "industry"];
+  return <Paper sx={{ p: 2, mb: 2 }}><Grid container spacing={2}>{fields.map((f) => <Grid key={f} item xs={12} md={2}><TextField fullWidth size="small" label={f} value={filters[f] || ""} onChange={(e) => setFilters((p) => ({ ...p, [f]: e.target.value }))} /></Grid>)}<Grid item xs={12} md={2}><Button fullWidth variant="contained" onClick={onLoad}>Load</Button></Grid></Grid></Paper>;
+}
+
+export function PlacementInterestedStudentsPage() {
+  const [filters, setFilters] = useState({});
+  const [rows, setRows] = useState([]);
+  const [institution, setInstitution] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const printRef = useRef(null);
+  const load = async () => {
+    try {
+      setLoading(true);
+      const res = await ep1.post("/api/v2/placement-new/interests", { ...basePayload(), ...filters });
+      setRows(res.data?.data || []);
+      setInstitution(res.data?.institution || null);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load interested students");
+    } finally {
+      setLoading(false);
+    }
+  };
+  return <Shell title="Interested students"><Stack direction="row" justifyContent="space-between" sx={{ mb: 2 }}><Typography variant="h5" fontWeight={900}>Interested students</Typography><Button startIcon={<Print />} onClick={() => printElement(printRef, "Interested students")}>Print preview</Button></Stack>{messageBlock("", error)}<DynamicInterestFilters filters={filters} setFilters={setFilters} onLoad={load} />{loading && <LinearProgress sx={{ mb: 2 }} />}<Box ref={printRef}><ReportHeader institution={institution} title="Interested students" /><Paper sx={{ p: 1 }}><DataGrid rows={rows} getRowId={(r) => r._id} autoHeight getRowHeight={() => "auto"} sx={gridWrapSx} loading={loading} slots={{ toolbar: GridToolbar }} columns={interestColumns} /></Paper></Box></Shell>;
+}
+
+export function PlacementInterestAnalysisPage() {
+  const [filters, setFilters] = useState({});
+  const [data, setData] = useState({ rows: [], byProgram: [], bySemester: [], byIndustry: [], byInterest: [], summary: {}, institution: null });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const printRef = useRef(null);
+  const load = async () => {
+    try {
+      setLoading(true);
+      const res = await ep1.post("/api/v2/placement-new/interest-analysis", { ...basePayload(), ...filters });
+      setData(res.data || {});
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load analysis");
+    } finally {
+      setLoading(false);
+    }
+  };
+  const cards = [["Total", data.summary?.total || 0], ["Interested", data.summary?.interested || 0], ["Not interested", data.summary?.notInterested || 0], ["Undecided", data.summary?.undecided || 0]];
+  return <Shell title="Interested students analysis"><Stack direction="row" justifyContent="space-between" sx={{ mb: 2 }}><Typography variant="h5" fontWeight={900}>Interested students analysis</Typography><Button startIcon={<Print />} onClick={() => printElement(printRef, "Interested students analysis")}>Print preview</Button></Stack>{messageBlock("", error)}<DynamicInterestFilters filters={filters} setFilters={setFilters} onLoad={load} />{loading && <LinearProgress sx={{ mb: 2 }} />}<Box ref={printRef}><ReportHeader institution={data.institution} title="Interested students analysis" /><Grid container spacing={2} sx={{ mb: 2 }}>{cards.map(([label, value]) => <Grid item xs={12} md={3} key={label}><Card><CardContent><Typography color="text.secondary">{label}</Typography><Typography variant="h4" fontWeight={900}>{value}</Typography></CardContent></Card></Grid>)}</Grid><Grid container spacing={2} sx={{ mb: 2 }}><Grid item xs={12} md={4}><Paper sx={{ p: 2, height: 300 }}><Typography fontWeight={800}>Interest</Typography><ResponsiveContainer><PieChart><Pie data={data.byInterest || []} dataKey="count" nameKey="name" outerRadius={95}>{(data.byInterest || []).map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer></Paper></Grid><Grid item xs={12} md={4}><Paper sx={{ p: 2, height: 300 }}><Typography fontWeight={800}>Programwise</Typography><ResponsiveContainer><BarChart data={data.byProgram || []}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="count" fill="#2563eb" /></BarChart></ResponsiveContainer></Paper></Grid><Grid item xs={12} md={4}><Paper sx={{ p: 2, height: 300 }}><Typography fontWeight={800}>Industry</Typography><ResponsiveContainer><BarChart data={data.byIndustry || []}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="count" fill="#16a34a" /></BarChart></ResponsiveContainer></Paper></Grid></Grid><Paper sx={{ p: 1 }}><DataGrid rows={data.rows || []} getRowId={(r) => r._id} autoHeight getRowHeight={() => "auto"} sx={gridWrapSx} slots={{ toolbar: GridToolbar }} columns={interestColumns} /></Paper></Box></Shell>;
+}
+
+export function PlacementEligibleStudentsPage() {
+  const [academicyear, setAcademicyear] = useState("");
+  const [type, setType] = useState("Placement");
+  const [job, setJob] = useState(null);
+  const [jobs, setJobs] = useState([]);
+  const [data, setData] = useState({ data: [], summary: {}, job: null });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const loadJobs = async () => {
+    const res = await ep1.get("/api/v2/placement-new/job", { params: { ...basePayload(), type, status: "Active" } });
+    setJobs(res.data?.data || []);
+    setJob(null);
+  };
+  useEffect(() => { loadJobs(); }, [type]);
+  const match = async () => {
+    try {
+      if (!job?._id) return setError("Select an active job");
+      setLoading(true);
+      const res = await ep1.post("/api/v2/placement-new/eligible-students", { ...basePayload(), academicyear, type, jobid: job._id });
+      setData(res.data || {});
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to match eligible students");
+    } finally {
+      setLoading(false);
+    }
+  };
+  return <Shell title="Eligible students"><Typography variant="h5" fontWeight={900} sx={{ mb: 2 }}>Eligible students</Typography>{messageBlock("", error)}<Paper sx={{ p: 2, mb: 2 }}><Grid container spacing={2}><Grid item xs={12} md={3}><Autocomplete freeSolo options={uniqueSorted((jobs || []).map((item) => item.academicyear))} value={academicyear || ""} onInputChange={(_, value) => setAcademicyear(value || "")} renderInput={(params) => <TextField {...params} size="small" label="Academic year" />} /></Grid><Grid item xs={12} md={2}><TextField select fullWidth size="small" label="Type" value={type} onChange={(e) => setType(e.target.value)}><MenuItem value="Placement">Placement</MenuItem><MenuItem value="SIP">SIP</MenuItem></TextField></Grid><Grid item xs={12} md={5}><Autocomplete options={jobs} value={job} getOptionLabel={(o) => `${o.jobtitle || ""} - ${o.company || ""}`} onChange={(_, value) => setJob(value)} renderInput={(params) => <TextField {...params} size="small" label="Active job" />} /></Grid><Grid item xs={12} md={2}><Button fullWidth variant="contained" disabled={loading} onClick={match}>Match</Button></Grid></Grid></Paper>{loading && <LinearProgress sx={{ mb: 2 }} />}<Grid container spacing={2} sx={{ mb: 2 }}>{[["Total checked", data.summary?.total || 0], ["Eligible", data.summary?.eligible || 0], ["Ineligible", data.summary?.ineligible || 0]].map(([label, value]) => <Grid item xs={12} md={4} key={label}><Card><CardContent><Typography color="text.secondary">{label}</Typography><Typography variant="h4" fontWeight={900}>{value}</Typography></CardContent></Card></Grid>)}</Grid><Paper sx={{ p: 1 }}><DataGrid rows={data.data || []} getRowId={(r) => r._id} autoHeight getRowHeight={() => "auto"} sx={gridWrapSx} slots={{ toolbar: GridToolbar }} columns={[{ field: "eligible", headerName: "Eligible", width: 110 }, { field: "reasons", headerName: "Reason", width: 280 }, { field: "name", headerName: "Student", width: 190 }, { field: "regno", headerName: "Reg no", width: 130 }, { field: "program", headerName: "Program", width: 180 }, { field: "programcode", headerName: "Program code", width: 130 }, { field: "semester", headerName: "Semester", width: 110 }, { field: "cgpa", headerName: "CGPA", width: 100 }, { field: "atkt", headerName: "ATKT", width: 100 }, { field: "email", headerName: "Email", width: 220 }, { field: "phone", headerName: "Phone", width: 140 }]} /></Paper></Shell>;
 }
 
 function PlacementApplicationReviewPage({ type = "SIP", title = "SIP applications" }) {

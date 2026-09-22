@@ -39,7 +39,8 @@ export default function NepLmsElectiveApprovalPage() {
   const approve = async () => {
     if (!selected.length) return setError("Select applications");
     const res = await ep1.post("/api/v2/nepclassenrollment/approve", { colid: global1.colid, ids: selected, user: global1.user });
-    setMessage(`Approved ${res.data.updated || 0} applications`);
+    const ledgerProcessed = Number(res.data.ledgerProcessed || 0);
+    setMessage(`Approved ${res.data.updated || 0} applications. Elective fee ledger updated for ${ledgerProcessed} record${ledgerProcessed === 1 ? "" : "s"}.`);
     setSelected([]); loadRows();
   };
   const optionValues = (field) => {

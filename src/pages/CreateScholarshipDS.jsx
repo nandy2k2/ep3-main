@@ -33,6 +33,8 @@ const CreateScholarshipDS = () => {
     scholarshipname: "",
     amount: "",
     category: "",
+    scholarshiptype: "Govt",
+    details: "",
     program: "",
     programcode: "",
     applicationtype: "Internal",
@@ -69,6 +71,8 @@ const CreateScholarshipDS = () => {
       scholarshipname: "",
       amount: "",
       category: "",
+      scholarshiptype: "Govt",
+      details: "",
       program: "",
       programcode: "",
       applicationtype: "Internal",
@@ -108,6 +112,8 @@ const CreateScholarshipDS = () => {
       scholarshipname: scholarship.scholarshipname,
       amount: scholarship.amount,
       category: scholarship.category || "",
+      scholarshiptype: scholarship.scholarshiptype || "Govt",
+      details: scholarship.details || scholarship.merit || "",
       program: scholarship.program || "",
       programcode: scholarship.programcode || "",
       applicationtype: scholarship.applicationtype || "Internal",
@@ -155,6 +161,7 @@ const CreateScholarshipDS = () => {
               <TableCell>Name</TableCell>
               <TableCell>Amount</TableCell>
               <TableCell>Category</TableCell>
+              <TableCell>Type</TableCell>
               <TableCell>Program</TableCell>
               <TableCell>Program Code</TableCell>
               <TableCell>Application</TableCell>
@@ -169,6 +176,7 @@ const CreateScholarshipDS = () => {
                 <TableCell>{s.scholarshipname}</TableCell>
                 <TableCell>{s.amount}</TableCell>
                 <TableCell>{s.category}</TableCell>
+                <TableCell>{s.scholarshiptype || "Govt"}</TableCell>
                 <TableCell>{s.program}</TableCell>
                 <TableCell>{s.programcode}</TableCell>
                 <TableCell>{s.applicationtype === "External" && s.applicationwebsite ? s.applicationwebsite : "Internal"}</TableCell>
@@ -190,6 +198,11 @@ const CreateScholarshipDS = () => {
             <TextField label="Scholarship Name" name="scholarshipname" value={form.scholarshipname} onChange={handleChange} fullWidth required />
             <TextField label="Amount" name="amount" type="number" value={form.amount} onChange={handleChange} fullWidth required />
             <TextField label="Category" name="category" value={form.category} onChange={handleChange} fullWidth />
+            <TextField select label="Scholarship Type" name="scholarshiptype" value={form.scholarshiptype} onChange={handleChange} fullWidth>
+              <MenuItem value="Govt">Govt</MenuItem>
+              <MenuItem value="Non Govt">Non Govt</MenuItem>
+            </TextField>
+            <TextField label="Details / Criteria" name="details" value={form.details} onChange={handleChange} fullWidth multiline minRows={3} />
             <TextField label="Program" name="program" value={form.program} onChange={handleChange} fullWidth />
             <TextField label="Program Code" name="programcode" value={form.programcode} onChange={handleChange} fullWidth />
             <TextField select label="Application Type" name="applicationtype" value={form.applicationtype} onChange={handleChange} fullWidth>

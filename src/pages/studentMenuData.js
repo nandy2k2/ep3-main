@@ -65,6 +65,7 @@ export const studentDefaultMenuGroups = [
   { group: "Examination", items: [
     { path: "/student-exam-registration", title: "Exam registration" },
     { path: "/student-exam-dynamic-form", title: "Dynamic exam form" },
+    { path: "/student-atkt-form", title: "ATKT form" },
     { path: "/examapply", title: "Apply for exam" },
     { path: "/examapply1", title: "Apply for exam 1" },
     { path: "/dashapplyadmitstud", title: "Student Registration form" },

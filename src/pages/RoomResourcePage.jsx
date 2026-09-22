@@ -12,8 +12,9 @@ import {
   TextField,
   Typography
 } from "@mui/material";
-import { Cancel, Delete, Download, Edit, Refresh, Save, UploadFile } from "@mui/icons-material";
+import { AccessTime, Cancel, Delete, Download, Edit, Refresh, Save, UploadFile } from "@mui/icons-material";
 import { DataGrid, GridActionsCellItem, GridToolbar } from "@mui/x-data-grid";
+import { useNavigate } from "react-router-dom";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
@@ -53,6 +54,7 @@ const uniqueSorted = (values = []) => [...new Set(values.map((item) => String(it
 const norm = (value) => String(value || "").trim().toLowerCase();
 
 export default function RoomResourcePage() {
+  const navigate = useNavigate();
   const [rows, setRows] = useState([]);
   const [owners, setOwners] = useState([]);
   const [campuses, setCampuses] = useState([]);
@@ -229,9 +231,10 @@ export default function RoomResourcePage() {
       field: "actions",
       type: "actions",
       headerName: "Actions",
-      width: 120,
+      width: 170,
       getActions: (params) => [
         <GridActionsCellItem icon={<Edit />} label="Edit" onClick={() => editRoom(params.row)} />,
+        <GridActionsCellItem icon={<AccessTime />} label="Timewise owners" onClick={() => navigate(`/room-timewise-owners?roomid=${params.row._id}`)} showInMenu />,
         <GridActionsCellItem icon={<Delete />} label="Delete" onClick={() => deleteRoom(params.row)} />
       ]
     }

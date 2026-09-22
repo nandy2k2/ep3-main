@@ -42,6 +42,12 @@ const uniqueSorted = (values = []) => [...new Set(values.map((item) => String(it
 const cleanText = (value) => String(value || "").trim().toLowerCase();
 const fieldsMatch = (left, right) => cleanText(left) === cleanText(right);
 const optionalFieldsMatch = (left, right) => !cleanText(left) || !cleanText(right) || fieldsMatch(left, right);
+const programDisplay = (row = {}) => {
+  const program = String(row.program || "").trim();
+  const programcode = String(row.programcode || "").trim();
+  if (program && programcode) return `${program} (${programcode})`;
+  return program || programcode || "-";
+};
 const parseDate = (value) => {
   if (!value) return null;
   const date = new Date(`${value}T00:00:00`);
@@ -116,20 +122,22 @@ export default function NepLmsGroupAttendancePage({ classGroupMode = false, page
   const matchedClasses = useMemo(() => {
     if (!filteredAssignments.length) return [];
     const currentUser = cleanText(global1.user);
-    return classes.filter((classRow) => {
+    return classes.map((classRow) => {
       const classFacultyEmail = cleanText(classRow.facultyemail);
-      if (classFacultyEmail && classFacultyEmail !== currentUser) return false;
-      return filteredAssignments.some((assignment) => (
-        fieldsMatch(assignment.academicyear, classRow.academicyear)
-        && fieldsMatch(assignment.programcode, classRow.programcode)
-        && optionalFieldsMatch(assignment.regulation, classRow.regulation)
-        && optionalFieldsMatch(assignment.program, classRow.program)
-        && fieldsMatch(assignment.subject, classRow.major)
-        && fieldsMatch(assignment.semester, classRow.semester)
-        && fieldsMatch(assignment.coursecode, classRow.coursecode)
-        && (!classFacultyEmail || fieldsMatch(assignment.facultyemail, classRow.facultyemail))
+      if (classFacultyEmail && classFacultyEmail !== currentUser) return null;
+      const assignment = filteredAssignments.find((item) => (
+        fieldsMatch(item.academicyear, classRow.academicyear)
+        && fieldsMatch(item.programcode, classRow.programcode)
+        && optionalFieldsMatch(item.regulation, classRow.regulation)
+        && optionalFieldsMatch(item.program, classRow.program)
+        && fieldsMatch(item.subject, classRow.major)
+        && fieldsMatch(item.semester, classRow.semester)
+        && fieldsMatch(item.coursecode, classRow.coursecode)
+        && (!classFacultyEmail || fieldsMatch(item.facultyemail, classRow.facultyemail))
       ));
-    });
+      if (!assignment) return null;
+      return { ...classRow, program: classRow.program || assignment.program, programcode: classRow.programcode || assignment.programcode };
+    }).filter(Boolean);
   }, [classes, filteredAssignments]);
 
   const filteredClasses = useMemo(() => {
@@ -369,7 +377,7 @@ export default function NepLmsGroupAttendancePage({ classGroupMode = false, page
                           <Box key={item._id} onClick={() => setSelectedClass(item)} sx={{ cursor: "pointer", bgcolor: active ? "#dcfce7" : "#eef2ff", border: active ? "1px solid #16a34a" : "1px solid #c7d2fe", borderLeft: active ? "4px solid #16a34a" : "4px solid #4f46e5", borderRadius: 1, px: 0.8, py: 0.6 }}>
                             <Typography variant="caption" fontWeight={900} display="block">{classDisplayTime(item) || "-"} | {item.coursecode}</Typography>
                             <Typography variant="caption" display="block">{item.course || "-"}</Typography>
-                            <Typography variant="caption" display="block" color="text.secondary">Sem {item.semester} | {item.major}</Typography>
+                            <Typography variant="caption" display="block" color="text.secondary">{programDisplay(item)} | Sem {item.semester} | {item.major}</Typography>
                           </Box>
                         );
                       })}</Stack></>}
@@ -387,7 +395,7 @@ export default function NepLmsGroupAttendancePage({ classGroupMode = false, page
               <Grid container spacing={2} alignItems="center">
                 <Grid item xs={12} md={4}>
                   <Typography variant="h6">{selectedClass.coursecode} - {selectedClass.course}</Typography>
-                  <Typography variant="body2" color="text.secondary">{classDisplayLabel(selectedClass)} | {selectedClass.programcode} | Sem {selectedClass.semester}</Typography>
+                  <Typography variant="body2" color="text.secondary">{classDisplayLabel(selectedClass)} | {programDisplay(selectedClass)} | Sem {selectedClass.semester}</Typography>
                 </Grid>
                 <Grid item xs={12} md={2}>
                   <FormControl fullWidth><InputLabel>Group</InputLabel><Select label="Group" value={groupName} onChange={(e) => setGroupName(e.target.value)}>{groups.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</Select></FormControl>

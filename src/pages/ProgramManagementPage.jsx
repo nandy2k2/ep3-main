@@ -32,6 +32,7 @@ const emptyForm = {
   durationinyear: "",
   totalcredits: "",
   intakecapacity: "",
+  amount: "",
   excluded: "No",
   typeofsession: "Semester",
   introductionyear: "",
@@ -184,6 +185,7 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
       durationinyear: row.durationinyear ?? "",
       totalcredits: row.totalcredits ?? "",
       intakecapacity: row.intakecapacity ?? "",
+      amount: row.amount ?? "",
       excluded: row.excluded || "No",
       typeofsession: row.typeofsession || "Semester",
       introductionyear: row.introductionyear || "",
@@ -223,6 +225,7 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
       durationinyear: 3,
       totalcredits: 120,
       intakecapacity: 60,
+      amount: 0,
       excluded: "No",
       typeofsession: "Semester",
       introductionyear: "2026",
@@ -316,6 +319,7 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
     { field: "durationinyear", headerName: "Duration in year", minWidth: 150, type: "number" },
     { field: "totalcredits", headerName: "Total Credits", minWidth: 140, type: "number" },
     { field: "intakecapacity", headerName: "Intake Capacity", minWidth: 150, type: "number" },
+    { field: "amount", headerName: "Amount", minWidth: 130, type: "number" },
     { field: "excluded", headerName: "Excluded", minWidth: 120 },
     { field: "typeofsession", headerName: "Type of session", minWidth: 160 },
     { field: "introductionyear", headerName: "Introduction year", minWidth: 160 },
@@ -384,6 +388,7 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
           <TextField size="small" type="number" label="Duration in year" value={form.durationinyear} onChange={(e) => updateForm("durationinyear", e.target.value)} />
           <TextField size="small" type="number" label="Total Credits" value={form.totalcredits} onChange={(e) => updateForm("totalcredits", e.target.value)} />
           <TextField size="small" type="number" label="Intake Capacity" value={form.intakecapacity} onChange={(e) => updateForm("intakecapacity", e.target.value)} />
+          <TextField size="small" type="number" label="Amount" value={form.amount} onChange={(e) => updateForm("amount", e.target.value)} />
           <TextField select size="small" label="Excluded" value={form.excluded || "No"} onChange={(e) => updateForm("excluded", e.target.value)}>
             <MenuItem value="No">No</MenuItem>
             <MenuItem value="Yes">Yes</MenuItem>

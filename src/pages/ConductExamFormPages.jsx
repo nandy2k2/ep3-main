@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
   Alert,
   Autocomplete,
@@ -1134,8 +1134,9 @@ function DynamicField({ field, value, onChange }) {
   return <TextField fullWidth size="small" type={field.fieldtype === "Date" ? "date" : field.fieldtype === "Number" ? "number" : "text"} label={field.label} value={value || ""} onChange={(e) => onChange(e.target.value)} InputLabelProps={field.fieldtype === "Date" ? { shrink: true } : undefined} required={/^yes$/i.test(field.required)} />;
 }
 
-export function StudentExamDynamicFormPage() {
-  const [filters, setFilters] = useState({ academicyear: "2026-27", examcode: "", examtype: "Regular" });
+export function StudentExamDynamicFormPage({ atktMode = false } = {}) {
+  const navigate = useNavigate();
+  const [filters, setFilters] = useState({ academicyear: "2026-27", examcode: "", examtype: atktMode ? "ATKT" : "Regular" });
   const [exams, setExams] = useState([]);
   const [context, setContext] = useState(null);
   const [selectedFormId, setSelectedFormId] = useState("");
@@ -1149,6 +1150,7 @@ export function StudentExamDynamicFormPage() {
   const [uploadingDoc, setUploadingDoc] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [submittedFeeReady, setSubmittedFeeReady] = useState(false);
 
   useEffect(() => {
     loadExams();
@@ -1171,8 +1173,9 @@ export function StudentExamDynamicFormPage() {
       setContext(null);
       setSelectedCourses([]);
       setSelectedFormId("");
+      setSubmittedFeeReady(false);
       const res = await ep1.get("/api/v2/conductexam/student-exam-form-context", {
-        params: { colid: global1.colid, regno: global1.regno, academicyear: filters.academicyear, examcode: filters.examcode, examtype: filters.examtype }
+        params: { colid: global1.colid, regno: global1.regno, academicyear: filters.academicyear, examcode: filters.examcode, examtype: atktMode ? "ATKT" : filters.examtype, mode: atktMode ? "ATKT" : undefined }
       });
       const nextContext = res.data?.data || null;
       setContext(nextContext);
@@ -1187,8 +1190,8 @@ export function StudentExamDynamicFormPage() {
   const selectedForm = useMemo(() => (context?.forms || []).find((form) => form.formid === selectedFormId), [context, selectedFormId]);
   const formTabs = useMemo(() => [...(selectedForm?.tabs || [])].sort((a, b) => Number(a.order || 0) - Number(b.order || 0)), [selectedForm]);
   const courses = useMemo(
-    () => (filters.examtype === "Supplementary" ? context?.supplementaryCourses || [] : context?.regularCourses || []),
-    [context, filters.examtype]
+    () => (atktMode ? context?.atktCourses || context?.supplementaryCourses || [] : filters.examtype === "Supplementary" ? context?.supplementaryCourses || [] : context?.regularCourses || []),
+    [atktMode, context, filters.examtype]
   );
   const courseRows = useMemo(() => courses.map((row, index) => ({ ...row, id: courseKey(row) || `course-${index}` })), [courses]);
   const persistedFeeLedgerRows = useMemo(() => (context?.examFeeLedger || []).map((row, index) => ({ ...row, id: row._id || `fee-${index}` })), [context]);
@@ -1225,6 +1228,8 @@ export function StudentExamDynamicFormPage() {
     status: "Calculated"
   }] : [], [totalFee, filters.examtype, filters.academicyear, context]);
   const feeLedgerRows = persistedFeeLedgerRows.length ? persistedFeeLedgerRows : calculatedFeeRows;
+  const examFeePayableRows = useMemo(() => feeLedgerRows.filter((row) => /^exam fee$/i.test(String(row.feecategory || row.feegroup || "")) && Number(row.balance || 0) > 0), [feeLedgerRows]);
+  const examFeePayableTotal = useMemo(() => examFeePayableRows.reduce((sum, row) => sum + Number(row.balance || 0), 0), [examFeePayableRows]);
   const toggleCourse = (key) => {
     setSelectedCourses((prev) => prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]);
   };
@@ -1239,7 +1244,7 @@ export function StudentExamDynamicFormPage() {
       courses: selectedCourseRows.length ? selectedCourseRows : courseRows,
       fees: feeLedgerRows,
       exam: { ...selectedExam, academicyear: filters.academicyear, examcode: filters.examcode },
-      title: "Student Exam Form"
+      title: atktMode ? "ATKT Form" : "Student Exam Form"
     });
   };
   const uploadDocument = async (doc, file) => {
@@ -1273,7 +1278,7 @@ export function StudentExamDynamicFormPage() {
         academicyear: filters.academicyear,
         exam: selectedExam.exam || selectedExam.examname || filters.examcode,
         examcode: filters.examcode,
-        examtype: filters.examtype,
+        examtype: atktMode ? "ATKT" : filters.examtype,
         regulation: context?.student?.regulation,
         semester: context?.student?.semester,
         data,
@@ -1283,6 +1288,7 @@ export function StudentExamDynamicFormPage() {
       if (Array.isArray(res.data?.examFeeLedger)) {
         setContext((prev) => prev ? { ...prev, examFeeLedger: res.data.examFeeLedger } : prev);
       }
+      setSubmittedFeeReady(atktMode && Number(res.data?.totalfee || 0) > 0);
       setMessage(`Exam form submitted. Ledger rows: ${res.data?.ledgerCreated || 0}, examroll rows: ${res.data?.examRollCreated || 0}`);
     } catch (err) {
       const errors = err.response?.data?.errors;
@@ -1293,17 +1299,23 @@ export function StudentExamDynamicFormPage() {
   };
 
   return (
-    <MenuPageShell title="Student Exam Form" menuType="student">
+    <MenuPageShell title={atktMode ? "ATKT Form" : "Student Exam Form"} menuType="student">
       <Box sx={pageBox}>
         <BackButton student />
-        <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>Exam form</Typography>
+        <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>{atktMode ? "ATKT form" : "Exam form"}</Typography>
         {error && <Alert severity="error" sx={{ mb: 2, whiteSpace: "pre-line" }}>{error}</Alert>}
         {message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}
         <Paper sx={paperSx}>
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} md={3}><SelectText label="Academic year" value={filters.academicyear} options={uniqueSorted([...years, ...exams.map((row) => row.academicyear)])} onChange={(value) => setFilters((prev) => ({ ...prev, academicyear: value, examcode: "" }))} /></Grid>
             <Grid item xs={12} md={4}><SelectText label="Exam" value={filters.examcode} options={uniqueSorted(exams.filter((row) => !filters.academicyear || row.academicyear === filters.academicyear).map((row) => row.examcode))} onChange={(value) => setFilters((prev) => ({ ...prev, examcode: value }))} /></Grid>
-            <Grid item xs={12} md={3}><SelectText label="Exam type" value={filters.examtype} options={["Regular", "Supplementary"]} onChange={(value) => setFilters((prev) => ({ ...prev, examtype: value }))} /></Grid>
+            <Grid item xs={12} md={3}>
+              {atktMode ? (
+                <TextField fullWidth size="small" label="Exam type" value="ATKT" InputProps={{ readOnly: true }} />
+              ) : (
+                <SelectText label="Exam type" value={filters.examtype} options={["Regular", "Supplementary"]} onChange={(value) => setFilters((prev) => ({ ...prev, examtype: value }))} />
+              )}
+            </Grid>
             <Grid item xs={12} md={2}><Button fullWidth variant="contained" disabled={loading || !filters.examcode} startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <Refresh />} onClick={loadContext}>Load</Button></Grid>
           </Grid>
         </Paper>
@@ -1390,7 +1402,7 @@ export function StudentExamDynamicFormPage() {
 
             <Paper sx={{ ...paperSx, mt: 2 }}>
               <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 1 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>{filters.examtype === "Regular" ? "Regular and elective courses" : "Failed supplementary courses"}</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>{atktMode ? "ATKT failed courses" : filters.examtype === "Regular" ? "Regular and elective courses" : "Failed supplementary courses"}</Typography>
                 <Stack spacing={0.5} alignItems={{ xs: "flex-start", md: "flex-end" }}>
                   <Typography sx={{ fontWeight: 800 }}>Payable fee: Rs. {money(totalFee)}</Typography>
                   {configuredMaxFee > 0 && (
@@ -1446,6 +1458,24 @@ export function StudentExamDynamicFormPage() {
 
             <Paper sx={{ ...paperSx, mt: 2 }}>
               <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>Exam fee ledger</Typography>
+              {atktMode && submittedFeeReady && examFeePayableTotal > 0 && (
+                <Alert
+                  severity="info"
+                  sx={{ mb: 2 }}
+                  action={(
+                    <Button
+                      color="inherit"
+                      size="small"
+                      variant="outlined"
+                      onClick={() => navigate(`/studentonlinefeepayment?feecategory=${encodeURIComponent("Exam Fee")}&autoselect=1`)}
+                    >
+                      Pay exam fee
+                    </Button>
+                  )}
+                >
+                  Total Exam fee payable: Rs. {money(examFeePayableTotal)}. All pending Exam fee items will be paid together.
+                </Alert>
+              )}
               <Box sx={{ height: 300 }}>
                 <DataGrid
                   rows={feeLedgerRows}
@@ -1474,6 +1504,10 @@ export function StudentExamDynamicFormPage() {
   );
 }
 
+export function StudentAtktFormPage() {
+  return <StudentExamDynamicFormPage atktMode />;
+}
+
 function SearchSelect({ label, value, options = [], onChange, getOptionLabel = (option) => option, disabled = false }) {
   return (
     <Autocomplete
@@ -1489,7 +1523,7 @@ function SearchSelect({ label, value, options = [], onChange, getOptionLabel = (
   );
 }
 
-export function ConductExamStudentFormPage() {
+export function ConductExamStudentFormPage({ atktMode = false } = {}) {
   const [filters, setFilters] = useState({ academicyear: "", regulation: "", examcode: "", program: "", programcode: "", semester: "" });
   const [options, setOptions] = useState({ academicyears: [], regulations: [], exams: [], programs: [], semesters: [] });
   const [students, setStudents] = useState([]);
@@ -1506,7 +1540,7 @@ export function ConductExamStudentFormPage() {
   const loadOptions = async (extra = {}) => {
     try {
       setLoadingOptions(true);
-      const params = { colid: global1.colid, ...filters, ...extra };
+      const params = { colid: global1.colid, ...filters, ...extra, mode: atktMode ? "ATKT" : undefined, examtype: atktMode ? "ATKT" : undefined };
       Object.keys(params).forEach((key) => !params[key] && delete params[key]);
       const res = await ep1.get("/api/v2/conductexam/student-exam-form-report-options", { params });
       setOptions(res.data?.data || {});
@@ -1532,12 +1566,12 @@ export function ConductExamStudentFormPage() {
       setError("");
       setMessage("");
       setSelectedRegno("");
-      const params = { colid: global1.colid, ...filters };
+      const params = { colid: global1.colid, ...filters, mode: atktMode ? "ATKT" : undefined, examtype: atktMode ? "ATKT" : undefined };
       Object.keys(params).forEach((key) => !params[key] && delete params[key]);
       const res = await ep1.get("/api/v2/conductexam/student-exam-form-report", { params });
       setStudents(res.data?.data?.students || []);
       if (res.data?.data?.institution) setInstitution(res.data.data.institution);
-      setMessage(`Loaded ${res.data?.data?.students?.length || 0} students from examroll`);
+      setMessage(`Loaded ${res.data?.data?.students?.length || 0} students from ${atktMode ? "ATKT failed marks" : "examroll"}`);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load students");
     } finally {
@@ -1556,7 +1590,7 @@ export function ConductExamStudentFormPage() {
       courses: selectedStudent.courses || [],
       fees: selectedStudent.examFeeLedger || [],
       exam: { ...selectedExam, academicyear: filters.academicyear, examcode: filters.examcode },
-      title: "Student Exam Form"
+      title: atktMode ? "ATKT Form" : "Student Exam Form"
     });
   };
 
@@ -1577,10 +1611,10 @@ export function ConductExamStudentFormPage() {
   const selectedFeeRows = (selectedStudent?.examFeeLedger || []).map((row, index) => ({ ...row, id: row._id || `fee-${index}` }));
 
   return (
-    <MenuPageShell title="Student exam form" menuType="main">
+    <MenuPageShell title={atktMode ? "ATKT form" : "Student exam form"} menuType="main">
       <Box sx={pageBox}>
         <BackButton />
-        <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>Student exam form</Typography>
+        <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>{atktMode ? "ATKT form" : "Student exam form"}</Typography>
         {error && <Alert severity="error" sx={{ mb: 2, whiteSpace: "pre-line" }}>{error}</Alert>}
         {message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}
         <Paper sx={paperSx}>
@@ -1622,7 +1656,7 @@ export function ConductExamStudentFormPage() {
 
         <Paper sx={{ ...paperSx, mt: 2 }}>
           <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 1 }}>
-            <Typography variant="h6" sx={{ fontWeight: 800 }}>Students from examroll</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>{atktMode ? "Students with ATKT courses" : "Students from examroll"}</Typography>
             <Button variant="outlined" startIcon={<Print />} disabled={!selectedStudent} onClick={printSelected}>Print preview</Button>
           </Stack>
           <Box sx={{ height: 430 }}>
@@ -1738,4 +1772,8 @@ export function ConductExamStudentFormPage() {
       </Box>
     </MenuPageShell>
   );
+}
+
+export function ConductExamAtktFormPage() {
+  return <ConductExamStudentFormPage atktMode />;
 }

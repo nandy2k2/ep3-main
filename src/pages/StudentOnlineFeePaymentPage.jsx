@@ -63,6 +63,11 @@ export default function StudentOnlineFeePaymentPage() {
     () => gateways.find((gateway) => gateway._id === selectedGatewayId),
     [gateways, selectedGatewayId]
   );
+  const feeCategoryFilter = useMemo(() => String(searchParams.get("feecategory") || searchParams.get("feeCategory") || "").trim(), [searchParams]);
+  const filteredFees = useMemo(() => {
+    if (!feeCategoryFilter) return fees;
+    return fees.filter((row) => String(row.feecategory || "").trim().toLowerCase() === feeCategoryFilter.toLowerCase());
+  }, [feeCategoryFilter, fees]);
   const selectedFees = useMemo(
     () => fees.filter((row) => selectedRows.includes(row._id)),
     [fees, selectedRows]
@@ -81,6 +86,13 @@ export default function StudentOnlineFeePaymentPage() {
         ep1.get("/api/v2/mastergateway", { params: { colid, status: "Active" } })
       ]);
       setFees(feeRes.data.data || []);
+      const nextFees = feeRes.data.data || [];
+      const filteredIds = feeCategoryFilter
+        ? nextFees
+          .filter((row) => String(row.feecategory || "").trim().toLowerCase() === feeCategoryFilter.toLowerCase())
+          .map((row) => row._id)
+        : [];
+      if (feeCategoryFilter) setSelectedRows(filteredIds);
       const activeGateways = (gatewayRes.data.data || []).filter((gateway) => String(gateway.status || "").toLowerCase() === "active");
       setGateways(activeGateways);
       const preferred = activeGateways.find((gateway) => gateway.default === "Yes") || activeGateways[0];
@@ -190,6 +202,11 @@ export default function StudentOnlineFeePaymentPage() {
 
         {message && <Alert severity={messageSeverity} sx={{ mb: 2 }}>{message}</Alert>}
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {feeCategoryFilter && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Showing pending {feeCategoryFilter} items only. All listed {feeCategoryFilter} items are selected and will be paid together.
+          </Alert>
+        )}
         {!loading && gateways.length === 0 && (
           <Alert severity="warning" sx={{ mb: 2 }}>
             No active payment gateway is configured in master gateway. Please add ICICI or Easebuzz in master gateway first.
@@ -226,7 +243,7 @@ export default function StudentOnlineFeePaymentPage() {
                 </Grid>
                 <Grid item xs={12} md={5}>
                   <Button fullWidth variant="contained" startIcon={<Payment />} onClick={startPayment} disabled={paying || totalPayable <= 0 || !selectedGatewayId}>
-                    {paying ? "Starting payment..." : "Pay selected fees"}
+                    {paying ? "Starting payment..." : feeCategoryFilter ? `Pay ${feeCategoryFilter}` : "Pay selected fees"}
                   </Button>
                 </Grid>
               </Grid>
@@ -236,14 +253,17 @@ export default function StudentOnlineFeePaymentPage() {
 
         <Paper sx={{ height: 560, borderRadius: 2, overflow: "hidden" }}>
           <DataGrid
-            rows={fees}
+            rows={filteredFees}
             columns={columns}
             getRowId={(row) => row._id}
-            checkboxSelection
+            checkboxSelection={!feeCategoryFilter}
             disableRowSelectionOnClick
             loading={loading}
             rowSelectionModel={selectedRows}
-            onRowSelectionModelChange={(model) => setSelectedRows(selectionToArray(model))}
+            onRowSelectionModelChange={(model) => {
+              if (feeCategoryFilter) return;
+              setSelectedRows(selectionToArray(model));
+            }}
             pageSizeOptions={[10, 25, 50, 100]}
             initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
             slots={{ toolbar: GridToolbar }}
