@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
   Alert,
   Autocomplete,
@@ -27,6 +27,7 @@ import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import { embeddedAwarePath } from "./addableAutocompleteHelpers";
 
 const filterFields = [
   { field: "academicyear", label: "Academic Year" },
@@ -109,6 +110,7 @@ const headerMap = {
 };
 
 export default function SyllabusPage() {
+  const navigate = useNavigate();
   const colid = useMemo(() => global1.colid, []);
   const [rows, setRows] = useState([]);
   const [options, setOptions] = useState({ courses: [] });
@@ -574,7 +576,17 @@ export default function SyllabusPage() {
     <Grid item {...gridProps} key={field}>
       <FormControl fullWidth required>
         <InputLabel>{fieldLabels[field]}</InputLabel>
-        <Select label={fieldLabels[field]} value={form[field] || ""} onChange={(e) => selectCourseMap(field, e.target.value)}>
+        <Select
+          label={fieldLabels[field]}
+          value={form[field] || ""}
+          onChange={(e) => {
+            if (e.target.value === "__add_program") return navigate(embeddedAwarePath("/programmanagement"));
+            if (e.target.value === "__add_regulation_course_map") return navigate(embeddedAwarePath("/regulationcoursemap"));
+            selectCourseMap(field, e.target.value);
+          }}
+        >
+          {field === "program" && <MenuItem value="__add_program" sx={{ fontWeight: 800, color: "#2563eb" }}>Add program</MenuItem>}
+          {["course", "coursecode", "subject"].includes(field) && <MenuItem value="__add_regulation_course_map" sx={{ fontWeight: 800, color: "#2563eb" }}>Add regulation course map</MenuItem>}
           {(formOptionValues[field] || []).map((value) => (
             <MenuItem key={`${field}-${value}`} value={value}>
               {field === "programcode" ? programLabel(value, formOptions) : value}

@@ -16,7 +16,7 @@ import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
 import NepLmsFacultyClassSelector, { classLabel } from "./NepLmsFacultyClassSelector";
 
-export default function NepLmsOtpAttendancePage() {
+export default function NepLmsOtpAttendancePage({ sectionMode = false, pageTitle = "OTP Attendance" }) {
   const initialClassId = new URLSearchParams(window.location.search).get("classid") || "";
   const [selectedClass, setSelectedClass] = useState(null);
   const [attendanceType, setAttendanceType] = useState("Regular");
@@ -73,17 +73,18 @@ export default function NepLmsOtpAttendancePage() {
   };
 
   return (
-    <MenuPageShell title="OTP Attendance">
+    <MenuPageShell title={pageTitle}>
       <Box sx={{ p: 3 }}>
         <Stack spacing={2}>
           {message && <Alert severity="success" onClose={() => setMessage("")}>{message}</Alert>}
           {error && <Alert severity="error" onClose={() => setError("")}>{error}</Alert>}
 
           <NepLmsFacultyClassSelector
-            title="Select Class for OTP Attendance"
+            title={sectionMode ? "Select Sectionwise Class for OTP Attendance" : "Select Class for OTP Attendance"}
             selectedClassId={selectedClass?._id || ""}
             onSelectClass={setSelectedClass}
             initialClassId={initialClassId}
+            sectionMode={sectionMode}
           />
 
           <Paper sx={{ p: 2 }}>
@@ -132,4 +133,8 @@ export default function NepLmsOtpAttendancePage() {
       </Box>
     </MenuPageShell>
   );
+}
+
+export function NepLmsSectionwiseOtpAttendancePage() {
+  return <NepLmsOtpAttendancePage sectionMode pageTitle="Sectionwise OTP Attendance" />;
 }

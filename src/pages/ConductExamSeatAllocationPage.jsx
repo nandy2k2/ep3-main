@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Autocomplete,
@@ -16,10 +17,12 @@ import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import { addOption, embeddedAwarePath, handleAddOption, renderAddOption } from "./addableAutocompleteHelpers";
 
 const uniq = (items) => [...new Set(items.filter(Boolean).map((item) => String(item).trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
 export default function ConductExamSeatAllocationPage() {
+  const navigate = useNavigate();
   const [exams, setExams] = useState([]);
   const [examCourses, setExamCourses] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -83,6 +86,9 @@ export default function ConductExamSeatAllocationPage() {
     if (form.buildings.length && !form.buildings.includes(row.building)) return false;
     return true;
   }).sort((a, b) => `${a.campus} ${a.building} ${a.room}`.localeCompare(`${b.campus} ${b.building} ${b.room}`)), [rooms, form.campuses, form.buildings]);
+  const campusSelectOptions = useMemo(() => [addOption("+ Add Room Configuration", "/roomconfiguration"), ...campusOptions], [campusOptions]);
+  const buildingSelectOptions = useMemo(() => [addOption("+ Add Room Configuration", "/roomconfiguration"), ...buildingOptions], [buildingOptions]);
+  const roomSelectOptions = useMemo(() => [addOption("+ Add Exam Room", "/conduct-exam-rooms"), ...roomOptions], [roomOptions]);
 
   const selectedCapacity = useMemo(() => form.rooms.reduce((sum, room) => sum + (Number(room.noofseats) || 0), 0), [form.rooms]);
   const courseSummary = useMemo(() => {
@@ -153,7 +159,12 @@ export default function ConductExamSeatAllocationPage() {
         <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
           <Grid container spacing={2}>
             <Grid item xs={12} md={3}>
-              <TextField select fullWidth label="Exam" value={form.examcode} onChange={(e) => selectExam(e.target.value)}>
+              <TextField select fullWidth label="Exam" value={form.examcode} onChange={(e) => {
+                if (e.target.value === "__add_exam") return navigate(embeddedAwarePath("/conduct-exam-master"));
+                selectExam(e.target.value);
+              }}>
+                <MenuItem value="" disabled>Select exam</MenuItem>
+                <MenuItem value="__add_exam" sx={{ fontWeight: 800, color: "#2563eb" }}>+ Add Exam</MenuItem>
                 {exams.map((item) => <MenuItem key={item._id} value={item.examcode}>{item.academicyear} - {item.examname} ({item.examcode})</MenuItem>)}
               </TextField>
             </Grid>
@@ -178,10 +189,15 @@ export default function ConductExamSeatAllocationPage() {
               <Autocomplete
                 multiple
                 disableCloseOnSelect
-                options={campusOptions}
+                options={campusSelectOptions}
                 value={form.campuses}
-                onChange={(event, value) => setForm({ ...form, campuses: value, buildings: [], rooms: [] })}
-                renderOption={(props, option, { selected }) => <li {...props}><Checkbox checked={selected} />{option}</li>}
+                onChange={(event, value) => {
+                  const add = (value || []).find((item) => item?.__addOption);
+                  if (add && handleAddOption(add, navigate)) return;
+                  setForm({ ...form, campuses: value.filter((item) => !item?.__addOption), buildings: [], rooms: [] });
+                }}
+                getOptionLabel={(option) => option?.__addOption ? option.label : String(option || "")}
+                renderOption={(props, option, { selected }) => option?.__addOption ? renderAddOption(props, option) : <li {...props}><Checkbox checked={selected} />{option}</li>}
                 renderInput={(params) => <TextField {...params} label="Campus" />}
               />
             </Grid>
@@ -189,10 +205,15 @@ export default function ConductExamSeatAllocationPage() {
               <Autocomplete
                 multiple
                 disableCloseOnSelect
-                options={buildingOptions}
+                options={buildingSelectOptions}
                 value={form.buildings}
-                onChange={(event, value) => setForm({ ...form, buildings: value, rooms: [] })}
-                renderOption={(props, option, { selected }) => <li {...props}><Checkbox checked={selected} />{option}</li>}
+                onChange={(event, value) => {
+                  const add = (value || []).find((item) => item?.__addOption);
+                  if (add && handleAddOption(add, navigate)) return;
+                  setForm({ ...form, buildings: value.filter((item) => !item?.__addOption), rooms: [] });
+                }}
+                getOptionLabel={(option) => option?.__addOption ? option.label : String(option || "")}
+                renderOption={(props, option, { selected }) => option?.__addOption ? renderAddOption(props, option) : <li {...props}><Checkbox checked={selected} />{option}</li>}
                 renderInput={(params) => <TextField {...params} label="Building" />}
               />
             </Grid>
@@ -200,12 +221,16 @@ export default function ConductExamSeatAllocationPage() {
               <Autocomplete
                 multiple
                 disableCloseOnSelect
-                options={roomOptions}
+                options={roomSelectOptions}
                 value={form.rooms}
-                isOptionEqualToValue={(option, value) => option._id === value._id}
-                getOptionLabel={(option) => `${option.campus} / ${option.building} / ${option.room} (${option.noofseats} seats, ${option.status || "Pending"})`}
-                onChange={(event, value) => setForm({ ...form, rooms: value })}
-                renderOption={(props, option, { selected }) => <li {...props}><Checkbox checked={selected} />{option.campus} / {option.building} / {option.room} ({option.noofseats} seats, {option.status || "Pending"})</li>}
+                isOptionEqualToValue={(option, value) => option?._id === value?._id}
+                getOptionLabel={(option) => option?.__addOption ? option.label : `${option.campus} / ${option.building} / ${option.room} (${option.noofseats} seats, ${option.status || "Pending"})`}
+                onChange={(event, value) => {
+                  const add = (value || []).find((item) => item?.__addOption);
+                  if (add && handleAddOption(add, navigate)) return;
+                  setForm({ ...form, rooms: value.filter((item) => !item?.__addOption) });
+                }}
+                renderOption={(props, option, { selected }) => option?.__addOption ? renderAddOption(props, option) : <li {...props}><Checkbox checked={selected} />{option.campus} / {option.building} / {option.room} ({option.noofseats} seats, {option.status || "Pending"})</li>}
                 renderInput={(params) => <TextField {...params} label="Approved Rooms" helperText="Only approved room usage requests are available for allocation." />}
               />
             </Grid>

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import {
   Alert,
@@ -19,6 +20,7 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import { addOption, handleAddOption, renderAddOption } from "./addableAutocompleteHelpers";
 
 const uniq = (items) => [...new Set(items.map((item) => String(item || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 const label = (row, primary = "panelname") => row ? `${row[primary] || ""}${row.programcode ? ` (${row.programcode})` : ""}` : "";
@@ -109,6 +111,7 @@ const FilterBar = ({ filters, options, onChange, onLoad, onClear, loading }) => 
 );
 
 export function ConductExamPaperSetterPanelPage() {
+  const navigate = useNavigate();
   const { courses, busy } = useConductExamOptions();
   const [form, setForm] = useState(blankPanel);
   const [rows, setRows] = useState([]);
@@ -202,8 +205,8 @@ export function ConductExamPaperSetterPanelPage() {
         <Paper elevation={0} sx={{ p: 2, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
           <Grid container spacing={2}>
             <Grid item xs={12} md={2}><Autocomplete options={uniq(courses.map((row) => row.academicyear))} value={form.academicyear} onChange={(e, value) => setForm({ ...blankPanel, academicyear: value || "" })} renderInput={(params) => <TextField {...params} label="Academic Year" />} /></Grid>
-            <Grid item xs={12} md={2}><Autocomplete options={uniq(courses.filter((row) => !form.academicyear || row.academicyear === form.academicyear).map((row) => row.regulation))} value={form.regulation} onChange={(e, value) => setForm((prev) => ({ ...prev, regulation: value || "", program: "", programcode: "" }))} renderInput={(params) => <TextField {...params} label="Regulation" />} /></Grid>
-            <Grid item xs={12} md={3}><Autocomplete options={programs} value={programs.find((item) => item.programcode === form.programcode) || null} getOptionLabel={(option) => `${option.program || ""} (${option.programcode || ""})`} onChange={(e, value) => setForm((prev) => ({ ...prev, program: value?.program || "", programcode: value?.programcode || "" }))} renderInput={(params) => <TextField {...params} label="Program" />} /></Grid>
+            <Grid item xs={12} md={2}><Autocomplete options={[addOption("+ Add Regulation", "/regulationmaster"), ...uniq(courses.filter((row) => !form.academicyear || row.academicyear === form.academicyear).map((row) => row.regulation))]} value={form.regulation} getOptionLabel={(option) => option?.__addOption ? option.label : String(option || "")} renderOption={(props, option) => option?.__addOption ? renderAddOption(props, option) : <li {...props}>{option}</li>} onChange={(e, value) => { if (handleAddOption(value, navigate)) return; setForm((prev) => ({ ...prev, regulation: value || "", program: "", programcode: "" })); }} renderInput={(params) => <TextField {...params} label="Regulation" />} /></Grid>
+            <Grid item xs={12} md={3}><Autocomplete options={[addOption("+ Add Program", "/programmanagement"), ...programs]} value={programs.find((item) => item.programcode === form.programcode) || null} getOptionLabel={(option) => option?.__addOption ? option.label : `${option.program || ""} (${option.programcode || ""})`} renderOption={(props, option) => option?.__addOption ? renderAddOption(props, option) : <li {...props}>{`${option.program || ""} (${option.programcode || ""})`}</li>} onChange={(e, value) => { if (handleAddOption(value, navigate)) return; setForm((prev) => ({ ...prev, program: value?.program || "", programcode: value?.programcode || "" })); }} renderInput={(params) => <TextField {...params} label="Program" />} /></Grid>
             <Grid item xs={12} md={3}><TextField fullWidth label="Panel Name" value={form.panelname} onChange={(e) => setForm({ ...form, panelname: e.target.value })} /></Grid>
             <Grid item xs={12} md={2}><TextField select fullWidth label="Status" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}><MenuItem value="Active">Active</MenuItem><MenuItem value="Inactive">Inactive</MenuItem></TextField></Grid>
             <Grid item xs={12}><TextField fullWidth multiline minRows={2} label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></Grid>
@@ -219,6 +222,7 @@ export function ConductExamPaperSetterPanelPage() {
 }
 
 export function ConductExamPaperSetterPanelAssignmentPage() {
+  const navigate = useNavigate();
   const { courses, users } = useConductExamOptions();
   const { panels, loadPanels } = usePanelOptions();
   const [filters, setFilters] = useState({ academicyear: "", regulation: "", programcode: "", panelname: "", approvalstatus: "" });
@@ -341,8 +345,8 @@ export function ConductExamPaperSetterPanelAssignmentPage() {
         <FilterBar filters={filters} options={options} onChange={setFilters} onLoad={load} onClear={() => { setFilters({ academicyear: "", regulation: "", programcode: "", panelname: "", approvalstatus: "" }); setMembers([]); }} loading={loading} />
         <Paper elevation={0} sx={{ p: 2, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
           <Grid container spacing={2}>
-            <Grid item xs={12} md={5}><Autocomplete options={panels} value={selectedPanel} getOptionLabel={(option) => label(option)} onChange={(e, value) => setSelectedPanel(value)} renderInput={(params) => <TextField {...params} label="Select Panel" />} /></Grid>
-            <Grid item xs={12} md={5}><Autocomplete multiple disableCloseOnSelect options={users} value={selectedUsers} getOptionLabel={(option) => `${option.name || ""}${option.email ? ` (${option.email})` : ""}`} isOptionEqualToValue={(option, value) => option.email === value.email} onChange={(e, value) => setSelectedUsers(value || [])} renderOption={(props, option, { selected: checked }) => <li {...props}><Checkbox checked={checked} sx={{ mr: 1 }} />{option.name} ({option.email})</li>} renderInput={(params) => <TextField {...params} label="Select Users" />} /></Grid>
+            <Grid item xs={12} md={5}><Autocomplete options={[addOption("+ Add Paper Setter Panel", "/conduct-exam-paper-setter-panel"), ...panels]} value={selectedPanel} getOptionLabel={(option) => option?.__addOption ? option.label : label(option)} renderOption={(props, option) => option?.__addOption ? renderAddOption(props, option) : <li {...props}>{label(option)}</li>} onChange={(e, value) => { if (handleAddOption(value, navigate)) return; setSelectedPanel(value); }} renderInput={(params) => <TextField {...params} label="Select Panel" />} /></Grid>
+            <Grid item xs={12} md={5}><Autocomplete multiple disableCloseOnSelect options={[addOption("+ Add Non Student User", "/mbuser"), ...users]} value={selectedUsers} getOptionLabel={(option) => option?.__addOption ? option.label : `${option.name || ""}${option.email ? ` (${option.email})` : ""}`} isOptionEqualToValue={(option, value) => option.email === value.email} onChange={(e, value) => { const add = (value || []).find((item) => item?.__addOption); if (add && handleAddOption(add, navigate)) return; setSelectedUsers(value || []); }} renderOption={(props, option, { selected: checked }) => option?.__addOption ? renderAddOption(props, option) : <li {...props}><Checkbox checked={checked} sx={{ mr: 1 }} />{option.name} ({option.email})</li>} renderInput={(params) => <TextField {...params} label="Select Users" />} /></Grid>
             <Grid item xs={12} md={2}><Button fullWidth variant="contained" onClick={assign} disabled={saving} sx={{ height: 56 }}>{saving ? "Assigning..." : "Assign"}</Button></Grid>
           </Grid>
         </Paper>

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
   Alert,
   Autocomplete,
@@ -27,9 +27,10 @@ import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import { embeddedAwarePath, handleAddOption, renderAddOption, withAddOption } from "./addableAutocompleteHelpers";
 
 const fallbackYears = ["2026-27", "2027-28", "2028-29", "2029-30", "2030-31"];
-const fallbackTypes = ["Major", "Minor"];
+const fallbackTypes = ["Major", "Minor", "IDC", "MDC", "AEC", "SEC", "VAC"];
 const uniqueSorted = (values = []) => [...new Set(values.map((item) => String(item || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 const norm = (value) => String(value || "").trim().toLowerCase();
 const listFromAny = (value) => {
@@ -81,6 +82,7 @@ const headerMap = {
 };
 
 export default function WorkloadAssignmentPage() {
+  const navigate = useNavigate();
   const colid = useMemo(() => global1.colid, []);
   const [rows, setRows] = useState([]);
   const [form, setForm] = useState(blankForm);
@@ -658,13 +660,21 @@ export default function WorkloadAssignmentPage() {
             <Autocomplete
               multiple
               disableCloseOnSelect
-              options={moduleOptions}
+              options={withAddOption("Add syllabus modules", "/syllabus", moduleOptions)}
               value={listFromAny(form.modules)}
-              onChange={(_, value) => setForm((prev) => ({ ...prev, modules: value, module: value.join(", ") }))}
+              onChange={(_, value) => {
+                if ((value || []).some((item) => item?.__addOption)) {
+                  navigate(embeddedAwarePath("/syllabus"));
+                  return;
+                }
+                setForm((prev) => ({ ...prev, modules: value, module: value.join(", ") }));
+              }}
               renderOption={(props, option, { selected }) => (
-                <li {...props}>
+                <li {...props} style={option?.__addOption ? { fontWeight: 800, color: "#2563eb" } : undefined}>
+                  {option?.__addOption ? option.label : <>
                   <Checkbox checked={selected} sx={{ mr: 1 }} />
                   {option}
+                  </>}
                 </li>
               )}
               renderTags={(value, getTagProps) =>
@@ -692,10 +702,11 @@ export default function WorkloadAssignmentPage() {
           </Grid>
           <Grid item xs={12} md={3}>
             <Autocomplete
-              options={faculty}
+              options={withAddOption("Add non-student user", "/mbuser", faculty)}
               value={faculty.find((item) => item.email === form.facultyemail) || null}
-              onChange={(event, value) => selectFaculty(value)}
-              getOptionLabel={(option) => `${option.name || ""}${option.email ? ` (${option.email})` : ""}`}
+              onChange={(event, value) => handleAddOption(value, navigate, selectFaculty)}
+              getOptionLabel={(option) => option?.__addOption ? option.label : `${option.name || ""}${option.email ? ` (${option.email})` : ""}`}
+              renderOption={(props, option) => renderAddOption(props, option, "name")}
               renderInput={(params) => <TextField {...params} required label="Faculty" />}
             />
           </Grid>

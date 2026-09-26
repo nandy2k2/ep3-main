@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Autocomplete,
@@ -20,6 +21,7 @@ import * as XLSX from "xlsx";
 import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import { embeddedAwarePath, isEmbeddedPage, renderAddOption, withAddOption } from "./addableAutocompleteHelpers";
 
 const clean = (value) => String(value || "").trim();
 const rowsOf = (rows) => (rows || []).map((row, index) => ({ ...row, id: row._id || row.facultyemail || `${row.programcode || ""}-${row.designation || row.designations?.join("-")}-${index}` }));
@@ -43,6 +45,7 @@ function readWorkbook(file, onRows, setError) {
 }
 
 export function AcademicDesignationPage({ embedded = false, onRowsChange }) {
+  const embeddedMode = embedded || isEmbeddedPage();
   const [rows, setRows] = useState([]);
   const [form, setForm] = useState(designationBlank);
   const [filters, setFilters] = useState({ designation: "", status: "" });
@@ -109,7 +112,7 @@ export function AcademicDesignationPage({ embedded = false, onRowsChange }) {
   ];
 
   const content = (
-      <Box sx={{ p: embedded ? 0 : 2, bgcolor: embedded ? "transparent" : "#f6f8fb", minHeight: embedded ? "auto" : "100vh" }}>
+      <Box sx={{ p: embeddedMode ? 0 : 2, bgcolor: embeddedMode ? "transparent" : "#f6f8fb", minHeight: embeddedMode ? "auto" : "100vh" }}>
         <Stack spacing={2}>
           <Stack direction="row" alignItems="center"><Typography variant="h5" fontWeight={900} sx={{ flex: 1 }}>Designation Master</Typography><Button startIcon={<Refresh />} onClick={load}>Refresh</Button></Stack>
           {loading && <LinearProgress />}
@@ -144,11 +147,12 @@ export function AcademicDesignationPage({ embedded = false, onRowsChange }) {
       </Box>
   );
 
-  if (embedded) return content;
+  if (embeddedMode) return content;
   return <MenuPageShell title="Designation Master">{content}</MenuPageShell>;
 }
 
 export function DesignationWorkloadHoursPage() {
+  const navigate = useNavigate();
   const [options, setOptions] = useState({ programs: [], designations: [] });
   const [rows, setRows] = useState([]);
   const [form, setForm] = useState(workloadBlank);
@@ -221,8 +225,8 @@ export function DesignationWorkloadHoursPage() {
           {error && <Alert severity="error" onClose={() => setError("")}>{error}</Alert>}
           <Paper sx={{ p: 2 }}>
             <Grid container spacing={1.5}>
-              <Grid item xs={12} md={3}><Autocomplete options={options.programs || []} getOptionLabel={(row) => `${row.program || ""}${row.programcode ? ` (${row.programcode})` : ""}`} value={(options.programs || []).find((row) => row.programcode === form.programcode) || null} onChange={(_, value) => selectProgram(value)} renderInput={(params) => <TextField {...params} label="Program" />} /></Grid>
-              <Grid item xs={12} md={4}><Autocomplete multiple disableCloseOnSelect options={options.designations || []} value={form.designations || []} onChange={(_, value) => setForm((p) => ({ ...p, designations: value, designation: value.join(", ") }))} renderOption={(props, option, { selected }) => <li {...props}><Checkbox checked={selected} sx={{ mr: 1 }} />{option}</li>} renderInput={(params) => <TextField {...params} label="Designation" />} /></Grid>
+              <Grid item xs={12} md={3}><Autocomplete options={withAddOption("Add program", "/programmanagement", options.programs || [])} getOptionLabel={(row) => row?.__addOption ? row.label : `${row.program || ""}${row.programcode ? ` (${row.programcode})` : ""}`} value={(options.programs || []).find((row) => row.programcode === form.programcode) || null} onChange={(_, value) => value?.__addOption ? navigate(embeddedAwarePath(value.path)) : selectProgram(value)} renderOption={(props, option) => renderAddOption(props, option, "program")} renderInput={(params) => <TextField {...params} label="Program" />} /></Grid>
+              <Grid item xs={12} md={4}><Autocomplete multiple disableCloseOnSelect options={withAddOption("Add designation", "/academic-designations", options.designations || [])} value={form.designations || []} onChange={(_, value) => { if ((value || []).some((item) => item?.__addOption)) { navigate(embeddedAwarePath("/academic-designations")); return; } setForm((p) => ({ ...p, designations: value, designation: value.join(", ") })); }} renderOption={(props, option, { selected }) => <li {...props} style={option?.__addOption ? { fontWeight: 800, color: "#2563eb" } : undefined}>{option?.__addOption ? option.label : <><Checkbox checked={selected} sx={{ mr: 1 }} />{option}</>}</li>} renderInput={(params) => <TextField {...params} label="Designation" />} /></Grid>
               <Grid item xs={12} md={2}><TextField fullWidth type="number" label="Workload Hours" value={form.workloadhours} onChange={(e) => setForm((p) => ({ ...p, workloadhours: e.target.value }))} /></Grid>
               <Grid item xs={12} md={1.5}><TextField select fullWidth label="Status" value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.target.value }))}>{["Active", "Inactive"].map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
               <Grid item xs={12} md={1.5}><Button fullWidth sx={{ height: 56 }} variant="contained" startIcon={<Save />} onClick={save}>{editingId ? "Update" : "Save"}</Button></Grid>

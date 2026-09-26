@@ -28,7 +28,7 @@ import global1 from "./global1";
 const categories = ["General", "SC", "ST", "OBC", "EWS", "EBC", "PH", "Supernumerary", "Sports"];
 const genders = ["Male", "Female", "Not specified"];
 const semesters = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
-const subjectTypes = ["Major", "Minor", "AEC", "SEC", "VAC", "IDC"];
+const subjectTypes = ["Major", "Minor", "IDC", "MDC", "AEC", "SEC", "VAC"];
 
 const blankSearch = {
   academicyear: "",

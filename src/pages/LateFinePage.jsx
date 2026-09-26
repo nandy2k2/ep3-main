@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Autocomplete,
@@ -23,6 +24,7 @@ import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import { addOption, embeddedAwarePath, handleAddOption, renderAddOption } from "./addableAutocompleteHelpers";
 
 const blankForm = {
   id: "",
@@ -65,19 +67,25 @@ function optionLabel(value) {
   return value.label || value.program || value.programcode || "";
 }
 
-function SearchSelect({ label, value, options = [], onChange, multiple = false, disabled = false }) {
+function SearchSelect({ label, value, options = [], onChange, multiple = false, disabled = false, addLabel = "", addPath = "" }) {
+  const navigate = useNavigate();
+  const displayOptions = addPath ? [addOption(addLabel || `+ Add ${label}`, addPath), ...options] : options;
   return (
     <Autocomplete
       freeSolo
       multiple={multiple}
       disableCloseOnSelect={multiple}
-      options={options}
+      options={displayOptions}
       value={multiple ? value : (value || null)}
       disabled={disabled}
       getOptionLabel={optionLabel}
       isOptionEqualToValue={(option, selected) => optionLabel(option) === optionLabel(selected)}
-      onChange={(_, next) => onChange(next)}
-      renderOption={(props, option, { selected }) => (
+      onChange={(_, next) => {
+        const add = multiple ? (next || []).find((item) => item?.__addOption) : next;
+        if (handleAddOption(add, navigate)) return;
+        onChange(next);
+      }}
+      renderOption={(props, option, { selected }) => option?.__addOption ? renderAddOption(props, option) : (
         <li {...props}>
           {multiple && <Checkbox size="small" checked={selected} sx={{ mr: 1 }} />}
           {optionLabel(option)}
@@ -356,8 +364,8 @@ export default function LateFinePage() {
           <Typography variant="h6" fontWeight={900} sx={{ mb: 1.5 }}>{form.id ? "Edit late fine rule" : "Add late fine rule"}</Typography>
           <Grid container spacing={1.5}>
             <Grid item xs={12} md={2.4}><SearchSelect label="Academic Year" value={form.academicyear} options={options.academicyears || []} onChange={(value) => setField("academicyear", optionLabel(value))} /></Grid>
-            <Grid item xs={12} md={2.4}><SearchSelect label="Regulation" value={form.regulation} options={options.regulations || []} onChange={(value) => setField("regulation", optionLabel(value))} /></Grid>
-            <Grid item xs={12} md={3}><SearchSelect label="Program" value={form.program} options={options.programs || []} onChange={handleProgramChange} /></Grid>
+            <Grid item xs={12} md={2.4}><SearchSelect label="Regulation" value={form.regulation} options={options.regulations || []} addLabel="+ Add Regulation" addPath="/regulationmaster" onChange={(value) => setField("regulation", optionLabel(value))} /></Grid>
+            <Grid item xs={12} md={3}><SearchSelect label="Program" value={form.program} options={options.programs || []} addLabel="+ Add Program" addPath="/programmanagement" onChange={handleProgramChange} /></Grid>
             <Grid item xs={12} md={2}><SearchSelect label="Program Code" value={form.programcode} options={options.programcodes || []} onChange={(value) => setField("programcode", optionLabel(value))} /></Grid>
             <Grid item xs={12} md={2.2}><SearchSelect label="Status" value={form.status} options={["Active", "Inactive"]} onChange={(value) => setField("status", optionLabel(value) || "Active")} /></Grid>
             <Grid item xs={12} md={5}><SearchSelect label="Fee Items" value={form.feeitems} options={options.feeitems || []} multiple disabled={!!form.id} onChange={(value) => setField("feeitems", value.map(optionLabel).filter(Boolean))} /></Grid>

@@ -835,6 +835,27 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Recampaign" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/crm-email-reply-agent">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Email reply agent" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/crm-gmail-oauth-configuration">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Gmail OAuth configuration" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/crm-email-agent-report">
+            <ListItemIcon>
+              <BarChartIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Email agent report" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/crm-management">
             <ListItemIcon>
               <PersonIcon />
@@ -1736,6 +1757,13 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="OTP attendance" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/neplmssectionwiseotpattendance">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Sectionwise OTP attendance" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/neplmsotpattendanceconfiguration">
@@ -3432,6 +3460,13 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Populate exam dates" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/conduct-exam-barcode-generation">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Exam barcode generation" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/conduct-exam-course-scheduler-report">
             <ListItemIcon>
               <BarChartIcon />
@@ -4626,7 +4661,7 @@ export function menuitemsall() {
         </AccordionSummary>
         <AccordionDetails>
 
-
+          {/*
           <ListItem button component={RouterLink} to="/dashmfeebook">
 <ListItemIcon>
 <PersonIcon />
@@ -4638,6 +4673,20 @@ export function menuitemsall() {
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Cashbook" />}
+</ListItem>
+          */}
+
+          <ListItem button component={RouterLink} to="/feebook-crud">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Fee Book" />}
+</ListItem>
+ <ListItem button component={RouterLink} to="/cashbook-crud">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Cash Book" />}
 </ListItem>
 
 
@@ -4856,6 +4905,13 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Fees paid report 2" />}
           </ListItem>
 
+          <ListItem button component={RouterLink} to="/feespaidreport3">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Fees paid report 3" />}
+          </ListItem>
+
           <ListItem button component={RouterLink} to="/programwisefeesreport">
             <ListItemIcon>
               <PersonIcon />
@@ -4868,6 +4924,20 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Pending fees" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/pendingfees2">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Pending fees 2" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/pendingfees3">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Pending fees 3" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/pending-fees-agent">
@@ -4968,16 +5038,23 @@ export function menuitemsall() {
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Counter Fee 2 Receipt" />}
           </ListItem>
 
-          <ListItem button component={RouterLink} to="/counterfee2receipt3">
-            <ListItemIcon>
-              <PersonIcon />
-            </ListItemIcon>
-            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Counter Fee Receipt 3" />}
-          </ListItem>
+	          <ListItem button component={RouterLink} to="/counterfee2receipt3">
+	            <ListItemIcon>
+	              <PersonIcon />
+	            </ListItemIcon>
+	            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Counter Fee Receipt 3" />}
+	          </ListItem>
 
-          <ListItem button component={RouterLink} to="/counterfeereceipt">
-            <ListItemIcon>
-              <PersonIcon />
+	          <ListItem button component={RouterLink} to="/counterfeeedit">
+	            <ListItemIcon>
+	              <PersonIcon />
+	            </ListItemIcon>
+	            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Counter fee edit" />}
+	          </ListItem>
+
+	          <ListItem button component={RouterLink} to="/counterfeereceipt">
+	            <ListItemIcon>
+	              <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Counter Fee Receipt" />}
           </ListItem>
@@ -7176,6 +7253,28 @@ export function menuitemsall() {
 
 
 
+        </AccordionDetails>
+      </Accordion>
+       <Accordion>
+        <AccordionSummary aria-controls="convocation-new-content" id="convocation-new-header">
+          <SettingsIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{ fontSize: 14 }}>Convocation New</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          {[
+            ["/convocation-new-dress-master", "Dress master"],
+            ["/convocation-new-shipping", "Shipping"],
+            ["/convocation-new-dress-report", "Dress summary"],
+            ["/convocation-new-gold-medal-list", "Gold medal list"],
+            ["/convocation-new-program-fees", "Programwise convocation fees"],
+            ["/convocation-new-fee-report", "Convocation fee report"],
+            ["/convocation-new-students", "Convocation students"]
+          ].map(([to, title]) => (
+            <ListItem button component={RouterLink} to={to} key={to}>
+              <ListItemIcon><PersonIcon /></ListItemIcon>
+              {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary={title} />}
+            </ListItem>
+          ))}
         </AccordionDetails>
       </Accordion>
        <Accordion>
@@ -9731,6 +9830,62 @@ export function menuitemsall() {
               <SettingsIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Match regno from ledger" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/user-to-ledger-regno">
+            <ListItemIcon>
+              <SettingsIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="User to ledger regno" />}
+          </ListItem>
+	          <ListItem button component={RouterLink} to="/ledger-to-user-regno">
+	            <ListItemIcon>
+	              <SettingsIcon />
+	            </ListItemIcon>
+	            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Ledger to User regno" />}
+	          </ListItem>
+	          <ListItem button component={RouterLink} to="/duplicate-fees-repair">
+	            <ListItemIcon>
+	              <SettingsIcon />
+	            </ListItemIcon>
+	            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Duplicate fees" />}
+	          </ListItem>
+	          <ListItem button component={RouterLink} to="/user-to-counter-fee">
+	            <ListItemIcon>
+	              <SettingsIcon />
+	            </ListItemIcon>
+	            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="User to counter fee" />}
+	          </ListItem>
+	        </AccordionDetails>
+	      </Accordion>
+      <Accordion>
+        <AccordionSummary aria-controls="notification-content" id="notification-header">
+          <SettingsIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{ fontSize: 14 }}>Notification</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          <ListItem button component={RouterLink} to="/notification-settings-students">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Notification settings students" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/user-notification-settings">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="User notification settings" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/student-push-notification">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Send student notification" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/user-push-notification">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Send user notification" />}
           </ListItem>
         </AccordionDetails>
       </Accordion>

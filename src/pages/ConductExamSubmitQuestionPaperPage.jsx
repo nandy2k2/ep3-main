@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Autocomplete,
@@ -49,6 +50,7 @@ import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
 import AdvancedDrawingPad from "./QuestionDrawingPad";
+import { addOption, handleAddOption, renderAddOption } from "./addableAutocompleteHelpers";
 
 const bloomLevels = ["Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"];
 const questionTypes = ["MCQ", "Descriptive", "Short Answer Type", "Long answer Type", "Case Studies"];
@@ -591,6 +593,7 @@ function RichQuestionTools({ question, disabled, uploadingKey, uploadAttachment,
 }
 
 export default function ConductExamSubmitQuestionPaperPage({ patternwise = false, mathematical = false, templatewise = false }) {
+  const navigate = useNavigate();
   const [papers, setPapers] = useState([]);
   const [selectedPaperId, setSelectedPaperId] = useState("");
   const [paperDoc, setPaperDoc] = useState(null);
@@ -1410,7 +1413,7 @@ export default function ConductExamSubmitQuestionPaperPage({ patternwise = false
                   ["Paper Setter", `${selectedPaper.papersettername} (${selectedPaper.papersetteremail})`],
                   ...(patternwise ? [["Pattern", selectedPattern?.pattern || paperDoc?.pattern || "-"]] : [])
                 ].map(([label, value]) => <Grid item xs={12} md={4} key={label}><Typography variant="caption" color="text.secondary">{label}</Typography><Typography fontWeight={800}>{value || "-"}</Typography></Grid>)}
-                {patternwise && <Grid item xs={12} md={4}><Autocomplete options={patterns} value={selectedPattern} getOptionLabel={(row) => row ? `${row.pattern || ""} - ${row.description || ""}` : ""} onChange={(_, value) => { setSelectedPatternId(value?._id || ""); loadPatternRows(value?._id || "", value); }} renderInput={(params) => <TextField {...params} label="Question Paper Pattern" />} /></Grid>}
+                {patternwise && <Grid item xs={12} md={4}><Autocomplete options={[addOption("+ Add Question Paper Pattern", "/conduct-exam-question-pattern"), ...patterns]} value={selectedPattern} getOptionLabel={(row) => row?.__addOption ? row.label : row ? `${row.pattern || ""} - ${row.description || ""}` : ""} renderOption={(props, option) => option?.__addOption ? renderAddOption(props, option) : <li {...props}>{`${option.pattern || ""} - ${option.description || ""}`}</li>} onChange={(_, value) => { if (handleAddOption(value, navigate)) return; setSelectedPatternId(value?._id || ""); loadPatternRows(value?._id || "", value); }} renderInput={(params) => <TextField {...params} label="Question Paper Pattern" />} /></Grid>}
                 {(patternwise || templatewise) && <Grid item xs={12} md={5}><Autocomplete multiple disableCloseOnSelect options={languages.filter((item) => item !== "English")} value={translationLanguages} onChange={(_, value) => setTranslationLanguages(value)} renderOption={renderCheckboxOption} renderInput={(params) => <TextField {...params} label="Translate Languages" />} /></Grid>}
                 {(patternwise || templatewise) && <Grid item xs={12} md={3}><Button fullWidth variant="outlined" color="secondary" disabled={paperSubmitted || translating || !translationLanguages.length} onClick={translatePaper} sx={{ height: 56 }}>{translating ? "Translating..." : "Translate Paper"}</Button></Grid>}
                 {patternwise && !!patternRows.length && <Grid item xs={12}><Alert severity="info">{patternRows.length} question format row(s) loaded. AI generation will create exactly these rows, using the question type, marks, group, subquestion and math settings from the format.</Alert></Grid>}

@@ -27,7 +27,7 @@ import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
 
 const academicYears = ["2026-27", "2027-28", "2028-29", "2029-30", "2030-31"];
-const subjectTypes = ["Major", "Minor", "AEC", "SEC", "VAC", "IDC"];
+const subjectTypes = ["Major", "Minor", "IDC", "MDC", "AEC", "SEC", "VAC"];
 const numericSeatFields = [
   { key: "totalseats", label: "Total Seats" },
   { key: "general", label: "General" },

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import {
   Alert,
@@ -19,6 +20,7 @@ import PrintIcon from "@mui/icons-material/Print";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import { addOption, embeddedAwarePath, handleAddOption, renderAddOption } from "./addableAutocompleteHelpers";
 
 const blankForm = {
   academicyear: "",
@@ -52,6 +54,7 @@ const htmlEscape = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => 
 }[char]));
 
 export default function ConductExamModeratorRegistrationPage() {
+  const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
   const [users, setUsers] = useState([]);
   const [components, setComponents] = useState([]);
@@ -385,26 +388,31 @@ export default function ConductExamModeratorRegistrationPage() {
           <Grid container spacing={2}>
             <Grid item xs={12} md={2}><TextField select fullWidth label="Academic Year" value={form.academicyear} onChange={(e) => setForm({ ...blankForm, academicyear: e.target.value })}>{dropdowns.academicyears.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={3}><TextField select fullWidth label="Exam" value={form.examcode} onChange={(e) => {
+              if (e.target.value === "__add_exam") return navigate(embeddedAwarePath("/conduct-exam-master"));
               const exam = dropdowns.exams.find((item) => item.examcode === e.target.value);
               setForm((prev) => ({ ...prev, examcode: e.target.value, exam: exam?.exam || "", regulation: "", program: "", programcode: "", course: "", coursecode: "", component: "" }));
-            }}>{dropdowns.exams.map((item) => <MenuItem key={item.examcode} value={item.examcode}>{item.examcode} - {item.exam}</MenuItem>)}</TextField></Grid>
-            <Grid item xs={12} md={2}><TextField select fullWidth label="Regulation" value={form.regulation} onChange={(e) => setForm((prev) => ({ ...prev, regulation: e.target.value, program: "", programcode: "", course: "", coursecode: "", component: "" }))}>{dropdowns.regulations.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+            }}><MenuItem value="__add_exam">+ Add Exam</MenuItem>{dropdowns.exams.map((item) => <MenuItem key={item.examcode} value={item.examcode}>{item.examcode} - {item.exam}</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={2}><TextField select fullWidth label="Regulation" value={form.regulation} onChange={(e) => e.target.value === "__add_regulation" ? navigate(embeddedAwarePath("/regulationmaster")) : setForm((prev) => ({ ...prev, regulation: e.target.value, program: "", programcode: "", course: "", coursecode: "", component: "" }))}><MenuItem value="__add_regulation">+ Add Regulation</MenuItem>{dropdowns.regulations.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={2.5}><TextField select fullWidth label="Program" value={form.programcode} onChange={(e) => {
+              if (e.target.value === "__add_program") return navigate(embeddedAwarePath("/programmanagement"));
               const program = dropdowns.programs.find((item) => item.programcode === e.target.value);
               setForm((prev) => ({ ...prev, programcode: e.target.value, program: program?.program || "", course: "", coursecode: "", component: "" }));
-            }}>{dropdowns.programs.map((item) => <MenuItem key={item.programcode} value={item.programcode}>{item.program} ({item.programcode})</MenuItem>)}</TextField></Grid>
-            <Grid item xs={12} md={2.5}><TextField select fullWidth label="Course" value={form.coursecode} onChange={(e) => setCourseDetails(e.target.value)}>{dropdowns.coursesList.map((item) => <MenuItem key={item.coursecode} value={item.coursecode}>{courseLabel(item)}</MenuItem>)}</TextField></Grid>
-            <Grid item xs={12} md={3}><Autocomplete options={dropdowns.components} value={form.component || ""} onChange={(event, value) => setForm((prev) => ({ ...prev, component: value || "" }))} renderInput={(params) => <TextField {...params} label="Component" />} /></Grid>
+            }}><MenuItem value="__add_program">+ Add Program</MenuItem>{dropdowns.programs.map((item) => <MenuItem key={item.programcode} value={item.programcode}>{item.program} ({item.programcode})</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={2.5}><TextField select fullWidth label="Course" value={form.coursecode} onChange={(e) => e.target.value === "__add_course_map" ? navigate(embeddedAwarePath("/regulationcoursemap")) : setCourseDetails(e.target.value)}><MenuItem value="__add_course_map">+ Add Regulation Course Map</MenuItem>{dropdowns.coursesList.map((item) => <MenuItem key={item.coursecode} value={item.coursecode}>{courseLabel(item)}</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={3}><Autocomplete options={[addOption("+ Add Assessment Component", "/assessmentcomponent"), ...dropdowns.components]} getOptionLabel={(option) => option?.__addOption ? option.label : String(option || "")} renderOption={(props, option) => option?.__addOption ? renderAddOption(props, option) : <li {...props}>{option}</li>} value={form.component || ""} onChange={(event, value) => { if (handleAddOption(value, navigate)) return; setForm((prev) => ({ ...prev, component: value || "" })); }} renderInput={(params) => <TextField {...params} label="Component" />} /></Grid>
             <Grid item xs={12} md={4}>
               <Autocomplete
                 multiple={!editId}
-                options={users}
+                options={[addOption("+ Add Non Student User", "/mbuser"), ...users]}
                 value={editId ? (users.find((user) => user.email === form.moderatoremail) || null) : selectedUsers}
-                getOptionLabel={(option) => `${option.name || ""}${option.email ? ` (${option.email})` : ""}`}
+                getOptionLabel={(option) => option?.__addOption ? option.label : `${option.name || ""}${option.email ? ` (${option.email})` : ""}`}
                 onChange={(event, value) => {
+                  const add = Array.isArray(value) ? value.find((item) => item?.__addOption) : value;
+                  if (handleAddOption(add, navigate)) return;
                   if (editId) setForm((prev) => ({ ...prev, moderatorname: value?.name || "", moderatoremail: value?.email || "" }));
                   else setSelectedUsers(value || []);
                 }}
+                renderOption={(props, option) => option?.__addOption ? renderAddOption(props, option) : <li {...props}>{option.name || ""}{option.email ? ` (${option.email})` : ""}</li>}
                 renderInput={(params) => <TextField {...params} label={editId ? "Moderator" : "Moderators"} />}
               />
             </Grid>

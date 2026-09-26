@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Autocomplete,
@@ -22,6 +23,7 @@ import SaveIcon from "@mui/icons-material/Save";
 import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import { embeddedAwarePath } from "./addableAutocompleteHelpers";
 
 const emptyForm = {
   id: "",
@@ -36,20 +38,25 @@ const emptyForm = {
 
 const SELECT_ALL_USERS = { _id: "__all_users__", name: "Select all users", email: "" };
 const SELECT_ALL_PROGRAMS = { _id: "__all_programs__", program: "Select all programs", programcode: "" };
+const ADD_USER = { _id: "__add_user__", name: "Add non-student user", email: "", __addOption: true, path: "/mbuser" };
+const ADD_PROGRAM = { _id: "__add_program__", program: "Add program", programcode: "", __addOption: true, path: "/programmanagement" };
 const SELECT_ALL_SEMESTERS = "__all_semesters__";
 const autocompleteFilter = createFilterOptions();
 
 function userLabel(user) {
   if (!user) return "";
+  if (user.__addOption) return user.name || "";
   return `${user.name || "No name"} - ${user.email || "No email"}${user.role ? ` (${user.role})` : ""}`;
 }
 
 function programLabel(program) {
   if (!program) return "";
+  if (program.__addOption) return program.program || "";
   return `${program.program || "Program"} (${program.programcode || "Code"})${program.department ? ` - ${program.department}` : ""}`;
 }
 
 export default function ProgramwiseAccessPage() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [programs, setPrograms] = useState([]);
   const [rows, setRows] = useState([]);
@@ -279,21 +286,29 @@ export default function ProgramwiseAccessPage() {
                 <Autocomplete
                   multiple
                   disableCloseOnSelect
-                  options={[SELECT_ALL_USERS, ...users]}
+                  options={[ADD_USER, SELECT_ALL_USERS, ...users]}
                   filterOptions={(options, params) => [
+                    ADD_USER,
                     SELECT_ALL_USERS,
-                    ...autocompleteFilter(options.filter((option) => option._id !== SELECT_ALL_USERS._id), params)
+                    ...autocompleteFilter(options.filter((option) => option._id !== SELECT_ALL_USERS._id && option._id !== ADD_USER._id), params)
                   ]}
                   value={selectedUsers}
-                  onChange={(_, value) => selectUsers(value)}
+                  onChange={(_, value) => {
+                    if ((value || []).some((item) => item.__addOption)) {
+                      navigate(embeddedAwarePath("/mbuser"));
+                      return;
+                    }
+                    selectUsers(value);
+                  }}
                   getOptionLabel={userLabel}
                   isOptionEqualToValue={(option, value) => option._id === value._id}
                   renderOption={(props, option, { selected }) => {
+                    const isAdd = option._id === ADD_USER._id;
                     const isSelectAll = option._id === SELECT_ALL_USERS._id;
                     const checked = isSelectAll ? selectedUsers.length === users.length && users.length > 0 : selected;
                     return (
-                      <li {...props}>
-                        <Checkbox checked={checked} sx={{ mr: 1 }} />
+                      <li {...props} style={isAdd ? { fontWeight: 800, color: "#2563eb" } : undefined}>
+                        {!isAdd && <Checkbox checked={checked} sx={{ mr: 1 }} />}
                         {userLabel(option)}
                       </li>
                     );
@@ -310,21 +325,29 @@ export default function ProgramwiseAccessPage() {
                 <Autocomplete
                   multiple
                   disableCloseOnSelect
-                  options={[SELECT_ALL_PROGRAMS, ...programs]}
+                  options={[ADD_PROGRAM, SELECT_ALL_PROGRAMS, ...programs]}
                   filterOptions={(options, params) => [
+                    ADD_PROGRAM,
                     SELECT_ALL_PROGRAMS,
-                    ...autocompleteFilter(options.filter((option) => option._id !== SELECT_ALL_PROGRAMS._id), params)
+                    ...autocompleteFilter(options.filter((option) => option._id !== SELECT_ALL_PROGRAMS._id && option._id !== ADD_PROGRAM._id), params)
                   ]}
                   value={selectedPrograms}
-                  onChange={(_, value) => selectPrograms(value)}
+                  onChange={(_, value) => {
+                    if ((value || []).some((item) => item.__addOption)) {
+                      navigate(embeddedAwarePath("/programmanagement"));
+                      return;
+                    }
+                    selectPrograms(value);
+                  }}
                   getOptionLabel={programLabel}
                   isOptionEqualToValue={(option, value) => option._id === value._id}
                   renderOption={(props, option, { selected }) => {
+                    const isAdd = option._id === ADD_PROGRAM._id;
                     const isSelectAll = option._id === SELECT_ALL_PROGRAMS._id;
                     const checked = isSelectAll ? selectedPrograms.length === programs.length && programs.length > 0 : selected;
                     return (
-                      <li {...props}>
-                        <Checkbox checked={checked} sx={{ mr: 1 }} />
+                      <li {...props} style={isAdd ? { fontWeight: 800, color: "#2563eb" } : undefined}>
+                        {!isAdd && <Checkbox checked={checked} sx={{ mr: 1 }} />}
                         {programLabel(option)}
                       </li>
                     );

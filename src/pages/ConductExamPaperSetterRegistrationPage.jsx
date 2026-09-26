@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import {
   Alert,
@@ -20,6 +21,7 @@ import PrintIcon from "@mui/icons-material/Print";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import { addOption, embeddedAwarePath, handleAddOption, renderAddOption } from "./addableAutocompleteHelpers";
 
 const blankForm = {
   academicyear: "",
@@ -52,6 +54,7 @@ const htmlEscape = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => 
 }[char]));
 
 export default function ConductExamPaperSetterRegistrationPage() {
+  const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
   const [exams, setExams] = useState([]);
   const [users, setUsers] = useState([]);
@@ -406,20 +409,27 @@ export default function ConductExamPaperSetterRegistrationPage() {
           <Grid container spacing={2}>
             <Grid item xs={12} md={2}><TextField select fullWidth label="Academic Year" value={form.academicyear} onChange={(e) => setForm({ ...blankForm, academicyear: e.target.value })}>{dropdowns.academicyears.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={3}><TextField select fullWidth label="Exam" value={form.examcode} onChange={(e) => {
+              if (e.target.value === "__add_exam") return navigate(embeddedAwarePath("/conduct-exam-master"));
               const exam = dropdowns.exams.find((item) => item.examcode === e.target.value);
               setForm((prev) => ({ ...blankForm, academicyear: prev.academicyear, examcode: e.target.value, exam: exam?.exam || "" }));
-            }}>{dropdowns.exams.map((item) => <MenuItem key={item.examcode} value={item.examcode}>{item.exam} ({item.examcode})</MenuItem>)}</TextField></Grid>
-            <Grid item xs={12} md={2}><TextField select fullWidth label="Regulation" value={form.regulation} onChange={(e) => setForm((prev) => ({ ...prev, regulation: e.target.value, program: "", programcode: "", course: "", coursecode: "", component: "" }))}>{dropdowns.regulations.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+            }}><MenuItem value="__add_exam">+ Add Exam</MenuItem>{dropdowns.exams.map((item) => <MenuItem key={item.examcode} value={item.examcode}>{item.exam} ({item.examcode})</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={2}><TextField select fullWidth label="Regulation" value={form.regulation} onChange={(e) => e.target.value === "__add_regulation" ? navigate(embeddedAwarePath("/regulationmaster")) : setForm((prev) => ({ ...prev, regulation: e.target.value, program: "", programcode: "", course: "", coursecode: "", component: "" }))}><MenuItem value="__add_regulation">+ Add Regulation</MenuItem>{dropdowns.regulations.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={3}><TextField select fullWidth label="Program" value={form.programcode} onChange={(e) => {
+              if (e.target.value === "__add_program") return navigate(embeddedAwarePath("/programmanagement"));
               const program = dropdowns.programs.find((item) => item.programcode === e.target.value);
               setForm((prev) => ({ ...prev, programcode: e.target.value, program: program?.program || "", course: "", coursecode: "", component: "" }));
-            }}>{dropdowns.programs.map((item) => <MenuItem key={item.programcode} value={item.programcode}>{item.program} ({item.programcode})</MenuItem>)}</TextField></Grid>
-            <Grid item xs={12} md={2}><TextField select fullWidth label="Course" value={form.coursecode} onChange={(e) => setCourseDetails(e.target.value)}>{dropdowns.coursesList.map((item) => <MenuItem key={item.coursecode} value={item.coursecode}>{courseLabel(item)}</MenuItem>)}</TextField></Grid>
+            }}><MenuItem value="__add_program">+ Add Program</MenuItem>{dropdowns.programs.map((item) => <MenuItem key={item.programcode} value={item.programcode}>{item.program} ({item.programcode})</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={2}><TextField select fullWidth label="Course" value={form.coursecode} onChange={(e) => e.target.value === "__add_course_map" ? navigate(embeddedAwarePath("/regulationcoursemap")) : setCourseDetails(e.target.value)}><MenuItem value="__add_course_map">+ Add Regulation Course Map</MenuItem>{dropdowns.coursesList.map((item) => <MenuItem key={item.coursecode} value={item.coursecode}>{courseLabel(item)}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={3}>
               <Autocomplete
-                options={dropdowns.components}
+                options={[addOption("+ Add Assessment Component", "/assessmentcomponent"), ...dropdowns.components]}
                 value={form.component || ""}
-                onChange={(event, value) => setForm((prev) => ({ ...prev, component: value || "" }))}
+                getOptionLabel={(option) => option?.__addOption ? option.label : String(option || "")}
+                renderOption={(props, option) => option?.__addOption ? renderAddOption(props, option) : <li {...props}>{option}</li>}
+                onChange={(event, value) => {
+                  if (handleAddOption(value, navigate)) return;
+                  setForm((prev) => ({ ...prev, component: value || "" }));
+                }}
                 renderInput={(params) => <TextField {...params} label="Component" placeholder="From assessment components" />}
               />
             </Grid>
@@ -427,15 +437,17 @@ export default function ConductExamPaperSetterRegistrationPage() {
               <Autocomplete
                 multiple
                 disableCloseOnSelect
-                options={users}
+                options={[addOption("+ Add Non Student User", "/mbuser"), ...users]}
                 value={selectedUsers}
                 isOptionEqualToValue={(option, value) => option.email === value.email}
-                getOptionLabel={(option) => `${option.name || ""}${option.email ? ` (${option.email})` : ""}`}
+                getOptionLabel={(option) => option?.__addOption ? option.label : `${option.name || ""}${option.email ? ` (${option.email})` : ""}`}
                 onChange={(event, value) => {
+                  const add = (value || []).find((item) => item?.__addOption);
+                  if (add && handleAddOption(add, navigate)) return;
                   setSelectedUsers(value || []);
                   if (value?.length === 1) setForm((prev) => ({ ...prev, papersettername: value[0].name || "", papersetteremail: value[0].email || "" }));
                 }}
-                renderOption={(props, option, { selected }) => <li {...props}><Checkbox checked={selected} sx={{ mr: 1 }} />{option.name || ""}{option.email ? ` (${option.email})` : ""}</li>}
+                renderOption={(props, option, { selected }) => option?.__addOption ? renderAddOption(props, option) : <li {...props}><Checkbox checked={selected} sx={{ mr: 1 }} />{option.name || ""}{option.email ? ` (${option.email})` : ""}</li>}
                 renderInput={(params) => <TextField {...params} label="Bulk Select Paper Setters" placeholder="Search paper setter" />}
               />
             </Grid>

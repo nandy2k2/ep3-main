@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import {
   Alert,
@@ -19,6 +20,7 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import { embeddedAwarePath } from "./addableAutocompleteHelpers";
 
 const blankForm = {
   academicyear: "",
@@ -50,6 +52,7 @@ const uniq = (items) => [...new Set(items.map((item) => String(item || "").trim(
 const courseLabel = (row) => `${row.course || ""}${row.coursecode ? ` (${row.coursecode})` : ""}`;
 
 export default function ConductExamExaminerAllotmentPage() {
+  const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
   const [examiners, setExaminers] = useState([]);
   const [students, setStudents] = useState([]);
@@ -410,15 +413,17 @@ export default function ConductExamExaminerAllotmentPage() {
           <Grid container spacing={2}>
             <Grid item xs={12} md={2}><TextField select fullWidth label="Academic Year" value={form.academicyear} onChange={(e) => setForm({ ...blankForm, academicyear: e.target.value })}>{dropdowns.academicyears.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={3}><TextField select fullWidth label="Exam" value={form.examcode} onChange={(e) => {
+              if (e.target.value === "__add_exam") return navigate(embeddedAwarePath("/conduct-exam-master"));
               const exam = dropdowns.exams.find((item) => item.examcode === e.target.value);
               setForm((prev) => ({ ...blankForm, academicyear: prev.academicyear, examcode: e.target.value, exam: exam?.exam || "" }));
-            }}>{dropdowns.exams.map((item) => <MenuItem key={item.examcode} value={item.examcode}>{item.exam} ({item.examcode})</MenuItem>)}</TextField></Grid>
-            <Grid item xs={12} md={2}><TextField select fullWidth label="Regulation" value={form.regulation} onChange={(e) => setForm((prev) => ({ ...prev, regulation: e.target.value, program: "", programcode: "", course: "", coursecode: "" }))}>{dropdowns.regulations.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+            }}><MenuItem value="__add_exam" sx={{ fontWeight: 800, color: "#2563eb" }}>+ Add Exam</MenuItem>{dropdowns.exams.map((item) => <MenuItem key={item.examcode} value={item.examcode}>{item.exam} ({item.examcode})</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={2}><TextField select fullWidth label="Regulation" value={form.regulation} onChange={(e) => e.target.value === "__add_regulation" ? navigate(embeddedAwarePath("/regulationmaster")) : setForm((prev) => ({ ...prev, regulation: e.target.value, program: "", programcode: "", course: "", coursecode: "" }))}><MenuItem value="__add_regulation" sx={{ fontWeight: 800, color: "#2563eb" }}>+ Add Regulation</MenuItem>{dropdowns.regulations.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={3}><TextField select fullWidth label="Program" value={form.programcode} onChange={(e) => {
+              if (e.target.value === "__add_program") return navigate(embeddedAwarePath("/programmanagement"));
               const program = dropdowns.programs.find((item) => item.programcode === e.target.value);
               setForm((prev) => ({ ...prev, programcode: e.target.value, program: program?.program || "", course: "", coursecode: "" }));
-            }}>{dropdowns.programs.map((item) => <MenuItem key={item.programcode} value={item.programcode}>{item.program} ({item.programcode})</MenuItem>)}</TextField></Grid>
-            <Grid item xs={12} md={2}><TextField select fullWidth label="Course" value={form.coursecode} onChange={(e) => setCourseDetails(e.target.value)}>{dropdowns.coursesList.map((item) => <MenuItem key={item.coursecode} value={item.coursecode}>{courseLabel(item)}</MenuItem>)}</TextField></Grid>
+            }}><MenuItem value="__add_program" sx={{ fontWeight: 800, color: "#2563eb" }}>+ Add Program</MenuItem>{dropdowns.programs.map((item) => <MenuItem key={item.programcode} value={item.programcode}>{item.program} ({item.programcode})</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={2}><TextField select fullWidth label="Course" value={form.coursecode} onChange={(e) => e.target.value === "__add_exam_course" ? navigate(embeddedAwarePath("/conduct-exam-courses")) : setCourseDetails(e.target.value)}><MenuItem value="__add_exam_course" sx={{ fontWeight: 800, color: "#2563eb" }}>+ Add Exam Course</MenuItem>{dropdowns.coursesList.map((item) => <MenuItem key={item.coursecode} value={item.coursecode}>{courseLabel(item)}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={3}><Button fullWidth variant="outlined" onClick={loadPresentStudents} disabled={loadingStudents} sx={{ height: 56 }}>{loadingStudents ? "Loading..." : `Load Present Students${students.length ? ` (${students.length})` : ""}`}</Button></Grid>
             <Grid item xs={12} md={2.5}>
               <TextField

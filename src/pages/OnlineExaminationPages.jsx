@@ -80,6 +80,39 @@ const fmtZone = (value, timeZone) => {
     return fmt(value);
   }
 };
+const formatRemainingTime = (value) => {
+  const safe = Math.max(0, Number(value) || 0);
+  const hours = Math.floor(safe / 3600);
+  const minutes = Math.floor((safe % 3600) / 60);
+  const seconds = safe % 60;
+  return `${hours ? `${String(hours).padStart(2, "0")}:` : ""}${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+};
+const ExamTimerBadge = ({ remaining, online }) => (
+  <Paper
+    elevation={0}
+    sx={{
+      px: 2,
+      py: 1,
+      minWidth: 190,
+      textAlign: "center",
+      border: "2px solid",
+      borderColor: online ? "#15803d" : "#b45309",
+      bgcolor: online ? "#dcfce7" : "#ffedd5",
+      color: online ? "#052e16" : "#431407",
+      borderRadius: 2,
+      position: { xs: "sticky", md: "static" },
+      top: 8,
+      zIndex: 20
+    }}
+  >
+    <Typography variant="caption" sx={{ display: "block", fontWeight: 900, letterSpacing: 0.5 }}>
+      TIME REMAINING
+    </Typography>
+    <Typography variant="h4" fontWeight={900} sx={{ lineHeight: 1.1 }}>
+      {formatRemainingTime(remaining)}
+    </Typography>
+  </Paper>
+);
 const dtLocal = (value) => value ? String(value).slice(0, 16) : "";
 const rowsOf = (rows) => (rows || []).map((row) => ({ ...row, id: row._id }));
 const uniqueValues = (rows, field) => [...new Set((rows || []).map((row) => row?.[field]).filter(Boolean))].sort();
@@ -1235,19 +1268,17 @@ export function StudentOnlineExamPage({ examContext = "Student", title = "Online
   const currentSection = selectedExam?.sections?.[active.section];
   const currentQuestion = currentSection?.questions?.[active.question];
   const currentAnswer = answers.find((a) => String(a.questionid) === String(currentQuestion?._id));
-  const minutes = String(Math.floor(remaining / 60)).padStart(2, "0");
-  const seconds = String(remaining % 60).padStart(2, "0");
   const displayedExams = requestedExamId ? exams.filter((exam) => String(exam._id) === String(requestedExamId)) : exams;
 
   if (attempt && !attempt.submittime && selectedExam) {
     return (
-      <Box sx={{ minHeight: "100vh", bgcolor: "#0f172a", color: "#fff", p: 2 }}>
+      <Box sx={{ minHeight: "100vh", bgcolor: "#0f172a", color: "#111827", p: 2 }}>
         <Stack spacing={2}>
-          <Paper sx={{ p: 2, bgcolor: "#111827", color: "#fff" }}>
+          <Paper sx={{ p: 2, bgcolor: "#f8fafc", color: "#111827", border: "1px solid #cbd5e1" }}>
             <Stack direction={{ xs: "column", md: "row" }} alignItems={{ md: "center" }} spacing={2}>
               <Box sx={{ flex: 1 }}><Typography variant="h5" fontWeight={900}>{selectedExam.examname}</Typography><Typography>{selectedExam.course} ({selectedExam.coursecode})</Typography></Box>
               <Chip color={online ? "success" : "warning"} label={online ? "Online" : "Offline - timer paused"} />
-              <Typography variant="h4" fontWeight={900}>{minutes}:{seconds}</Typography>
+              <ExamTimerBadge remaining={remaining} online={online} />
               <Button variant="outlined" onClick={save}>Save</Button>
               <Button variant="contained" color="error" onClick={() => submit("Final submitted", false)}>Submit</Button>
             </Stack>
@@ -2920,18 +2951,16 @@ export function AdmissionApplicantExamPage() {
   const currentSection = selectedExam?.sections?.[active.section];
   const currentQuestion = currentSection?.questions?.[active.question];
   const currentAnswer = answers.find((a) => String(a.questionid) === String(currentQuestion?._id));
-  const minutes = String(Math.floor(remaining / 60)).padStart(2, "0");
-  const seconds = String(remaining % 60).padStart(2, "0");
 
   if (attempt && !attempt.submittime && selectedExam) {
     return (
-      <Box sx={{ minHeight: "100vh", bgcolor: "#0f172a", color: "#fff", p: 2 }}>
+      <Box sx={{ minHeight: "100vh", bgcolor: "#0f172a", color: "#111827", p: 2 }}>
         <Stack spacing={2}>
-          <Paper sx={{ p: 2, bgcolor: "#111827", color: "#fff" }}>
+          <Paper sx={{ p: 2, bgcolor: "#f8fafc", color: "#111827", border: "1px solid #cbd5e1" }}>
             <Stack direction={{ xs: "column", md: "row" }} alignItems={{ md: "center" }} spacing={2}>
               <Box sx={{ flex: 1 }}><Typography variant="h5" fontWeight={900}>{selectedExam.examname}</Typography><Typography>{login?.name} | {login?.applicationnumber || login?.applicationid}</Typography></Box>
               <Chip color={online ? "success" : "warning"} label={online ? "Online" : "Offline - timer paused"} />
-              <Typography variant="h4" fontWeight={900}>{minutes}:{seconds}</Typography>
+              <ExamTimerBadge remaining={remaining} online={online} />
               <Button variant="outlined" onClick={save}>Save</Button>
               <Button variant="contained" color="error" onClick={() => submit("Final submitted", false)}>Submit</Button>
             </Stack>

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import {
   Alert,
@@ -18,6 +19,7 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import { addOption, embeddedAwarePath, handleAddOption, renderAddOption } from "./addableAutocompleteHelpers";
 
 const blankForm = {
   academicyear: "",
@@ -76,6 +78,7 @@ const headerMap = {
 };
 
 export default function ConductExamInvigilationPage() {
+  const navigate = useNavigate();
   const [rows, setRows] = useState([]);
   const [courseRows, setCourseRows] = useState([]);
   const [users, setUsers] = useState([]);
@@ -133,12 +136,13 @@ export default function ConductExamInvigilationPage() {
   };
 
   const selectMultipleInvigilators = (value) => {
-    setSelectedInvigilators(value || []);
-    if (value?.length === 1) {
+    const selected = (value || []).filter((item) => !item?.__addOption);
+    setSelectedInvigilators(selected);
+    if (selected.length === 1) {
       setForm((prev) => ({
         ...prev,
-        invigilatorname: value[0]?.name || "",
-        invigilatoremail: value[0]?.email || ""
+        invigilatorname: selected[0]?.name || "",
+        invigilatoremail: selected[0]?.email || ""
       }));
     } else {
       setForm((prev) => ({ ...prev, invigilatorname: "", invigilatoremail: "" }));
@@ -438,32 +442,38 @@ export default function ConductExamInvigilationPage() {
         <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
           <Grid container spacing={2}>
             <Grid item xs={12} md={3}><TextField select fullWidth label="Academic Year" value={form.academicyear} onChange={(e) => setForm({ ...form, academicyear: e.target.value, regulation: "", exam: "", examcode: "" })}>{dropdownOptions.academicyear.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
-            <Grid item xs={12} md={3}><TextField select fullWidth label="Regulation" value={form.regulation} onChange={(e) => setForm({ ...form, regulation: e.target.value, exam: "", examcode: "" })}>{dropdownOptions.regulation.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={3}><TextField select fullWidth label="Regulation" value={form.regulation} onChange={(e) => e.target.value === "__add_regulation" ? navigate(embeddedAwarePath("/regulationmaster")) : setForm({ ...form, regulation: e.target.value, exam: "", examcode: "" })}><MenuItem value="__add_regulation" sx={{ fontWeight: 800, color: "#2563eb" }}>+ Add Regulation</MenuItem>{dropdownOptions.regulation.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={3}><TextField select fullWidth label="Exam Code" value={form.examcode} onChange={(e) => {
+              if (e.target.value === "__add_exam") return navigate(embeddedAwarePath("/conduct-exam-master"));
               const row = courseRows.find((item) => item.examcode === e.target.value);
               setForm({ ...form, examcode: e.target.value, exam: row?.exam || "" });
-            }}>{dropdownOptions.examcode.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+            }}><MenuItem value="__add_exam" sx={{ fontWeight: 800, color: "#2563eb" }}>+ Add Exam</MenuItem>{dropdownOptions.examcode.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={3}><TextField fullWidth label="Exam" value={form.exam} onChange={(e) => setForm({ ...form, exam: e.target.value })} /></Grid>
             <Grid item xs={12} md={3}>
               {editId ? (
                 <Autocomplete
-                  options={users}
+                  options={[addOption("+ Add Non Student User", "/mbuser"), ...users]}
                   value={selectedInvigilator}
                   isOptionEqualToValue={(option, value) => option.email === value.email}
-                  getOptionLabel={(option) => `${option.name || ""}${option.email ? ` (${option.email})` : ""}`}
-                  onChange={(event, value) => selectInvigilator(value)}
+                  getOptionLabel={(option) => option?.__addOption ? option.label : `${option.name || ""}${option.email ? ` (${option.email})` : ""}`}
+                  onChange={(event, value) => { if (handleAddOption(value, navigate)) return; selectInvigilator(value); }}
+                  renderOption={(props, option) => option?.__addOption ? renderAddOption(props, option) : <li {...props}>{option.name || ""}{option.email ? ` (${option.email})` : ""}</li>}
                   renderInput={(params) => <TextField {...params} label="Invigilator" />}
                 />
               ) : (
                 <Autocomplete
                   multiple
                   disableCloseOnSelect
-                  options={users}
+                  options={[addOption("+ Add Non Student User", "/mbuser"), ...users]}
                   value={selectedInvigilators}
                   isOptionEqualToValue={(option, value) => option.email === value.email}
-                  getOptionLabel={(option) => `${option.name || ""}${option.email ? ` (${option.email})` : ""}`}
-                  onChange={(event, value) => selectMultipleInvigilators(value)}
-                  renderOption={(props, option, { selected }) => (
+                  getOptionLabel={(option) => option?.__addOption ? option.label : `${option.name || ""}${option.email ? ` (${option.email})` : ""}`}
+                  onChange={(event, value) => {
+                    const add = (value || []).find((item) => item?.__addOption);
+                    if (add && handleAddOption(add, navigate)) return;
+                    selectMultipleInvigilators(value);
+                  }}
+                  renderOption={(props, option, { selected }) => option?.__addOption ? renderAddOption(props, option) : (
                     <li {...props}>
                       <Checkbox checked={selected} sx={{ mr: 1 }} />
                       {option.name || ""}{option.email ? ` (${option.email})` : ""}

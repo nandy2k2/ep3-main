@@ -42,7 +42,7 @@ const toNumber = (value) => {
 const calculateLeaveBalance = (item = {}) => toNumber(item.openingbalance) + toNumber(item.carryforward) + toNumber(item.earned) - toNumber(item.used);
 const today = new Date().toISOString().slice(0, 10);
 
-const blankHierarchy = { employeename: "", employeeemail: "", department: "", status: "Active", levels: [{ level: 1, approvername: "", approveremail: "", approverrole: "" }] };
+const blankHierarchy = { employees: [], employeename: "", employeeemail: "", department: "", status: "Active", levels: [{ level: 1, approvername: "", approveremail: "", approverrole: "" }] };
 const blankType = { leavetype: "", leavetypecategory: "Non EL", code: "", description: "", roles: "All", annualquota: 0, documentrequired: "No", carryforwardcriteria: "None", carryforwardmaxdays: 0, carryforwardpercentage: 0, status: "Active" };
 const blankCycle = { cyclename: "", resetmonth: 1, resetday: 1, status: "Active" };
 const blankBalance = { cyclename: "", employeename: "", employeeemail: "", department: "", leavetype: "", openingbalance: 0, carryforward: 0, earned: 0, used: 0, balance: 0, status: "Active" };
@@ -138,8 +138,39 @@ export default function HrLeaveManagementPage({ defaultTab = "hierarchy", single
     try {
       setError("");
       setMessage("");
+      if (kind === "hierarchy") {
+        const selectedEmployees = forms.hierarchy.employees?.length
+          ? forms.hierarchy.employees
+          : employeeOptions.filter((user) => (user.email || user.user || "") === forms.hierarchy.employeeemail);
+        if (!editing.id && !selectedEmployees.length) {
+          setError("Select at least one employee");
+          return;
+        }
+        if (!editing.id && selectedEmployees.length) {
+          await Promise.all(selectedEmployees.map((employee) => {
+            const email = employee.email || employee.user || "";
+            const existing = rows.hierarchy.find((row) => norm(row.employeeemail) === norm(email));
+            const payload = {
+              ...forms.hierarchy,
+              employees: undefined,
+              employeeemail: email,
+              employeename: employee.name || email,
+              department: employee.department || "",
+              id: existing?._id,
+              colid: global1.colid,
+              user: global1.user
+            };
+            return ep1.post(existing ? "/api/v2/hrleave/hierarchy/update" : "/api/v2/hrleave/hierarchy", payload);
+          }));
+          setMessage(`Hierarchy saved for ${selectedEmployees.length} employee(s)`);
+          setEditing({ kind: "", id: "" });
+          setForms((prev) => ({ ...prev, hierarchy: blankHierarchy }));
+          await Promise.all([loadKind("hierarchy"), loadOptions()]);
+          return;
+        }
+      }
       const endpoint = editing.kind === kind ? `/api/v2/hrleave/${kind}/update` : `/api/v2/hrleave/${kind}`;
-      await ep1.post(endpoint, { ...forms[kind], id: editing.id, colid: global1.colid, user: global1.user });
+      await ep1.post(endpoint, { ...forms[kind], employees: undefined, id: editing.id, colid: global1.colid, user: global1.user });
       setMessage("Saved successfully");
       setEditing({ kind: "", id: "" });
       setForms((prev) => ({ ...prev, [kind]: kind === "hierarchy" ? blankHierarchy : kind === "type" ? blankType : kind === "cycle" ? blankCycle : blankBalance }));
@@ -151,7 +182,7 @@ export default function HrLeaveManagementPage({ defaultTab = "hierarchy", single
 
   const editKind = (kind, row) => {
     setEditing({ kind, id: row._id });
-    setForms((prev) => ({ ...prev, [kind]: kind === "hierarchy" ? { ...blankHierarchy, ...row, levels: row.levels?.length ? row.levels : blankHierarchy.levels } : { ...prev[kind], ...row } }));
+    setForms((prev) => ({ ...prev, [kind]: kind === "hierarchy" ? { ...blankHierarchy, ...row, employees: [], levels: row.levels?.length ? row.levels : blankHierarchy.levels } : { ...prev[kind], ...row } }));
   };
 
   const deleteKind = async (kind, row) => {
@@ -337,22 +368,43 @@ export default function HrLeaveManagementPage({ defaultTab = "hierarchy", single
   );
 
   const employeeOptions = options.users.filter((user) => norm(user.role) !== "student");
-  const userSelect = (kind) => {
+  const userSelect = (kind, multiple = false) => {
     const selectedEmail = forms[kind].employeeemail || "";
     const selectedUser = employeeOptions.find((user) => (user.email || user.user || "") === selectedEmail) || null;
+    const selectedUsers = forms[kind].employees?.length
+      ? forms[kind].employees
+      : selectedUser ? [selectedUser] : [];
     return (
       <Autocomplete
         fullWidth
         size="small"
+        multiple={multiple}
         options={employeeOptions}
-        value={selectedUser}
+        value={multiple ? selectedUsers : selectedUser}
         getOptionLabel={(option) => {
           const email = option.email || option.user || "";
           const dept = option.department ? `, ${option.department}` : "";
           return `${option.name || email} - ${email}${dept}`;
         }}
         isOptionEqualToValue={(option, value) => (option.email || option.user || "") === (value.email || value.user || "")}
-        onChange={(_, value) => selectUser(kind, value ? (value.email || value.user || "") : "")}
+        onChange={(_, value) => {
+          if (multiple) {
+            const users = Array.isArray(value) ? value : [];
+            const first = users[0] || {};
+            setForms((prev) => ({
+              ...prev,
+              [kind]: {
+                ...prev[kind],
+                employees: users,
+                employeeemail: users.map((user) => user.email || user.user || "").filter(Boolean).join(", "),
+                employeename: users.map((user) => user.name || user.email || user.user || "").filter(Boolean).join(", "),
+                department: users.length === 1 ? first.department || "" : ""
+              }
+            }));
+            return;
+          }
+          selectUser(kind, value ? (value.email || value.user || "") : "");
+        }}
         renderInput={(params) => <TextField {...params} label="Employee" />}
       />
     );
@@ -470,7 +522,7 @@ export default function HrLeaveManagementPage({ defaultTab = "hierarchy", single
         {tab === 0 && (
           <>
             <Grid container spacing={2}>
-              <Grid item xs={12} md={4}>{userSelect("hierarchy")}</Grid>
+              <Grid item xs={12} md={4}>{userSelect("hierarchy", editing.kind === "hierarchy" ? false : true)}</Grid>
               <Grid item xs={12} md={4}>{field("hierarchy", "employeename", "Employee Name")}</Grid>
               <Grid item xs={12} md={4}>{field("hierarchy", "department", "Department")}</Grid>
               {(forms.hierarchy.levels || []).map((level, index) => (

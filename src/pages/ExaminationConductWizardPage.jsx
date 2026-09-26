@@ -52,6 +52,18 @@ const steps = [
     description: "Compare scheduler dates with exam roll dates and update selected coursewise exam roll dates."
   },
   {
+    title: "Exam Barcode Generation",
+    path: "/conduct-exam-barcode-generation",
+    icon: <Badge />,
+    description: "Load exam roll students, select one or more rows, and print barcode stickers using MongoDB codes."
+  },
+  {
+    title: "Seat Allocation",
+    path: "/conduct-exam-seat-allocation",
+    icon: <Assignment />,
+    description: "Allocate seats and rooms for eligible exam roll students after barcode generation."
+  },
+  {
     title: "ATKT Scheduler",
     path: "/conduct-exam-atkt-scheduler",
     icon: <FactCheck />,

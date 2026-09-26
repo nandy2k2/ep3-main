@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Autocomplete,
@@ -21,6 +22,7 @@ import * as XLSX from "xlsx";
 import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import { embeddedAwarePath, renderAddOption, withAddOption } from "./addableAutocompleteHelpers";
 
 const clean = (value) => String(value || "").trim();
 const rowsOf = (rows) => (rows || []).map((row) => ({ ...row, id: row._id || row.courseid || `${row.coursecode}-${row.facultyemail}` }));
@@ -29,6 +31,7 @@ const blank = { user: "", useremail: "", program: "", programcode: "", semester:
 const filtersBlank = { user: "", useremail: "", program: "", programcode: "", semester: "", subject: "", expertise: "", phd: "" };
 
 function QualificationFormPage({ admin = false }) {
+  const navigate = useNavigate();
   const [options, setOptions] = useState({ users: [], subjects: [], phdOptions: ["Yes", "No"] });
   const [rows, setRows] = useState([]);
   const [form, setForm] = useState(blank);
@@ -167,10 +170,10 @@ function QualificationFormPage({ admin = false }) {
           {error && <Alert severity="error" onClose={() => setError("")}>{error}</Alert>}
           <Paper sx={{ p: 2 }}>
             <Grid container spacing={2}>
-              {admin ? <Grid item xs={12} md={4}><Autocomplete options={options.users || []} getOptionLabel={(u) => `${u.name || ""} (${u.email || ""})`} value={(options.users || []).find((u) => u.email === form.useremail) || null} onChange={(_, value) => selectUser(value)} renderInput={(params) => <TextField {...params} label="Select user" />} /></Grid> : <Grid item xs={12} md={4}><TextField fullWidth label="User" value={`${global1.name || ""} (${global1.user || ""})`} InputProps={{ readOnly: true }} /></Grid>}
-              <Grid item xs={12} md={3}><Autocomplete options={programOptions} getOptionLabel={(row) => `${row.program || ""}${row.programcode ? ` (${row.programcode})` : ""}`} value={programOptions.find((row) => row.programcode === form.programcode) || null} onChange={(_, value) => selectProgram(value)} renderInput={(params) => <TextField {...params} label="Program" />} /></Grid>
+              {admin ? <Grid item xs={12} md={4}><Autocomplete options={withAddOption("Add non-student user", "/mbuser", options.users || [])} getOptionLabel={(u) => u?.__addOption ? u.label : `${u.name || ""} (${u.email || ""})`} value={(options.users || []).find((u) => u.email === form.useremail) || null} onChange={(_, value) => value?.__addOption ? navigate(embeddedAwarePath(value.path)) : selectUser(value)} renderOption={(props, option) => renderAddOption(props, option, "name")} renderInput={(params) => <TextField {...params} label="Select user" />} /></Grid> : <Grid item xs={12} md={4}><TextField fullWidth label="User" value={`${global1.name || ""} (${global1.user || ""})`} InputProps={{ readOnly: true }} /></Grid>}
+              <Grid item xs={12} md={3}><Autocomplete options={withAddOption("Add program", "/programmanagement", programOptions)} getOptionLabel={(row) => row?.__addOption ? row.label : `${row.program || ""}${row.programcode ? ` (${row.programcode})` : ""}`} value={programOptions.find((row) => row.programcode === form.programcode) || null} onChange={(_, value) => value?.__addOption ? navigate(embeddedAwarePath(value.path)) : selectProgram(value)} renderOption={(props, option) => renderAddOption(props, option, "program")} renderInput={(params) => <TextField {...params} label="Program" />} /></Grid>
               <Grid item xs={12} md={2}><Autocomplete freeSolo options={semesterOptions} value={form.semester || ""} onInputChange={(_, value) => setForm((prev) => ({ ...prev, semester: value, courses: [], coursecodes: [] }))} onChange={(_, value) => setForm((prev) => ({ ...prev, semester: value || "", courses: [], coursecodes: [] }))} renderInput={(params) => <TextField {...params} label="Semester" />} /></Grid>
-              <Grid item xs={12} md={5}><Autocomplete multiple disableCloseOnSelect options={courseOptions} getOptionLabel={(row) => `${row.course || ""}${row.coursecode ? ` (${row.coursecode})` : ""}`} value={courseOptions.filter((row) => (form.coursecodes || []).includes(row.coursecode))} onChange={(_, values) => selectCourses(values)} renderOption={(props, option, { selected }) => <li {...props}><Checkbox checked={selected} sx={{ mr: 1 }} />{`${option.course || ""} (${option.coursecode || ""})`}</li>} renderInput={(params) => <TextField {...params} label="Course preference" />} /></Grid>
+              <Grid item xs={12} md={5}><Autocomplete multiple disableCloseOnSelect options={withAddOption("Add regulation course map", "/regulationcoursemap", courseOptions)} getOptionLabel={(row) => row?.__addOption ? row.label : `${row.course || ""}${row.coursecode ? ` (${row.coursecode})` : ""}`} value={courseOptions.filter((row) => (form.coursecodes || []).includes(row.coursecode))} onChange={(_, values) => { if ((values || []).some((item) => item?.__addOption)) { navigate(embeddedAwarePath("/regulationcoursemap")); return; } selectCourses(values); }} renderOption={(props, option, { selected }) => <li {...props} style={option?.__addOption ? { fontWeight: 800, color: "#2563eb" } : undefined}>{option?.__addOption ? option.label : <><Checkbox checked={selected} sx={{ mr: 1 }} />{`${option.course || ""} (${option.coursecode || ""})`}</>}</li>} renderInput={(params) => <TextField {...params} label="Course preference" />} /></Grid>
               <Grid item xs={12} md={3}><Autocomplete freeSolo options={options.subjects || []} value={form.subject || ""} onInputChange={(_, value) => setField("subject", value)} onChange={(_, value) => setField("subject", value || "")} renderInput={(params) => <TextField {...params} label="Subject" />} /></Grid>
               <Grid item xs={12} md={3}><TextField fullWidth label="Expertise" value={form.expertise} onChange={(e) => setField("expertise", e.target.value)} /></Grid>
               <Grid item xs={12} md={2}><TextField fullWidth type="number" label="No. of Years" value={form.noofyears} onChange={(e) => setField("noofyears", e.target.value)} /></Grid>

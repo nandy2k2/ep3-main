@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
   Alert,
   Autocomplete,
@@ -25,10 +25,11 @@ import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import { handleAddOption, renderAddOption, withAddOption } from "./addableAutocompleteHelpers";
 
 const academicYears = ["2026-27", "2027-28", "2028-29", "2029-30", "2030-31"];
 const semesters = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
-const subjectTypes = ["Major", "Minor", "AEC", "SEC", "VAC", "IDC"];
+const subjectTypes = ["Major", "Minor", "IDC", "MDC", "AEC", "SEC", "VAC"];
 const courseTypes = ["Theory", "Practical"];
 const deliveryTypes = ["Compulsory", "Elective"];
 const payTypes = ["Paid", "Unpaid"];
@@ -113,6 +114,7 @@ const headerMap = {
 };
 
 export default function RegulationCourseMapPage() {
+  const navigate = useNavigate();
   const colid = useMemo(() => global1.colid, []);
   const [rows, setRows] = useState([]);
   const [optionRows, setOptionRows] = useState([]);
@@ -519,11 +521,12 @@ export default function RegulationCourseMapPage() {
           </Grid>
           <Grid item xs={12} md={4}>
             <Autocomplete
-              options={programOptions}
+              options={withAddOption("Add program", "/programmanagement", programOptions)}
               value={programOptions.find((item) => item.programcode === form.programcode) || null}
-              onChange={(_, value) => selectProgram(value?.programcode || "")}
-              getOptionLabel={(option) => option ? `${option.programcode || ""}${option.program ? ` - ${option.program}` : ""}` : ""}
+              onChange={(_, value) => handleAddOption(value, navigate, (nextValue) => selectProgram(nextValue?.programcode || ""))}
+              getOptionLabel={(option) => option?.__addOption ? option.label : (option ? `${option.programcode || ""}${option.program ? ` - ${option.program}` : ""}` : "")}
               isOptionEqualToValue={(option, value) => option.programcode === value.programcode}
+              renderOption={(props, option) => renderAddOption(props, option)}
               renderInput={(params) => <TextField {...params} label="Program" required />}
             />
           </Grid>

@@ -12,6 +12,7 @@ import ep1 from '../api/ep1';
 import global1 from './global1';
 import readXlsxFile from "read-excel-file";
 import MenuPageShell from "./MenuPageShell";
+import { isEmbeddedPage } from "./addableAutocompleteHelpers";
 
 const roles = ["Admin", "crm", "Faculty", "HOD", "REGISTRAR","ACCOUNTS","MANAGEMENT", "HOI"];
 const generateRandomPassword = (length = 12) => {
@@ -35,6 +36,7 @@ const emptyForm = {
 };
 
 export default function MbUserPage({ embedded = false, onRowsChange }) {
+  const embeddedMode = embedded || isEmbeddedPage();
   const [rows, setRows] = useState([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -306,7 +308,7 @@ const handleBulkDelete = async () => {
     <Box p={3}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <h2>User Management</h2>
-        {!embedded && <Button
+        {!embeddedMode && <Button
           variant="outlined"
           startIcon={<ArrowBackIcon />}
           onClick={() => navigate("/dashdashfacnew")}
@@ -481,6 +483,6 @@ const handleBulkDelete = async () => {
     </Box>
   );
 
-  if (embedded) return pageContent;
+  if (embeddedMode) return pageContent;
   return <MenuPageShell title="User Management">{pageContent}</MenuPageShell>;
 }

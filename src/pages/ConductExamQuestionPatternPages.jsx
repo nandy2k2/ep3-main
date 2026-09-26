@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Autocomplete,
@@ -21,6 +22,7 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import { addOption, handleAddOption, renderAddOption } from "./addableAutocompleteHelpers";
 
 const clean = (value) => String(value || "").trim();
 const uniq = (items) => [...new Set(items.map(clean).filter(Boolean))].sort((a, b) => a.localeCompare(b));
@@ -95,6 +97,7 @@ function ToolbarButtons({ selected, onDelete, template, onBulk, saving }) {
 }
 
 export function ConductExamQuestionPatternPage() {
+  const navigate = useNavigate();
   const courses = useCourseOptions();
   const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState([]);
@@ -188,7 +191,7 @@ export function ConductExamQuestionPatternPage() {
         <Paper sx={{ p: 2, mb: 2 }}>
           <Grid container spacing={2}>
             <Grid item xs={12} md={2}><Autocomplete freeSolo options={yearOptions} value={form.academicyear} onInputChange={(_, value) => setForm((prev) => ({ ...prev, academicyear: value }))} renderInput={(params) => <TextField {...params} label="Academic Year" />} /></Grid>
-            <Grid item xs={12} md={3}><Autocomplete options={courseOptions} getOptionLabel={(row) => row.label || ""} onChange={(_, value) => setForm((prev) => ({ ...prev, academicyear: value?.academicyear || prev.academicyear, program: value?.program || "", programcode: value?.programcode || "" }))} renderInput={(params) => <TextField {...params} label="Program" />} /></Grid>
+            <Grid item xs={12} md={3}><Autocomplete options={[addOption("+ Add Program", "/programmanagement"), ...courseOptions]} getOptionLabel={(row) => row?.__addOption ? row.label : row.label || ""} renderOption={(props, option) => option?.__addOption ? renderAddOption(props, option) : <li {...props}>{option.label || ""}</li>} onChange={(_, value) => { if (handleAddOption(value, navigate)) return; setForm((prev) => ({ ...prev, academicyear: value?.academicyear || prev.academicyear, program: value?.program || "", programcode: value?.programcode || "" })); }} renderInput={(params) => <TextField {...params} label="Program" />} /></Grid>
             <Grid item xs={12} md={2}><TextField fullWidth label="Program Code" value={form.programcode} onChange={(e) => setForm({ ...form, programcode: e.target.value })} /></Grid>
             <Grid item xs={12} md={2}><TextField fullWidth label="Pattern" value={form.pattern} onChange={(e) => setForm({ ...form, pattern: e.target.value })} /></Grid>
             <Grid item xs={12} md={2}><TextField fullWidth select label="Status" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>{["Active", "Inactive"].map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
@@ -199,7 +202,7 @@ export function ConductExamQuestionPatternPage() {
         <Paper sx={{ p: 2, mb: 2 }}>
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} md={2}><Autocomplete options={yearOptions} value={filters.academicyear} onInputChange={(_, value) => setFilters((prev) => ({ ...prev, academicyear: value }))} renderInput={(params) => <TextField {...params} label="Filter Year" />} /></Grid>
-            <Grid item xs={12} md={3}><Autocomplete options={courseOptions} getOptionLabel={(row) => row.label || ""} onChange={(_, value) => setFilters((prev) => ({ ...prev, programcode: value?.programcode || "" }))} renderInput={(params) => <TextField {...params} label="Filter Program" />} /></Grid>
+            <Grid item xs={12} md={3}><Autocomplete options={[addOption("+ Add Program", "/programmanagement"), ...courseOptions]} getOptionLabel={(row) => row?.__addOption ? row.label : row.label || ""} renderOption={(props, option) => option?.__addOption ? renderAddOption(props, option) : <li {...props}>{option.label || ""}</li>} onChange={(_, value) => { if (handleAddOption(value, navigate)) return; setFilters((prev) => ({ ...prev, programcode: value?.programcode || "" })); }} renderInput={(params) => <TextField {...params} label="Filter Program" />} /></Grid>
             <Grid item xs={12} md={3}><Autocomplete options={patternOptions} value={filters.pattern} onInputChange={(_, value) => setFilters((prev) => ({ ...prev, pattern: value }))} renderInput={(params) => <TextField {...params} label="Filter Pattern" />} /></Grid>
             <Grid item xs={12} md={2}><TextField fullWidth select label="Status" value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}><MenuItem value="">All</MenuItem>{["Active", "Inactive"].map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={2}><Button fullWidth variant="contained" disabled={saving} onClick={load} sx={{ height: 56 }}>Load</Button></Grid>
@@ -214,6 +217,7 @@ export function ConductExamQuestionPatternPage() {
 }
 
 export function ConductExamQuestionPatternDetailsPage() {
+  const navigate = useNavigate();
   const [patterns, setPatterns] = useState([]);
   const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState([]);
@@ -315,7 +319,7 @@ export function ConductExamQuestionPatternDetailsPage() {
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
         <Paper sx={{ p: 2, mb: 2 }}>
           <Grid container spacing={2}>
-            <Grid item xs={12} md={4}><Autocomplete options={patterns} getOptionLabel={(row) => `${row.pattern || ""} - ${row.program || ""} (${row.programcode || ""}) ${row.academicyear || ""}`} value={selectedPattern} onChange={(_, value) => { selectPattern(value); if (value?._id) load(value._id); }} renderInput={(params) => <TextField {...params} label="Question Pattern" />} /></Grid>
+            <Grid item xs={12} md={4}><Autocomplete options={[addOption("+ Add Question Pattern", "/conduct-exam-question-pattern"), ...patterns]} getOptionLabel={(row) => row?.__addOption ? row.label : `${row.pattern || ""} - ${row.program || ""} (${row.programcode || ""}) ${row.academicyear || ""}`} renderOption={(props, option) => option?.__addOption ? renderAddOption(props, option) : <li {...props}>{`${option.pattern || ""} - ${option.program || ""} (${option.programcode || ""}) ${option.academicyear || ""}`}</li>} value={selectedPattern} onChange={(_, value) => { if (handleAddOption(value, navigate)) return; selectPattern(value); if (value?._id) load(value._id); }} renderInput={(params) => <TextField {...params} label="Question Pattern" />} /></Grid>
             {["section", "question", "group", "subquestion"].map((field) => <Grid item xs={12} md={2} key={field}><TextField fullWidth label={field === "subquestion" ? "Sub Question" : field[0].toUpperCase() + field.slice(1)} value={form[field]} onChange={(e) => setForm({ ...form, [field]: e.target.value })} /></Grid>)}
             <Grid item xs={12} md={2}><TextField fullWidth select label="Question Type" value={form.questiontype} onChange={(e) => setForm({ ...form, questiontype: e.target.value })}>{patternQuestionTypes.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={3}>

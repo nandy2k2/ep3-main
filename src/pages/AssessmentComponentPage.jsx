@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
   Alert,
   Autocomplete,
@@ -14,7 +14,6 @@ import {
   Grid,
   IconButton,
   InputLabel,
-  ListItemText,
   MenuItem,
   Paper,
   Select,
@@ -29,9 +28,10 @@ import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import { addOption, embeddedAwarePath, handleAddOption, renderAddOption } from "./addableAutocompleteHelpers";
 
 const fallbackYears = ["2026-27", "2027-28", "2028-29", "2029-30", "2030-31"];
-const fallbackTypes = ["Major", "Minor"];
+const fallbackTypes = ["Major", "Minor", "IDC", "MDC", "AEC", "SEC", "VAC"];
 const groupTypes = ["Best", "Average"];
 const scoreTypes = ["Internal", "External"];
 const componentTypes = ["Theory", "Practical", "Viva"];
@@ -96,6 +96,7 @@ const headerMap = {
 };
 
 function AssessmentComponentPage({ programwiseOnly = false } = {}) {
+  const navigate = useNavigate();
   const colid = useMemo(() => global1.colid, []);
   const [rows, setRows] = useState([]);
   const [form, setForm] = useState(blankForm);
@@ -286,17 +287,24 @@ function AssessmentComponentPage({ programwiseOnly = false } = {}) {
   const assessmentGroupOptions = useMemo(() => uniqueSorted([...options.assessmentgroups, ...rows.map((row) => row.assessmentgroup)]), [options.assessmentgroups, rows]);
   const groupTypeOptions = useMemo(() => uniqueSorted([...groupTypes, ...options.grouptypes, ...rows.map((row) => row.grouptype)]), [options.grouptypes, rows]);
   const scoreTypeOptions = useMemo(() => uniqueSorted([...scoreTypes, ...options.scoretypes, ...rows.map((row) => row.scoretype)]), [options.scoretypes, rows]);
-  const componentTypeOptions = useMemo(() => uniqueSorted([...componentTypes, ...(options.componenttypes || []), ...rows.map((row) => row.componenttype)]), [options.componenttypes, rows]);
-  const programOptions = useMemo(() => {
-    const map = new Map();
+	  const componentTypeOptions = useMemo(() => uniqueSorted([...componentTypes, ...(options.componenttypes || []), ...rows.map((row) => row.componenttype)]), [options.componenttypes, rows]);
+	  const regulationSelectOptions = useMemo(() => [addOption("Add regulation", "/regulationmaster"), ...regulationOptions], [regulationOptions]);
+	  const subjectSelectOptions = useMemo(() => [addOption("Add regulation group", "/regulationsubjects"), ...subjectOptions], [subjectOptions]);
+	  const courseSelectOptions = useMemo(() => [addOption("Add regulation course map", "/regulationcoursemap"), ...courses], [courses]);
+	  const programOptions = useMemo(() => {
+	    const map = new Map();
     (programwiseOnly ? accessPrograms : options.programs).forEach((item) => {
       if (item.programcode) map.set(item.programcode, { programcode: item.programcode, program: item.program || "" });
     });
     rows.forEach((row) => {
       if (row.programcode && !map.has(row.programcode)) map.set(row.programcode, { programcode: row.programcode, program: row.program || "" });
     });
-    return [...map.values()].sort((a, b) => String(a.programcode).localeCompare(String(b.programcode)));
-  }, [accessPrograms, options.programs, programwiseOnly, rows]);
+	    return [...map.values()].sort((a, b) => String(a.programcode).localeCompare(String(b.programcode)));
+	  }, [accessPrograms, options.programs, programwiseOnly, rows]);
+	  const programSelectOptions = useMemo(() => {
+	    const list = programwiseOnly ? programOptions : [addOption("Add program", "/programmanagement"), ...programOptions];
+	    return list;
+	  }, [programOptions, programwiseOnly]);
   const validationProgramOptions = useMemo(() => {
     const map = new Map();
     [...(programwiseOnly ? accessPrograms : options.programs), ...options.courses, ...rows].forEach((item) => {
@@ -571,15 +579,27 @@ function AssessmentComponentPage({ programwiseOnly = false } = {}) {
     }
   };
 
-  const filterSelect = (field, label, values, renderValue = (value) => value) => (
-    <FormControl size="small" sx={{ flex: "1 1 180px", minWidth: 160, maxWidth: { xs: "100%", md: 240 } }}>
-      <InputLabel>{label}</InputLabel>
-      <Select label={label} value={filters[field]} onChange={(e) => setFilters((prev) => ({ ...prev, [field]: e.target.value }))}>
-        <MenuItem value="">All</MenuItem>
-        {values.map((value) => <MenuItem key={value} value={value}>{renderValue(value)}</MenuItem>)}
-      </Select>
-    </FormControl>
-  );
+	  const filterSelect = (field, label, values, renderValue = (value) => value, addPath = "") => (
+	    <FormControl size="small" sx={{ flex: "1 1 180px", minWidth: 160, maxWidth: { xs: "100%", md: 240 } }}>
+	      <InputLabel>{label}</InputLabel>
+	      <Select
+	        label={label}
+	        value={filters[field]}
+	        renderValue={(selected) => selected ? renderValue(selected) : "All"}
+	        onChange={(e) => {
+	          if (e.target.value === "__add_filter_option") {
+	            navigate(embeddedAwarePath(addPath));
+	            return;
+	          }
+	          setFilters((prev) => ({ ...prev, [field]: e.target.value }));
+	        }}
+	      >
+	        <MenuItem value="">All</MenuItem>
+	        {addPath && <MenuItem value="__add_filter_option" sx={{ fontWeight: 800, color: "#2563eb" }}>Add {label}</MenuItem>}
+	        {values.map((value) => <MenuItem key={value} value={value}>{renderValue(value)}</MenuItem>)}
+	      </Select>
+	    </FormControl>
+	  );
 
   const columns = [
     {
@@ -649,23 +669,37 @@ function AssessmentComponentPage({ programwiseOnly = false } = {}) {
                 {yearOptions.map((year) => <MenuItem key={year} value={year}>{year}</MenuItem>)}
               </Select>
             </FormControl>
-          </Grid>
-          <Grid item xs={12} md={2.4}>
-            <FormControl fullWidth required>
-              <InputLabel>Regulation</InputLabel>
-              <Select label="Regulation" value={form.regulation} onChange={(e) => updateFormValue("regulation", e.target.value)}>
-                {regulationOptions.map((regulation) => <MenuItem key={regulation} value={regulation}>{regulation}</MenuItem>)}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={3.2}>
-            <FormControl fullWidth required>
-              <InputLabel>Program</InputLabel>
-              <Select label="Program" value={form.programcode} onChange={(e) => selectProgram(e.target.value)}>
-                {programOptions.map((item) => <MenuItem key={item.programcode} value={item.programcode}>{item.programcode}{item.program ? ` - ${item.program}` : ""}</MenuItem>)}
-              </Select>
-            </FormControl>
-          </Grid>
+	          </Grid>
+	          <Grid item xs={12} md={2.4}>
+	            <Autocomplete
+	              options={regulationSelectOptions}
+	              value={form.regulation || null}
+	              onChange={(event, value) => {
+	                if (handleAddOption(value, navigate)) return;
+	                updateFormValue("regulation", value || "");
+	              }}
+	              getOptionLabel={(option) => option?.__addOption ? option.label : String(option || "")}
+	              isOptionEqualToValue={(option, value) => String(option || "") === String(value || "")}
+	              renderOption={(props, option) => renderAddOption(props, option)}
+	              renderInput={(params) => <TextField {...params} required label="Regulation" />}
+	            />
+	          </Grid>
+	          <Grid item xs={12} md={3.2}>
+	            <Autocomplete
+	              options={programSelectOptions}
+	              value={programOptions.find((item) => item.programcode === form.programcode) || null}
+	              onChange={(event, value) => {
+	                if (handleAddOption(value, navigate)) return;
+	                selectProgram(value?.programcode || "");
+	              }}
+	              getOptionLabel={(option) => option?.__addOption ? option.label : (option?.programcode ? `${option.programcode}${option.program ? ` - ${option.program}` : ""}` : "")}
+	              isOptionEqualToValue={(option, value) => option?.programcode === value?.programcode}
+	              renderOption={(props, option) => option?.__addOption
+	                ? renderAddOption(props, option)
+	                : <li {...props}>{option.programcode}{option.program ? ` - ${option.program}` : ""}</li>}
+	              renderInput={(params) => <TextField {...params} required label="Search Program / Program Code" />}
+	            />
+	          </Grid>
           <Grid item xs={12} md={2}>
             <FormControl fullWidth required>
               <InputLabel>Type</InputLabel>
@@ -673,15 +707,22 @@ function AssessmentComponentPage({ programwiseOnly = false } = {}) {
                 {typeOptions.map((type) => <MenuItem key={type} value={type}>{type}</MenuItem>)}
               </Select>
             </FormControl>
-          </Grid>
-          <Grid item xs={12} md={2}>
-            <FormControl fullWidth required>
-              <InputLabel>Subject</InputLabel>
-              <Select label="Subject" value={form.subject} onChange={(e) => updateFormValue("subject", e.target.value)} disabled={!form.academicyear || !form.regulation || !form.programcode || !form.type}>
-                {subjectOptions.map((subject) => <MenuItem key={subject} value={subject}>{subject}</MenuItem>)}
-              </Select>
-            </FormControl>
-          </Grid>
+	          </Grid>
+	          <Grid item xs={12} md={2}>
+	            <Autocomplete
+	              options={subjectSelectOptions}
+	              value={form.subject || null}
+	              onChange={(event, value) => {
+	                if (handleAddOption(value, navigate)) return;
+	                updateFormValue("subject", value || "");
+	              }}
+	              disabled={!form.academicyear || !form.regulation || !form.programcode || !form.type}
+	              getOptionLabel={(option) => option?.__addOption ? option.label : String(option || "")}
+	              isOptionEqualToValue={(option, value) => String(option || "") === String(value || "")}
+	              renderOption={(props, option) => renderAddOption(props, option)}
+	              renderInput={(params) => <TextField {...params} required label="Subject" />}
+	            />
+	          </Grid>
           <Grid item xs={12} md={2}>
             <FormControl fullWidth required>
               <InputLabel>Semester</InputLabel>
@@ -689,30 +730,34 @@ function AssessmentComponentPage({ programwiseOnly = false } = {}) {
                 {semesterOptions.map((semester) => <MenuItem key={semester} value={semester}>{semester}</MenuItem>)}
               </Select>
             </FormControl>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <FormControl fullWidth required>
-              <InputLabel>Course</InputLabel>
-              <Select
-                multiple
-                label="Course"
-                value={selectedCourseCodes}
-                onChange={(e) => selectCourses(e.target.value)}
-                disabled={!form.academicyear || !form.regulation || !form.programcode || !form.type || !form.subject || !form.semester}
-                renderValue={(selected) => selected.map((coursecode) => {
-                  const item = courses.find((course) => course.coursecode === coursecode) || allCourses.find((course) => course.coursecode === coursecode);
-                  return item ? `${item.coursecode} - ${item.course}` : coursecode;
-                }).join(", ")}
-              >
-                {courses.map((item) => (
-                  <MenuItem key={item.coursecode} value={item.coursecode}>
-                    <Checkbox checked={selectedCourseCodes.includes(item.coursecode)} />
-                    <ListItemText primary={`${item.coursecode} - ${item.course}`} />
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
+	          </Grid>
+	          <Grid item xs={12} md={3}>
+	            <Autocomplete
+	              multiple
+	              disableCloseOnSelect
+	              options={courseSelectOptions}
+	              value={selectedCourseCodes.map((coursecode) => courses.find((item) => item.coursecode === coursecode) || allCourses.find((item) => item.coursecode === coursecode)).filter(Boolean)}
+	              onChange={(event, value) => {
+	                if ((value || []).some((item) => item?.__addOption)) {
+	                  navigate(embeddedAwarePath("/regulationcoursemap"));
+	                  return;
+	                }
+	                selectCourses((value || []).map((item) => item.coursecode).filter(Boolean));
+	              }}
+	              disabled={!form.academicyear || !form.regulation || !form.programcode || !form.type || !form.subject || !form.semester}
+	              getOptionLabel={(option) => option?.__addOption ? option.label : (option?.coursecode ? `${option.coursecode} - ${option.course || ""}` : "")}
+	              isOptionEqualToValue={(option, value) => option?.coursecode === value?.coursecode}
+	              renderOption={(props, option, { selected }) => option?.__addOption
+	                ? renderAddOption(props, option)
+	                : (
+	                  <li {...props}>
+	                    <Checkbox checked={selected} sx={{ mr: 1 }} />
+	                    {option.coursecode} - {option.course}
+	                  </li>
+	                )}
+	              renderInput={(params) => <TextField {...params} required label="Search Course / Course Code" />}
+	            />
+	          </Grid>
           <Grid item xs={12} md={3}>
             <TextField
               fullWidth
@@ -790,14 +835,20 @@ function AssessmentComponentPage({ programwiseOnly = false } = {}) {
               </FormControl>
             </Grid>
             <Grid item xs={12} md={4}>
-              <Autocomplete
-                options={validationProgramOptions}
-                value={validationProgramOptions.find((item) => item.programcode === validationForm.programcode) || null}
-                onChange={(event, value) => setValidationForm((prev) => ({ ...prev, programcode: value?.programcode || "" }))}
-                getOptionLabel={(option) => option?.programcode ? `${option.programcode}${option.program ? ` - ${option.program}` : ""}` : ""}
-                isOptionEqualToValue={(option, value) => option.programcode === value.programcode}
-                renderInput={(params) => <TextField {...params} label="Search Program / Program Code" />}
-              />
+	              <Autocomplete
+	                options={programwiseOnly ? validationProgramOptions : [addOption("Add program", "/programmanagement"), ...validationProgramOptions]}
+	                value={validationProgramOptions.find((item) => item.programcode === validationForm.programcode) || null}
+	                onChange={(event, value) => {
+	                  if (handleAddOption(value, navigate)) return;
+	                  setValidationForm((prev) => ({ ...prev, programcode: value?.programcode || "" }));
+	                }}
+	                getOptionLabel={(option) => option?.__addOption ? option.label : (option?.programcode ? `${option.programcode}${option.program ? ` - ${option.program}` : ""}` : "")}
+	                isOptionEqualToValue={(option, value) => option.programcode === value.programcode}
+	                renderOption={(props, option) => option?.__addOption
+	                  ? renderAddOption(props, option)
+	                  : <li {...props}>{option.programcode}{option.program ? ` - ${option.program}` : ""}</li>}
+	                renderInput={(params) => <TextField {...params} label="Search Program / Program Code" />}
+	              />
             </Grid>
             <Grid item xs={12} md={2}>
               <TextField
@@ -886,18 +937,18 @@ function AssessmentComponentPage({ programwiseOnly = false } = {}) {
           <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ md: "center" }} flexWrap={{ md: "wrap" }} useFlexGap>
             <Chip label={`${rows.length} records`} sx={{ flex: "0 0 auto" }} />
             {filterSelect("academicyear", "Academic Year", yearOptions)}
-            {filterSelect("regulation", "Regulation", regulationOptions)}
-            {filterSelect("programcode", "Program", programOptions.map((item) => item.programcode), (value) => {
-              const item = programOptions.find((program) => program.programcode === value);
-              return item ? `${item.programcode}${item.program ? ` - ${item.program}` : ""}` : value;
-            })}
+	            {filterSelect("regulation", "Regulation", regulationOptions, (value) => value, "/regulationmaster")}
+	            {filterSelect("programcode", "Program", programOptions.map((item) => item.programcode), (value) => {
+	              const item = programOptions.find((program) => program.programcode === value);
+	              return item ? `${item.programcode}${item.program ? ` - ${item.program}` : ""}` : value;
+	            }, programwiseOnly ? "" : "/programmanagement")}
             {filterSelect("type", "Type", typeOptions)}
           </Stack>
           <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ md: "center" }} flexWrap={{ md: "wrap" }} useFlexGap>
-            {filterSelect("coursecode", "Course", allCourses.map((item) => item.coursecode), (value) => {
-              const item = allCourses.find((course) => course.coursecode === value);
-              return item ? `${item.coursecode} - ${item.course}` : value;
-            })}
+	            {filterSelect("coursecode", "Course", allCourses.map((item) => item.coursecode), (value) => {
+	              const item = allCourses.find((course) => course.coursecode === value);
+	              return item ? `${item.coursecode} - ${item.course}` : value;
+	            }, "/regulationcoursemap")}
             {filterSelect("assessmentgroup", "Assessment Group", assessmentGroupOptions)}
             {filterSelect("grouptype", "Group Type", groupTypeOptions)}
             {filterSelect("scoretype", "Score Type", scoreTypeOptions)}

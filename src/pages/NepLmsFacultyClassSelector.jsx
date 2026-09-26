@@ -49,9 +49,10 @@ const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export const classLabel = (row = {}) => `${classDisplayLabel(row)} | ${row.coursecode || ""} - ${row.course || ""} | ${programDisplay(row)} | Sem ${row.semester || ""}`;
 
-export default function NepLmsFacultyClassSelector({ selectedClassId, onSelectClass, title = "Select Class", initialClassId = "" }) {
+export default function NepLmsFacultyClassSelector({ selectedClassId, onSelectClass, title = "Select Class", initialClassId = "", sectionMode = false }) {
   const [classes, setClasses] = useState([]);
   const [filters, setFilters] = useState({ academicyear: "", programcode: "", coursecode: "", semester: "" });
+  const [selectedSection, setSelectedSection] = useState("");
   const [calendarView, setCalendarView] = useState("month");
   const [calendarDate, setCalendarDate] = useState(toDateInput(new Date()));
   const [loading, setLoading] = useState(false);
@@ -110,12 +111,19 @@ export default function NepLmsFacultyClassSelector({ selectedClassId, onSelectCl
     semester: uniqueSorted(classes.map((row) => row.semester))
   }), [classes]);
 
-  const filteredClasses = useMemo(() => classes.filter((row) => (
+  const baseFilteredClasses = useMemo(() => classes.filter((row) => (
     (!filters.academicyear || row.academicyear === filters.academicyear)
     && (!filters.programcode || row.programcode === filters.programcode)
     && (!filters.coursecode || row.coursecode === filters.coursecode)
     && (!filters.semester || row.semester === filters.semester)
   )), [classes, filters]);
+
+  const sectionOptions = useMemo(() => uniqueSorted(baseFilteredClasses.map((row) => row.section)), [baseFilteredClasses]);
+  const filteredClasses = useMemo(() => (
+    sectionMode && selectedSection
+      ? baseFilteredClasses.filter((row) => fieldsMatch(row.section, selectedSection))
+      : baseFilteredClasses
+  ), [baseFilteredClasses, sectionMode, selectedSection]);
 
   const selectedClass = useMemo(() => classes.find((row) => row._id === selectedClassId) || null, [classes, selectedClassId]);
 
@@ -195,6 +203,17 @@ export default function NepLmsFacultyClassSelector({ selectedClassId, onSelectCl
             </TextField>
           </Grid>
         ))}
+        {sectionMode && (
+          <Grid item xs={12} md={3}>
+            <TextField select fullWidth label="Section" value={selectedSection} onChange={(event) => {
+              setSelectedSection(event.target.value);
+              onSelectClass(null);
+            }}>
+              <MenuItem value="">All</MenuItem>
+              {sectionOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+            </TextField>
+          </Grid>
+        )}
       </Grid>
       {loading && <LinearProgress sx={{ mt: 2 }} />}
       <Stack direction={{ xs: "column", lg: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", lg: "center" }} spacing={2} sx={{ my: 2 }}>

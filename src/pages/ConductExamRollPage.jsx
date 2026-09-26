@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import { Alert, Autocomplete, Box, Button, Checkbox, Grid, LinearProgress, MenuItem, Paper, Stack, TextField, Typography } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
@@ -6,6 +7,7 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import { addOption, embeddedAwarePath, handleAddOption, renderAddOption } from "./addableAutocompleteHelpers";
 
 const yesNo = ["Yes", "No"];
 const filterFields = [
@@ -70,6 +72,7 @@ const blankForm = {
 const uniq = (items) => [...new Set(items.filter(Boolean).map((item) => String(item).trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
 export default function ConductExamRollPage() {
+  const navigate = useNavigate();
   const [exams, setExams] = useState([]);
   const [examCourses, setExamCourses] = useState([]);
   const [rows, setRows] = useState([]);
@@ -369,24 +372,24 @@ export default function ConductExamRollPage() {
           </Box>
         )}
         <Grid container spacing={2}>
-          <Grid item xs={12} md={3}><TextField select fullWidth label="Exam" value={form.examcode} onChange={(e) => selectExam(e.target.value)}>{exams.map((item) => <MenuItem key={item._id} value={item.examcode}>{item.academicyear} - {item.examname} ({item.examcode})</MenuItem>)}</TextField></Grid>
+          <Grid item xs={12} md={3}><TextField select fullWidth label="Exam" value={form.examcode} onChange={(e) => e.target.value === "__add_exam" ? navigate(embeddedAwarePath("/conduct-exam-master")) : selectExam(e.target.value)}><MenuItem value="__add_exam" sx={{ fontWeight: 800, color: "#2563eb" }}>+ Add Exam</MenuItem>{exams.map((item) => <MenuItem key={item._id} value={item.examcode}>{item.academicyear} - {item.examname} ({item.examcode})</MenuItem>)}</TextField></Grid>
           <Grid item xs={12} md={1.5}><TextField fullWidth label="Academic Year" value={form.academicyear} InputProps={{ readOnly: true }} /></Grid>
-          <Grid item xs={12} md={2}><TextField select fullWidth label="Regulation" value={form.regulation} onChange={(e) => selectRegulation(e.target.value)} disabled={!form.examcode}>{regulationOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
-          <Grid item xs={12} md={3}><TextField select fullWidth label="Program" value={form.programcode} onChange={(e) => selectProgram(e.target.value)} disabled={!form.regulation}>{programOptions.map((item) => <MenuItem key={item.programcode} value={item.programcode}>{item.program} ({item.programcode})</MenuItem>)}</TextField></Grid>
+          <Grid item xs={12} md={2}><TextField select fullWidth label="Regulation" value={form.regulation} onChange={(e) => e.target.value === "__add_regulation" ? navigate(embeddedAwarePath("/regulationmaster")) : selectRegulation(e.target.value)} disabled={!form.examcode}><MenuItem value="__add_regulation" sx={{ fontWeight: 800, color: "#2563eb" }}>+ Add Regulation</MenuItem>{regulationOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+          <Grid item xs={12} md={3}><TextField select fullWidth label="Program" value={form.programcode} onChange={(e) => e.target.value === "__add_program" ? navigate(embeddedAwarePath("/programmanagement")) : selectProgram(e.target.value)} disabled={!form.regulation}><MenuItem value="__add_program" sx={{ fontWeight: 800, color: "#2563eb" }}>+ Add Program</MenuItem>{programOptions.map((item) => <MenuItem key={item.programcode} value={item.programcode}>{item.program} ({item.programcode})</MenuItem>)}</TextField></Grid>
           <Grid item xs={12} md={1.5}><TextField select fullWidth label="Type" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value, subject: "", semester: "", courses: [] })} disabled={!form.programcode}>{typeOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
-          <Grid item xs={12} md={2}><TextField select fullWidth label="Subject" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value, semester: "", courses: [] })} disabled={!form.programcode}>{subjectOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
-          <Grid item xs={12} md={1.5}><TextField select fullWidth label="Semester" value={form.semester} onChange={(e) => setForm({ ...form, semester: e.target.value, courses: [] })} disabled={!form.subject}>{semesterOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+          <Grid item xs={12} md={2}><TextField select fullWidth label="Subject" value={form.subject} onChange={(e) => e.target.value === "__add_course_map" ? navigate(embeddedAwarePath("/regulationcoursemap")) : setForm({ ...form, subject: e.target.value, semester: "", courses: [] })} disabled={!form.programcode}><MenuItem value="__add_course_map" sx={{ fontWeight: 800, color: "#2563eb" }}>+ Add Regulation Course Map</MenuItem>{subjectOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+          <Grid item xs={12} md={1.5}><TextField select fullWidth label="Semester" value={form.semester} onChange={(e) => e.target.value === "__add_course_map" ? navigate(embeddedAwarePath("/regulationcoursemap")) : setForm({ ...form, semester: e.target.value, courses: [] })} disabled={!form.subject}><MenuItem value="__add_course_map" sx={{ fontWeight: 800, color: "#2563eb" }}>+ Add Regulation Course Map</MenuItem>{semesterOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
           <Grid item xs={12} md={1.5}><Button fullWidth variant="contained" onClick={generateRoll} disabled={generating} sx={{ height: 56 }}>{generating ? "Generating..." : "Generate"}</Button></Grid>
           <Grid item xs={12}>
             <Autocomplete
               multiple
               disableCloseOnSelect
-              options={courseOptions}
+              options={[addOption("+ Add Exam Courses", "/conduct-exam-courses"), ...courseOptions]}
               value={form.courses}
-              isOptionEqualToValue={(option, value) => option.coursecode === value.coursecode}
-              getOptionLabel={(option) => `${option.course} (${option.coursecode})${option.examdate ? ` - ${option.examdate}` : ""}${option.examslot ? ` - ${option.examslot}` : ""}`}
-              onChange={(event, value) => setForm({ ...form, courses: value })}
-              renderOption={(props, option, { selected }) => <li {...props}><Checkbox checked={selected} />{option.course} ({option.coursecode}){option.examdate ? ` - ${option.examdate}` : ""}{option.examslot ? ` - ${option.examslot}` : ""}</li>}
+              isOptionEqualToValue={(option, value) => option?._id === value?._id || option?.coursecode === value?.coursecode}
+              getOptionLabel={(option) => option?.__addOption ? option.label : `${option.course} (${option.coursecode})${option.examdate ? ` - ${option.examdate}` : ""}${option.examslot ? ` - ${option.examslot}` : ""}`}
+              onChange={(event, value) => { const add = (value || []).find((item) => item?.__addOption); if (add && handleAddOption(add, navigate)) return; setForm({ ...form, courses: value.filter((item) => !item?.__addOption) }); }}
+              renderOption={(props, option, { selected }) => option?.__addOption ? renderAddOption(props, option) : <li {...props}><Checkbox checked={selected} />{option.course} ({option.coursecode}){option.examdate ? ` - ${option.examdate}` : ""}{option.examslot ? ` - ${option.examslot}` : ""}</li>}
               renderInput={(params) => <TextField {...params} label="Courses" />}
             />
           </Grid>

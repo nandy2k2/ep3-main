@@ -24,7 +24,7 @@ import ep1 from "../api/ep1";
 import global1 from "./global1";
 
 const defaultAcademicYears = ["2026-27", "2027-28", "2028-29", "2029-30", "2030-31"];
-const defaultTypes = ["Major", "Minor", "AEC", "SEC", "VAC", "IDC"];
+const defaultTypes = ["Major", "Minor", "IDC", "MDC", "AEC", "SEC", "VAC"];
 const defaultCategories = ["General", "SC", "ST", "OBC", "EWS", "EBC", "PH", "Sports", "Supernumerary"];
 
 const blankForm = {

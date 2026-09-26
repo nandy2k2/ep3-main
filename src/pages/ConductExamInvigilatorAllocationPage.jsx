@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
 import {
   Alert,
@@ -19,6 +20,7 @@ import AutoModeIcon from "@mui/icons-material/AutoMode";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import { addOption, embeddedAwarePath, handleAddOption, renderAddOption } from "./addableAutocompleteHelpers";
 
 const geminiModels = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash"];
 
@@ -74,6 +76,7 @@ const headerMap = {
 };
 
 export default function ConductExamInvigilatorAllocationPage() {
+  const navigate = useNavigate();
   const [rows, setRows] = useState([]);
   const [options, setOptions] = useState({ exams: [], courses: [], rooms: [], invigilators: [] });
   const [form, setForm] = useState(blankForm);
@@ -377,16 +380,17 @@ export default function ConductExamInvigilatorAllocationPage() {
           <Typography fontWeight={900} sx={{ mb: 2 }}>Manual Entry</Typography>
           <Grid container spacing={2}>
             <Grid item xs={12} md={2}><TextField select fullWidth label="Academic Year" value={form.academicyear} onChange={(e) => setForm({ ...form, academicyear: e.target.value, exam: "", examcode: "", campus: "", building: "", room: "", examdate: "", slot: "" })}>{dropdownOptions.academicyear.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
-            <Grid item xs={12} md={2}><TextField select fullWidth label="Exam Code" value={form.examcode} onChange={(e) => selectExam(e.target.value)}>{dropdownOptions.examcode.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={2}><TextField select fullWidth label="Exam Code" value={form.examcode} onChange={(e) => e.target.value === "__add_exam" ? navigate(embeddedAwarePath("/conduct-exam-master")) : selectExam(e.target.value)}><MenuItem value="__add_exam" sx={{ fontWeight: 800, color: "#2563eb" }}>+ Add Exam</MenuItem>{dropdownOptions.examcode.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={3}><TextField fullWidth label="Exam" value={form.exam} onChange={(e) => setForm({ ...form, exam: e.target.value })} /></Grid>
             <Grid item xs={12} md={2}><TextField fullWidth label="Regulation" value={form.regulation} onChange={(e) => setForm({ ...form, regulation: e.target.value })} /></Grid>
             <Grid item xs={12} md={3}>
               <Autocomplete
-                options={roomOptions}
+                options={[addOption("+ Add Seat Allocation", "/conduct-exam-seat-allocation"), ...roomOptions]}
                 value={selectedRoom}
                 isOptionEqualToValue={(option, value) => `${option.campus}-${option.building}-${option.room}-${option.examdate}-${option.slot}` === `${value.campus}-${value.building}-${value.room}-${value.examdate}-${value.slot}`}
-                getOptionLabel={(option) => option ? `${option.examdate || ""} ${option.slot || ""} | ${option.campus || ""} / ${option.building || ""} / ${option.room || ""}` : ""}
-                onChange={(event, value) => setForm({ ...form, ...(value || { campus: "", building: "", room: "", examdate: "", slot: "" }) })}
+                getOptionLabel={(option) => option?.__addOption ? option.label : option ? `${option.examdate || ""} ${option.slot || ""} | ${option.campus || ""} / ${option.building || ""} / ${option.room || ""}` : ""}
+                onChange={(event, value) => { if (handleAddOption(value, navigate)) return; setForm({ ...form, ...(value || { campus: "", building: "", room: "", examdate: "", slot: "" }) }); }}
+                renderOption={(props, option) => option?.__addOption ? renderAddOption(props, option) : <li {...props}>{`${option.examdate || ""} ${option.slot || ""} | ${option.campus || ""} / ${option.building || ""} / ${option.room || ""}`}</li>}
                 renderInput={(params) => <TextField {...params} label="Room from Seat Allocation" />}
               />
             </Grid>
@@ -397,11 +401,12 @@ export default function ConductExamInvigilatorAllocationPage() {
             <Grid item xs={12} md={2}><TextField fullWidth label="Room" value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })} /></Grid>
             <Grid item xs={12} md={3}>
               <Autocomplete
-                options={options.invigilators || []}
+                options={[addOption("+ Add Invigilation Details", "/conduct-exam-invigilation"), ...(options.invigilators || [])]}
                 value={selectedInvigilator}
                 isOptionEqualToValue={(option, value) => option.invigilatoremail === value.invigilatoremail}
-                getOptionLabel={(option) => option ? `${option.invigilator || ""}${option.invigilatoremail ? ` (${option.invigilatoremail})` : ""}` : ""}
-                onChange={(event, value) => setForm({ ...form, invigilator: value?.invigilator || "", invigilatoremail: value?.invigilatoremail || "" })}
+                getOptionLabel={(option) => option?.__addOption ? option.label : option ? `${option.invigilator || ""}${option.invigilatoremail ? ` (${option.invigilatoremail})` : ""}` : ""}
+                onChange={(event, value) => { if (handleAddOption(value, navigate)) return; setForm({ ...form, invigilator: value?.invigilator || "", invigilatoremail: value?.invigilatoremail || "" }); }}
+                renderOption={(props, option) => option?.__addOption ? renderAddOption(props, option) : <li {...props}>{option.invigilator || ""}{option.invigilatoremail ? ` (${option.invigilatoremail})` : ""}</li>}
                 renderInput={(params) => <TextField {...params} label="Invigilator" />}
               />
             </Grid>
@@ -417,7 +422,7 @@ export default function ConductExamInvigilatorAllocationPage() {
           <Typography fontWeight={900} sx={{ mb: 2 }}>Auto Allocation</Typography>
           <Grid container spacing={2}>
             <Grid item xs={12} md={2}><TextField select fullWidth label="Academic Year" value={autoForm.academicyear} onChange={(e) => setAutoForm({ ...autoForm, academicyear: e.target.value, exam: "", examcode: "" })}>{dropdownOptions.academicyear.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
-            <Grid item xs={12} md={2}><TextField select fullWidth label="Exam Code" value={autoForm.examcode} onChange={(e) => selectExam(e.target.value, "auto")}>{dropdownOptions.examcode.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+            <Grid item xs={12} md={2}><TextField select fullWidth label="Exam Code" value={autoForm.examcode} onChange={(e) => e.target.value === "__add_exam" ? navigate(embeddedAwarePath("/conduct-exam-master")) : selectExam(e.target.value, "auto")}><MenuItem value="__add_exam" sx={{ fontWeight: 800, color: "#2563eb" }}>+ Add Exam</MenuItem>{dropdownOptions.examcode.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={2}><TextField fullWidth label="Exam" value={autoForm.exam} onChange={(e) => setAutoForm({ ...autoForm, exam: e.target.value })} /></Grid>
             <Grid item xs={12} md={2}><TextField select fullWidth label="Gemini Model" value={autoForm.geminiModel} onChange={(e) => setAutoForm({ ...autoForm, geminiModel: e.target.value })}>{geminiModels.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12}>

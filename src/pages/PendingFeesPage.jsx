@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Button, Card, CardContent, Checkbox, Chip, FormControl, Grid, InputLabel, MenuItem, Paper, Select, Stack, Typography, Alert } from "@mui/material";
+import { Autocomplete, Box, Button, Card, CardContent, Checkbox, FormControl, Grid, InputLabel, MenuItem, Paper, Select, Stack, TextField, Typography, Alert } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from "recharts";
 import PrintIcon from "@mui/icons-material/Print";
@@ -17,9 +17,10 @@ const colors = ["#2563eb", "#16a34a", "#f59e0b", "#dc2626", "#7c3aed", "#0891b2"
 const money = (value) => Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 const dateText = (value) => value ? String(value).slice(0, 10) : "";
 
-export default function PendingFeesPage() {
+export default function PendingFeesPage({ title = "Pending Fees", requiredFields = [] }) {
   const [fields, setFields] = useState([]);
   const [options, setOptions] = useState({});
+  const [mandatoryValues, setMandatoryValues] = useState({});
   const [filters, setFilters] = useState([]);
   const [rows, setRows] = useState([]);
   const [totals, setTotals] = useState({ count: 0, amount: 0, paid: 0, concession: 0, balance: 0 });
@@ -54,6 +55,9 @@ export default function PendingFeesPage() {
 
   const params = () => {
     const next = { colid: global1.colid };
+    requiredFields.forEach((field) => {
+      if (mandatoryValues[field]) next[field] = mandatoryValues[field];
+    });
     filters.forEach((filter) => {
       if (filter.field && filter.values?.length) next[filter.field] = filter.values.join(",");
     });
@@ -62,6 +66,14 @@ export default function PendingFeesPage() {
 
   const loadRows = async () => {
     try {
+      const missing = requiredFields.filter((field) => !mandatoryValues[field]);
+      if (missing.length) {
+        setError(`Select ${missing.map((field) => labels[field] || field).join(", ")} before loading data.`);
+        setRows([]);
+        setTotals({ count: 0, amount: 0, paid: 0, concession: 0, balance: 0 });
+        setSummaries({ byProgram: [], byFeeGroup: [] });
+        return;
+      }
       setLoading(true);
       setError("");
       const res = await ep1.get("/api/v2/pendingfees", { params: params() });
@@ -77,10 +89,13 @@ export default function PendingFeesPage() {
 
   const addFilter = () => setFilters((prev) => [...prev, { field: "", values: [] }]);
   const updateFilter = (index, patch) => setFilters((prev) => prev.map((item, i) => i === index ? { ...item, ...patch } : item));
+  const mandatoryFieldSet = useMemo(() => new Set(requiredFields), [requiredFields]);
+  const optionalFields = useMemo(() => fields.filter((field) => !mandatoryFieldSet.has(field)), [fields, mandatoryFieldSet]);
 
   const columns = [
     { field: "student", headerName: "Student", width: 180 },
     { field: "regno", headerName: "Reg No", width: 130 },
+    { field: "rollno", headerName: "Roll No", width: 120 },
     { field: "programcode", headerName: "Program Code", width: 130 },
     { field: "semester", headerName: "Semester", width: 100 },
     { field: "feegroup", headerName: "Fee Group", width: 150 },
@@ -100,19 +115,41 @@ export default function PendingFeesPage() {
   ];
 
   return (
-    <MenuPageShell title="Pending Fees">
+    <MenuPageShell title={title}>
       <Box sx={{ p: 3 }}>
         <style>{`@media print{body *{visibility:hidden}.pending-fees-print,.pending-fees-print *{visibility:visible}.pending-fees-print{position:absolute;left:0;top:0;width:100%;padding:8mm}.no-print{display:none!important}}`}</style>
         <Stack className="no-print" direction={{ xs: "column", md: "row" }} justifyContent="space-between" sx={{ mb: 2 }} spacing={2}>
-          <Box><Typography variant="h5" fontWeight={900}>Pending Fees</Typography><Typography color="text.secondary">Students with past due date and balance greater than zero.</Typography></Box>
+          <Box><Typography variant="h5" fontWeight={900}>{title}</Typography><Typography color="text.secondary">Students with past due date and balance greater than zero.</Typography></Box>
           <Stack direction="row" spacing={1}><Button variant="outlined" onClick={addFilter}>Add Filter</Button><Button variant="contained" startIcon={<RefreshIcon />} onClick={loadRows}>Load</Button><Button variant="outlined" startIcon={<PrintIcon />} onClick={() => window.print()}>Print</Button></Stack>
         </Stack>
         {error && <Alert className="no-print" severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {requiredFields.length > 0 && (
+          <Paper className="no-print" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
+            <Typography variant="h6" fontWeight={800} sx={{ mb: 1.5 }}>Mandatory criteria</Typography>
+            <Grid container spacing={2}>
+              {requiredFields.map((field) => (
+                <Grid item xs={12} md={requiredFields.length > 3 ? 3 : 4} key={field}>
+                  <Autocomplete
+                    options={options[field] || []}
+                    value={mandatoryValues[field] || null}
+                    onChange={(event, value) => {
+                      setMandatoryValues((prev) => ({ ...prev, [field]: value || "" }));
+                      setRows([]);
+                      setTotals({ count: 0, amount: 0, paid: 0, concession: 0, balance: 0 });
+                      setSummaries({ byProgram: [], byFeeGroup: [] });
+                    }}
+                    renderInput={(params) => <TextField {...params} label={`${labels[field] || field} *`} size="small" />}
+                  />
+                </Grid>
+              ))}
+            </Grid>
+          </Paper>
+        )}
         <Paper className="no-print" sx={{ p: 2, mb: 2 }}>
           <Grid container spacing={2}>
             {filters.map((filter, index) => (
               <React.Fragment key={index}>
-                <Grid item xs={12} md={3}><FormControl fullWidth><InputLabel>Field</InputLabel><Select label="Field" value={filter.field} onChange={(e) => updateFilter(index, { field: e.target.value, values: [] })}>{fields.map((field) => <MenuItem key={field} value={field}>{labels[field] || field}</MenuItem>)}</Select></FormControl></Grid>
+                <Grid item xs={12} md={3}><FormControl fullWidth><InputLabel>Field</InputLabel><Select label="Field" value={filter.field} onChange={(e) => updateFilter(index, { field: e.target.value, values: [] })}>{optionalFields.map((field) => <MenuItem key={field} value={field}>{labels[field] || field}</MenuItem>)}</Select></FormControl></Grid>
                 <Grid item xs={12} md={9}><FormControl fullWidth disabled={!filter.field}><InputLabel>Values</InputLabel><Select multiple label="Values" value={filter.values || []} onChange={(e) => updateFilter(index, { values: e.target.value })} renderValue={(selected) => selected.join(", ")}>{(options[filter.field] || []).map((value) => <MenuItem key={value} value={value}><Checkbox checked={(filter.values || []).includes(value)} />{value}</MenuItem>)}</Select></FormControl></Grid>
               </React.Fragment>
             ))}
@@ -123,7 +160,7 @@ export default function PendingFeesPage() {
             {institution?.logolink && <Box component="img" src={institution.logolink} alt="Logo" sx={{ maxHeight: 70 }} />}
             <Typography variant="h5" fontWeight={900}>{institution?.institutionname || global1.insname || "Institution"}</Typography>
             <Typography variant="body2">{institution?.address || ""}</Typography>
-            <Typography variant="h6" fontWeight={800} sx={{ mt: 1 }}>Pending Fees Report</Typography>
+            <Typography variant="h6" fontWeight={800} sx={{ mt: 1 }}>{title} Report</Typography>
           </Stack>
           <Grid container spacing={2} sx={{ mb: 2 }}>
             {cards.map(([label, value]) => <Grid item xs={12} md={3} key={label}><Card><CardContent><Typography color="text.secondary">{label}</Typography><Typography variant="h5" fontWeight={900}>{value}</Typography></CardContent></Card></Grid>)}

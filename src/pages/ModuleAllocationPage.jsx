@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Autocomplete,
@@ -23,6 +24,7 @@ import * as XLSX from "xlsx";
 import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import { embeddedAwarePath, renderAddOption, withAddOption } from "./addableAutocompleteHelpers";
 
 const colors = ["#2563eb", "#16a34a", "#f97316", "#7c3aed", "#dc2626", "#0891b2", "#ca8a04", "#4f46e5"];
 const text = (value) => String(value || "").trim();
@@ -152,6 +154,7 @@ function useInstitution() {
 }
 
 export default function ModuleAllocationPage() {
+  const navigate = useNavigate();
   const institution = useInstitution();
   const [rows, setRows] = useState([]);
   const [options, setOptions] = useState({ workloads: [], syllabus: [] });
@@ -397,10 +400,11 @@ export default function ModuleAllocationPage() {
             <Grid container spacing={1.5}>
               <Grid item xs={12} md={6}>
                 <Autocomplete
-                  options={options.workloads || []}
+                  options={withAddOption("Add workload assignment", "/workloadassignment", options.workloads || [])}
                   value={(options.workloads || []).find((row) => row._id === form.workloadid) || null}
-                  onChange={(_, value) => selectWorkload(value)}
-                  getOptionLabel={(row) => row ? `${row.academicyear} | ${row.programcode} | ${row.coursecode} - ${row.course} | ${row.facultyname || row.facultyemail}` : ""}
+                  onChange={(_, value) => value?.__addOption ? navigate(embeddedAwarePath(value.path)) : selectWorkload(value)}
+                  getOptionLabel={(row) => row?.__addOption ? row.label : (row ? `${row.academicyear} | ${row.programcode} | ${row.coursecode} - ${row.course} | ${row.facultyname || row.facultyemail}` : "")}
+                  renderOption={(props, option) => renderAddOption(props, option, "course")}
                   renderInput={(params) => <TextField {...params} required label="Select workload / course allocation" />}
                 />
               </Grid>

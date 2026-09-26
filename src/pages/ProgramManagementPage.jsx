@@ -18,6 +18,7 @@ import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import { embeddedAwarePath, isEmbeddedPage } from "./addableAutocompleteHelpers";
 
 const emptyForm = {
   id: "",
@@ -48,9 +49,27 @@ const defaultLevels = ["UG", "PG", "Diploma", "Certificate", "PhD"];
 const defaultTypes = ["Grant-in", "Non Grant", "Regular", "Self financed"];
 const defaultStatuses = ["Active", "Inactive"];
 const defaultSessionTypes = ["Yearly", "Semester"];
+const addOption = (label, path) => ({ __addOption: true, label, path });
+const optionLabel = (option, field) => {
+  if (option == null) return "";
+  if (typeof option === "string") return option;
+  if (option?.__addOption) return option.label;
+  return String(
+    option?.[field]
+    || option?.label
+    || option?.name
+    || option?.institution
+    || option?.faculty
+    || option?.department
+    || option?.title
+    || option?.value
+    || ""
+  );
+};
 
 export default function ProgramManagementPage({ embedded = false, onRowsChange }) {
   const navigate = useNavigate();
+  const embeddedMode = embedded || isEmbeddedPage();
   const colid = useMemo(() => global1.colid, []);
   const currentUser = useMemo(() => global1.user, []);
   const [form, setForm] = useState(emptyForm);
@@ -74,6 +93,20 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
   const [message, setMessage] = useState("");
 
   const merged = (base, extra) => Array.from(new Set([...(base || []), ...(extra || [])].filter(Boolean))).sort();
+  const withAdd = (label, path, list = []) => [addOption(label, path), ...(list || [])];
+  const renderAddOption = (props, option) => (
+    <li {...props} style={option?.__addOption ? { fontWeight: 800, color: "#2563eb" } : undefined}>
+      {optionLabel(option, "label")}
+    </li>
+  );
+  const handleAddOption = (value, setter) => {
+    if (value?.__addOption) {
+      navigate(embeddedAwarePath(value.path));
+      return true;
+    }
+    setter(value);
+    return false;
+  };
 
   const loadOptions = async () => {
     const [res, masterRes] = await Promise.all([
@@ -338,7 +371,7 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
           <Typography variant="h5" fontWeight={700}>Program Management</Typography>
           <Typography variant="body2" color="text.secondary">Create and manage academic programs with type, level and status.</Typography>
         </Box>
-        {!embedded && <Button variant="outlined" startIcon={<ArrowBack />} onClick={() => navigate("/dashdashfacnew")}>Back to dashboard</Button>}
+        {!embeddedMode && <Button variant="outlined" startIcon={<ArrowBack />} onClick={() => navigate("/dashdashfacnew")}>Back to dashboard</Button>}
       </Stack>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -360,29 +393,38 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
           <TextField size="small" label="Program code" value={form.programcode} onChange={(e) => updateForm("programcode", e.target.value)} />
           <Autocomplete
             freeSolo
-            options={options.institutions || []}
+            options={withAdd("Add master institution", "/academic-master-institutions", options.institutions)}
             value={form.institution || ""}
-            getOptionLabel={(option) => typeof option === "string" ? option : option.institution || ""}
-            onChange={(_, value) => setForm((prev) => ({ ...prev, institution: typeof value === "string" ? value : value?.institution || "", department: "" }))}
-            onInputChange={(_, value) => setForm((prev) => ({ ...prev, institution: value || "", department: "" }))}
+            getOptionLabel={(option) => optionLabel(option, "institution")}
+            onChange={(_, value) => handleAddOption(value, (selected) => setForm((prev) => ({ ...prev, institution: typeof selected === "string" ? selected : selected?.institution || "", department: "" })))}
+            onInputChange={(_, value, reason) => {
+              if (reason === "input") setForm((prev) => ({ ...prev, institution: value || "", department: "" }));
+            }}
+            renderOption={renderAddOption}
             renderInput={(params) => <TextField {...params} size="small" label="Institution" />}
           />
           <Autocomplete
             freeSolo
-            options={options.faculties || []}
+            options={withAdd("Add master faculty", "/academic-master-faculties", options.faculties)}
             value={form.faculty || ""}
-            getOptionLabel={(option) => typeof option === "string" ? option : option.faculty || ""}
-            onChange={(_, value) => setForm((prev) => ({ ...prev, faculty: typeof value === "string" ? value : value?.faculty || "", department: "" }))}
-            onInputChange={(_, value) => setForm((prev) => ({ ...prev, faculty: value || "", department: "" }))}
+            getOptionLabel={(option) => optionLabel(option, "faculty")}
+            onChange={(_, value) => handleAddOption(value, (selected) => setForm((prev) => ({ ...prev, faculty: typeof selected === "string" ? selected : selected?.faculty || "", department: "" })))}
+            onInputChange={(_, value, reason) => {
+              if (reason === "input") setForm((prev) => ({ ...prev, faculty: value || "", department: "" }));
+            }}
+            renderOption={renderAddOption}
             renderInput={(params) => <TextField {...params} size="small" label="Faculty" />}
           />
           <Autocomplete
             freeSolo
-            options={departmentOptions}
+            options={withAdd("Add department faculty", "/academic-master-departments", departmentOptions)}
             value={form.department || ""}
-            getOptionLabel={(option) => option || ""}
-            onChange={(_, value) => updateForm("department", value || "")}
-            onInputChange={(_, value) => updateForm("department", value || "")}
+            getOptionLabel={(option) => optionLabel(option, "department")}
+            onChange={(_, value) => handleAddOption(value, (selected) => updateForm("department", typeof selected === "string" ? selected : selected?.department || ""))}
+            onInputChange={(_, value, reason) => {
+              if (reason === "input") updateForm("department", value || "");
+            }}
+            renderOption={renderAddOption}
             renderInput={(params) => <TextField {...params} size="small" label="Department" helperText="Filtered by selected faculty and institution" />}
           />
           <TextField size="small" type="number" label="Duration in year" value={form.durationinyear} onChange={(e) => updateForm("durationinyear", e.target.value)} />
@@ -419,8 +461,32 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
       <Paper sx={{ p: 2, mb: 2 }}>
         <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} alignItems={{ md: "center" }}>
           <Typography variant="subtitle2" fontWeight={700}>Bulk update selected</Typography>
-          <TextField size="small" label="Institution" value={bulkMeta.institution} onChange={(e) => setBulkMeta((prev) => ({ ...prev, institution: e.target.value }))} sx={{ minWidth: 260 }} />
-          <TextField size="small" label="Faculty" value={bulkMeta.faculty} onChange={(e) => setBulkMeta((prev) => ({ ...prev, faculty: e.target.value }))} sx={{ minWidth: 240 }} />
+          <Autocomplete
+            freeSolo
+            options={withAdd("Add master institution", "/academic-master-institutions", options.institutions)}
+            value={bulkMeta.institution || ""}
+            getOptionLabel={(option) => optionLabel(option, "institution")}
+            onChange={(_, value) => handleAddOption(value, (selected) => setBulkMeta((prev) => ({ ...prev, institution: typeof selected === "string" ? selected : selected?.institution || "" })))}
+            onInputChange={(_, value, reason) => {
+              if (reason === "input") setBulkMeta((prev) => ({ ...prev, institution: value || "" }));
+            }}
+            renderOption={renderAddOption}
+            renderInput={(params) => <TextField {...params} size="small" label="Institution" />}
+            sx={{ minWidth: 260 }}
+          />
+          <Autocomplete
+            freeSolo
+            options={withAdd("Add master faculty", "/academic-master-faculties", options.faculties)}
+            value={bulkMeta.faculty || ""}
+            getOptionLabel={(option) => optionLabel(option, "faculty")}
+            onChange={(_, value) => handleAddOption(value, (selected) => setBulkMeta((prev) => ({ ...prev, faculty: typeof selected === "string" ? selected : selected?.faculty || "" })))}
+            onInputChange={(_, value, reason) => {
+              if (reason === "input") setBulkMeta((prev) => ({ ...prev, faculty: value || "" }));
+            }}
+            renderOption={renderAddOption}
+            renderInput={(params) => <TextField {...params} size="small" label="Faculty" />}
+            sx={{ minWidth: 240 }}
+          />
           <TextField select size="small" label="Excluded" value={bulkMeta.excluded} onChange={(e) => setBulkMeta((prev) => ({ ...prev, excluded: e.target.value }))} sx={{ minWidth: 150 }}>
             <MenuItem value="">No change</MenuItem>
             <MenuItem value="No">No</MenuItem>
@@ -451,5 +517,5 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
     </Container>
   );
 
-  return embedded ? content : <MenuPageShell title="Program Management">{content}</MenuPageShell>;
+  return embeddedMode ? content : <MenuPageShell title="Program Management">{content}</MenuPageShell>;
 }

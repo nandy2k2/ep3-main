@@ -103,6 +103,13 @@ export default function InstitutionPage() {
   const [form, setForm] = useState(emptyForm);
   const [editId, setEditId] = useState(null);
   const [open, setOpen] = useState(true);
+  const embedded = (() => {
+    try {
+      return new URLSearchParams(window.location.search).get('embedded') === '1';
+    } catch {
+      return false;
+    }
+  })();
 
   const fetchData = async () => {
     const res = await ep1.get(`/api/institution?colid=${global1.colid}`);
@@ -158,6 +165,62 @@ export default function InstitutionPage() {
     }
   ];
 
+  const content = (
+    <Container maxWidth="xl" sx={{ mt: embedded ? 0 : 4, mb: 4, py: embedded ? 2 : 0 }}>
+      <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: '1px solid #e5e7eb', borderRadius: 2 }}>
+        <Typography variant="h5" fontWeight={900}>Institution Details</Typography>
+        <Typography color="text.secondary">Manage logo, address, institutional office bearers and policy links.</Typography>
+      </Paper>
+
+      <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: '1px solid #e5e7eb', borderRadius: 2 }}>
+        <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ xs: 'stretch', md: 'center' }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
+          <Typography variant="h6" fontWeight={800}>{editId ? 'Update Institution' : 'Add Institution'}</Typography>
+          <Stack direction="row" spacing={1}>
+            {editId && <Button variant="outlined" onClick={() => { setEditId(null); setForm(emptyForm); }}>Cancel</Button>}
+            <Button variant="contained" onClick={handleSubmit}>{editId ? 'Update' : 'Save'}</Button>
+          </Stack>
+        </Stack>
+        <Grid container spacing={2}>
+          {fields.map((item) => (
+            <Grid item xs={12} md={item.md} key={item.field}>
+              <TextField
+                fullWidth
+                label={item.label}
+                value={form[item.field] || ''}
+                multiline={item.multiline}
+                minRows={item.multiline ? 3 : undefined}
+                onChange={e => setForm({ ...form, [item.field]: e.target.value })}
+              />
+            </Grid>
+          ))}
+        </Grid>
+      </Paper>
+
+      <Paper elevation={0} sx={{ p: 2, border: '1px solid #e5e7eb', borderRadius: 2 }}>
+        <Box sx={{ height: 560, width: '100%' }}>
+          <DataGrid
+            rows={rows}
+            columns={columns}
+            slots={{ toolbar: GridToolbar }}
+            pageSizeOptions={[5, 10, 25]}
+            disableRowSelectionOnClick
+          />
+        </Box>
+      </Paper>
+    </Container>
+  );
+
+  if (embedded) {
+    return (
+      <ThemeProvider theme={mdTheme}>
+        <CssBaseline />
+        <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc' }}>
+          {content}
+        </Box>
+      </ThemeProvider>
+    );
+  }
+
   return (
     <ThemeProvider theme={mdTheme}>
       <Box sx={{ display: 'flex' }}>
@@ -204,48 +267,7 @@ export default function InstitutionPage() {
           }}
         >
           <Toolbar />
-          <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-            <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: '1px solid #e5e7eb', borderRadius: 2 }}>
-              <Typography variant="h5" fontWeight={900}>Institution Details</Typography>
-              <Typography color="text.secondary">Manage logo, address, institutional office bearers and policy links.</Typography>
-            </Paper>
-
-            <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: '1px solid #e5e7eb', borderRadius: 2 }}>
-              <Stack direction={{ xs: 'column', md: 'row' }} alignItems={{ xs: 'stretch', md: 'center' }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
-                <Typography variant="h6" fontWeight={800}>{editId ? 'Update Institution' : 'Add Institution'}</Typography>
-                <Stack direction="row" spacing={1}>
-                  {editId && <Button variant="outlined" onClick={() => { setEditId(null); setForm(emptyForm); }}>Cancel</Button>}
-                  <Button variant="contained" onClick={handleSubmit}>{editId ? 'Update' : 'Save'}</Button>
-                </Stack>
-              </Stack>
-              <Grid container spacing={2}>
-                {fields.map((item) => (
-                  <Grid item xs={12} md={item.md} key={item.field}>
-                    <TextField
-                      fullWidth
-                      label={item.label}
-                      value={form[item.field] || ''}
-                      multiline={item.multiline}
-                      minRows={item.multiline ? 3 : undefined}
-                      onChange={e => setForm({ ...form, [item.field]: e.target.value })}
-                    />
-                  </Grid>
-                ))}
-              </Grid>
-            </Paper>
-
-            <Paper elevation={0} sx={{ p: 2, border: '1px solid #e5e7eb', borderRadius: 2 }}>
-              <Box sx={{ height: 560, width: '100%' }}>
-                <DataGrid
-                  rows={rows}
-                  columns={columns}
-                  slots={{ toolbar: GridToolbar }}
-                  pageSizeOptions={[5, 10, 25]}
-                  disableRowSelectionOnClick
-                />
-              </Box>
-            </Paper>
-          </Container>
+          {content}
         </Box>
       </Box>
     </ThemeProvider>

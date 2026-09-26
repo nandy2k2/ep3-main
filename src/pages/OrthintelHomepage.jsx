@@ -419,6 +419,12 @@ export default function OrthintelHomepage() {
           <Stack direction={{ xs: "column", md: "row" }} spacing={2} justifyContent="space-between" alignItems={{ xs: "flex-start", md: "center" }}>
             <BrandMark />
             <Stack direction="row" spacing={1.5}>
+              <Button component={RouterLink} to="/privacy-policy" variant="text" sx={{ color: "#d7f8fb" }}>
+                Privacy Policy
+              </Button>
+              <Button component={RouterLink} to="/terms-of-service" variant="text" sx={{ color: "#d7f8fb" }}>
+                Terms of Service
+              </Button>
               <Button component={RouterLink} to="/Login" variant="outlined" sx={{ borderColor: "rgba(255,255,255,0.3)", color: "#fff" }}>
                 Sign in
               </Button>

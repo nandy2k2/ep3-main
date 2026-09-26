@@ -21,6 +21,7 @@ import { AutoAwesome, Delete, Download, Edit, Print, Refresh, Save, UploadFile }
 import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import { isEmbeddedPage } from "./addableAutocompleteHelpers";
 
 const text = (value) => String(value || "").trim();
 const uniqueSorted = (values = []) => [...new Set(values.map(text).filter(Boolean))].sort((a, b) => a.localeCompare(b));
@@ -31,7 +32,8 @@ const gridSx = {
 };
 
 function Shell({ title, children, embedded = false }) {
-  if (embedded) {
+  const embeddedMode = embedded || isEmbeddedPage();
+  if (embeddedMode) {
     return <Box sx={{ p: 0 }}>{children}</Box>;
   }
   return <MenuPageShell title={title}><Box sx={{ p: 3 }}>{children}</Box></MenuPageShell>;

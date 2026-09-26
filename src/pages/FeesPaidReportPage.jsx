@@ -90,7 +90,119 @@ function chartRows(rows, valueKey = "paidamount") {
   }));
 }
 
-export default function FeesPaidReportPage({ report2 = false }) {
+function uniqueJoin(values = []) {
+  return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))].join(", ");
+}
+
+function numericTotal(rows = [], field) {
+  return rows.reduce((sum, row) => sum + Number(row[field] || 0), 0);
+}
+
+function buildLocalSummary(rows = [], field) {
+  const grouped = new Map();
+  rows.forEach((row) => {
+    const rawValue = row[field];
+    if (field === "feegroup" || field === "feecategory") {
+      String(rawValue || "Not specified").split(",").map((item) => item.trim()).filter(Boolean).forEach((label) => {
+        const current = grouped.get(label) || { id: label, label, count: 0, amount: 0, paidamount: 0, concession: 0, balance: 0 };
+        current.count += 1;
+        current.amount += Number(row.amount || 0);
+        current.paidamount += Number(row.paidamount || 0);
+        current.concession += Number(row.concession || 0);
+        current.balance += Number(row.balance || 0);
+        grouped.set(label, current);
+      });
+      return;
+    }
+    const label = rawValue || "Not specified";
+    const current = grouped.get(label) || { id: label, label, count: 0, amount: 0, paidamount: 0, concession: 0, balance: 0 };
+    current.count += 1;
+    current.amount += Number(row.amount || 0);
+    current.paidamount += Number(row.paidamount || 0);
+    current.concession += Number(row.concession || 0);
+    current.balance += Number(row.balance || 0);
+    grouped.set(label, current);
+  });
+  return Array.from(grouped.values()).sort((a, b) => b.paidamount - a.paidamount);
+}
+
+function groupStudentDateRows(sourceRows = []) {
+  const grouped = new Map();
+  sourceRows.forEach((row, index) => {
+    const paidDate = shortDate(row.paiddate);
+    const studentKey = row.regno || row.user || row.student || row.name || `student-${index}`;
+    const key = [studentKey, paidDate, row.academicyear || "", row.programcode || "", row.semester || ""].join("|");
+    const current = grouped.get(key) || {
+      id: key,
+      academicyear: row.academicyear,
+      admissionyear: row.admissionyear,
+      regulation: row.regulation,
+      program: row.program,
+      programcode: row.programcode,
+      major: row.major,
+      minor: row.minor,
+      semester: row.semester,
+      section: row.section,
+      student: row.student || row.name,
+      name: row.name || row.student,
+      regno: row.regno,
+      user: row.user,
+      paiddate: paidDate,
+      itemcount: 0,
+      amount: 0,
+      concession: 0,
+      paidamount: 0,
+      balance: 0,
+      feegroupValues: [],
+      feecategoryValues: [],
+      feeitemValues: [],
+      paymodeValues: [],
+      paymentreferenceValues: [],
+      paydetailsValues: [],
+      onlinepaymentrefnoValues: [],
+      gatewayrefnoValues: [],
+      gatewayValues: [],
+      gatewaytypeValues: [],
+      paymentstatusValues: [],
+      transactiondescriptionValues: []
+    };
+    current.itemcount += 1;
+    current.amount += Number(row.amount || 0);
+    current.concession += Number(row.concession || 0);
+    current.paidamount += Number(row.paidamount || 0);
+    current.balance += Number(row.balance || 0);
+    current.feegroupValues.push(row.feegroup);
+    current.feecategoryValues.push(row.feecategory);
+    current.feeitemValues.push(row.feeitem);
+    current.paymodeValues.push(row.paymode);
+    current.paymentreferenceValues.push(row.paymentreference);
+    current.paydetailsValues.push(row.paydetails);
+    current.onlinepaymentrefnoValues.push(row.onlinepaymentrefno);
+    current.gatewayrefnoValues.push(row.gatewayrefno);
+    current.gatewayValues.push(row.gateway);
+    current.gatewaytypeValues.push(row.gatewaytype);
+    current.paymentstatusValues.push(row.paymentstatus);
+    current.transactiondescriptionValues.push(row.transactiondescription);
+    grouped.set(key, current);
+  });
+  return Array.from(grouped.values()).map((row) => ({
+    ...row,
+    feegroup: uniqueJoin(row.feegroupValues),
+    feecategory: uniqueJoin(row.feecategoryValues),
+    feeitems: uniqueJoin(row.feeitemValues),
+    paymode: uniqueJoin(row.paymodeValues),
+    paymentreference: uniqueJoin(row.paymentreferenceValues),
+    paydetails: uniqueJoin(row.paydetailsValues),
+    onlinepaymentrefno: uniqueJoin(row.onlinepaymentrefnoValues),
+    gatewayrefno: uniqueJoin(row.gatewayrefnoValues),
+    gateway: uniqueJoin(row.gatewayValues),
+    gatewaytype: uniqueJoin(row.gatewaytypeValues),
+    paymentstatus: uniqueJoin(row.paymentstatusValues),
+    transactiondescription: uniqueJoin(row.transactiondescriptionValues)
+  })).sort((a, b) => String(b.paiddate || "").localeCompare(String(a.paiddate || "")) || String(a.student || "").localeCompare(String(b.student || "")));
+}
+
+export default function FeesPaidReportPage({ report2 = false, report3 = false }) {
   const [rows, setRows] = useState([]);
   const [summaries, setSummaries] = useState({});
   const [totals, setTotals] = useState({ count: 0, amount: 0, paidamount: 0, concession: 0, balance: 0 });
@@ -192,23 +304,52 @@ export default function FeesPaidReportPage({ report2 = false }) {
     return parts.join(" | ");
   }, [filters, dateRange]);
 
+  const enhancedReport = report2 || report3;
+  const reportTitle = report3 ? "Fees paid report 3" : report2 ? "Fees paid report 2" : "Fees paid report";
+  const reportDescription = report3
+    ? "Studentwise datewise paid transaction summary with payment reference details"
+    : report2
+      ? "Student fee paid transactions with program and payment reference details"
+      : "Programwise student fee paid details from student ledger";
+  const displayRows = useMemo(() => (report3 ? groupStudentDateRows(rows) : rows), [rows, report3]);
+  const displayTotals = useMemo(() => (report3 ? {
+    count: displayRows.length,
+    amount: numericTotal(displayRows, "amount"),
+    paidamount: numericTotal(displayRows, "paidamount"),
+    concession: numericTotal(displayRows, "concession"),
+    balance: numericTotal(displayRows, "balance")
+  } : totals), [displayRows, report3, totals]);
+  const displaySummaries = useMemo(() => (report3 ? {
+    ...summaries,
+    program: buildLocalSummary(displayRows, "program"),
+    feegroup: buildLocalSummary(displayRows, "feegroup"),
+    feecategory: buildLocalSummary(displayRows, "feecategory")
+  } : summaries), [displayRows, report3, summaries]);
+
   const detailColumns = [
     { field: "academicyear", headerName: "Year", minWidth: 120 },
-    ...(report2 ? [{ field: "program", headerName: "Program", minWidth: 180, flex: 1 }] : []),
+    ...(enhancedReport ? [{ field: "program", headerName: "Program", minWidth: 180, flex: 1 }] : []),
     { field: "programcode", headerName: "Program Code", minWidth: 130 },
-    ...(report2 ? [{ field: "semester", headerName: "Semester", minWidth: 110 }] : []),
+    ...(enhancedReport ? [{ field: "semester", headerName: "Semester", minWidth: 110 }] : []),
     { field: "student", headerName: "Student", minWidth: 180, flex: 1 },
     { field: "regno", headerName: "Reg No", minWidth: 140 },
-    { field: "feegroup", headerName: "Fee Group", minWidth: 150 },
-    { field: "feecategory", headerName: "Fee Category", minWidth: 150 },
-    { field: "feeitem", headerName: "Fee Item", minWidth: 180, flex: 1 },
+    ...(report3 ? [
+      { field: "itemcount", headerName: "Items", minWidth: 95, type: "number" },
+      { field: "feegroup", headerName: "Fee Groups", minWidth: 170 },
+      { field: "feecategory", headerName: "Fee Categories", minWidth: 180 },
+      { field: "feeitems", headerName: "Fee Items", minWidth: 220, flex: 1 }
+    ] : [
+      { field: "feegroup", headerName: "Fee Group", minWidth: 150 },
+      { field: "feecategory", headerName: "Fee Category", minWidth: 150 },
+      { field: "feeitem", headerName: "Fee Item", minWidth: 180, flex: 1 }
+    ]),
     { field: "paiddate", headerName: "Paid Date", minWidth: 130, valueGetter: (params) => shortDate(params.row.paiddate) },
     { field: "amount", headerName: "Amount", minWidth: 120, type: "number" },
     { field: "concession", headerName: "Concession", minWidth: 130, type: "number" },
     { field: "paidamount", headerName: "Paid Amount", minWidth: 130, type: "number" },
     { field: "balance", headerName: "Balance", minWidth: 120, type: "number" },
     { field: "paymode", headerName: "Pay Mode", minWidth: 120 },
-    ...(report2 ? [
+    ...(enhancedReport ? [
       { field: "paymentreference", headerName: "Payment Reference", minWidth: 190, flex: 1 },
       { field: "paydetails", headerName: "Pay Details", minWidth: 190, flex: 1 },
       { field: "onlinepaymentrefno", headerName: "Online Ref No", minWidth: 170 },
@@ -271,10 +412,10 @@ export default function FeesPaidReportPage({ report2 = false }) {
     </Paper>
   );
 
-  const printRows = rows.slice(0, 24);
+  const printRows = displayRows.slice(0, 24);
 
   return (
-    <MenuPageShell title={report2 ? "Fees paid report 2" : "Fees paid report"}>
+    <MenuPageShell title={reportTitle}>
       <style>
         {`
           @media print {
@@ -289,8 +430,8 @@ export default function FeesPaidReportPage({ report2 = false }) {
       <Box sx={{ p: 3 }}>
         <Stack className="no-print" direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
           <Box>
-            <Typography variant="h5" fontWeight={900}>{report2 ? "Fees paid report 2" : "Fees paid report"}</Typography>
-            <Typography variant="body2" color="text.secondary">{report2 ? "Student fee paid transactions with program and payment reference details" : "Programwise student fee paid details from student ledger"}</Typography>
+            <Typography variant="h5" fontWeight={900}>{reportTitle}</Typography>
+            <Typography variant="body2" color="text.secondary">{reportDescription}</Typography>
           </Box>
           <Stack direction="row" spacing={1}>
             <Button variant="outlined" startIcon={<PrintIcon />} onClick={() => window.print()}>Print Preview</Button>
@@ -319,7 +460,7 @@ export default function FeesPaidReportPage({ report2 = false }) {
           <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
             <FilterListIcon color="primary" />
             <Typography variant="h6" fontWeight={800}>Dynamic filters</Typography>
-            <Chip size="small" label={`${rows.length} rows`} variant="outlined" />
+            <Chip size="small" label={`${displayRows.length} rows`} variant="outlined" />
           </Stack>
 
           <Stack spacing={1.5}>
@@ -365,41 +506,41 @@ export default function FeesPaidReportPage({ report2 = false }) {
         </Paper>
 
         <Grid className="no-print" container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={12} md={2.4}><Metric label="Entries" value={totals.count} color="#4f46e5" prefix={false} /></Grid>
-          <Grid item xs={12} md={2.4}><Metric label="Amount" value={totals.amount} color="#2563eb" /></Grid>
-          <Grid item xs={12} md={2.4}><Metric label="Paid Amount" value={totals.paidamount} color="#16a34a" /></Grid>
-          <Grid item xs={12} md={2.4}><Metric label="Concession" value={totals.concession} color="#f59e0b" /></Grid>
-          <Grid item xs={12} md={2.4}><Metric label="Balance" value={totals.balance} color="#dc2626" /></Grid>
+          <Grid item xs={12} md={2.4}><Metric label={report3 ? "Student Date Entries" : "Entries"} value={displayTotals.count} color="#4f46e5" prefix={false} /></Grid>
+          <Grid item xs={12} md={2.4}><Metric label="Amount" value={displayTotals.amount} color="#2563eb" /></Grid>
+          <Grid item xs={12} md={2.4}><Metric label="Paid Amount" value={displayTotals.paidamount} color="#16a34a" /></Grid>
+          <Grid item xs={12} md={2.4}><Metric label="Concession" value={displayTotals.concession} color="#f59e0b" /></Grid>
+          <Grid item xs={12} md={2.4}><Metric label="Balance" value={displayTotals.balance} color="#dc2626" /></Grid>
         </Grid>
 
         <Grid className="no-print" container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={12} lg={6}><SummaryChart title="Programwise paid amount" data={chartRows(summaries.program)} /></Grid>
-          <Grid item xs={12} lg={6}><PieBlock title="Fee group paid share" data={chartRows(summaries.feegroup)} /></Grid>
+          <Grid item xs={12} lg={6}><SummaryChart title="Programwise paid amount" data={chartRows(displaySummaries.program)} /></Grid>
+          <Grid item xs={12} lg={6}><PieBlock title="Fee group paid share" data={chartRows(displaySummaries.feegroup)} /></Grid>
         </Grid>
 
         <Grid className="no-print" container spacing={2} sx={{ mb: 2 }}>
           <Grid item xs={12} lg={6}>
             <Paper sx={{ p: 1, borderRadius: 2 }}>
               <Typography variant="h6" fontWeight={800} sx={{ p: 1 }}>Program Summary</Typography>
-              <DataGrid rows={summaries.program || []} columns={summaryColumns} getRowId={(row) => row.id} autoHeight slots={{ toolbar: GridToolbar }} pageSizeOptions={[10, 25, 50]} />
+              <DataGrid rows={displaySummaries.program || []} columns={summaryColumns} getRowId={(row) => row.id} autoHeight slots={{ toolbar: GridToolbar }} pageSizeOptions={[10, 25, 50]} />
             </Paper>
           </Grid>
           <Grid item xs={12} lg={6}>
             <Paper sx={{ p: 1, borderRadius: 2 }}>
               <Typography variant="h6" fontWeight={800} sx={{ p: 1 }}>Fee Category Summary</Typography>
-              <DataGrid rows={summaries.feecategory || []} columns={summaryColumns} getRowId={(row) => row.id} autoHeight slots={{ toolbar: GridToolbar }} pageSizeOptions={[10, 25, 50]} />
+              <DataGrid rows={displaySummaries.feecategory || []} columns={summaryColumns} getRowId={(row) => row.id} autoHeight slots={{ toolbar: GridToolbar }} pageSizeOptions={[10, 25, 50]} />
             </Paper>
           </Grid>
         </Grid>
 
         <Paper className="no-print" sx={{ p: 1, mb: 2, borderRadius: 2 }}>
           <DataGrid
-            rows={rows}
+            rows={displayRows}
             columns={detailColumns}
             loading={loading}
             autoHeight
             slots={{ toolbar: GridToolbar }}
-            slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: report2 ? "fees_paid_report_2" : "fees_paid_report" } } }}
+            slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: report3 ? "fees_paid_report_3" : report2 ? "fees_paid_report_2" : "fees_paid_report" } } }}
             pageSizeOptions={[10, 25, 50, 100]}
             initialState={{ pagination: { paginationModel: { pageSize: 10, page: 0 } } }}
             sx={{ minWidth: 1900, "& .MuiDataGrid-virtualScroller": { overflowX: "auto" } }}
@@ -411,20 +552,20 @@ export default function FeesPaidReportPage({ report2 = false }) {
             {institution?.logolink && <Box component="img" src={institution.logolink} alt="Logo" sx={{ width: 62, height: 62, objectFit: "contain" }} />}
             <Typography variant="h6" fontWeight={900}>{institution?.institutionname || global1.insname || "Institution"}</Typography>
             <Typography variant="body2">{institution?.address || ""}</Typography>
-            <Typography variant="subtitle1" fontWeight={900} sx={{ mt: 0.5 }}>{report2 ? "Fees Paid Report 2" : "Fees Paid Report"}</Typography>
+            <Typography variant="subtitle1" fontWeight={900} sx={{ mt: 0.5 }}>{report3 ? "Fees Paid Report 3" : report2 ? "Fees Paid Report 2" : "Fees Paid Report"}</Typography>
             <Typography variant="caption">{activeFilterText}</Typography>
           </Stack>
 
           <Grid container spacing={1} sx={{ mb: 1.5 }}>
-            <Grid item xs={4}><Metric label="Amount" value={totals.amount} color="#2563eb" /></Grid>
-            <Grid item xs={4}><Metric label="Paid" value={totals.paidamount} color="#16a34a" /></Grid>
-            <Grid item xs={4}><Metric label="Balance" value={totals.balance} color="#dc2626" /></Grid>
+            <Grid item xs={4}><Metric label="Amount" value={displayTotals.amount} color="#2563eb" /></Grid>
+            <Grid item xs={4}><Metric label="Paid" value={displayTotals.paidamount} color="#16a34a" /></Grid>
+            <Grid item xs={4}><Metric label="Balance" value={displayTotals.balance} color="#dc2626" /></Grid>
           </Grid>
 
           <Box sx={{ height: 230, border: "1px solid #cbd5e1", p: 1, mb: 1.5 }}>
             <Typography variant="body2" fontWeight={900}>Programwise Paid Amount</Typography>
             <ResponsiveContainer width="100%" height={195}>
-              <BarChart data={chartRows(summaries.program)}>
+              <BarChart data={chartRows(displaySummaries.program)}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" tick={{ fontSize: 9 }} />
                 <YAxis tick={{ fontSize: 9 }} />
@@ -436,7 +577,7 @@ export default function FeesPaidReportPage({ report2 = false }) {
 
           <Box sx={{ border: "1px solid #cbd5e1", borderBottom: 0, fontSize: 11 }}>
             <Grid container sx={{ bgcolor: "#eef2ff", fontWeight: 900 }}>
-              {(report2 ? ["Program", "Student", "Reg No", "Fee Group", "Category", "Paid Date", "Payment Ref", "Amount", "Paid", "Balance"] : ["Program", "Student", "Reg No", "Fee Group", "Category", "Paid Date", "Amount", "Paid", "Concession", "Balance"]).map((head, index) => (
+              {(enhancedReport ? ["Program", "Student", "Reg No", report3 ? "Items" : "Fee Group", "Category", "Paid Date", "Payment Ref", "Amount", "Paid", "Balance"] : ["Program", "Student", "Reg No", "Fee Group", "Category", "Paid Date", "Amount", "Paid", "Concession", "Balance"]).map((head, index) => (
                 <Grid item xs={index < 2 ? 1.5 : 1.1} key={head} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.5 }}>
                   {head}
                 </Grid>
@@ -447,13 +588,13 @@ export default function FeesPaidReportPage({ report2 = false }) {
                 <Grid item xs={1.5} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.45 }}>{row.program || row.programcode}</Grid>
                 <Grid item xs={1.5} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.45 }}>{row.student}</Grid>
                 <Grid item xs={1.1} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.45 }}>{row.regno}</Grid>
-                <Grid item xs={1.1} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.45 }}>{row.feegroup}</Grid>
+                <Grid item xs={1.1} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.45 }}>{report3 ? row.itemcount : row.feegroup}</Grid>
                 <Grid item xs={1.1} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.45 }}>{row.feecategory}</Grid>
                 <Grid item xs={1.1} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.45 }}>{shortDate(row.paiddate)}</Grid>
-                {report2 && <Grid item xs={1.1} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.45 }}>{row.paymentreference}</Grid>}
+                {enhancedReport && <Grid item xs={1.1} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.45 }}>{row.paymentreference}</Grid>}
                 <Grid item xs={1.1} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.45, textAlign: "right" }}>{money(row.amount)}</Grid>
                 <Grid item xs={1.1} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.45, textAlign: "right" }}>{money(row.paidamount)}</Grid>
-                {!report2 && <Grid item xs={1.1} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.45, textAlign: "right" }}>{money(row.concession)}</Grid>}
+                {!enhancedReport && <Grid item xs={1.1} sx={{ borderRight: "1px solid #cbd5e1", borderBottom: "1px solid #cbd5e1", p: 0.45, textAlign: "right" }}>{money(row.concession)}</Grid>}
                 <Grid item xs={1.2} sx={{ borderBottom: "1px solid #cbd5e1", p: 0.45, textAlign: "right" }}>{money(row.balance)}</Grid>
               </Grid>
             ))}

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -23,6 +23,7 @@ import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import { embeddedAwarePath } from "./addableAutocompleteHelpers";
 
 const defaultAcademicYears = ["2026-27", "2027-28", "2028-29", "2029-30", "2030-31"];
 const semesterOptions = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
@@ -61,6 +62,7 @@ function unique(values) {
 
 export default function MFeesConfigPage() {
   const colid = useMemo(() => global1.colid, []);
+  const navigate = useNavigate();
   const [rows, setRows] = useState([]);
   const [academicYears, setAcademicYears] = useState(defaultAcademicYears);
   const [feebooks, setFeebooks] = useState([]);
@@ -444,16 +446,32 @@ export default function MFeesConfigPage() {
                 <TextField select size="small" label="Academic Year" value={form.academicyear} onChange={(e) => setField("academicyear", e.target.value)} required>
                   {academicYears.map((year) => <MenuItem key={year} value={year}>{year}</MenuItem>)}
                 </TextField>
-                <TextField select size="small" label="Fee Book" value={form.feebook} onChange={(e) => setField("feebook", e.target.value)}>
+                <TextField select size="small" label="Fee Book" value={form.feebook} onChange={(e) => {
+                  if (e.target.value === "__add_feebook") return navigate(embeddedAwarePath("/feebook-crud"));
+                  return setField("feebook", e.target.value);
+                }}>
+                  <MenuItem value="__add_feebook">+ Add Fee Book</MenuItem>
                   {feebooks.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
                 </TextField>
-                <TextField select size="small" label="Cash Book" value={form.cashbook} onChange={(e) => setField("cashbook", e.target.value)}>
+                <TextField select size="small" label="Cash Book" value={form.cashbook} onChange={(e) => {
+                  if (e.target.value === "__add_cashbook") return navigate(embeddedAwarePath("/cashbook-crud"));
+                  return setField("cashbook", e.target.value);
+                }}>
+                  <MenuItem value="__add_cashbook">+ Add Cash Book</MenuItem>
                   {cashbooks.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
                 </TextField>
-                <TextField select size="small" label="Program" value={form.programcode} onChange={(e) => selectProgram(e.target.value)} required>
+                <TextField select size="small" label="Program" value={form.programcode} onChange={(e) => {
+                  if (e.target.value === "__add_program") return navigate(embeddedAwarePath("/programmanagement"));
+                  return selectProgram(e.target.value);
+                }} required>
+                  <MenuItem value="__add_program">+ Add Program</MenuItem>
                   {programs.map((item) => <MenuItem key={item._id || item.programcode} value={item.programcode}>{item.program} ({item.programcode})</MenuItem>)}
                 </TextField>
-                <TextField select size="small" label="Regulation" value={form.regulation} onChange={(e) => setField("regulation", e.target.value)}>
+                <TextField select size="small" label="Regulation" value={form.regulation} onChange={(e) => {
+                  if (e.target.value === "__add_regulation") return navigate(embeddedAwarePath("/regulationmaster"));
+                  return setField("regulation", e.target.value);
+                }}>
+                  <MenuItem value="__add_regulation">+ Add Regulation</MenuItem>
                   {regulations.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
                 </TextField>
                 <TextField select size="small" label="Major" value={form.major} onChange={(e) => setField("major", e.target.value)} disabled={!form.regulation || !form.programcode}>

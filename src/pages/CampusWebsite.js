@@ -67,6 +67,11 @@ const quickLinks = [
   { label: "Create account", to: "/signuppage" }
 ];
 
+const legalLinks = [
+  { label: "Privacy Policy", to: "/privacy-policy" },
+  { label: "Terms of Service", to: "/terms-of-service" }
+];
+
 const modules = [
   {
     title: "Dashboard and Wizard",
@@ -424,6 +429,14 @@ function CampusWebsite() {
               <Typography sx={{ fontWeight: 900, color: "#fff", mb: 1 }}>Quick links</Typography>
               <Stack direction="row" spacing={1} flexWrap="wrap">
                 {quickLinks.map((item) => (
+                  <Button key={item.label} component={RouterLink} to={item.to} sx={{ color: "#bfdbfe" }}>
+                    {item.label}
+                  </Button>
+                ))}
+              </Stack>
+              <Typography sx={{ fontWeight: 900, color: "#fff", mt: 2, mb: 1 }}>Legal</Typography>
+              <Stack direction="row" spacing={1} flexWrap="wrap">
+                {legalLinks.map((item) => (
                   <Button key={item.label} component={RouterLink} to={item.to} sx={{ color: "#bfdbfe" }}>
                     {item.label}
                   </Button>

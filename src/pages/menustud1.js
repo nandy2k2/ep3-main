@@ -188,6 +188,27 @@ function DefaultStudentListItems({ open }) {
       </Accordion>
 
       <Accordion>
+        <AccordionSummary aria-controls="panel-convocation-new-content" id="panel-convocation-new-header">
+          <BusinessIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{fontSize: 14}}>Convocation New</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          <ListItem button component={RouterLink} to="/convocation-new-student-dress">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Convocation dress" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/convocation-new-student-registration">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Convocation registration" />}
+          </ListItem>
+        </AccordionDetails>
+      </Accordion>
+
+      <Accordion>
         <AccordionSummary aria-controls="panel-profile-content" id="panel-profile-header">
           <AccountCircleIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{fontSize: 14}}>Profile</Typography>}

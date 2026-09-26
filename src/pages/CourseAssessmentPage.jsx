@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
   Alert,
   Autocomplete,
@@ -29,9 +29,10 @@ import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import { embeddedAwarePath, renderAddOption, withAddOption } from "./addableAutocompleteHelpers";
 
 const fallbackYears = ["2026-27", "2027-28", "2028-29", "2029-30", "2030-31"];
-const fallbackTypes = ["Major", "Minor"];
+const fallbackTypes = ["Major", "Minor", "IDC", "MDC", "AEC", "SEC", "VAC"];
 const groupTypes = ["Best", "Average"];
 const scoreTypes = ["Internal", "External"];
 
@@ -91,6 +92,7 @@ const headerMap = {
 };
 
 export default function CourseAssessmentPage() {
+  const navigate = useNavigate();
   const colid = useMemo(() => global1.colid, []);
   const [rows, setRows] = useState([]);
   const [form, setForm] = useState(blankForm);
@@ -723,11 +725,12 @@ export default function CourseAssessmentPage() {
             </Grid>
             <Grid item xs={12} md={4}>
               <Autocomplete
-                options={validationProgramOptions}
+                options={withAddOption("Add program", "/programmanagement", validationProgramOptions)}
                 value={validationProgramOptions.find((item) => item.programcode === validationForm.programcode) || null}
-                onChange={(event, value) => setValidationForm((prev) => ({ ...prev, programcode: value?.programcode || "" }))}
-                getOptionLabel={(option) => option?.programcode ? `${option.programcode}${option.program ? ` - ${option.program}` : ""}` : ""}
+                onChange={(event, value) => value?.__addOption ? navigate(embeddedAwarePath(value.path)) : setValidationForm((prev) => ({ ...prev, programcode: value?.programcode || "" }))}
+                getOptionLabel={(option) => option?.__addOption ? option.label : (option?.programcode ? `${option.programcode}${option.program ? ` - ${option.program}` : ""}` : "")}
                 isOptionEqualToValue={(option, value) => option.programcode === value.programcode}
+                renderOption={(props, option) => renderAddOption(props, option, "program")}
                 renderInput={(params) => <TextField {...params} label="Search Program / Program Code" />}
               />
             </Grid>
