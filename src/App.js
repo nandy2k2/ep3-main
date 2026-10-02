@@ -959,6 +959,8 @@ import FacultyChatWizardPage from "./pages/FacultyChatWizardPage";
 import AiChatbotDefinitionPage from "./pages/AiChatbotDefinitionPage";
 import AiChatbotHelpPage from "./pages/AiChatbotHelpPage";
 import { VoiceAiAgentManagerPage, VoiceAiAgentTalkPage } from "./pages/VoiceAiAgentPages";
+import AiDebateAgentPage from "./pages/AiDebateAgentPage";
+import AiJudgeHearingPage from "./pages/AiJudgeHearingPage";
 import GraceMarksPolicyPage from "./pages/GraceMarksPolicyPage";
 import AtktRulePage from "./pages/AtktRulePage";
 import ProgramwiseMarksheetConfigurationPage from "./pages/ProgramwiseMarksheetConfigurationPage";
@@ -1036,6 +1038,7 @@ import NepLmsStudentDashboardPage from "./pages/NepLmsStudentDashboardPage";
 import NepLmsFacultyDashboardPage from "./pages/NepLmsFacultyDashboardPage";
 import { DashboardWidgetBuilderPage, DashboardWidgetCatalogPage, DashboardWidgetViewPage } from "./pages/DashboardWidgetPages";
 import { AcademicNewTaskPage, AcademicNewTaskReportPage, MyAcademicTasksPage } from "./pages/AcademicNewTaskPages";
+import { MeetingManagementAdminTasksPage, MeetingManagementMeetingsPage, MeetingManagementTasksPage } from "./pages/MeetingManagementPages";
 import {
   MoocValueAddedCourseMasterPage,
   MoocValueAddedCertificateGeneratorPage,
@@ -1376,6 +1379,14 @@ import {
   StudentPsychometricTestPage,
   StudentCourseGroupExamPage
 } from "./pages/OnlineExaminationPages";
+import {
+  OnlineExam2DeclarationsPage,
+  OnlineExam2LiveControlPage,
+  OnlineExam2ManagementPage,
+  OnlineExam2ReportPage,
+  OnlineExam2ResponsesPage,
+  StudentOnlineExamLive2Page
+} from "./pages/OnlineExamination2Pages";
 import DynamicAdmissionApplicationsPage from "./pages/DynamicAdmissionApplicationsPage";
 import AdmissionApplicationManagementPage from "./pages/AdmissionApplicationManagementPage";
 import AdmissionApplicationFullPage from "./pages/AdmissionApplicationFullPage";
@@ -1844,6 +1855,7 @@ import EasebuzzPaymentProcessPage from "./pages/EasebuzzPaymentProcessPage";
 import EasebuzzPaymentViewPage from "./pages/EasebuzzPaymentViewPage";
 import IciciPaymentViewPage from "./pages/IciciPaymentViewPage";
 import IciciPaymentManualSuccessPage from "./pages/IciciPaymentManualSuccessPage";
+import { OnlineFeePaymentReceiptPage, OnlinePaymentRegnoEditPage } from "./pages/IciciPaymentUtilityPages";
 import StudentOnlineFeePaymentPage from "./pages/StudentOnlineFeePaymentPage";
 import StudentOnlinePaymentReportPage from "./pages/StudentOnlinePaymentReportPage";
 import StudentMyOnlinePaymentReportPage from "./pages/StudentMyOnlinePaymentReportPage";
@@ -2408,8 +2420,9 @@ import FeesPaidReportPage from './pages/FeesPaidReportPage';
 import FeesPaidReport2Page from './pages/FeesPaidReport2Page';
 import FeesPaidReport3Page from './pages/FeesPaidReport3Page';
 import MatchRegnoFromLedgerPage from './pages/MatchRegnoFromLedgerPage';
-import { LedgerToUserRegnoPage, UserToLedgerRegnoPage } from './pages/RegnoRepairPages';
+import { LedgerToUserRegnoEmailPage, LedgerToUserRegnoPage, UserToLedgerRegnoEmailPage, UserToLedgerRegnoPage } from './pages/RegnoRepairPages';
 import DuplicateFeesRepairPage from './pages/DuplicateFeesRepairPage';
+import DuplicateRegnoRepairPage from './pages/DuplicateRegnoRepairPage';
 import UserToCounterFeePage from './pages/UserToCounterFeePage';
 import ProgramwiseFeesReportPage from './pages/ProgramwiseFeesReportPage';
 import PendingFeesPage from './pages/PendingFeesPage';
@@ -2431,7 +2444,7 @@ import DisciplinaryActionPage from './pages/DisciplinaryActionPage';
 import DisciplinaryActionUpdatePage from './pages/DisciplinaryActionUpdatePage';
 import ExamrollRulesCheckPage from './pages/ExamrollRulesCheckPage';
 import { DetainedStudentsPage, ExamrollDisciplinaryHoldPage, FeesDefaultersPage } from './pages/ExamrollExceptionReviewPage';
-import ConductExamHallTicketPage, { ConductExamHallTicket2Page, PublicHallTicketBlockchainVerifyPage, StudentAdmitCardNewPage } from './pages/ConductExamHallTicketPage';
+import ConductExamHallTicketPage, { ConductExamHallTicket2Page, ConductExamHallTicket3Page, PublicHallTicketBlockchainVerifyPage, StudentAdmitCard3Page, StudentAdmitCardNewPage } from './pages/ConductExamHallTicketPage';
 import StudentViewControlPage from './pages/StudentViewControlPage';
 import StudentLedgerCounterPaymentPage from './pages/StudentLedgerCounterPaymentPage';
 import CounterFee2PaymentPage from './pages/CounterFee2PaymentPage';
@@ -2450,6 +2463,7 @@ import StudentFeesReceiptPage from './pages/StudentFeesReceiptPage';
 import BlockchainStudentFeesReceiptPage from './pages/BlockchainStudentFeesReceiptPage';
 import BlockchainFeesReceiptVerifyPage from './pages/BlockchainFeesReceiptVerifyPage';
 import StudentLedgerDetailPage from './pages/StudentLedgerDetailPage';
+import StudentLedger2Page from './pages/StudentLedger2Page';
 import ResearchApprovalMatrixPage from './pages/ResearchApprovalMatrixPage';
 import ResearchComponentPage from './pages/ResearchComponentPage';
 import ResearchGrantApplyPage from './pages/ResearchGrantApplyPage';
@@ -3603,6 +3617,8 @@ function App() {
         <Route path="/easebuzzpaymentview" element={<EasebuzzPaymentViewPage />} />
         <Route path="/icicipaymentview" element={<IciciPaymentViewPage />} />
         <Route path="/icicipaymentmanualsuccess" element={<IciciPaymentManualSuccessPage />} />
+        <Route path="/online-payment-regno-edit" element={<OnlinePaymentRegnoEditPage />} />
+        <Route path="/online-fee-payment-receipt" element={<OnlineFeePaymentReceiptPage />} />
         <Route path="/studentonlinefeepayment" element={<StudentOnlineFeePaymentPage />} />
         <Route path="/studentonlinefeepayment2" element={<StudentOnlineFeePayment2Page />} />
         <Route path="/student-late-fee-waiver" element={<StudentLateFeeWaiverPage />} />
@@ -3904,6 +3920,8 @@ function App() {
         <Route path="/ai-chatbot-help" element={<AiChatbotHelpPage />} />
         <Route path="/voice-ai-agents" element={<VoiceAiAgentManagerPage />} />
         <Route path="/voice-ai-agent-talk/:publicid" element={<VoiceAiAgentTalkPage />} />
+        <Route path="/ai-debate-agents" element={<AiDebateAgentPage />} />
+        <Route path="/ai-judge-hearings" element={<AiJudgeHearingPage />} />
         <Route path="/gradeconfiguration" element={<GradeConfigurationPage />} />
         <Route path="/boscycle" element={<BosCyclePage />} />
         <Route path="/bosapprovalmatrix" element={<BosApprovalMatrixPage />} />
@@ -4069,6 +4087,9 @@ function App() {
         <Route path="/academic-new-tasks" element={<AcademicNewTaskPage />} />
         <Route path="/my-academic-tasks" element={<MyAcademicTasksPage />} />
         <Route path="/academic-new-tasks-report" element={<AcademicNewTaskReportPage />} />
+        <Route path="/meeting-management-meetings" element={<MeetingManagementMeetingsPage />} />
+        <Route path="/meeting-management-tasks" element={<MeetingManagementTasksPage />} />
+        <Route path="/meeting-management-admin-tasks" element={<MeetingManagementAdminTasksPage />} />
         <Route path="/circular" element={<CircularEntryPage targettype="All" title="Circular" />} />
         <Route path="/rolewise-circular" element={<CircularEntryPage targettype="Role" title="Rolewise Circular" />} />
         <Route path="/view-circular" element={<ViewCircularPage />} />
@@ -4136,6 +4157,12 @@ function App() {
         <Route path="/psychometric-profile-report" element={<PsychometricProfileReportPage />} />
         <Route path="/student-online-exam" element={<StudentOnlineExamPage />} />
         <Route path="/student-online-exam-2" element={<StudentOnlineExam2Page />} />
+        <Route path="/online-examination-2" element={<OnlineExam2ManagementPage />} />
+        <Route path="/online-examination-2-details" element={<OnlineExam2LiveControlPage />} />
+        <Route path="/online-examination-2-declarations" element={<OnlineExam2DeclarationsPage />} />
+        <Route path="/online-examination-2-responses" element={<OnlineExam2ResponsesPage />} />
+        <Route path="/online-examination-2-report" element={<OnlineExam2ReportPage />} />
+        <Route path="/student-online-exam-live-2" element={<StudentOnlineExamLive2Page />} />
         <Route path="/student-placement-practice-test" element={<StudentPlacementPracticeTestPage />} />
         <Route path="/student-psychometric-test" element={<StudentPsychometricTestPage />} />
         <Route path="/admission-online-examination" element={<AdmissionOnlineExamManagementPage />} />
@@ -4302,6 +4329,9 @@ function App() {
         <Route path="/match-regno-from-ledger" element={<MatchRegnoFromLedgerPage />} />
         <Route path="/user-to-ledger-regno" element={<UserToLedgerRegnoPage />} />
         <Route path="/ledger-to-user-regno" element={<LedgerToUserRegnoPage />} />
+        <Route path="/duplicate-regno-repair" element={<DuplicateRegnoRepairPage />} />
+        <Route path="/user-to-ledger-regno-email" element={<UserToLedgerRegnoEmailPage />} />
+        <Route path="/ledger-to-user-regno-email" element={<LedgerToUserRegnoEmailPage />} />
         <Route path="/duplicate-fees-repair" element={<DuplicateFeesRepairPage />} />
         <Route path="/user-to-counter-fee" element={<UserToCounterFeePage />} />
         <Route path="/programwisefeesreport" element={<ProgramwiseFeesReportPage />} />
@@ -4341,6 +4371,7 @@ function App() {
         <Route path="/blockchainfeesreceipt" element={<BlockchainStudentFeesReceiptPage />} />
         <Route path="/verify-blockchain-fees-receipt" element={<BlockchainFeesReceiptVerifyPage />} />
         <Route path="/studentledgerdetail" element={<StudentLedgerDetailPage />} />
+        <Route path="/studentledger2" element={<StudentLedger2Page />} />
         <Route path="/dynamic-admission-form" element={withMenu("Dynamic Admission Form", <DynamicAdmissionFormPage />)} />
         <Route path="/admission-inbound-api" element={<AdmissionInboundApiPage />} />
         <Route path="/admission-ai-agents" element={<AdmissionAiAgentsPage />} />
@@ -4546,8 +4577,10 @@ function App() {
         <Route path="/feesdefaulters" element={<FeesDefaultersPage />} />
         <Route path="/conduct-exam-hall-ticket" element={<ConductExamHallTicketPage />} />
         <Route path="/conduct-exam-hall-ticket-2" element={<ConductExamHallTicket2Page />} />
+        <Route path="/conduct-exam-hall-ticket-3" element={<ConductExamHallTicket3Page />} />
         <Route path="/student-view-control" element={<StudentViewControlPage />} />
         <Route path="/student-admit-card-new" element={<StudentAdmitCardNewPage />} />
+        <Route path="/student-admit-card-3" element={<StudentAdmitCard3Page />} />
         <Route path="/verify-hallticket-blockchain" element={<PublicHallTicketBlockchainVerifyPage />} />
         <Route path="/student-exam-registration" element={<StudentExamRegistrationPage />} />
         <Route path="/student-exam-dynamic-form" element={<StudentExamDynamicFormPage />} />

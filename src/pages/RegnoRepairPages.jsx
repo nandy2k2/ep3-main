@@ -58,10 +58,17 @@ function apiError(err, fallback) {
   return fallback;
 }
 
-function RegnoRepairPage({ direction }) {
+function RegnoRepairPage({ direction, matchBy = "name" }) {
   const isUserToLedger = direction === "user-to-ledger";
-  const title = isUserToLedger ? "User to ledger regno" : "Ledger to User regno";
-  const description = isUserToLedger
+  const emailMode = matchBy === "email";
+  const title = isUserToLedger
+    ? emailMode ? "User to ledger regno email" : "User to ledger regno"
+    : emailMode ? "Ledger to User regno email" : "Ledger to User regno";
+  const description = emailMode
+    ? isUserToLedger
+      ? "Load Student users for the selected academic year, program, program code and semester. Compare ledger regno by matching email only, then update the ledger from User."
+      : "Load ledger students for the selected academic year, program, program code and semester. Compare User regno by matching email only, then update User from ledger."
+    : isUserToLedger
     ? "Load Student users for the selected academic year, program, program code and semester. Compare ledger regno by matching academic year, program code, semester and student name, then update the ledger from User."
     : "Load ledger students for the selected academic year, program, program code and semester. Compare User regno by matching academic year, program code, semester and student name, then update User from ledger.";
 
@@ -77,7 +84,9 @@ function RegnoRepairPage({ direction }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  const routeBase = isUserToLedger ? "user-to-ledger-regno" : "ledger-to-user-regno";
+  const routeBase = isUserToLedger
+    ? emailMode ? "user-to-ledger-regno-email" : "user-to-ledger-regno"
+    : emailMode ? "ledger-to-user-regno-email" : "ledger-to-user-regno";
   const requiredOk = filters.academicyear && filters.program && filters.programcode && filters.semester;
 
   const totals = useMemo(() => rows.reduce((sum, row) => ({
@@ -326,4 +335,12 @@ export function UserToLedgerRegnoPage() {
 
 export function LedgerToUserRegnoPage() {
   return <RegnoRepairPage direction="ledger-to-user" />;
+}
+
+export function UserToLedgerRegnoEmailPage() {
+  return <RegnoRepairPage direction="user-to-ledger" matchBy="email" />;
+}
+
+export function LedgerToUserRegnoEmailPage() {
+  return <RegnoRepairPage direction="ledger-to-user" matchBy="email" />;
 }

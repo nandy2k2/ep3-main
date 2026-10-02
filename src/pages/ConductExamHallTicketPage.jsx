@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
-import { Alert, Box, Button, CircularProgress, FormControl, Grid, InputLabel, MenuItem, Paper, Select, Stack, Typography } from "@mui/material";
+import { Alert, Autocomplete, Box, Button, CircularProgress, FormControl, FormControlLabel, Grid, InputLabel, MenuItem, Paper, Select, Stack, Switch, TextField, Typography } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import PrintIcon from "@mui/icons-material/Print";
 import VerifiedIcon from "@mui/icons-material/Verified";
@@ -23,6 +23,13 @@ const romanSemester = (value) => {
   const map = { "1": "I", "2": "II", "3": "III", "4": "IV", "5": "V", "6": "VI", "7": "VII", "8": "VIII", "9": "IX", "10": "X" };
   const cleaned = String(value || "").trim();
   return map[cleaned] || cleaned || "-";
+};
+const semesterToYear = (value) => {
+  const semester = Number(String(value || "").replace(/\D/g, ""));
+  if (!semester) return "-";
+  const year = Math.ceil(semester / 2);
+  const suffix = year === 1 ? "st" : year === 2 ? "nd" : year === 3 ? "rd" : "th";
+  return `${year}${suffix} Year`;
 };
 const photoUrl = (student = {}) => valueText(student.photo, student.photolink, student.profilephoto, "").replace(/^-$/, "");
 
@@ -126,7 +133,7 @@ function HallTicketPrint2({ ticket, qr, printId = "hall-ticket-print-2", bulk = 
       boxSizing: "border-box",
       position: "relative",
       "@media print": {
-        position: "absolute",
+        position: bulk ? "relative" : "absolute",
         left: 0,
         top: 0,
         width: "210mm",
@@ -136,8 +143,8 @@ function HallTicketPrint2({ ticket, qr, printId = "hall-ticket-print-2", bulk = 
       }
     }}>
       <style>{`
-        @page{size:A4;margin:0}
-        @media print{body *{visibility:hidden}#${printId},#${printId} *{visibility:visible}.no-print{display:none!important}}
+        ${bulk ? "" : `@page{size:A4;margin:0}
+        @media print{body *{visibility:hidden}#${printId},#${printId} *{visibility:visible}.no-print{display:none!important}}`}
         #${printId} table{border-collapse:collapse}
         #${printId} th,#${printId} td{color:#000}
       `}</style>
@@ -265,6 +272,179 @@ function HallTicketBulkPrint2({ tickets }) {
       `}</style>
       {tickets.map((item, index) => (
         <HallTicketPrint2 key={`${item.ticket?.student?.regno || index}-${item.ticket?.exam?.examcode || index}`} ticket={item.ticket} qr={item.qr} printId={`hall-ticket-print-2-bulk-${index}`} bulk />
+      ))}
+    </Box>
+  );
+}
+
+function HallTicketPrint3({ ticket, qr, printId = "hall-ticket-print-3", bulk = false, termMode = "year" }) {
+  if (!ticket) return null;
+  const institution = ticket.institution || {};
+  const student = ticket.student || {};
+  const exam = ticket.exam || {};
+  const rows = ticket.rows || [];
+  const first = rows[0] || {};
+  const logo = valueText(institution.logolink, institution.logo, global1.logo, "").replace(/^-$/, "");
+  const photo = photoUrl(student);
+  const examName = valueText(exam.exam, first.exam);
+  const examCode = valueText(exam.examcode, first.examcode, "");
+  const institute = valueText(student.institution, institution.institutionname, global1.insname, "Institution");
+  const centre = valueText(first.examcentre, first.examcenter, first.campus && first.building ? `${first.campus}, ${first.building}` : "", first.campus, institution.institutionname);
+  const batch = valueText(student.admissionyear, first.admissionyear, student.academicyear, first.academicyear);
+  const mainSupp = /supp/i.test(valueText(first.examtype, first.type, exam.exam, "")) ? "Suppl." : "Main";
+  const semesterValue = first.semester || student.semester;
+  const termLabel = termMode === "semester" ? "Semester" : "Year";
+  const termValue = termMode === "semester" ? romanSemester(semesterValue) : valueText(first.year, student.year, semesterToYear(semesterValue));
+  return (
+    <Box id={printId} className={bulk ? "hall-ticket-print-3-page" : ""} sx={{
+      bgcolor: "#fff",
+      color: "#000",
+      width: "210mm",
+      minHeight: "297mm",
+      mx: "auto",
+      p: "9mm",
+      fontFamily: "Arial, Helvetica, sans-serif",
+      fontSize: "13px",
+      lineHeight: 1.18,
+      boxSizing: "border-box",
+      position: "relative",
+      "@media print": { boxShadow: "none" }
+    }}>
+      <style>{`
+        #${printId} table{border-collapse:collapse}
+        #${printId} th,#${printId} td{color:#000}
+        ${bulk ? "" : `@page{size:A4;margin:0}
+        @media print{
+          body *{visibility:hidden}
+          #${printId},#${printId} *{visibility:visible}
+          #${printId}{position:absolute;left:0;top:0;width:210mm;background:#fff}
+          .no-print{display:none!important}
+        }`}
+      `}</style>
+      <Box sx={{ display: "grid", gridTemplateColumns: "105px 1fr 92px", alignItems: "start", columnGap: 2, mb: 1.2 }}>
+        <Box>{logo && <Box component="img" src={logo} alt="Logo" sx={{ width: 78, maxHeight: 82, objectFit: "contain" }} />}</Box>
+        <Box sx={{ textAlign: "center", pt: 0.5 }}>
+          <Typography sx={{ fontSize: 24, color: "#000", fontWeight: 500, letterSpacing: 0, mb: 2.6 }}>ADMIT CARD</Typography>
+          <Typography sx={{ fontSize: 16, color: "#000", textAlign: "left", pl: 1 }}>
+            <Box component="span" sx={{ mr: 1.5 }}>Exam Name:</Box>
+            <Box component="span">{examName}{examCode && examName !== examCode ? `, ${examCode}` : ""}</Box>
+          </Typography>
+        </Box>
+        <Box sx={{ textAlign: "right" }}>
+          {photo ? (
+            <Box component="img" src={photo} alt="Student" sx={{ width: 68, height: 84, objectFit: "cover" }} />
+          ) : (
+            <Box sx={{ width: 68, height: 84, ml: "auto", border: "1px solid #000", display: "grid", placeItems: "center", fontSize: 10 }}>Photo</Box>
+          )}
+        </Box>
+      </Box>
+
+      <Box sx={{ borderTop: "2px solid #000", borderBottom: "1px solid #000", py: 0.8, mb: 1.4 }}>
+        <Typography sx={{ fontSize: 16, color: "#000" }}>
+          <Box component="span" sx={{ mr: 2 }}>Examination Centre:</Box>
+          <Box component="span">{centre}</Box>
+        </Typography>
+      </Box>
+
+      <Box sx={{ borderBottom: "1px solid #000", pb: 1.2, mb: 1 }}>
+        <Box sx={{ display: "grid", gridTemplateColumns: "1.1fr 1.15fr 1fr 0.8fr 1.1fr", rowGap: 1, textAlign: "center" }}>
+          {["Academic Batch", "Enrollment No:", "Programcode", termLabel, "Main/Suppl."].map((item) => (
+            <Typography key={item} sx={{ fontSize: 14, color: "#000" }}>{item}</Typography>
+          ))}
+          {[batch, valueText(student.regno, first.regno), valueText(exam.programcode, first.programcode, exam.program, first.program), termValue, mainSupp].map((item, index) => (
+            <Typography key={`${item}-${index}`} sx={{ fontSize: 14, color: "#000" }}>{item}</Typography>
+          ))}
+        </Box>
+      </Box>
+
+      <Box sx={{ borderBottom: "2px solid #000", pb: 1, mb: 0.8 }}>
+        {[
+          ["Examinee Name:", valueText(student.name, first.student)],
+          ["Father's Name:", valueText(student.fathername, student.guardianname)],
+          ["Institute :", institute]
+        ].map(([label, value]) => (
+          <Box key={label} sx={{ display: "grid", gridTemplateColumns: "155px 1fr", mb: 0.8 }}>
+            <Typography sx={{ fontSize: 14, color: "#000" }}>{label}</Typography>
+            <Typography sx={{ fontSize: 14, color: "#000" }}>{value}</Typography>
+          </Box>
+        ))}
+      </Box>
+
+      <Typography sx={{ textAlign: "center", fontSize: 14, color: "#000", mb: 0.5 }}>
+        The above examinee appear in following Paper (s)
+      </Typography>
+      <table style={{ width: "100%", border: "1px solid #000", fontSize: 13, marginBottom: 0 }}>
+        <thead>
+          <tr>
+            <th style={{ border: "1px solid #000", padding: "3px 7px", fontSize: 15, fontWeight: 500 }}>DOTE</th>
+            <th style={{ border: "1px solid #000", padding: "3px 7px", fontSize: 15, fontWeight: 500 }}>TIME</th>
+            <th style={{ border: "1px solid #000", padding: "3px 7px", fontSize: 15, fontWeight: 500 }}>Subject Code</th>
+            <th style={{ border: "1px solid #000", padding: "3px 7px", fontSize: 15, fontWeight: 500 }}>Subject Name</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row._id || `${row.coursecode}-${row.examdate}`}>
+              <td style={{ border: "1px solid #000", padding: "3px 8px", textAlign: "center" }}>{formatAdmitDate(row.examdate)}</td>
+              <td style={{ border: "1px solid #000", padding: "3px 8px", textAlign: "center" }}>{valueText(row.examtime, row.examslot)}</td>
+              <td style={{ border: "1px solid #000", padding: "3px 8px", textAlign: "center" }}>{valueText(row.coursecode)}</td>
+              <td style={{ border: "1px solid #000", padding: "3px 8px" }}>{valueText(row.course)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {qr && (
+        <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1, mt: 1 }}>
+          <Typography sx={{ fontSize: 10, color: "#000" }}>Blockchain verification</Typography>
+          <Box component="img" src={qr} alt="Blockchain QR" sx={{ width: 58, height: 58 }} />
+        </Box>
+      )}
+
+      <Box sx={{ mt: 2 }}>
+        <Typography sx={{ fontSize: 13, color: "#000", textDecoration: "underline", mb: 1 }}>Instructions for Examinee</Typography>
+        {[
+          "Examinee has to report 15 minutes before, in the Examination room of the given schedule time.",
+          "Examinee can leave the Examination room with due permission of the Invigilator.",
+          "If Examinee is out of Examination room for more than 5 (Five) minutes for any specified reasons recorded by the Invigilator. After this period the answer book will be collected by the Invigilator.",
+          "No Examinee will be permitted to leave the Examination room in first hour and last half an hour of Examination.",
+          "For any type of copying, Examinee will be covered under Un-fair means (UFM).",
+          "Maintain discipline, decorum and peace in the Examination room.",
+          "Mobile / Calculator / Any electronic device is not permitted. Calculator will be permitted only as per requirement.",
+          "No provision of Supplementary sheet.[ only 40 pages & 20 pages Answer book where applicable]",
+          "Examinee must carry a valid PHOTO IDENTITY CARD.",
+          "If in case of any deficiency in Date Of Theory Exam (DOTE) then circulated examination Schedule DOTE will be final."
+        ].map((item, index) => (
+          <Typography key={item} sx={{ fontSize: 12.5, color: "#000", lineHeight: 1.18 }}>{index + 1}. {item}</Typography>
+        ))}
+      </Box>
+
+      <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", alignItems: "end", mt: 5, fontSize: 14, color: "#000" }}>
+        <Typography sx={{ fontSize: 14, color: "#000" }}>Signature of Examinee</Typography>
+        <Typography sx={{ fontSize: 14, color: "#000", textAlign: "center" }}>Signature of COE with Seal</Typography>
+        <Typography sx={{ fontSize: 14, color: "#000", textAlign: "right" }}>Signature of VFS with Seal</Typography>
+      </Box>
+    </Box>
+  );
+}
+
+function HallTicketBulkPrint3({ tickets, termMode = "year" }) {
+  if (!tickets.length) return null;
+  return (
+    <Box id="hall-ticket-print-3-bulk" sx={{ bgcolor: "#fff" }}>
+      <style>{`
+        @page{size:A4 portrait;margin:0}
+        @media print{
+          body *{visibility:hidden}
+          #hall-ticket-print-3-bulk,#hall-ticket-print-3-bulk *{visibility:visible}
+          #hall-ticket-print-3-bulk{position:absolute;left:0;top:0;width:210mm;background:#fff}
+          .no-print{display:none!important}
+          .hall-ticket-print-3-page{page-break-after:always;break-after:page;box-shadow:none!important}
+          .hall-ticket-print-3-page:last-child{page-break-after:auto;break-after:auto}
+        }
+      `}</style>
+      {tickets.map((item, index) => (
+        <HallTicketPrint3 key={`${item.ticket?.student?.regno || index}-${item.ticket?.exam?.examcode || index}`} ticket={item.ticket} qr={item.qr} printId={`hall-ticket-print-3-bulk-${index}`} bulk termMode={termMode} />
       ))}
     </Box>
   );
@@ -402,6 +582,10 @@ export function ConductExamHallTicket2Page() {
 
   useEffect(() => { loadOptions(); loadStudents(); }, []);
 
+  const selectedGridIds = () => Array.isArray(selectedRows)
+    ? selectedRows
+    : Array.from(selectedRows?.ids || selectedRows || []);
+
   const params = (source = filters) => {
     const next = { colid: global1.colid };
     filterFields.forEach((field) => { if (source[field]) next[field] = source[field]; });
@@ -437,7 +621,7 @@ export function ConductExamHallTicket2Page() {
       common.setError("");
       common.setMessage("");
       common.setTicket(null);
-      const selectedSet = new Set(selectedRows);
+      const selectedSet = new Set(selectedGridIds());
       const rows = students
         .map((row) => ({ ...row, id: `${row.regno}-${row.academicyear}-${row.examcode}` }))
         .filter((row) => selectedSet.has(row.id));
@@ -524,7 +708,7 @@ export function ConductExamHallTicket2Page() {
           />
         </Paper>
         <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mb: 2 }} className="no-print">
-          <Button variant="contained" disabled={bulkLoading || !selectedRows.length} onClick={loadBulkTickets}>{bulkLoading ? "Generating..." : "Generate selected admit cards"}</Button>
+          <Button variant="contained" disabled={bulkLoading || !selectedGridIds().length} onClick={loadBulkTickets}>{bulkLoading ? "Generating..." : "Generate selected admit cards"}</Button>
           <Button variant="outlined" startIcon={<PrintIcon />} disabled={!bulkTickets.length} onClick={() => window.print()}>Print selected</Button>
         </Stack>
         {common.ticket && (
@@ -534,6 +718,229 @@ export function ConductExamHallTicket2Page() {
           </Stack>
         )}
         {bulkTickets.length ? <HallTicketBulkPrint2 tickets={bulkTickets} /> : <HallTicketPrint2 ticket={common.ticket} qr={common.qr} />}
+      </Box>
+    </MenuPageShell>
+  );
+}
+
+const searchableFilterFields3 = ["academicyear", "exam", "examcode", "regulation", "program", "programcode", "semester", "section", "student", "regno"];
+
+function AdmitCard3Filter({ field, value, options, onChange }) {
+  return (
+    <Autocomplete
+      options={options || []}
+      value={value || null}
+      onChange={(_, next) => onChange(next || "")}
+      renderInput={(params) => <TextField {...params} label={labels[field] || field} />}
+      clearOnEscape
+    />
+  );
+}
+
+export function ConductExamHallTicket3Page() {
+  const [options, setOptions] = useState({});
+  const [filters, setFilters] = useState({});
+  const [students, setStudents] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [selectedRows, setSelectedRows] = useState([]);
+  const [bulkTickets, setBulkTickets] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [storing, setStoring] = useState(false);
+  const [termMode, setTermMode] = useState("year");
+  const common = useHallTicketCommon();
+
+  useEffect(() => { loadOptions(); }, []);
+
+  const rowsWithId = useMemo(
+    () => students.map((row) => ({ ...row, id: `${row.regno}-${row.academicyear}-${row.examcode}` })),
+    [students]
+  );
+
+  const params = (source = filters) => {
+    const next = { colid: global1.colid };
+    searchableFilterFields3.forEach((field) => { if (source[field]) next[field] = source[field]; });
+    return next;
+  };
+
+  const loadOptions = async () => {
+    const res = await ep1.get("/api/v2/conductexam/hallticket-options", { params: { colid: global1.colid } });
+    setOptions(res.data?.options || {});
+  };
+
+  const updateFilter = (field, value) => {
+    setFilters((prev) => {
+      const next = { ...prev, [field]: value || "" };
+      if (field === "exam") {
+        const matches = (options.examExamcodes || []).filter((item) => item.exam === value && item.examcode);
+        next.examcode = matches.length === 1 ? matches[0].examcode : "";
+      }
+      if (field === "examcode") {
+        const match = (options.examExamcodes || []).find((item) => item.examcode === value && item.exam);
+        if (match && !next.exam) next.exam = match.exam;
+      }
+      return next;
+    });
+    setStudents([]);
+    setSelectedRows([]);
+    setBulkTickets([]);
+    common.setTicket(null);
+    setLoaded(false);
+  };
+
+  const loadStudents = async (nextFilters = filters) => {
+    if (!nextFilters.academicyear || !nextFilters.exam || !nextFilters.examcode) {
+      common.setError("Please select Academic Year, Exam and Exam Code before loading students.");
+      return;
+    }
+    try {
+      setLoading(true);
+      setLoaded(true);
+      common.setError("");
+      common.setMessage("");
+      common.setTicket(null);
+      setBulkTickets([]);
+      setSelectedRows([]);
+      const res = await ep1.get("/api/v2/conductexam/hallticket-eligible-students", { params: params(nextFilters) });
+      setStudents(res.data?.data || []);
+    } catch (err) {
+      common.setError(err.response?.data?.message || "Unable to load eligible students");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadTicket = async (row) => {
+    setSelected(row);
+    common.setBlock(null);
+    common.setQr("");
+    setBulkTickets([]);
+    const res = await ep1.get("/api/v2/conductexam/hallticket", { params: { colid: global1.colid, academicyear: row.academicyear, examcode: row.examcode, regno: row.regno } });
+    common.setTicket(res.data?.data || null);
+  };
+
+  const selectedGridIds = () => Array.isArray(selectedRows)
+    ? selectedRows
+    : Array.from(selectedRows?.ids || selectedRows || []);
+
+  const loadBulkTickets = async () => {
+    try {
+      setBulkLoading(true);
+      common.setError("");
+      common.setMessage("");
+      common.setTicket(null);
+      const selectedSet = new Set(selectedGridIds());
+      const rows = rowsWithId.filter((row) => selectedSet.has(row.id));
+      if (!rows.length) {
+        common.setError("Please select at least one student");
+        return;
+      }
+      const payloads = [];
+      for (const row of rows) {
+        const res = await ep1.get("/api/v2/conductexam/hallticket", { params: { colid: global1.colid, academicyear: row.academicyear, examcode: row.examcode, regno: row.regno } });
+        payloads.push({ ticket: res.data?.data || null, qr: "" });
+      }
+      const valid = payloads.filter((item) => item.ticket);
+      setBulkTickets(valid);
+      common.setMessage(`${valid.length} admit card(s) generated for print.`);
+    } catch (err) {
+      common.setError(err.response?.data?.message || "Unable to generate selected admit cards");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const storeBlockchain = async () => {
+    if (!selected) return;
+    try {
+      setStoring(true);
+      const res = await ep1.post("/api/v2/conductexam/hallticket-blockchain-store", { colid: global1.colid, academicyear: selected.academicyear, examcode: selected.examcode, regno: selected.regno, user: global1.user });
+      common.setBlock(res.data?.data || null);
+      const url = await common.generateQr(res.data?.data, selected.regno);
+      common.setMessage(`Stored in blockchain. Verification: ${url}`);
+    } catch (err) {
+      common.setError(err.response?.data?.message || "Unable to store hall ticket in blockchain");
+    } finally {
+      setStoring(false);
+    }
+  };
+
+  const columns = [
+    { field: "student", headerName: "Student", width: 180 },
+    { field: "regno", headerName: "Reg No", width: 130 },
+    { field: "academicyear", headerName: "Academic Year", width: 130 },
+    { field: "exam", headerName: "Exam", width: 180 },
+    { field: "examcode", headerName: "Exam Code", width: 130 },
+    { field: "program", headerName: "Program", width: 190 },
+    { field: "programcode", headerName: "Program Code", width: 130 },
+    { field: "semester", headerName: "Semester", width: 110 },
+    { field: "section", headerName: "Section", width: 110 },
+    { field: "coursecount", headerName: "Courses", width: 100 }
+  ];
+
+  return (
+    <MenuPageShell title="Generate admit card 3">
+      <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
+        <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
+          <Typography variant="h5" fontWeight={900}>Generate Admit Card 3</Typography>
+          <Typography color="text.secondary">Select Academic Year, Exam and Exam Code, then load eligible students. Other filters are optional.</Typography>
+        </Paper>
+        {common.message && <Alert severity="success" sx={{ mb: 2 }}>{common.message}</Alert>}
+        {common.error && <Alert severity="error" sx={{ mb: 2 }}>{common.error}</Alert>}
+        <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
+          <Grid container spacing={2}>
+            {searchableFilterFields3.map((field) => (
+              <Grid item xs={12} sm={6} md={3} lg={2} key={field}>
+                <AdmitCard3Filter
+                  field={field}
+                  value={filters[field] || ""}
+                  options={(options[field] || []).filter(Boolean)}
+                  onChange={(value) => updateFilter(field, value)}
+                />
+              </Grid>
+            ))}
+            <Grid item xs={12} md={2}>
+              <Button fullWidth variant="contained" onClick={() => loadStudents()} disabled={loading} sx={{ height: 56 }}>
+                {loading ? "Loading..." : "Load"}
+              </Button>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <FormControlLabel
+                sx={{ height: 56, m: 0, color: "#000" }}
+                control={<Switch checked={termMode === "semester"} onChange={(e) => setTermMode(e.target.checked ? "semester" : "year")} />}
+                label={termMode === "semester" ? "Semester" : "Year"}
+              />
+            </Grid>
+          </Grid>
+        </Paper>
+        <Paper elevation={0} sx={{ p: 1.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2, overflowX: "auto" }}>
+          <DataGrid
+            rows={rowsWithId}
+            columns={columns}
+            loading={loading}
+            checkboxSelection
+            rowSelectionModel={selectedRows}
+            onRowSelectionModelChange={(model) => setSelectedRows(model)}
+            autoHeight
+            slots={{ toolbar: GridToolbar }}
+            pageSizeOptions={[10, 25, 50, 100]}
+            onRowClick={(params) => loadTicket(params.row)}
+            sx={{ minWidth: 1250 }}
+            localeText={{ noRowsLabel: loaded ? "No eligible students found for the selected filters." : "Select Academic Year, Exam and Exam Code, then click Load." }}
+          />
+        </Paper>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mb: 2 }} className="no-print">
+          <Button variant="contained" disabled={bulkLoading || !selectedGridIds().length} onClick={loadBulkTickets}>{bulkLoading ? "Generating..." : "Generate selected admit cards"}</Button>
+          <Button variant="outlined" startIcon={<PrintIcon />} disabled={!bulkTickets.length} onClick={() => window.print()}>Print selected</Button>
+        </Stack>
+        {common.ticket && (
+          <Stack direction="row" spacing={1} sx={{ mb: 2 }} className="no-print">
+            <Button variant="contained" startIcon={<PrintIcon />} onClick={common.print}>Print</Button>
+            <Button variant="outlined" startIcon={storing ? <CircularProgress size={18} /> : <VerifiedIcon />} disabled={storing} onClick={storeBlockchain}>{storing ? "Storing..." : "Store in Blockchain"}</Button>
+          </Stack>
+        )}
+        {bulkTickets.length ? <HallTicketBulkPrint3 tickets={bulkTickets} termMode={termMode} /> : <HallTicketPrint3 ticket={common.ticket} qr={common.qr} termMode={termMode} />}
       </Box>
     </MenuPageShell>
   );
@@ -589,6 +996,89 @@ export function StudentAdmitCardNewPage() {
           </Grid>
         </Paper>
         <HallTicketPrint ticket={common.ticket} qr={common.qr} />
+      </Box>
+    </MenuPageShell>
+  );
+}
+
+export function StudentAdmitCard3Page() {
+  const [options, setOptions] = useState({});
+  const [filters, setFilters] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [termMode, setTermMode] = useState("year");
+  const common = useHallTicketCommon();
+  useEffect(() => { loadOptions(); }, []);
+  const loadOptions = async () => {
+    const res = await ep1.get("/api/v2/conductexam/student-admitcard-options", { params: { colid: global1.colid, regno: global1.regno } });
+    setOptions(res.data?.options || {});
+  };
+  const updateFilter = (field, value) => {
+    setFilters((prev) => {
+      const next = { ...prev, [field]: value || "" };
+      if (field === "exam") {
+        const matches = (options.examExamcodes || []).filter((item) => item.exam === value && item.examcode);
+        next.examcode = matches.length === 1 ? matches[0].examcode : "";
+      }
+      if (field === "examcode") {
+        const match = (options.examExamcodes || []).find((item) => item.examcode === value && item.exam);
+        if (match && !next.exam) next.exam = match.exam;
+      }
+      return next;
+    });
+    common.setTicket(null);
+    common.setError("");
+  };
+  const loadTicket = async () => {
+    try {
+      if (!filters.academicyear || !filters.examcode) {
+        common.setError("Please select academic year and exam before downloading admit card.");
+        return;
+      }
+      setLoading(true);
+      common.setError("");
+      common.setQr("");
+      common.setBlock(null);
+      const res = await ep1.get("/api/v2/conductexam/hallticket", { params: { colid: global1.colid, regno: global1.regno, academicyear: filters.academicyear, examcode: filters.examcode, requireControl: "Yes" } });
+      common.setTicket(res.data?.data || null);
+    } catch (err) {
+      common.setError(err.response?.data?.message || "Unable to load admit card");
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <MenuPageShell title="Download admit card 3" menuType="student">
+      <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
+        <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
+          <Typography variant="h5" fontWeight={900}>Download Admit Card 3</Typography>
+          <Typography color="text.secondary">Only exams where your admit card is enabled and you are eligible will be shown.</Typography>
+        </Paper>
+        {common.error && <Alert severity="error" sx={{ mb: 2 }}>{common.error}</Alert>}
+        <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
+          <Grid container spacing={2}>
+            {["academicyear", "exam", "examcode"].map((field) => (
+              <Grid item xs={12} md={3} key={field}>
+                <FormControl fullWidth>
+                  <InputLabel>{labels[field]}</InputLabel>
+                  <Select label={labels[field]} value={filters[field] || ""} onChange={(e) => updateFilter(field, e.target.value)}>
+                    <MenuItem value="">Select</MenuItem>
+                    {(options[field] || []).map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
+                  </Select>
+                </FormControl>
+              </Grid>
+            ))}
+            <Grid item xs={12} md={2}><Button fullWidth variant="contained" onClick={loadTicket} disabled={loading} sx={{ height: 56 }}>{loading ? "Loading..." : "Download"}</Button></Grid>
+            {common.ticket && <Grid item xs={12} md={2}><Button fullWidth variant="outlined" startIcon={<PrintIcon />} onClick={common.print} sx={{ height: 56 }}>Print</Button></Grid>}
+            <Grid item xs={12} md={3}>
+              <FormControlLabel
+                sx={{ height: 56, m: 0, color: "#000" }}
+                control={<Switch checked={termMode === "semester"} onChange={(e) => setTermMode(e.target.checked ? "semester" : "year")} />}
+                label={termMode === "semester" ? "Semester" : "Year"}
+              />
+            </Grid>
+          </Grid>
+        </Paper>
+        <HallTicketPrint3 ticket={common.ticket} qr={common.qr} termMode={termMode} />
       </Box>
     </MenuPageShell>
   );

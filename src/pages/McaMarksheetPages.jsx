@@ -295,6 +295,28 @@ export function McaMarksheetEntryPage() {
     }
   };
 
+  const processFinalGrade = async () => {
+    const activeFilters = paramsFromFilters(filters);
+    if (!selected.length && !Object.keys(activeFilters).length) {
+      setError("Select rows or apply at least one filter before processing final grade.");
+      return;
+    }
+    try {
+      setProcessing(true);
+      const res = await ep1.post("/api/v2/mca-marksheet/process-final-grade", {
+        colid: global1.colid,
+        ids: selected,
+        filters: selected.length ? {} : activeFilters
+      });
+      setMessage(`${res.data?.updated || 0} row(s) processed. Final grade and status updated.`);
+      await loadRows();
+    } catch (err) {
+      setError(msg(err, "Unable to process final grade"));
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const columns = [
     { field: "actions", type: "actions", width: 110, getActions: (params) => [
       <GridActionsCellItem icon={<Edit />} label="Edit" onClick={() => setForm({ ...blank, ...params.row, id: params.row._id })} />,
@@ -374,6 +396,7 @@ export function McaMarksheetEntryPage() {
             <Grid item xs={12} md={6}>
               <Stack direction="row" spacing={1} flexWrap="wrap">
                 <Button variant="contained" disabled={processing} onClick={processGrades} startIcon={processing ? <CircularProgress size={16} color="inherit" /> : null}>Process Loaded / Selected Rows</Button>
+                <Button variant="outlined" color="secondary" disabled={processing} onClick={processFinalGrade} startIcon={processing ? <CircularProgress size={16} color="inherit" /> : null}>Process Final Grade</Button>
                 <Typography variant="body2" color="text.secondary" sx={{ alignSelf: "center" }}>
                   {selected.length ? `${selected.length} selected row(s) will be processed.` : "If no rows are selected, the current filters will be processed."}
                 </Typography>

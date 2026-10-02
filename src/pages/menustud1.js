@@ -544,6 +544,13 @@ function DefaultStudentListItems({ open }) {
 	{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Online exam 2" />}
 	</ListItem>
 
+	           <ListItem button component={RouterLink} to="/student-online-exam-live-2">
+	<ListItemIcon>
+	<PersonIcon />
+	</ListItemIcon>
+	{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Online examination 2 live" />}
+	</ListItem>
+
 	           <ListItem button component={RouterLink} to="/student-course-group-exam">
 	<ListItemIcon>
 	<PersonIcon />
@@ -1136,6 +1143,13 @@ function DefaultStudentListItems({ open }) {
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Admit card new" />}
+</ListItem>
+
+<ListItem button component={RouterLink} to="/student-admit-card-3">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Download admit card 3" />}
 </ListItem>
 
 <ListItem button component={RouterLink} to="/dashmarksheet">

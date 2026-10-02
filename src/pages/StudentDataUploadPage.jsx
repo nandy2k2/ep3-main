@@ -126,6 +126,7 @@ const wrappedGridSx = {
   }
 };
 const regnoGenerationModes = [
+  { value: "defaultSerial", label: "College-year-program serial" },
   { value: "random", label: "Random alphanumeric" },
   { value: "academicYearMongo", label: "Academic year / MongoDB ID" }
 ];
@@ -203,8 +204,8 @@ export default function StudentDataUploadPage() {
   const [bulkGeneratePasswords, setBulkGeneratePasswords] = useState(false);
   const [bulkPasswordLength, setBulkPasswordLength] = useState(10);
   const [autoScholarNumber, setAutoScholarNumber] = useState(true);
-  const [autoRegno, setAutoRegno] = useState(false);
-  const [regnoMode, setRegnoMode] = useState("random");
+  const [autoRegno, setAutoRegno] = useState(true);
+  const [regnoMode, setRegnoMode] = useState("defaultSerial");
   const [selectedIds, setSelectedIds] = useState([]);
   const [viewFilters, setViewFilters] = useState([{ ...blankViewFilter }]);
   const [bulkSubject, setBulkSubject] = useState({ oldMajor: "", newMajor: "", oldMinor: "", newMinor: "" });
@@ -323,8 +324,8 @@ export default function StudentDataUploadPage() {
     setEditingId("");
     setError("");
     setAutoScholarNumber(true);
-    setAutoRegno(false);
-    setRegnoMode("random");
+    setAutoRegno(true);
+    setRegnoMode("defaultSerial");
   };
 
   const fieldOptions = (field) => {
@@ -467,18 +468,29 @@ export default function StudentDataUploadPage() {
   };
 
   const generateRegnoValue = () => (
+    regnoMode === "defaultSerial"
+      ? ""
+      : (
     regnoMode === "academicYearMongo"
       ? `${form.academicyear || "NA"}/${generateMongoLikeId()}`
       : generateRandomRegnoValue()
+      )
   );
 
   const generateRegno = () => {
+    if (regnoMode === "defaultSerial") {
+      updateField("regno", "");
+      setAutoRegno(true);
+      return;
+    }
     updateField("regno", generateRegnoValue());
     setAutoRegno(false);
   };
 
   const regnoHelperText = autoRegno
-    ? (regnoMode === "academicYearMongo" ? "Will be generated as Academic Year/MongoDB ID on save" : "Will be generated as random alphanumeric on save")
+    ? (regnoMode === "defaultSerial"
+      ? "Will be generated as colid-academicyear-programcode-next student count on save"
+      : (regnoMode === "academicYearMongo" ? "Will be generated as Academic Year/MongoDB ID on save" : "Will be generated as random alphanumeric on save"))
     : "";
 
   const uploadPhoto = async (event) => {

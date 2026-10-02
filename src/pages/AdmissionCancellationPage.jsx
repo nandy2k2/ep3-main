@@ -4,6 +4,7 @@ import {
   Autocomplete,
   Box,
   Button,
+  Checkbox,
   Chip,
   Grid,
   IconButton,
@@ -62,9 +63,10 @@ export default function AdmissionCancellationPage() {
     loadOptions();
   }, []);
 
-  const selectedRefundTotal = useMemo(() => fees.reduce((sum, row) => sum + Number(row.refunded || 0), 0), [fees]);
-  const netRefundTotal = useMemo(() => Math.max(0, selectedRefundTotal - Number(administrativecharges || 0)), [selectedRefundTotal, administrativecharges]);
   const totalPaid = useMemo(() => fees.reduce((sum, row) => sum + Number(row.paid || 0), 0), [fees]);
+  const selectedRefundTotal = useMemo(() => fees.reduce((sum, row) => sum + Number(row.refunded || 0), 0), [fees]);
+  const uncheckedPaidTotal = useMemo(() => fees.reduce((sum, row) => sum + (row.refundselected === false ? Number(row.paid || 0) : 0), 0), [fees]);
+  const netRefundTotal = useMemo(() => Math.max(0, selectedRefundTotal - Math.max(0, Number(administrativecharges || 0) - uncheckedPaidTotal)), [selectedRefundTotal, administrativecharges, uncheckedPaidTotal]);
 
   const fieldLabel = (field) => fields.find((item) => item.field === field)?.label || field;
   const cleanFilters = () => filters.map((filter) => ({ field: filter.field, value: String(filter.value || "").trim() })).filter((filter) => filter.field && filter.value);
@@ -112,7 +114,7 @@ export default function AdmissionCancellationPage() {
         regno: student.regno
       });
       setSelectedStudent(res.data?.student || student);
-      setFees((res.data?.data || []).map((row) => ({ ...row, refunded: 0 })));
+      setFees((res.data?.data || []).map((row) => ({ ...row, refundselected: true, refunded: Number(row.paid || 0) })));
       setAdministrativecharges(0);
       setMessage(`Loaded ${res.data?.count || 0} paid fee item(s)`);
     } catch (err) {
@@ -187,6 +189,47 @@ export default function AdmissionCancellationPage() {
   };
 
   const feeColumns = useMemo(() => [
+    {
+      field: "refundselected",
+      headerName: "Refund",
+      minWidth: 110,
+      sortable: false,
+      filterable: false,
+      renderHeader: () => {
+        const allSelected = fees.length > 0 && fees.every((row) => row.refundselected !== false);
+        const someSelected = fees.some((row) => row.refundselected !== false);
+        return (
+          <Tooltip title="Select or clear refund for all items">
+            <Checkbox
+              size="small"
+              checked={allSelected}
+              indeterminate={!allSelected && someSelected}
+              onChange={(event) => {
+                const checked = event.target.checked;
+                setFees((prev) => prev.map((row) => ({ ...row, refundselected: checked, refunded: checked ? Number(row.paid || 0) : 0 })));
+                setAdministrativecharges(checked ? 0 : totalPaid);
+              }}
+            />
+          </Tooltip>
+        );
+      },
+      renderCell: (params) => (
+        <Checkbox
+          size="small"
+          checked={params.row.refundselected !== false}
+          onChange={(event) => {
+            const checked = event.target.checked;
+            const paid = Number(params.row.paid || 0);
+            setFees((prev) => prev.map((row) => (row._id === params.row._id ? { ...row, refundselected: checked, refunded: checked ? paid : 0 } : row)));
+            setAdministrativecharges((prev) => {
+              const current = Number(prev || 0);
+              const next = checked ? current - paid : current + paid;
+              return Math.max(0, Math.min(next, totalPaid));
+            });
+          }}
+        />
+      )
+    },
     { field: "academicyear", headerName: "Year", minWidth: 110 },
     { field: "feegroup", headerName: "Fee Group", minWidth: 170, flex: 1 },
     { field: "feeitem", headerName: "Fee Item", minWidth: 220, flex: 1 },
@@ -201,6 +244,7 @@ export default function AdmissionCancellationPage() {
           size="small"
           type="number"
           value={params.row.refunded ?? ""}
+          disabled={params.row.refundselected === false}
           inputProps={{ min: 0, max: Number(params.row.paid || 0), step: "0.01" }}
           onKeyDown={(event) => event.stopPropagation()}
           onChange={(event) => {
@@ -212,7 +256,7 @@ export default function AdmissionCancellationPage() {
     },
     { field: "paiddate", headerName: "Paid Date", minWidth: 130, valueGetter: (params) => (params.row.paiddate ? new Date(params.row.paiddate).toLocaleDateString("en-IN") : "") },
     { field: "status", headerName: "Status", minWidth: 120 }
-  ], []);
+  ], [fees, totalPaid]);
 
   return (
     <MenuPageShell title="Admission Cancellation">

@@ -94,6 +94,12 @@ const steps = [
     description: "Generate admit cards in the second printable format for selected students."
   },
   {
+    title: "Generate Admit Card 3",
+    path: "/conduct-exam-hall-ticket-3",
+    icon: <Badge />,
+    description: "Generate admit cards with required exam filters and improved bulk printing."
+  },
+  {
     title: "Exam Rate Card",
     path: "/conduct-exam-rate-card",
     icon: <Paid />,

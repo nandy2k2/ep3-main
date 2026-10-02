@@ -759,7 +759,7 @@ export function OnlineExamManagementPage({ myMode = false, admissionMode = false
   };
   const generate = async () => {
     if (!selectedExam?._id) return setMessage("Select exam first.");
-    if (!questionForm.sectionid && !categoryTemplates.length) return setMessage("Select exam and section.");
+    if (!questionForm.sectionid) return setMessage("Select the section where AI generated questions should be added.");
     setLoading(true);
     try {
       const res = await ep1.post("/api/v2/online-exam/generate-questions", {
@@ -777,35 +777,13 @@ export function OnlineExamManagementPage({ myMode = false, admissionMode = false
         bloomlevels: questionForm.bloomlevels
       });
       const generatedRows = res.data?.data || [];
-      const sectionMap = new Map((selectedExam.sections || []).map((section) => [String(section.sectionname || "").trim().toLowerCase(), section._id]));
-      const ensureSection = async (sectionName) => {
-        const cleanName = String(sectionName || "").trim();
-        if (!cleanName) return questionForm.sectionid;
-        const key = cleanName.toLowerCase();
-        if (sectionMap.has(key)) return sectionMap.get(key);
-        const sectionRes = await ep1.post("/api/v2/online-exam/sections", {
-          colid: global1.colid,
-          user: global1.user,
-          examid: selectedExam._id,
-          sectionname: cleanName,
-          sectiontype: questionForm.questiontype,
-          instructions: `Generated for ${cleanName}`,
-          order: sectionMap.size + 1
-        });
-        const created = (sectionRes.data?.data?.sections || []).find((section) => String(section.sectionname || "").trim().toLowerCase() === key);
-        if (created?._id) sectionMap.set(key, created._id);
-        return created?._id || questionForm.sectionid;
-      };
       for (const [index, q] of generatedRows.entries()) {
-        const generatedSection = q.sectionname || q.category || ai.categories?.[index % Math.max(ai.categories?.length || 1, 1)] || "";
-        const sectionid = await ensureSection(generatedSection);
-        if (!sectionid) continue;
         await ep1.post("/api/v2/online-exam/questions", {
           ...questionForm,
           colid: global1.colid,
           user: global1.user,
           examid: selectedExam._id,
-          sectionid,
+          sectionid: questionForm.sectionid,
           questionid: "",
           questiontext: q.questiontext,
           questionhtml: q.questionhtml || "",
@@ -918,6 +896,17 @@ export function OnlineExamManagementPage({ myMode = false, admissionMode = false
               <Paper variant="outlined" sx={{ p: 2, mt: 2 }}>
                 <Typography fontWeight={900}>AI Question Generation</Typography>
                 <Grid container spacing={1.5} sx={{ mt: 0.5 }}>
+                  <Grid item xs={12} md={3}>
+                    <TextField
+                      select
+                      fullWidth
+                      label="Target section for AI questions"
+                      value={questionForm.sectionid}
+                      onChange={(e) => setQuestionForm((p) => ({ ...p, sectionid: e.target.value }))}
+                    >
+                      {(selectedExam.sections || []).map((s) => <MenuItem key={s._id} value={s._id}>{s.sectionname}</MenuItem>)}
+                    </TextField>
+                  </Grid>
                   <Grid item xs={12} md={2}><TextField select fullWidth label="Provider" value={ai.provider} onChange={(e) => setAi((p) => ({ ...p, provider: e.target.value }))}><MenuItem value="Gemini">Gemini</MenuItem><MenuItem value="Ollama">Ollama</MenuItem></TextField></Grid>
                   <Grid item xs={12} md={2}><TextField select fullWidth label="Gemini model" value={ai.geminiModel} onChange={(e) => setAi((p) => ({ ...p, geminiModel: e.target.value }))}>{geminiModels.map((m) => <MenuItem key={m} value={m}>{m}</MenuItem>)}</TextField></Grid>
                   <Grid item xs={12} md={2}><TextField select fullWidth label="Ollama" value={ai.ollamaConfigId} onChange={(e) => setAi((p) => ({ ...p, ollamaConfigId: e.target.value }))}>{(options.ollama || []).map((o) => <MenuItem key={o._id} value={o._id}>{o.name} - {o.modelname}</MenuItem>)}</TextField></Grid>

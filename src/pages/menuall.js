@@ -697,6 +697,34 @@ export function menuitemsall() {
         </AccordionDetails>
       </Accordion>
       <Accordion>
+        <AccordionSummary aria-controls="panel-ai-debate-content" id="panel-ai-debate-header">
+          <AutoModeIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{ fontSize: 14 }}>AI debate</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          <ListItem button component={RouterLink} to="/ai-debate-agents">
+            <ListItemIcon>
+              <AutoModeIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Debate agent" />}
+          </ListItem>
+        </AccordionDetails>
+      </Accordion>
+      <Accordion>
+        <AccordionSummary aria-controls="panel-ai-voice-lms-tools-content" id="panel-ai-voice-lms-tools-header">
+          <AutoModeIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{ fontSize: 14 }}>AI Voice LMS tools</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          <ListItem button component={RouterLink} to="/ai-judge-hearings">
+            <ListItemIcon>
+              <AutoModeIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="AI Jusge" />}
+          </ListItem>
+        </AccordionDetails>
+      </Accordion>
+      <Accordion>
         <AccordionSummary aria-controls="panel-crm-content" id="panel-crm-header">
           <BusinessIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{ fontSize: 14 }}>CRM</Typography>}
@@ -1937,6 +1965,32 @@ export function menuitemsall() {
               <BarChartIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Task report" />}
+          </ListItem>
+        </AccordionDetails>
+      </Accordion>
+      <Accordion>
+        <AccordionSummary aria-controls="panel-meeting-management-content" id="panel-meeting-management-header">
+          <EventIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{ fontSize: 14 }}>Meeting management</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          <ListItem button component={RouterLink} to="/meeting-management-meetings">
+            <ListItemIcon>
+              <EventIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Meetings" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/meeting-management-tasks">
+            <ListItemIcon>
+              <AssignmentIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Meeting tasks" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/meeting-management-admin-tasks">
+            <ListItemIcon>
+              <AssignmentTurnedInIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="All client open tasks" />}
           </ListItem>
         </AccordionDetails>
       </Accordion>
@@ -3608,6 +3662,12 @@ export function menuitemsall() {
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Generate admit card 2" />}
           </ListItem>
+          <ListItem button component={RouterLink} to="/conduct-exam-hall-ticket-3">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Generate admit card 3" />}
+          </ListItem>
           <ListItem button component={RouterLink} to="/student-view-control">
             <ListItemIcon>
               <PersonIcon />
@@ -4410,6 +4470,34 @@ export function menuitemsall() {
         </AccordionDetails>
       </Accordion>
       <Accordion>
+        <AccordionSummary aria-controls="panel-online-examination-2-content" id="panel-online-examination-2-header">
+          <SettingsIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{ fontSize: 14 }}>Online examination 2</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          <ListItem button component={RouterLink} to="/online-examination-2">
+            <ListItemIcon><PersonIcon /></ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Online examination 2" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/online-examination-2-details">
+            <ListItemIcon><PersonIcon /></ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Live exam control" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/online-examination-2-declarations">
+            <ListItemIcon><BarChartIcon /></ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Instruction declarations" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/online-examination-2-responses">
+            <ListItemIcon><PersonIcon /></ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Responses and AI scores" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/online-examination-2-report">
+            <ListItemIcon><BarChartIcon /></ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Online exam 2 report" />}
+          </ListItem>
+        </AccordionDetails>
+      </Accordion>
+      <Accordion>
         <AccordionSummary aria-controls="panel-admission-entrance-content" id="panel-admission-entrance-header">
           <SettingsIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{ fontSize: 14 }}>Admission entrance</Typography>}
@@ -4868,6 +4956,13 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Student ledger" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/studentledger2">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Student ledger 2" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/studentledgerpaidanalytics">
@@ -5342,6 +5437,18 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="ICICI manual success" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/online-payment-regno-edit">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Online payment regno edit" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/online-fee-payment-receipt">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Online fee payment receipt" />}
           </ListItem>
         </AccordionDetails>
       </Accordion>
@@ -9842,6 +9949,24 @@ export function menuitemsall() {
 	              <SettingsIcon />
 	            </ListItemIcon>
 	            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Ledger to User regno" />}
+	          </ListItem>
+	          <ListItem button component={RouterLink} to="/duplicate-regno-repair">
+	            <ListItemIcon>
+	              <SettingsIcon />
+	            </ListItemIcon>
+	            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Duplicate regno" />}
+	          </ListItem>
+	          <ListItem button component={RouterLink} to="/user-to-ledger-regno-email">
+	            <ListItemIcon>
+	              <SettingsIcon />
+	            </ListItemIcon>
+	            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="User to ledger regno email" />}
+	          </ListItem>
+	          <ListItem button component={RouterLink} to="/ledger-to-user-regno-email">
+	            <ListItemIcon>
+	              <SettingsIcon />
+	            </ListItemIcon>
+	            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Ledger to User regno email" />}
 	          </ListItem>
 	          <ListItem button component={RouterLink} to="/duplicate-fees-repair">
 	            <ListItemIcon>
