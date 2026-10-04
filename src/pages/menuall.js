@@ -711,6 +711,32 @@ export function menuitemsall() {
         </AccordionDetails>
       </Accordion>
       <Accordion>
+        <AccordionSummary aria-controls="panel-ai-interview-content" id="panel-ai-interview-header">
+          <AutoModeIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{ fontSize: 14 }}>AI Interview</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          <ListItem button component={RouterLink} to="/ai-voice-interview">
+            <ListItemIcon>
+              <AutoModeIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="AI Voice interview" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/ai-recruitment-interview-agent">
+            <ListItemIcon>
+              <AutoModeIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="AI recruitment interview agent" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/ai-recruitment-interview-score-report">
+            <ListItemIcon>
+              <AutoModeIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="AI interview score report" />}
+          </ListItem>
+        </AccordionDetails>
+      </Accordion>
+      <Accordion>
         <AccordionSummary aria-controls="panel-ai-voice-lms-tools-content" id="panel-ai-voice-lms-tools-header">
           <AutoModeIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{ fontSize: 14 }}>AI Voice LMS tools</Typography>}
@@ -1393,6 +1419,20 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Course workspace" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/internal-marks-entry">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Internal marks entry" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/internal-marks-entry-admin">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Internal marks entry admin" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/neplms-ai-coding-platform">
@@ -4442,6 +4482,18 @@ export function menuitemsall() {
               <BarChartIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="My online exam report" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/online-exam-publish">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Exam publish" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/online-exam-publish-admin">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Exam publish admin" />}
           </ListItem>
           <ListItem button component={RouterLink} to="/conduct-exam-online-exam-marks-transfer">
             <ListItemIcon>

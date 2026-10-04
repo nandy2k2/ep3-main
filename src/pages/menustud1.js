@@ -551,6 +551,13 @@ function DefaultStudentListItems({ open }) {
 	{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Online examination 2 live" />}
 	</ListItem>
 
+	           <ListItem button component={RouterLink} to="/student-online-exam-marks-view">
+	<ListItemIcon>
+	<PersonIcon />
+	</ListItemIcon>
+	{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Marks view" />}
+	</ListItem>
+
 	           <ListItem button component={RouterLink} to="/student-course-group-exam">
 	<ListItemIcon>
 	<PersonIcon />

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Chip,
@@ -104,6 +105,11 @@ export default function RecruitmentManagementPage() {
   const [textSearch, setTextSearch] = useState("");
   const [aiInstruction, setAiInstruction] = useState("");
   const [selectedCandidate, setSelectedCandidate] = useState(null);
+  const [candidateSelection, setCandidateSelection] = useState([]);
+  const [aiRecruitmentAgents, setAiRecruitmentAgents] = useState([]);
+  const [selectedAiAgent, setSelectedAiAgent] = useState(null);
+  const [aiAssignments, setAiAssignments] = useState([]);
+  const [aiAssigning, setAiAssigning] = useState(false);
   const [profileCandidate, setProfileCandidate] = useState(null);
   const [confirmationMail, setConfirmationMail] = useState({ subject: "Recruitment confirmation", body: "" });
   const [confirming, setConfirming] = useState(false);
@@ -164,8 +170,19 @@ export default function RecruitmentManagementPage() {
     setApplications(res.data || []);
   };
 
+  const loadAiRecruitmentAgents = async () => {
+    const res = await ep1.get("/api/v2/ai-recruitment-interview/agents", { params: { colid, active: "Yes", status: "Active" } });
+    setAiRecruitmentAgents(res.data?.rows || []);
+  };
+
+  const loadAiAssignments = async (jobid = selectedJob) => {
+    if (!jobid) return setAiAssignments([]);
+    const res = await ep1.get("/api/v2/ai-recruitment-interview/assignments", { params: { colid, jobid } });
+    setAiAssignments(res.data?.rows || []);
+  };
+
   useEffect(() => {
-    Promise.all([loadForms(), loadJobs(), loadCandidateStatuses()]).catch((err) => setError(err.response?.data?.msg || err.message));
+    Promise.all([loadForms(), loadJobs(), loadCandidateStatuses(), loadAiRecruitmentAgents()]).catch((err) => setError(err.response?.data?.msg || err.message));
   }, []);
 
   useEffect(() => {
@@ -177,6 +194,8 @@ export default function RecruitmentManagementPage() {
   useEffect(() => {
     loadApplications();
     loadApprovalLevels();
+    loadAiAssignments();
+    setCandidateSelection([]);
   }, [selectedJob]);
 
   const saveForm = async () => {
@@ -549,6 +568,31 @@ ${global1.name || "Recruitment Team"}`;
     await loadApplications();
   };
 
+  const assignAiInterview = async () => {
+    if (!selectedAiAgent?._id) return setError("Select AI recruitment interview agent");
+    if (!candidateSelection.length) return setError("Select one or more candidates");
+    setAiAssigning(true);
+    setError("");
+    try {
+      const res = await ep1.post("/api/v2/ai-recruitment-interview/assign", {
+        colid,
+        agentid: selectedAiAgent._id,
+        applicationids: candidateSelection,
+        baseUrl: window.location.origin,
+        user: global1.user,
+        name: global1.name
+      });
+      const rows = res.data?.rows || [];
+      const sent = rows.filter((row) => row.mailstatus === "Sent").length;
+      setMessage(`AI interview assigned to ${rows.length} candidate(s). Email sent to ${sent}.`);
+      await loadAiAssignments();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to assign AI interview");
+    } finally {
+      setAiAssigning(false);
+    }
+  };
+
   const confirmCandidate = async () => {
     if (!selectedCandidate?._id) return setError("Select a candidate first");
     if (!selectedCandidate.email) return setError("Selected candidate does not have an email address");
@@ -709,6 +753,7 @@ ${global1.name || "Recruitment Team"}`;
           <Tab label="Candidate Status" />
           <Tab label="Approval Levels" />
           <Tab label="Candidates" />
+          <Tab label="AI Interview" />
         </Tabs>
       </Paper>
 
@@ -936,14 +981,42 @@ ${global1.name || "Recruitment Team"}`;
             <TextField fullWidth multiline minRows={2} label="AI shortlisting instruction in English" value={aiInstruction} onChange={(e) => setAiInstruction(e.target.value)} />
             <Button variant="contained" startIcon={<AutoFixHighIcon />} onClick={runAiShortlist} sx={{ minWidth: 180 }}>AI Shortlist</Button>
           </Stack>
+          <Paper variant="outlined" sx={{ p: 2, mt: 2, bgcolor: "#fbfdff" }}>
+            <Typography fontWeight={900} sx={{ mb: 1 }}>Assign AI recruitment interview</Typography>
+            <Grid container spacing={1.5} alignItems="center">
+              <Grid item xs={12} md={5}>
+                <Autocomplete
+                  options={aiRecruitmentAgents}
+                  value={selectedAiAgent}
+                  onChange={(_, value) => setSelectedAiAgent(value)}
+                  getOptionLabel={(agent) => agent ? `${agent.title || agent.topic} | ${agent.difficulty || ""} | ${agent.timelimitminutes || 0} min` : ""}
+                  renderInput={(params) => <TextField {...params} size="small" label="AI interview agent" />}
+                />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <Chip label={`${candidateSelection.length} candidate(s) selected`} color={candidateSelection.length ? "primary" : "default"} />
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <Button fullWidth variant="contained" disabled={aiAssigning || !candidateSelection.length || !selectedAiAgent} onClick={assignAiInterview}>
+                  {aiAssigning ? "Assigning..." : "Assign"}
+                </Button>
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <Button fullWidth variant="outlined" onClick={loadAiRecruitmentAgents}>Refresh agents</Button>
+              </Grid>
+            </Grid>
+          </Paper>
           <Box sx={{ height: 470, mt: 2 }}>
             <DataGrid
               rows={filteredApplications}
               columns={applicationColumns}
               getRowId={(row) => row._id}
               slots={{ toolbar: GridToolbar }}
+              checkboxSelection
+              disableRowSelectionOnClick
               onRowClick={(params) => selectCandidate(params.row)}
-              rowSelectionModel={selectedCandidate?._id ? [selectedCandidate._id] : []}
+              rowSelectionModel={candidateSelection}
+              onRowSelectionModelChange={(ids) => setCandidateSelection(ids)}
             />
           </Box>
           {profileCandidate && (
@@ -1057,6 +1130,38 @@ ${global1.name || "Recruitment Team"}`;
               </Grid>
             </Grid>
           </Paper>
+        </Paper>
+      )}
+      {tab === 8 && (
+        <Paper sx={{ p: 3, mt: 2 }}>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ md: "center" }} justifyContent="space-between">
+            <Box>
+              <Typography variant="h6" fontWeight={900}>AI recruitment interview assignments</Typography>
+              <Typography variant="body2" color="text.secondary">Saved interview links, candidate status, score and recommendation.</Typography>
+            </Box>
+            <Button variant="outlined" onClick={() => loadAiAssignments()}>Refresh</Button>
+          </Stack>
+          <Box sx={{ height: 540, mt: 2 }}>
+            <DataGrid
+              rows={aiAssignments}
+              getRowId={(row) => row._id}
+              slots={{ toolbar: GridToolbar }}
+              columns={[
+                { field: "candidate", headerName: "Candidate", minWidth: 180, flex: 1 },
+                { field: "candidateemail", headerName: "Email", minWidth: 220 },
+                { field: "jobtitle", headerName: "Job", minWidth: 200, flex: 1 },
+                { field: "agenttitle", headerName: "Agent", minWidth: 200, flex: 1 },
+                { field: "difficulty", headerName: "Difficulty", minWidth: 120 },
+                { field: "status", headerName: "Status", minWidth: 120 },
+                { field: "percentage", headerName: "Score %", minWidth: 100 },
+                { field: "recommendation", headerName: "Recommendation", minWidth: 130 },
+                { field: "mailstatus", headerName: "Mail", minWidth: 110 },
+                { field: "link", headerName: "Interview link", minWidth: 320, renderCell: ({ value }) => value ? <Stack direction="row" spacing={1}><a href={value} target="_blank" rel="noreferrer">{value}</a><Button size="small" onClick={() => copyText(value)}>Copy</Button></Stack> : "" },
+                { field: "summary", headerName: "AI summary", minWidth: 280, flex: 1.2, renderCell: ({ value }) => <Typography sx={{ whiteSpace: "normal", lineHeight: 1.35 }}>{value}</Typography> }
+              ]}
+              sx={{ "& .MuiDataGrid-cell": { alignItems: "flex-start", whiteSpace: "normal", lineHeight: 1.35, py: 1 } }}
+            />
+          </Box>
         </Paper>
       )}
       </Box>

@@ -960,6 +960,8 @@ import AiChatbotDefinitionPage from "./pages/AiChatbotDefinitionPage";
 import AiChatbotHelpPage from "./pages/AiChatbotHelpPage";
 import { VoiceAiAgentManagerPage, VoiceAiAgentTalkPage } from "./pages/VoiceAiAgentPages";
 import AiDebateAgentPage from "./pages/AiDebateAgentPage";
+import AiVoiceInterviewPage from "./pages/AiVoiceInterviewPage";
+import { AiRecruitmentInterviewAgentPage, AiRecruitmentInterviewScoreReportPage, PublicAiRecruitmentInterviewPage } from "./pages/AiRecruitmentInterviewPages";
 import AiJudgeHearingPage from "./pages/AiJudgeHearingPage";
 import GraceMarksPolicyPage from "./pages/GraceMarksPolicyPage";
 import AtktRulePage from "./pages/AtktRulePage";
@@ -1182,6 +1184,7 @@ import NepLmsOtpAttendancePage, { NepLmsSectionwiseOtpAttendancePage } from "./p
 import NepLmsStudentOtpAttendancePage from "./pages/NepLmsStudentOtpAttendancePage";
 import NepLmsAttendanceReviewPage from "./pages/NepLmsAttendanceReviewPage";
 import NepLmsAssessmentMarksPage from "./pages/NepLmsAssessmentMarksPage";
+import InternalMarksEntryPage, { InternalMarksEntryAdminPage } from "./pages/InternalMarksEntryPage";
 import NepLmsAssessmentMarksViewPage from "./pages/NepLmsAssessmentMarksViewPage";
 import NepLmsComponentMarksViewPage from "./pages/NepLmsComponentMarksViewPage";
 import NepLmsFinalMarksViewPage from "./pages/NepLmsFinalMarksViewPage";
@@ -1379,6 +1382,11 @@ import {
   StudentPsychometricTestPage,
   StudentCourseGroupExamPage
 } from "./pages/OnlineExaminationPages";
+import {
+  OnlineExamPublishAdminPage,
+  OnlineExamPublishPage,
+  StudentOnlineExamMarksViewPage
+} from "./pages/OnlineExamPublishPages";
 import {
   OnlineExam2DeclarationsPage,
   OnlineExam2LiveControlPage,
@@ -3921,6 +3929,10 @@ function App() {
         <Route path="/voice-ai-agents" element={<VoiceAiAgentManagerPage />} />
         <Route path="/voice-ai-agent-talk/:publicid" element={<VoiceAiAgentTalkPage />} />
         <Route path="/ai-debate-agents" element={<AiDebateAgentPage />} />
+        <Route path="/ai-voice-interview" element={<AiVoiceInterviewPage />} />
+        <Route path="/ai-recruitment-interview-agent" element={<AiRecruitmentInterviewAgentPage />} />
+        <Route path="/ai-recruitment-interview-score-report" element={<AiRecruitmentInterviewScoreReportPage />} />
+        <Route path="/public-ai-recruitment-interview/:token" element={<PublicAiRecruitmentInterviewPage />} />
         <Route path="/ai-judge-hearings" element={<AiJudgeHearingPage />} />
         <Route path="/gradeconfiguration" element={<GradeConfigurationPage />} />
         <Route path="/boscycle" element={<BosCyclePage />} />
@@ -4030,6 +4042,8 @@ function App() {
         <Route path="/neplmssupplementaryattendanceapproval" element={<SupplementaryAttendanceApprovalPage />} />
         <Route path="/neplmssupplementaryattendancereport" element={<SupplementaryAttendanceReportPage />} />
         <Route path="/neplmsassessmentmarks" element={<NepLmsAssessmentMarksPage />} />
+        <Route path="/internal-marks-entry" element={<InternalMarksEntryPage />} />
+        <Route path="/internal-marks-entry-admin" element={<InternalMarksEntryAdminPage />} />
         <Route path="/neplmsassessmentmarksview" element={<NepLmsAssessmentMarksViewPage />} />
         <Route path="/neplmscomponentmarks" element={<NepLmsComponentMarksViewPage />} />
         <Route path="/neplmsfinalmarks" element={<NepLmsFinalMarksViewPage />} />
@@ -4146,6 +4160,8 @@ function App() {
         <Route path="/online-examination-report" element={<OnlineExaminationSummaryReportPage />} />
         <Route path="/online-examination-details" element={<OnlineExaminationDetailsPage />} />
         <Route path="/my-online-exam-report" element={<MyOnlineExamReportPage />} />
+        <Route path="/online-exam-publish" element={<OnlineExamPublishPage />} />
+        <Route path="/online-exam-publish-admin" element={<OnlineExamPublishAdminPage />} />
         <Route path="/placement-practice-test" element={<PlacementPracticeTestPage />} />
         <Route path="/placement-practice-test-report" element={<PlacementPracticeReportPage />} />
         <Route path="/placement-practice-test-summary" element={<PlacementPracticeSummaryReportPage />} />
@@ -4157,6 +4173,7 @@ function App() {
         <Route path="/psychometric-profile-report" element={<PsychometricProfileReportPage />} />
         <Route path="/student-online-exam" element={<StudentOnlineExamPage />} />
         <Route path="/student-online-exam-2" element={<StudentOnlineExam2Page />} />
+        <Route path="/student-online-exam-marks-view" element={<StudentOnlineExamMarksViewPage />} />
         <Route path="/online-examination-2" element={<OnlineExam2ManagementPage />} />
         <Route path="/online-examination-2-details" element={<OnlineExam2LiveControlPage />} />
         <Route path="/online-examination-2-declarations" element={<OnlineExam2DeclarationsPage />} />

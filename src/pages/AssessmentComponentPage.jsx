@@ -35,6 +35,7 @@ const fallbackTypes = ["Major", "Minor", "IDC", "MDC", "AEC", "SEC", "VAC"];
 const groupTypes = ["Best", "Average"];
 const scoreTypes = ["Internal", "External"];
 const componentTypes = ["Theory", "Practical", "Viva"];
+const weightageValidationMessage = "Please enter a valid value between 0 and 1";
 
 const blankForm = {
   academicyear: "",
@@ -53,7 +54,7 @@ const blankForm = {
   assessmentcomponent: "",
   marks: 0,
   passmarks: 0,
-  weightage: 0,
+  weightage: 1,
   credits: 0,
   status: "Active"
 };
@@ -331,6 +332,26 @@ function AssessmentComponentPage({ programwiseOnly = false } = {}) {
   }, [options.courses, courses, rows]);
 
   const updateFormValue = (field, value) => {
+    if (field === "weightage") {
+      const rawValue = String(value);
+      if (rawValue === "") {
+        setError("");
+        setForm((prev) => ({ ...prev, weightage: "" }));
+        return;
+      }
+      if (!/^(0|1)?(\.\d*)?$/.test(rawValue) && !/^(0|1)$/.test(rawValue)) {
+        setError(weightageValidationMessage);
+        return;
+      }
+      const normalized = Number(rawValue);
+      if (!Number.isFinite(normalized) || normalized < 0 || normalized > 1) {
+        setError(weightageValidationMessage);
+        return;
+      }
+      setError("");
+      setForm((prev) => ({ ...prev, weightage: rawValue }));
+      return;
+    }
     if (["academicyear", "regulation", "programcode", "type", "subject", "semester"].includes(field)) {
       setSelectedCourseCodes(blankSelectedCourses);
     }
@@ -400,9 +421,22 @@ function AssessmentComponentPage({ programwiseOnly = false } = {}) {
       const selectedCourses = selectedCourseCodes
         .map((coursecode) => courses.find((item) => item.coursecode === coursecode) || allCourses.find((item) => item.coursecode === coursecode))
         .filter(Boolean);
+      if (editingId && !form.coursecode) {
+        setError("Please select a course.");
+        return;
+      }
+      if (!editingId && !selectedCourses.length && !form.coursecode) {
+        setError("Please select at least one course.");
+        return;
+      }
+      const weightage = Number(form.weightage === "" || form.weightage === undefined || form.weightage === null ? 1 : form.weightage);
+      if (!Number.isFinite(weightage) || weightage < 0 || weightage > 1) {
+        setError(weightageValidationMessage);
+        return;
+      }
 
       if (editingId) {
-        const payload = { ...form, colid, user: global1.user };
+        const payload = { ...form, weightage, colid, user: global1.user };
         await ep1.post("/api/v2/assessmentcomponent/update", { ...payload, id: editingId });
         setMessage("Record updated");
       } else {
@@ -414,6 +448,7 @@ function AssessmentComponentPage({ programwiseOnly = false } = {}) {
             coursecode: courseItem.coursecode || form.coursecode,
             subject: courseItem.subject || form.subject,
             semester: courseItem.semester || form.semester,
+            weightage,
             colid,
             user: global1.user
           };
@@ -448,7 +483,7 @@ function AssessmentComponentPage({ programwiseOnly = false } = {}) {
       assessmentcomponent: row.assessmentcomponent || "",
       marks: row.marks || 0,
       passmarks: row.passmarks || 0,
-      weightage: row.weightage || 0,
+      weightage: row.weightage === undefined || row.weightage === null || row.weightage === "" ? 1 : row.weightage,
       credits: row.credits || 0,
       status: row.status || "Active"
     });
@@ -487,7 +522,7 @@ function AssessmentComponentPage({ programwiseOnly = false } = {}) {
       "Assessment Component": "Internal Assessment",
       Marks: 20,
       Passmarks: 8,
-      Weightage: 20,
+      Weightage: 1,
       Credits: firstCourse.credit || 0,
       Status: "Active"
     };
@@ -755,7 +790,7 @@ function AssessmentComponentPage({ programwiseOnly = false } = {}) {
 	                    {option.coursecode} - {option.course}
 	                  </li>
 	                )}
-	              renderInput={(params) => <TextField {...params} required label="Search Course / Course Code" />}
+	              renderInput={(params) => <TextField {...params} label="Search Course / Course Code" helperText="Select one or more courses" />}
 	            />
 	          </Grid>
           <Grid item xs={12} md={3}>
@@ -801,7 +836,22 @@ function AssessmentComponentPage({ programwiseOnly = false } = {}) {
             <TextField fullWidth type="number" label="Passmarks" value={form.passmarks} onChange={(e) => updateFormValue("passmarks", e.target.value)} />
           </Grid>
           <Grid item xs={12} md={2}>
-            <TextField fullWidth required type="number" label="Weightage" value={form.weightage} onChange={(e) => updateFormValue("weightage", e.target.value)} />
+            <TextField
+              fullWidth
+              required
+              type="number"
+              label="Weightage"
+              value={form.weightage === undefined || form.weightage === null ? 1 : form.weightage}
+              inputProps={{
+                min: 0,
+                max: 1,
+                step: "any",
+                onInvalid: (e) => e.target.setCustomValidity(weightageValidationMessage),
+                onInput: (e) => e.target.setCustomValidity("")
+              }}
+              onChange={(e) => updateFormValue("weightage", e.target.value)}
+              onBlur={() => updateFormValue("weightage", form.weightage === "" ? 1 : form.weightage)}
+            />
           </Grid>
           <Grid item xs={12} md={2}>
             <TextField fullWidth type="number" label="Credits" value={form.credits} onChange={(e) => updateFormValue("credits", e.target.value)} />

@@ -40,14 +40,16 @@ const blankForm = {
   assessmentgrouptype: "",
   assessmentcomponent: "",
   maxmarks: "",
+  rawmarks: "",
   marksobtained: "",
+  passstatus: "",
   credits: "",
   examinername: "",
   examineremail: ""
 };
 
 const fields = Object.keys(blankForm);
-const numberFields = ["maxmarks", "marksobtained", "credits"];
+const numberFields = ["maxmarks", "rawmarks", "marksobtained", "credits"];
 const labels = {
   academicyear: "Academic Year",
   examcode: "Exam Code",
@@ -61,7 +63,9 @@ const labels = {
   assessmentgrouptype: "Assessment Group Type",
   assessmentcomponent: "Assessment Component",
   maxmarks: "Max Marks",
+  rawmarks: "Raw Marks",
   marksobtained: "Marks Obtained",
+  passstatus: "Pass Status",
   examinername: "Examiner Name",
   examineremail: "Examiner Email"
 };
@@ -139,7 +143,7 @@ export default function ExamModel2ComponentMarksCrudPage() {
   };
 
   const downloadTemplate = () => {
-    const ws = XLSX.utils.json_to_sheet([{ ...blankForm, academicyear: "2026-27", exam: "Semester Exam", examcode: "SEM1", regulation: "NEP", program: "B.Com", programcode: "BCOM", course: "Accounting", coursecode: "ACC101", student: "Student Name", regno: "REG001", examrollno: "MongoDB examroll _id", componenttype: "Theory", scoretype: "External", assessmentgroup: "End Sem", assessmentgrouptype: "Average", assessmentcomponent: "Theory Paper", maxmarks: 100, marksobtained: 75, credits: 4, examinername: "Examiner", examineremail: "examiner@example.com" }]);
+    const ws = XLSX.utils.json_to_sheet([{ ...blankForm, academicyear: "2026-27", exam: "Semester Exam", examcode: "SEM1", regulation: "NEP", program: "B.Com", programcode: "BCOM", course: "Accounting", coursecode: "ACC101", student: "Student Name", regno: "REG001", examrollno: "MongoDB examroll _id", componenttype: "Theory", scoretype: "External", assessmentgroup: "End Sem", assessmentgrouptype: "Average", assessmentcomponent: "Theory Paper", maxmarks: 100, rawmarks: 75, marksobtained: 75, passstatus: "PASS", credits: 4, examinername: "Examiner", examineremail: "examiner@example.com" }]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Component Marks");
     XLSX.writeFile(wb, "exam_model2_component_marks_template.xlsx");
@@ -199,7 +203,7 @@ export default function ExamModel2ComponentMarksCrudPage() {
                   <TextField
                     fullWidth
                     size="small"
-                    select={["componenttype", "scoretype"].includes(field)}
+                    select={["componenttype", "scoretype", "passstatus"].includes(field)}
                     type={numberFields.includes(field) ? "number" : "text"}
                     label={labels[field] || field}
                     value={form[field] || ""}
@@ -207,6 +211,7 @@ export default function ExamModel2ComponentMarksCrudPage() {
                   >
                     {field === "componenttype" && ["Theory", "Practical", "Viva"].map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
                     {field === "scoretype" && ["Internal", "External"].map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                    {field === "passstatus" && ["PASS", "FAIL"].map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
                   </TextField>
                 </Grid>
               ))}
