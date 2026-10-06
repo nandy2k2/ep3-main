@@ -63,6 +63,7 @@ const blankSelectedCourses = [];
 
 const normalizeHeader = (value) => String(value || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
 const uniqueSorted = (values) => [...new Set(values.filter((value) => value !== undefined && value !== null && String(value).trim() !== "").map((value) => String(value).trim()))].sort((a, b) => a.localeCompare(b));
+const normalizeSelection = (selection) => Array.isArray(selection) ? selection : Array.from(selection?.ids || []);
 
 const headerMap = {
   academicyear: "academicyear",
@@ -118,6 +119,7 @@ function AssessmentComponentPage({ programwiseOnly = false } = {}) {
   });
   const [courses, setCourses] = useState([]);
   const [selectedCourseCodes, setSelectedCourseCodes] = useState(blankSelectedCourses);
+  const [selectedIds, setSelectedIds] = useState([]);
   const [editingId, setEditingId] = useState("");
   const [uploadRows, setUploadRows] = useState([]);
   const [aiOptions, setAiOptions] = useState({ geminiModels: [], ollama: [] });
@@ -273,6 +275,7 @@ function AssessmentComponentPage({ programwiseOnly = false } = {}) {
       });
       const res = await ep1.get("/api/v2/assessmentcomponent", { params });
       setRows(res.data.data || []);
+      setSelectedIds([]);
     } catch (err) {
       setError(err.response?.data?.message || "Error loading data");
     } finally {
@@ -499,6 +502,28 @@ function AssessmentComponentPage({ programwiseOnly = false } = {}) {
       setTimeout(() => setMessage(""), 2500);
     } catch (err) {
       setError(err.response?.data?.message || "Error deleting record");
+    }
+  };
+
+  const bulkDeleteRows = async () => {
+    if (!selectedIds.length) {
+      setError("Please select at least one assessment component.");
+      return;
+    }
+    if (!window.confirm(`Delete ${selectedIds.length} selected assessment component${selectedIds.length === 1 ? "" : "s"}?`)) return;
+    try {
+      setLoading(true);
+      for (const id of selectedIds) {
+        await ep1.post("/api/v2/assessmentcomponent/delete", { id });
+      }
+      setMessage(`${selectedIds.length} selected record${selectedIds.length === 1 ? "" : "s"} deleted`);
+      setSelectedIds([]);
+      await refreshAll();
+      setTimeout(() => setMessage(""), 2500);
+    } catch (err) {
+      setError(err.response?.data?.message || "Bulk delete failed");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1017,6 +1042,9 @@ function AssessmentComponentPage({ programwiseOnly = false } = {}) {
             <input hidden type="file" accept=".xlsx,.xls" onChange={readExcel} />
           </Button>
           <Button variant="contained" startIcon={<Add />} onClick={uploadExcelRows} disabled={!uploadRows.length}>Upload {uploadRows.length ? `(${uploadRows.length})` : ""}</Button>
+          <Button variant="outlined" color="error" startIcon={<Delete />} onClick={bulkDeleteRows} disabled={!selectedIds.length || loading}>
+            Delete Selected {selectedIds.length ? `(${selectedIds.length})` : ""}
+          </Button>
         </Stack>
       </Paper>
 
@@ -1025,6 +1053,10 @@ function AssessmentComponentPage({ programwiseOnly = false } = {}) {
           rows={rows.map((row) => ({ ...row, id: row._id }))}
           columns={columns}
           loading={loading}
+          checkboxSelection
+          disableRowSelectionOnClick
+          rowSelectionModel={selectedIds}
+          onRowSelectionModelChange={(selection) => setSelectedIds(normalizeSelection(selection))}
           autoHeight
           slots={{ toolbar: GridToolbar }}
           slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "course_assessment_components" } } }}

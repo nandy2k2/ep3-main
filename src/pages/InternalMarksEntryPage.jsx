@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 import {
   Alert,
   Autocomplete,
@@ -17,7 +18,7 @@ import {
   Typography
 } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
-import { Refresh, Save } from "@mui/icons-material";
+import { Download, Refresh, Save, UploadFile } from "@mui/icons-material";
 import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
@@ -41,8 +42,10 @@ export default function InternalMarksEntryPage({ admin = false }) {
   const [components, setComponents] = useState([]);
   const [students, setStudents] = useState([]);
   const [marksMap, setMarksMap] = useState({});
+  const [dateWindow, setDateWindow] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -97,7 +100,31 @@ export default function InternalMarksEntryPage({ admin = false }) {
     });
     setStudents([]);
     setMarksMap({});
+    if (!admin) setDateWindow(null);
     if (field === "coursekey") setComponents([]);
+  };
+
+  const checkEntryWindow = async () => {
+    if (admin) return { allowed: true };
+    if (!selectedCourse || !selectedExam) {
+      return { allowed: false, message: "Select exam and course before loading marks." };
+    }
+    const res = await ep1.get("/api/v2/internal-marks-entry/dates-check", {
+      params: {
+        colid: global1.colid,
+        academicyear: selectedCourse.academicyear,
+        regulation: selectedCourse.regulation,
+        examcode: selectedExam.examcode,
+        programcode: selectedCourse.programcode,
+        semester: selectedCourse.semester
+      }
+    });
+    const status = res.data || {};
+    setDateWindow(status);
+    if (!status.allowed) {
+      window.alert(status.message || "Internal marks entry is not available.");
+    }
+    return status;
   };
 
   const loadComponents = async () => {
@@ -136,6 +163,13 @@ export default function InternalMarksEntryPage({ admin = false }) {
     setError("");
     setMessage("");
     try {
+      const entryWindow = await checkEntryWindow();
+      if (!entryWindow.allowed) {
+        setError(entryWindow.message || "Internal marks entry is not available.");
+        setStudents([]);
+        setMarksMap({});
+        return;
+      }
       const res = await ep1.get("/api/v2/internal-marks-entry/students", {
         params: { colid: global1.colid, assessmentid: selectedAssessment._id, examcode: selectedExam.examcode }
       });
@@ -148,6 +182,15 @@ export default function InternalMarksEntryPage({ admin = false }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchStudentRows = async () => {
+    if (!selectedAssessment) throw new Error("Select assessment component.");
+    if (!selectedExam) throw new Error("Select exam.");
+    const res = await ep1.get("/api/v2/internal-marks-entry/students", {
+      params: { colid: global1.colid, assessmentid: selectedAssessment._id, examcode: selectedExam.examcode }
+    });
+    return res.data?.data || [];
   };
 
   const updateMarks = (studentId, value) => {
@@ -174,6 +217,11 @@ export default function InternalMarksEntryPage({ admin = false }) {
     setError("");
     setMessage("");
     try {
+      const entryWindow = await checkEntryWindow();
+      if (!entryWindow.allowed) {
+        setError(entryWindow.message || "Internal marks entry is not available.");
+        return;
+      }
       const res = await ep1.post("/api/v2/internal-marks-entry/save", {
         colid: global1.colid,
         user: global1.user,
@@ -191,6 +239,84 @@ export default function InternalMarksEntryPage({ admin = false }) {
       setError(err.response?.data?.message || "Unable to save marks.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const downloadTemplate = () => {
+    const baseRows = students.length ? students : [{ student: "Student Name", regno: "REG001", email: "student@example.com", rawmarks: 0 }];
+    const ws = XLSX.utils.json_to_sheet(baseRows.map((row) => ({
+      regno: row.regno || "",
+      student: row.student || row.name || "",
+      email: row.email || "",
+      rawmarks: row.rawmarks === "" || row.rawmarks === undefined ? "" : row.rawmarks
+    })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Internal Marks");
+    XLSX.writeFile(wb, `${admin ? "internal_marks_admin" : "internal_marks"}_template.xlsx`);
+  };
+
+  const uploadBulkMarks = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!selectedAssessment) return setError("Select assessment component before bulk upload.");
+    if (!selectedExam) return setError("Select exam before bulk upload.");
+    setUploading(true);
+    setError("");
+    setMessage("");
+    try {
+      const entryWindow = await checkEntryWindow();
+      if (!entryWindow.allowed) {
+        setError(entryWindow.message || "Internal marks entry is not available.");
+        return;
+      }
+      const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+      const fileRows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
+      if (!fileRows.length) throw new Error("Uploaded file has no rows.");
+      const currentStudents = students.length ? students : await fetchStudentRows();
+      if (!students.length) setStudents(currentStudents);
+      const byRegno = new Map(currentStudents.map((row) => [String(row.regno || "").trim().toLowerCase(), row]));
+      const byEmail = new Map(currentStudents.map((row) => [String(row.email || "").trim().toLowerCase(), row]));
+      const byName = new Map(currentStudents.map((row) => [String(row.student || row.name || "").trim().toLowerCase(), row]));
+      const rowsToSave = [];
+      const issues = [];
+      const max = Number(selectedAssessment?.marks) || 0;
+      fileRows.forEach((row, index) => {
+        const regno = String(row.regno || row.Regno || row["Reg No"] || row.REGNO || "").trim().toLowerCase();
+        const email = String(row.email || row.Email || row.EMAIL || "").trim().toLowerCase();
+        const name = String(row.student || row.Student || row.name || row.Name || "").trim().toLowerCase();
+        const matched = byRegno.get(regno) || byEmail.get(email) || byName.get(name);
+        const rawValue = row.rawmarks ?? row.RawMarks ?? row.marks ?? row.Marks ?? row.marksentry ?? row.enteredmarks ?? row.marksobtained;
+        const rawmarks = Number(rawValue);
+        if (!matched) {
+          issues.push(`Row ${index + 2}: student not matched`);
+          return;
+        }
+        if (rawValue === "" || rawValue === undefined || Number.isNaN(rawmarks) || rawmarks < 0 || rawmarks > max) {
+          issues.push(`Row ${index + 2}: invalid marks for ${matched.regno || matched.student}`);
+          return;
+        }
+        rowsToSave.push({ ...matched, rawmarks });
+      });
+      if (!rowsToSave.length) throw new Error(issues.slice(0, 5).join(" | ") || "No valid marks found.");
+      const res = await ep1.post("/api/v2/internal-marks-entry/save", {
+        colid: global1.colid,
+        user: global1.user,
+        username: global1.name,
+        exam: selectedExam.examname || selectedExam.exam || filters.exam,
+        examcode: selectedExam.examcode,
+        assessmentid: selectedAssessment._id,
+        rows: rowsToSave
+      });
+      await loadStudents();
+      const backendIssues = res.data?.errors || [];
+      const allIssues = [...issues, ...backendIssues.map((item) => `${item.regno || item.row}: ${item.message}`)];
+      setMessage(`Bulk uploaded ${res.data?.saved || 0} marks row(s)${allIssues.length ? ` with ${allIssues.length} issue(s)` : ""}.`);
+      if (allIssues.length) setError(allIssues.slice(0, 8).join(" | "));
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || "Unable to bulk upload marks.");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -326,6 +452,7 @@ export default function InternalMarksEntryPage({ admin = false }) {
                 <Chip color="primary" label={`Component marks: ${selectedAssessment.marks || 0}`} />
                 <Chip color="success" label={`Weightage: ${selectedAssessment.weightage || 0}`} />
                 <Chip color="warning" label={`Pass marks: ${selectedAssessment.passmarks || 0}`} />
+                {!admin && dateWindow?.data && <Chip color={dateWindow.allowed ? "success" : "error"} label={`Entry dates: ${dateWindow.data.startdate || "-"} to ${dateWindow.data.enddate || "-"}`} />}
               </Stack>
             )}
           </CardContent>
@@ -340,6 +467,13 @@ export default function InternalMarksEntryPage({ admin = false }) {
             </Stack>
             <Button variant="contained" startIcon={saving ? <CircularProgress size={16} /> : <Save />} disabled={saving || !students.length || !selectedAssessment || !selectedExam} onClick={saveMarks}>
               Save marks
+            </Button>
+            <Button variant="outlined" startIcon={<Download />} disabled={!selectedAssessment || !selectedExam} onClick={downloadTemplate}>
+              Template
+            </Button>
+            <Button component="label" variant="outlined" startIcon={uploading ? <CircularProgress size={16} /> : <UploadFile />} disabled={uploading || !selectedAssessment || !selectedExam}>
+              Bulk upload
+              <input hidden type="file" accept=".xlsx,.xls,.csv" onChange={uploadBulkMarks} />
             </Button>
           </Stack>
           <Box sx={{ height: 620, width: "100%" }}>

@@ -126,6 +126,7 @@ export default function MenuPageShell({ title, children, menuType }) {
     ? studentListItems
     : mainListItems;
   const isAllRole = String(global1.role || "").trim().toLowerCase() === "all";
+  const billingOnly = String(global1.subscriptiondeactivated || "").trim().toLowerCase() === "yes";
 
   const openModuleChooser = () => {
     try {
@@ -178,9 +179,9 @@ export default function MenuPageShell({ title, children, menuType }) {
             <Typography component="h1" variant="h6" color="inherit" noWrap sx={{ flexGrow: 1 }}>
               {title}
             </Typography>
-            <TopMenuSearch menuType={menuType} />
+            {!billingOnly && <TopMenuSearch menuType={menuType} />}
             <ActivityPointBadge sx={{ mr: 2 }} />
-            {isAllRole && (
+            {isAllRole && !billingOnly && (
               <Button
                 color="inherit"
                 component={RouterLink}

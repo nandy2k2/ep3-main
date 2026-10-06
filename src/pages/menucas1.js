@@ -282,11 +282,13 @@ const filterAllRoleMenuTree = (menuTree, selectedGroup) => {
   }
 
   const selectedKey = normalizeMenuText(selectedGroup);
+  const billingOnly = String(global1.subscriptiondeactivated || '').trim().toLowerCase() === 'yes';
   const accordions = flattenChildren(menuTree.props?.children).filter((accordion) => {
     if (!React.isValidElement(accordion)) return false;
     if (accordion.type === 'style') return true;
     const summary = flattenChildren(accordion.props?.children)[0];
     const group = normalizeMenuText(getElementText(summary));
+    if (billingOnly) return group === 'billing';
     if (allRoleHiddenGroups.has(group)) return false;
     if (!selectedKey) return true;
     return allRoleCommonGroups.has(group) || group === selectedKey;

@@ -311,7 +311,11 @@ export function OnlineExamPublishAdminPage() {
   return <ExamPublishBase admin />;
 }
 
-export function StudentOnlineExamMarksViewPage() {
+function StudentOnlineExamMarksViewBase({
+  title = "Marks view",
+  subtitle = "View published online examination marks.",
+  endpoint = "/api/v2/student-online-exam-marks"
+}) {
   const [options, setOptions] = useState({ academicyears: [], exams: [], student: null });
   const [academicyear, setAcademicyear] = useState("");
   const [examid, setExamid] = useState("");
@@ -338,7 +342,7 @@ export function StudentOnlineExamMarksViewPage() {
     setMessage("");
     setResult(null);
     try {
-      const res = await ep1.get("/api/v2/student-online-exam-marks", {
+      const res = await ep1.get(endpoint, {
         params: { colid: global1.colid, regno: global1.regno, email: global1.email, user: global1.user, academicyear, examid }
       });
       if (!res.data?.published) {
@@ -354,7 +358,7 @@ export function StudentOnlineExamMarksViewPage() {
   };
 
   return (
-    <MenuPageShell title="Marks view" subtitle="View published online examination marks.">
+    <MenuPageShell title={title} subtitle={subtitle}>
       <Stack spacing={2}>
         <Card>
           <CardContent>
@@ -420,6 +424,9 @@ export function StudentOnlineExamMarksViewPage() {
                   { field: "sectionname", headerName: "Section", minWidth: 160 },
                   { field: "questiontext", headerName: "Question", minWidth: 260, flex: 1 },
                   { field: "questiontype", headerName: "Type", minWidth: 120 },
+                  { field: "conumber", headerName: "CO No", minWidth: 110 },
+                  { field: "co", headerName: "CO", minWidth: 180 },
+                  { field: "bloomlevels", headerName: "Bloom Taxonomy", minWidth: 190, valueGetter: (params) => (params.row?.bloomlevels || []).join(", ") },
                   { field: "selectedoptiontext", headerName: "Selected option", minWidth: 180 },
                   { field: "answertext", headerName: "Answer", minWidth: 220 },
                   { field: "marksobtained", headerName: "Marks", minWidth: 100 },
@@ -434,9 +441,38 @@ export function StudentOnlineExamMarksViewPage() {
                 sx={{ "& .MuiDataGrid-cell": { whiteSpace: "normal", lineHeight: 1.35, py: 1 } }}
               />
             </Paper>
+            <Paper sx={{ p: 1 }}>
+              <Typography variant="h6" gutterBottom>Bloom taxonomy summary</Typography>
+              <DataGrid
+                rows={(result.bloomwise || []).map((row, index) => ({ ...row, id: index + 1 }))}
+                columns={[
+                  { field: "bloomlevel", headerName: "Bloom taxonomy", flex: 1, minWidth: 220 },
+                  { field: "questions", headerName: "Questions", minWidth: 120 },
+                  { field: "score", headerName: "Score", minWidth: 120 },
+                  { field: "total", headerName: "Total", minWidth: 120 },
+                  { field: "percentage", headerName: "Percentage score", minWidth: 160, valueFormatter: (params) => `${params.value || 0}%` }
+                ]}
+                autoHeight
+                pageSizeOptions={[10, 25, 50]}
+              />
+            </Paper>
           </>
         )}
       </Stack>
     </MenuPageShell>
+  );
+}
+
+export function StudentOnlineExamMarksViewPage() {
+  return <StudentOnlineExamMarksViewBase />;
+}
+
+export function StudentOnlineExamMarksMappedViewPage() {
+  return (
+    <StudentOnlineExamMarksViewBase
+      title="Marks view CO Bloom"
+      subtitle="View published online examination marks with CO and Bloom taxonomy recovered from the original question paper."
+      endpoint="/api/v2/student-online-exam-marks-from-questions"
+    />
   );
 }

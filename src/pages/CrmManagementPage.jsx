@@ -75,6 +75,7 @@ export default function CrmManagementPage() {
   const [leadFilters, setLeadFilters] = useState({ search: "", year: "", source: "", pipeline_stage: "", assignedto: "", fromDate: "", toDate: "" });
   const [leadPagination, setLeadPagination] = useState({ page: 0, pageSize: 100 });
   const [leadTotal, setLeadTotal] = useState(0);
+  const [leadSelection, setLeadSelection] = useState([]);
   const [leadLoading, setLeadLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -140,6 +141,7 @@ export default function CrmManagementPage() {
       });
       setLeads(res.data?.data || []);
       setLeadTotal(res.data?.total || 0);
+      setLeadSelection([]);
     } finally {
       setLeadLoading(false);
     }
@@ -188,6 +190,22 @@ export default function CrmManagementPage() {
     if (type === "sources") loadSources();
     if (type === "stages") loadStages();
     if (type === "leads") searchLeads();
+  };
+
+  const bulkDeleteLeads = async () => {
+    if (!leadSelection.length) return setError("Select one or more leads to delete.");
+    if (!window.confirm(`Delete ${leadSelection.length} selected lead(s)?`)) return;
+    setLeadLoading(true);
+    try {
+      await Promise.all(leadSelection.map((id) => ep1.post("/api/v2/crm-management/leads-delete", { id, colid: global1.colid })));
+      setMessage(`${leadSelection.length} lead(s) deleted.`);
+      setLeadSelection([]);
+      await searchLeads();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete selected leads.");
+    } finally {
+      setLeadLoading(false);
+    }
   };
 
   const uploadSources = async (event) => {
@@ -323,6 +341,9 @@ export default function CrmManagementPage() {
         rowCount={leadTotal}
         loading={leadLoading}
         paginationModel={leadPagination}
+        checkboxSelection
+        rowSelectionModel={leadSelection}
+        onRowSelectionModelChange={(selection) => setLeadSelection(Array.isArray(selection) ? selection : Array.from(selection?.ids || []))}
         onPaginationModelChange={(model) => {
           setLeadPagination(model);
           searchLeads(leadFilters, model);
@@ -418,9 +439,10 @@ export default function CrmManagementPage() {
               <Grid item xs={12} md={1.5}><TextField type="date" InputLabelProps={{ shrink: true }} fullWidth label="From" value={leadFilters.fromDate} onChange={(e) => setLeadFilters({ ...leadFilters, fromDate: e.target.value })} /></Grid>
               <Grid item xs={12} md={1.5}><TextField type="date" InputLabelProps={{ shrink: true }} fullWidth label="To" value={leadFilters.toDate} onChange={(e) => setLeadFilters({ ...leadFilters, toDate: e.target.value })} /></Grid>
               <Grid item xs={12} md={1}><Button fullWidth variant="contained" sx={{ height: 56 }} onClick={queryLeads} disabled={leadLoading}>{leadLoading ? "Loading" : "Query"}</Button></Grid>
+              <Grid item xs={12} md={1.5}><Button fullWidth color="error" variant="outlined" sx={{ height: 56 }} onClick={bulkDeleteLeads} disabled={!leadSelection.length || leadLoading}>Delete Selected</Button></Grid>
               <Grid item xs={12}>
                 <Typography variant="body2" color="text.secondary">
-                  Showing {leads.length} leads on this page out of {leadTotal}. Use the grid pagination controls to view remaining leads.
+                  Showing {leads.length} leads on this page out of {leadTotal}. Selected {leadSelection.length}. Use the grid pagination controls to view remaining leads.
                 </Typography>
               </Grid>
             </Grid>

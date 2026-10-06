@@ -105,6 +105,7 @@ function RoleLayoutContent({ children, customMenu }) {
     const navigate = useNavigate();
     const location = useLocation();
     const isAllRole = String(role || global1.role || '').trim().toLowerCase() === 'all';
+    const billingOnly = String(global1.subscriptiondeactivated || '').trim().toLowerCase() === 'yes';
 
     const handleLogout = () => {
         // Clear user session data if any
@@ -201,9 +202,9 @@ function RoleLayoutContent({ children, customMenu }) {
                         >
                             {getTitle(location.pathname)}
                         </Typography>
-                        <TopMenuSearch />
+                        {!billingOnly && <TopMenuSearch />}
                         <ActivityPointBadge sx={{ ml: 2 }} />
-                        {isAllRole && (
+                        {isAllRole && !billingOnly && (
                             <Button
                                 color="inherit"
                                 onClick={handleModuleChooser}

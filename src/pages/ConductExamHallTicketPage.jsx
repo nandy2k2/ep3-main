@@ -12,6 +12,13 @@ const filterFields = ["academicyear", "exam", "examcode", "regulation", "program
 const labels = { academicyear: "Academic Year", exam: "Exam", examcode: "Exam Code", regulation: "Regulation", program: "Program", programcode: "Program Code", semester: "Semester", section: "Section", student: "Student", regno: "Reg No" };
 const origin = () => window.location.origin;
 const verificationUrl = ({ colid, regno, hash }) => `${origin()}/verify-hallticket-blockchain?colid=${encodeURIComponent(colid)}&regno=${encodeURIComponent(regno || "")}&hash=${encodeURIComponent(hash || "")}`;
+const hallTicketVerifyUrl = (ticket = {}) => {
+  const exam = ticket.exam || {};
+  const student = ticket.student || {};
+  const first = (ticket.rows || [])[0] || {};
+  return `${origin()}/verify-hallticket?colid=${encodeURIComponent(global1.colid || first.colid || "")}&academicyear=${encodeURIComponent(exam.academicyear || first.academicyear || "")}&examcode=${encodeURIComponent(exam.examcode || first.examcode || "")}&regno=${encodeURIComponent(student.regno || first.regno || "")}`;
+};
+const hallTicketVerifyQr = async (ticket) => QRCode.toDataURL(hallTicketVerifyUrl(ticket), { width: 180, margin: 1 });
 const valueText = (...values) => values.map((value) => String(value || "").trim()).find(Boolean) || "-";
 const formatAdmitDate = (value) => {
   if (!value) return "-";
@@ -104,7 +111,7 @@ function HallTicketPrint({ ticket, qr }) {
   );
 }
 
-function HallTicketPrint2({ ticket, qr, printId = "hall-ticket-print-2", bulk = false }) {
+function HallTicketPrint2({ ticket, qr, printId = "hall-ticket-print-2", bulk = false, qrLabel = "Blockchain verification", verifyLink = "", showStudentSignature = false }) {
   if (!ticket) return null;
   const institution = ticket.institution || {};
   const student = ticket.student || {};
@@ -113,6 +120,7 @@ function HallTicketPrint2({ ticket, qr, printId = "hall-ticket-print-2", bulk = 
   const first = rows[0] || {};
   const logo = valueText(institution.logolink, institution.logo, global1.logo, "").replace(/^-$/, "");
   const photo = photoUrl(student);
+  const signature = valueText(ticket.studentSignature?.signaturelink, student.signaturelink, "").replace(/^-$/, "");
   const examName = valueText(exam.exam, first.exam);
   const examCode = valueText(exam.examcode, first.examcode, "");
   const institute = valueText(student.institution, institution.institutionname, global1.insname, "Institution");
@@ -223,7 +231,10 @@ function HallTicketPrint2({ ticket, qr, printId = "hall-ticket-print-2", bulk = 
 
       {qr && (
         <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1, mt: 1 }}>
-          <Typography sx={{ fontSize: 10, color: "#000" }}>Blockchain verification</Typography>
+          <Box sx={{ textAlign: "right", maxWidth: 260 }}>
+            <Typography sx={{ fontSize: 10, color: "#000" }}>{qrLabel}</Typography>
+            {verifyLink && <Typography component="a" href={verifyLink} target="_blank" rel="noreferrer" sx={{ display: "block", fontSize: 7.5, color: "#000", wordBreak: "break-all", textDecoration: "none" }}>{verifyLink}</Typography>}
+          </Box>
           <Box component="img" src={qr} alt="Blockchain QR" sx={{ width: 58, height: 58 }} />
         </Box>
       )}
@@ -247,7 +258,10 @@ function HallTicketPrint2({ ticket, qr, printId = "hall-ticket-print-2", bulk = 
       </Box>
 
       <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", alignItems: "end", mt: 5, fontSize: 14, color: "#000" }}>
-        <Typography sx={{ fontSize: 14, color: "#000" }}>Signature of Examinee</Typography>
+        <Box sx={{ minHeight: 42 }}>
+          {showStudentSignature && signature && <Box component="img" src={signature} alt="Student signature" sx={{ maxWidth: 150, maxHeight: 36, objectFit: "contain", display: "block", mb: 0.5 }} />}
+          <Typography sx={{ fontSize: 14, color: "#000" }}>Signature of Examinee</Typography>
+        </Box>
         <Typography sx={{ fontSize: 14, color: "#000", textAlign: "center" }}>Signature of COE with Seal</Typography>
         <Typography sx={{ fontSize: 14, color: "#000", textAlign: "right" }}>Signature of VFS with Seal</Typography>
       </Box>
@@ -272,6 +286,42 @@ function HallTicketBulkPrint2({ tickets }) {
       `}</style>
       {tickets.map((item, index) => (
         <HallTicketPrint2 key={`${item.ticket?.student?.regno || index}-${item.ticket?.exam?.examcode || index}`} ticket={item.ticket} qr={item.qr} printId={`hall-ticket-print-2-bulk-${index}`} bulk />
+      ))}
+    </Box>
+  );
+}
+
+function HallTicketPrint1({ ticket, qr, printId = "hall-ticket-print-1", bulk = false }) {
+  return (
+    <HallTicketPrint2
+      ticket={ticket}
+      qr={qr}
+      printId={printId}
+      bulk={bulk}
+      qrLabel="Hall ticket verification"
+      verifyLink={ticket ? hallTicketVerifyUrl(ticket) : ""}
+      showStudentSignature
+    />
+  );
+}
+
+function HallTicketBulkPrint1({ tickets }) {
+  if (!tickets.length) return null;
+  return (
+    <Box id="hall-ticket-print-1-bulk" sx={{ bgcolor: "#fff" }}>
+      <style>{`
+        @page{size:A4 portrait;margin:0}
+        @media print{
+          body *{visibility:hidden}
+          #hall-ticket-print-1-bulk,#hall-ticket-print-1-bulk *{visibility:visible}
+          #hall-ticket-print-1-bulk{position:absolute;left:0;top:0;width:210mm;background:#fff}
+          .no-print{display:none!important}
+          .hall-ticket-print-1-page{page-break-after:always;break-after:page;box-shadow:none!important}
+          .hall-ticket-print-1-page:last-child{page-break-after:auto;break-after:auto}
+        }
+      `}</style>
+      {tickets.map((item, index) => (
+        <HallTicketPrint1 key={`${item.ticket?.student?.regno || index}-${item.ticket?.exam?.examcode || index}`} ticket={item.ticket} qr={item.qr} printId={`hall-ticket-print-1-bulk-${index}`} bulk />
       ))}
     </Box>
   );
@@ -563,6 +613,149 @@ export default function ConductExamHallTicketPage() {
           </Stack>
         )}
         <HallTicketPrint ticket={common.ticket} qr={common.qr} />
+      </Box>
+    </MenuPageShell>
+  );
+}
+
+export function ConductExamHallTicket1Page() {
+  const [options, setOptions] = useState({});
+  const [filters, setFilters] = useState({});
+  const [students, setStudents] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [selectedRows, setSelectedRows] = useState([]);
+  const [bulkTickets, setBulkTickets] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const common = useHallTicketCommon();
+
+  useEffect(() => { loadOptions(); loadStudents(); }, []);
+
+  const selectedGridIds = () => Array.isArray(selectedRows)
+    ? selectedRows
+    : Array.from(selectedRows?.ids || selectedRows || []);
+
+  const params = (source = filters) => {
+    const next = { colid: global1.colid };
+    filterFields.forEach((field) => { if (source[field]) next[field] = source[field]; });
+    return next;
+  };
+  const loadOptions = async () => {
+    const res = await ep1.get("/api/v2/conductexam/hallticket-options", { params: { colid: global1.colid } });
+    setOptions(res.data?.options || {});
+  };
+  const loadStudents = async (nextFilters = filters) => {
+    try {
+      setLoading(true);
+      common.setError("");
+      const res = await ep1.get("/api/v2/conductexam/hallticket-eligible-students", { params: params(nextFilters) });
+      setStudents(res.data?.data || []);
+    } catch (err) {
+      common.setError(err.response?.data?.message || "Unable to load eligible students");
+    } finally {
+      setLoading(false);
+    }
+  };
+  const loadTicket = async (row) => {
+    setSelected(row);
+    common.setBlock(null);
+    common.setQr("");
+    const res = await ep1.get("/api/v2/conductexam/hallticket", { params: { colid: global1.colid, academicyear: row.academicyear, examcode: row.examcode, regno: row.regno } });
+    const ticket = res.data?.data || null;
+    common.setTicket(ticket);
+    common.setQr(ticket ? await hallTicketVerifyQr(ticket) : "");
+    setBulkTickets([]);
+  };
+  const loadBulkTickets = async () => {
+    try {
+      setBulkLoading(true);
+      common.setError("");
+      common.setMessage("");
+      common.setTicket(null);
+      common.setQr("");
+      const selectedSet = new Set(selectedGridIds());
+      const rows = students
+        .map((row) => ({ ...row, id: `${row.regno}-${row.academicyear}-${row.examcode}` }))
+        .filter((row) => selectedSet.has(row.id));
+      if (!rows.length) {
+        common.setError("Please select at least one student");
+        return;
+      }
+      const payloads = [];
+      for (const row of rows) {
+        const res = await ep1.get("/api/v2/conductexam/hallticket", { params: { colid: global1.colid, academicyear: row.academicyear, examcode: row.examcode, regno: row.regno } });
+        const ticket = res.data?.data || null;
+        payloads.push({ ticket, qr: ticket ? await hallTicketVerifyQr(ticket) : "" });
+      }
+      setBulkTickets(payloads.filter((item) => item.ticket));
+      common.setMessage(`${payloads.filter((item) => item.ticket).length} hall ticket(s) generated for print.`);
+    } catch (err) {
+      common.setError(err.response?.data?.message || "Unable to generate selected hall tickets");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+  const columns = [
+    { field: "student", headerName: "Student", width: 180 },
+    { field: "regno", headerName: "Reg No", width: 130 },
+    { field: "academicyear", headerName: "Academic Year", width: 130 },
+    { field: "exam", headerName: "Exam", width: 180 },
+    { field: "examcode", headerName: "Exam Code", width: 130 },
+    { field: "program", headerName: "Program", width: 190 },
+    { field: "programcode", headerName: "Program Code", width: 130 },
+    { field: "semester", headerName: "Semester", width: 110 },
+    { field: "coursecount", headerName: "Courses", width: 100 }
+  ];
+  return (
+    <MenuPageShell title="Generate hall ticket 1">
+      <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
+        <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
+          <Typography variant="h5" fontWeight={900}>Generate Hall Ticket 1</Typography>
+          <Typography color="text.secondary">Copy of hall ticket 2 with student signature and public QR verification link.</Typography>
+        </Paper>
+        {common.message && <Alert severity="success" sx={{ mb: 2 }}>{common.message}</Alert>}
+        {common.error && <Alert severity="error" sx={{ mb: 2 }}>{common.error}</Alert>}
+        <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
+          <Grid container spacing={2}>
+            {filterFields.slice(0, 8).map((field) => (
+              <Grid item xs={12} sm={6} md={2} key={field}>
+                <FormControl fullWidth>
+                  <InputLabel>{labels[field]}</InputLabel>
+                  <Select label={labels[field]} value={filters[field] || ""} onChange={(e) => setFilters((prev) => ({ ...prev, [field]: e.target.value }))}>
+                    <MenuItem value="">All</MenuItem>
+                    {(options[field] || []).map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
+                  </Select>
+                </FormControl>
+              </Grid>
+            ))}
+            <Grid item xs={12} md={2}><Button fullWidth variant="contained" onClick={() => loadStudents()} disabled={loading} sx={{ height: 56 }}>{loading ? "Loading..." : "Apply"}</Button></Grid>
+          </Grid>
+        </Paper>
+        <Paper elevation={0} sx={{ p: 1.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2, overflowX: "auto" }}>
+          <DataGrid
+            rows={students.map((row) => ({ ...row, id: `${row.regno}-${row.academicyear}-${row.examcode}` }))}
+            columns={columns}
+            loading={loading}
+            checkboxSelection
+            rowSelectionModel={selectedRows}
+            onRowSelectionModelChange={(model) => setSelectedRows(model)}
+            autoHeight
+            slots={{ toolbar: GridToolbar }}
+            pageSizeOptions={[10, 25, 50, 100]}
+            onRowClick={(params) => loadTicket(params.row)}
+            sx={{ minWidth: 1200 }}
+          />
+        </Paper>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ mb: 2 }} className="no-print">
+          <Button variant="contained" disabled={bulkLoading || !selectedGridIds().length} onClick={loadBulkTickets}>{bulkLoading ? "Generating..." : "Generate selected hall tickets"}</Button>
+          <Button variant="outlined" startIcon={<PrintIcon />} disabled={!bulkTickets.length} onClick={() => window.print()}>Print selected</Button>
+        </Stack>
+        {common.ticket && (
+          <Stack direction="row" spacing={1} sx={{ mb: 2 }} className="no-print">
+            <Button variant="contained" startIcon={<PrintIcon />} onClick={common.print}>Print</Button>
+          </Stack>
+        )}
+        {bulkTickets.length ? <HallTicketBulkPrint1 tickets={bulkTickets} /> : <HallTicketPrint1 ticket={common.ticket} qr={common.qr} />}
       </Box>
     </MenuPageShell>
   );
@@ -1099,6 +1292,29 @@ export function PublicHallTicketBlockchainVerifyPage() {
       {error && <Alert severity="error">{error}</Alert>}
       {result && <Alert severity={result.verified ? "success" : "warning"} sx={{ mb: 2 }}>{result.verified ? "Hall ticket verified from blockchain." : "No matching blockchain record found."}</Alert>}
       {block && <HallTicketPrint ticket={block.payload} />}
+    </Box>
+  );
+}
+
+export function PublicHallTicketVerifyPage() {
+  const [params] = useState(() => new URLSearchParams(window.location.search));
+  const [result, setResult] = useState(null);
+  const [qr, setQr] = useState("");
+  const [error, setError] = useState("");
+  useEffect(() => {
+    ep1.get("/api/v2/public/hallticket-verify", { params: Object.fromEntries(params.entries()) })
+      .then(async (res) => {
+        setResult(res.data);
+        if (res.data?.data) setQr(await hallTicketVerifyQr(res.data.data));
+      })
+      .catch((err) => setError(err.response?.data?.message || "Unable to verify hall ticket"));
+  }, [params]);
+  const ticket = result?.data;
+  return (
+    <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {result && <Alert severity={result.verified ? "success" : "warning"} sx={{ mb: 2 }}>{result.verified ? "Hall ticket details verified." : "No matching hall ticket found."}</Alert>}
+      {ticket && <HallTicketPrint1 ticket={ticket} qr={qr} />}
     </Box>
   );
 }

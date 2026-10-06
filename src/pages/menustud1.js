@@ -236,6 +236,13 @@ function DefaultStudentListItems({ open }) {
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Bank account" />}
 </ListItem>
 
+        <ListItem button component={RouterLink} to="/student-signature-upload">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Signature upload" />}
+</ListItem>
+
         <ListItem button component={RouterLink} to="/studentlocationpublish">
 <ListItemIcon>
 <PersonIcon />
@@ -471,6 +478,13 @@ function DefaultStudentListItems({ open }) {
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="OTP Attendance" />}
 </ListItem>
 
+           <ListItem button component={RouterLink} to="/studentneplmsenrollmentotpattendance">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Enrollment OTP Attendance" />}
+</ListItem>
+
            <ListItem button component={RouterLink} to="/studentneplmslivequiz">
 <ListItemIcon>
 <PersonIcon />
@@ -556,6 +570,13 @@ function DefaultStudentListItems({ open }) {
 	<PersonIcon />
 	</ListItemIcon>
 	{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Marks view" />}
+	</ListItem>
+
+	           <ListItem button component={RouterLink} to="/student-online-exam-marks-view-co-bloom">
+	<ListItemIcon>
+	<PersonIcon />
+	</ListItemIcon>
+	{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Marks view CO Bloom" />}
 	</ListItem>
 
 	           <ListItem button component={RouterLink} to="/student-course-group-exam">
@@ -1073,12 +1094,12 @@ function DefaultStudentListItems({ open }) {
         </AccordionSummary>
         <AccordionDetails>
 
-          <ListItem button component={RouterLink} to="/student-exam-registration">
+          {/* <ListItem button component={RouterLink} to="/student-exam-registration">
 <ListItemIcon>
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Exam registration" />}
-</ListItem>
+</ListItem> */}
 
           <ListItem button component={RouterLink} to="/student-exam-dynamic-form">
 <ListItemIcon>
@@ -1094,33 +1115,47 @@ function DefaultStudentListItems({ open }) {
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="ATKT form" />}
 </ListItem>
 
-          <ListItem button component={RouterLink} to="/examapply">
+          <ListItem button component={RouterLink} to="/preapproved-regular-form">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Preapproved regular form" />}
+</ListItem>
+
+          <ListItem button component={RouterLink} to="/preapproved-atkt-form">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Preapproved ATKT form" />}
+</ListItem>
+
+          {/* <ListItem button component={RouterLink} to="/examapply">
 <ListItemIcon>
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Apply for exam" />}
-</ListItem>
+</ListItem> */}
 
-<ListItem button component={RouterLink} to="/examapply1">
+{/* <ListItem button component={RouterLink} to="/examapply1">
 <ListItemIcon>
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Apply for exam 1" />}
-</ListItem>
+</ListItem> */}
 
-          <ListItem button component={RouterLink} to="/dashapplyadmitstud">
+          {/* <ListItem button component={RouterLink} to="/dashapplyadmitstud">
 <ListItemIcon>
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Student Registration form" />}
-</ListItem>
+</ListItem> */}
 
- <ListItem button component={RouterLink} to="/dashmexamadmitstud">
+ {/* <ListItem button component={RouterLink} to="/dashmexamadmitstud">
 <ListItemIcon>
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="My registration" />}
-</ListItem>
+</ListItem> */}
 
            {/* <ListItem button component={RouterLink} to="/examapplicationform">
 <ListItemIcon>

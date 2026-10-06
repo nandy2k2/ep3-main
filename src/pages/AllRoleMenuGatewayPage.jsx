@@ -134,8 +134,8 @@ const groupBuckets = [
   },
   {
     title: "Fees and Finance",
-    description: "Fees, receipts, finance, payment gateways, scholarship, budget and accounts.",
-    matches: ["fees", "finance", "accounts", "payment gateway", "scholarship", "budget approval", "counter fee", "pending fees"]
+    description: "Fees, receipts, finance, billing, payment gateways, scholarship, budget and accounts.",
+    matches: ["fees", "finance", "billing", "accounts", "payment gateway", "scholarship", "budget approval", "counter fee", "pending fees"]
   },
   {
     title: "Placement",

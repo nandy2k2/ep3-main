@@ -22,6 +22,18 @@ export const applyLoginSession = async (responseData, options = {}) => {
 
   const user = responseData.user;
   const colid = responseData.colid;
+  let subscriptiondeactivated = responseData.subscriptiondeactivated || "No";
+  try {
+    const subscriptionRes = await ep1.get("/api/v2/billing/subscription", { params: { colid } });
+    subscriptiondeactivated = /^no$/i.test(subscriptionRes.data?.data?.active) ? "Yes" : "No";
+    if (subscriptiondeactivated === "Yes" && String(responseData.role || "").trim().toLowerCase() !== "all") {
+      throw new Error("This account has been deactivated. Please contact administrator.");
+    }
+  } catch (error) {
+    if (/deactivated/i.test(error.message || "")) {
+      throw error;
+    }
+  }
   global1.studid = user;
   global1.user = user;
   global1.email = user;
@@ -38,6 +50,7 @@ export const applyLoginSession = async (responseData, options = {}) => {
   global1.semester = responseData.semester;
   global1.section = responseData.section;
   global1.role = responseData.role;
+  global1.subscriptiondeactivated = subscriptiondeactivated;
   global1.googleemail = responseData.googleemail;
   global1.aqaryear = "2020-21";
   global1.calendaryear = "2020";
@@ -101,6 +114,7 @@ export const applyLoginSession = async (responseData, options = {}) => {
   }
 
   if (normalizedRole === "all") {
+    if (subscriptiondeactivated === "Yes") return "/billing-subscription";
     return "/configuration";
   }
 

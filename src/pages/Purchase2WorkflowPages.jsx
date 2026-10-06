@@ -21,6 +21,7 @@ import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import MenuPageShell from "./MenuPageShell";
 import PlacementCoordinatorShell from "./PlacementCoordinatorShell";
 import { openPurchase2PrintWindow } from "./Purchase2PrintTemplates";
 
@@ -2014,6 +2015,127 @@ export function UserSignatureUploadPage() {
     } catch (err) { setError(err.message || "Unable to save signature"); }
   };
   return <Page title="User Signature Upload" subtitle="Upload user signatures through AWS and use them in Purchase 2 print documents." message={message} error={error}><Paper sx={{ p: 2, mb: 2 }}><Grid container spacing={2}><Grid item xs={12} md={4}><Autocomplete options={users} value={selectedUser} onChange={(_, v) => setSelectedUser(v)} getOptionLabel={(o) => `${o.name || ""} ${o.email || o.user || ""}`} renderInput={(params) => <TextField {...params} label="User" size="small" />} /></Grid><Grid item xs={12} md={3}><TextField select size="small" label="AWS config" value={awsconfigid} onChange={(e) => setAwsconfigid(e.target.value)} fullWidth><MenuItem value="">Select</MenuItem>{configs.map((cfg) => <MenuItem key={cfg._id} value={cfg._id}>{cfg.name || cfg.configname || cfg.bucket}</MenuItem>)}</TextField></Grid><Grid item xs={12} md={3}><Button component="label" startIcon={<UploadFile />} variant="outlined" fullWidth>{file?.name || "Upload signature"}<input type="file" accept="image/*" hidden onChange={(e) => setFile(e.target.files?.[0] || null)} /></Button></Grid><Grid item xs={12} md={2}><Button fullWidth variant="contained" onClick={upload}>Save</Button></Grid><Grid item xs={12}><TextField size="small" label="Or paste signature link" value={signaturelink} onChange={(e) => setSignaturelink(e.target.value)} fullWidth /></Grid></Grid></Paper><DataGrid autoHeight rows={rows.map((r) => ({ ...r, id: r._id }))} columns={[{ field: "username", headerName: "Name", flex: 1 }, { field: "useremail", headerName: "Email", flex: 1 }, { field: "signaturelink", headerName: "Signature Link", flex: 1, renderCell: (p) => p.value ? <a href={p.value} target="_blank" rel="noreferrer">View</a> : "-" }, { field: "status", headerName: "Status", width: 120 }]} slots={{ toolbar: GridToolbar }} /></Page>;
+}
+
+export function StudentSignatureUploadPage() {
+  const [rows, setRows] = useState([]);
+  const [configs, setConfigs] = useState([]);
+  const [awsconfigid, setAwsconfigid] = useState("");
+  const [file, setFile] = useState(null);
+  const [signaturelink, setSignaturelink] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const studentEmail = currentUser();
+  const studentName = currentName();
+
+  const load = async () => {
+    try {
+      setError("");
+      const [signatureRows, configRes] = await Promise.all([
+        getRows("usersignatureds", [{ field: "useremail", value: studentEmail }]),
+        ep1.get("/api/v2/aws-file-library/configs", { params: { colid: global1.colid } })
+      ]);
+      setRows(signatureRows);
+      setConfigs(configRes.data || []);
+    } catch (err) {
+      setError(err.message || "Unable to load signature details");
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const upload = async () => {
+    try {
+      setBusy(true);
+      setError("");
+      setMessage("");
+      let link = signaturelink;
+      if (file) {
+        if (!awsconfigid) throw new Error("Select AWS configuration");
+        const data = new FormData();
+        data.append("file", file);
+        data.append("colid", global1.colid);
+        data.append("user", studentEmail || "");
+        data.append("awsconfigid", awsconfigid);
+        data.append("folder", "student-signatures");
+        data.append("description", "Student signature");
+        const res = await ep1.post("/api/v2/aws-file-library/upload", data, { headers: { "Content-Type": "multipart/form-data" } });
+        link = res.data?.url || link;
+      }
+      if (!studentEmail || studentEmail === "NA") throw new Error("Logged in student email is not available");
+      if (!link) throw new Error("Upload signature or paste signature link");
+      const activeRow = rows.find((row) => text(row.status || "Active").toLowerCase() === "active") || rows[0];
+      await saveRow("usersignatureds", {
+        ...(activeRow ? { id: activeRow._id } : {}),
+        username: studentName || "",
+        useremail: studentEmail || "",
+        signaturelink: link,
+        status: "Active",
+        signaturetype: "Student"
+      });
+      setMessage("Signature saved");
+      setFile(null);
+      setSignaturelink("");
+      await load();
+    } catch (err) {
+      setError(err.message || "Unable to save signature");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <MenuPageShell title="Student Signature Upload" menuType="student">
+      <Box sx={{ mb: 2 }}>
+        <Typography variant="h5" fontWeight={800}>Student Signature Upload</Typography>
+        <Typography variant="body2" color="text.secondary">Upload your own signature. No student or user selection is required.</Typography>
+      </Box>
+      {message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={4}>
+            <TextField size="small" label="Student" value={studentName} fullWidth InputProps={{ readOnly: true }} />
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <TextField size="small" label="Email" value={studentEmail} fullWidth InputProps={{ readOnly: true }} />
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <TextField select size="small" label="AWS config" value={awsconfigid} onChange={(e) => setAwsconfigid(e.target.value)} fullWidth>
+              <MenuItem value="">Select</MenuItem>
+              {configs.map((cfg) => <MenuItem key={cfg._id} value={cfg._id}>{cfg.name || cfg.configname || cfg.bucket}</MenuItem>)}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Button component="label" startIcon={<UploadFile />} variant="outlined" fullWidth disabled={busy}>
+              {file?.name || "Upload signature"}
+              <input type="file" accept="image/*" hidden onChange={(e) => setFile(e.target.files?.[0] || null)} />
+            </Button>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField size="small" label="Or paste signature link" value={signaturelink} onChange={(e) => setSignaturelink(e.target.value)} fullWidth />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <Button fullWidth variant="contained" onClick={upload} disabled={busy} sx={{ height: "100%" }}>
+              {busy ? "Saving..." : "Save"}
+            </Button>
+          </Grid>
+        </Grid>
+      </Paper>
+      <DataGrid
+        autoHeight
+        rows={rows.map((row) => ({ ...row, id: row._id }))}
+        columns={[
+          { field: "username", headerName: "Name", flex: 1 },
+          { field: "useremail", headerName: "Email", flex: 1 },
+          { field: "signaturelink", headerName: "Signature Link", flex: 1, renderCell: (params) => params.value ? <a href={params.value} target="_blank" rel="noreferrer">View</a> : "-" },
+          { field: "status", headerName: "Status", width: 120 }
+        ]}
+        slots={{ toolbar: GridToolbar }}
+      />
+    </MenuPageShell>
+  );
 }
 
 export function Purchase2GatePassPage() {

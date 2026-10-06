@@ -40,6 +40,12 @@ const steps = [
     description: "Allocate dates and slots using configured slots, date ranges, and optional holiday-list checking."
   },
   {
+    title: "Exam Scheduler Manual",
+    path: "/conduct-exam-scheduler-manual",
+    icon: <Today />,
+    description: "Manually add, edit, bulk upload, and delete coursewise exam dates and slots."
+  },
+  {
     title: "Exam Scheduler Report",
     path: "/conduct-exam-course-scheduler-report",
     icon: <Summarize />,
@@ -113,6 +119,46 @@ export default function ExaminationConductWizardPage() {
       title="Examination Conduct Wizard 1"
       subtitle="Run the conduct examination setup through the original live pages, embedded step by step."
       steps={steps}
+      startLabel="Start conduct setup"
+    />
+  );
+}
+
+const feesAndScholarshipSteps = [
+  ...steps.slice(0, 3),
+  {
+    title: "Exam Fees",
+    path: "/conduct-exam-fees",
+    icon: <Paid />,
+    description: "Configure coursewise or examwise fee items used while students submit the examination form."
+  },
+  {
+    title: "Exam Max Fees",
+    path: "/conduct-exam-fees-max",
+    icon: <Paid />,
+    description: "Set maximum exam-fee caps for selected academic year, regulation, program, and exam combinations."
+  },
+  {
+    title: "Exam Scholarship",
+    path: "/exam-scholarship",
+    icon: <Rule />,
+    description: "Select students whose exam fee should become zero during preapproved form submission."
+  },
+  {
+    title: "Pre Exam Eligibility",
+    path: "/pre-exam-eligibility",
+    icon: <FactCheck />,
+    description: "Maintain barred students or courses so preapproved exam forms can skip ineligible course entries."
+  },
+  ...steps.slice(3)
+];
+
+export function ExaminationConductWizard2Page() {
+  return (
+    <EmbeddedWizardShell
+      title="Examination Conduct Wizard 2"
+      subtitle="Run the conduct examination setup with fee, maximum fee, scholarship, and pre-exam eligibility controls embedded."
+      steps={feesAndScholarshipSteps}
       startLabel="Start conduct setup"
     />
   );

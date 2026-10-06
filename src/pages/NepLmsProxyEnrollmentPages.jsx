@@ -10,6 +10,7 @@ import {
   FormControl,
   Grid,
   InputLabel,
+  LinearProgress,
   MenuItem,
   Paper,
   Select,
@@ -451,4 +452,196 @@ export function NepLmsEnrollmentAttendancePage() {
   useEffect(() => { ep1.get("/api/v2/neplms/enrollment-groups/assigned", { params: { colid: global1.colid, user: global1.user } }).then((res) => setGroups(res.data?.data || [])).catch(() => setGroups([])); }, []);
   useEffect(() => { if (group) ep1.get("/api/v2/neplms/timetable", { params: { colid: global1.colid, enrollmentgroupid: group.groupid } }).then((res) => setRows(res.data?.data || [])).catch(() => setRows([])); }, [group?.groupid]);
   return <MenuPageShell title="Enrollment attendance"><Box sx={{ p: 2 }}><Paper sx={{ p: 2, mb: 2 }}><Typography variant="h5" fontWeight={900}>Enrollment attendance</Typography><Autocomplete sx={{ mt: 1 }} options={groups} value={group} onChange={(_, v) => setGroup(v)} getOptionLabel={(o) => o.groupname || ""} renderInput={(p) => <TextField {...p} label="Assigned enrollment group" />} /></Paper><AttendanceDiagnosticHelp selectedClass={selectedClass} filters={group || {}} /><CalendarView rows={rows} view={view} setView={setView} activeDate={activeDate} setActiveDate={setActiveDate} onSelect={setSelectedClass} selectedId={selectedClass?._id} />{selectedClass && <AttendancePanel selectedClass={selectedClass} enrollment />}</Box></MenuPageShell>;
+}
+
+export function NepLmsEnrollmentOtpAttendancePage() {
+  const [groups, setGroups] = useState([]);
+  const [group, setGroup] = useState(null);
+  const [rows, setRows] = useState([]);
+  const [selectedClass, setSelectedClass] = useState(null);
+  const [view, setView] = useState("month");
+  const [activeDate, setActiveDate] = useState(today());
+  const [otp, setOtp] = useState("");
+  const [validTill, setValidTill] = useState("");
+  const [secondsLeft, setSecondsLeft] = useState(0);
+  const [generating, setGenerating] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    ep1.get("/api/v2/neplms/enrollment-groups/assigned", { params: { colid: global1.colid, user: global1.user } })
+      .then((res) => setGroups(res.data?.data || []))
+      .catch(() => setGroups([]));
+  }, []);
+
+  useEffect(() => {
+    if (!group) return;
+    ep1.get("/api/v2/neplms/timetable", { params: { colid: global1.colid, enrollmentgroupid: group.groupid } })
+      .then((res) => setRows(res.data?.data || []))
+      .catch(() => setRows([]));
+  }, [group?.groupid]);
+
+  useEffect(() => {
+    if (!validTill) return undefined;
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((new Date(validTill).getTime() - Date.now()) / 1000));
+      setSecondsLeft(remaining);
+      if (!remaining) setOtp("");
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [validTill]);
+
+  const createOtp = async () => {
+    if (!selectedClass) return setError("Select a scheduled enrollment class.");
+    setGenerating(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await ep1.post("/api/v2/neplms/enrollment-attendance/otp/create", {
+        colid: global1.colid,
+        user: global1.user,
+        type: "Enrollment",
+        classInfo: selectedClass
+      });
+      setOtp(res.data?.otps?.[0] || "");
+      setValidTill(res.data?.validtill || "");
+      setSecondsLeft(60);
+      setMessage(`One OTP generated. It is valid for one minute${res.data?.validtill ? ` till ${new Date(res.data.validtill).toLocaleTimeString()}` : ""}.`);
+    } catch (err) {
+      setOtp("");
+      setValidTill("");
+      setSecondsLeft(0);
+      setError(err.response?.data?.message || "Unable to generate enrollment OTP.");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  return (
+    <MenuPageShell title="Enrollment OTP attendance">
+      <Box sx={{ p: 2 }}>
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Typography variant="h5" fontWeight={900}>Enrollment OTP attendance</Typography>
+          <Typography color="text.secondary">Generate one OTP for the selected enrollment class. The OTP is valid for one minute.</Typography>
+          {message && <Alert severity="success" sx={{ mt: 1 }} onClose={() => setMessage("")}>{message}</Alert>}
+          {error && <Alert severity="error" sx={{ mt: 1 }} onClose={() => setError("")}>{error}</Alert>}
+          <Autocomplete sx={{ mt: 2 }} options={groups} value={group} onChange={(_, v) => { setGroup(v); setSelectedClass(null); setOtp(""); }} getOptionLabel={(o) => o.groupname || ""} renderInput={(p) => <TextField {...p} label="Assigned enrollment group" />} />
+        </Paper>
+        <CalendarView rows={rows} view={view} setView={setView} activeDate={activeDate} setActiveDate={setActiveDate} onSelect={(row) => { setSelectedClass(row); setOtp(""); setValidTill(""); }} selectedId={selectedClass?._id} />
+        <Paper sx={{ p: 2, mt: 2 }}>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={2} justifyContent="space-between" alignItems={{ xs: "stretch", md: "center" }}>
+            <Box>
+              <Typography fontWeight={900}>Selected class</Typography>
+              <Typography color="text.secondary">{selectedClass ? `${selectedClass.classdate || ""} ${selectedClass.classtime || ""} ${selectedClass.enrollmentgroup || selectedClass.groupname || ""}` : "No class selected"}</Typography>
+            </Box>
+            <Button variant="contained" startIcon={<Save />} disabled={generating || !selectedClass} onClick={createOtp}>{generating ? "Generating..." : "Generate one OTP"}</Button>
+          </Stack>
+          {generating && <LinearProgress sx={{ mt: 2 }} />}
+        </Paper>
+        <Paper sx={{ p: 3, mt: 2, textAlign: "center" }}>
+          {otp ? (
+            <Stack spacing={1.5} alignItems="center">
+              <Chip color="primary" label="Enrollment OTP" />
+              <Typography sx={{ fontSize: { xs: 52, md: 84 }, fontWeight: 900, letterSpacing: 8, color: "#102a43" }}>{otp}</Typography>
+              <Typography variant="h6" color={secondsLeft <= 10 ? "error" : "text.secondary"}>{secondsLeft} seconds remaining</Typography>
+              <LinearProgress variant="determinate" value={(secondsLeft / 60) * 100} sx={{ width: "100%", maxWidth: 520 }} />
+            </Stack>
+          ) : <Typography color="text.secondary">Select an enrollment class and generate OTP.</Typography>}
+        </Paper>
+      </Box>
+    </MenuPageShell>
+  );
+}
+
+export function StudentEnrollmentOtpAttendancePage() {
+  const [sessions, setSessions] = useState([]);
+  const [student, setStudent] = useState({});
+  const [sessionid, setSessionid] = useState("");
+  const [otp, setOtp] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const selectedSession = useMemo(() => sessions.find((row) => row._id === sessionid) || null, [sessions, sessionid]);
+  const sessionLabel = (row = {}) => {
+    const valid = row.validtill ? ` | Valid till ${new Date(row.validtill).toLocaleTimeString()}` : "";
+    return `${row.classdate || ""} ${row.classtime || ""} | ${row.enrollmentgroup || ""}${valid}`;
+  };
+
+  const loadSessions = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await ep1.get("/api/v2/neplms/enrollment-attendance/otp/student-sessions", {
+        params: { colid: global1.colid, regno: global1.regno, email: global1.user }
+      });
+      const data = res.data?.data || [];
+      setSessions(data);
+      setStudent(res.data?.student || {});
+      if (!sessionid && data.length) setSessionid(data[0]._id);
+    } catch (err) {
+      setSessions([]);
+      setError(err.response?.data?.message || "Unable to load enrollment OTP sessions.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadSessions(); }, []);
+
+  const submitOtp = async () => {
+    if (!sessionid) return setError("Please select an active enrollment OTP class.");
+    if (!/^\d{6}$/.test(otp)) return setError("Please enter one valid 6 digit OTP.");
+    setSubmitting(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await ep1.post("/api/v2/neplms/enrollment-attendance/otp/submit", {
+        colid: global1.colid,
+        regno: global1.regno,
+        email: global1.user,
+        user: global1.user,
+        sessionid,
+        otp
+      });
+      setMessage(res.data?.message || "Enrollment attendance marked present.");
+      setOtp("");
+      loadSessions();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to submit enrollment OTP attendance.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <MenuPageShell title="Enrollment OTP attendance">
+      <Box sx={{ p: 3 }}>
+        <Stack spacing={2}>
+          {message && <Alert severity="success" onClose={() => setMessage("")}>{message}</Alert>}
+          {error && <Alert severity="error" onClose={() => setError("")}>{error}</Alert>}
+          <Paper sx={{ p: 2 }}>
+            <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
+              <Box>
+                <Typography variant="h6" fontWeight={800}>Enter Enrollment OTP</Typography>
+                <Typography variant="body2" color="text.secondary">{student.name || global1.name || "Student"} | {student.regno || global1.regno || "-"} | {student.programcode || "-"} | Sem {student.semester || "-"}</Typography>
+              </Box>
+              <Button variant="outlined" startIcon={<Refresh />} onClick={loadSessions} disabled={loading}>Refresh</Button>
+            </Stack>
+            {loading && <LinearProgress sx={{ mb: 2 }} />}
+            <TextField select fullWidth label="Active enrollment OTP class" value={sessionid} onChange={(event) => setSessionid(event.target.value)}>
+              {sessions.map((row) => <MenuItem key={row._id} value={row._id}>{sessionLabel(row)}</MenuItem>)}
+            </TextField>
+            {selectedSession && <Alert severity="info" sx={{ mt: 2 }}>Selected: {sessionLabel(selectedSession)}</Alert>}
+          </Paper>
+          <Paper sx={{ p: 2 }}>
+            <TextField fullWidth label="OTP" value={otp} onChange={(event) => setOtp(String(event.target.value || "").replace(/\D/g, "").slice(0, 6))} inputProps={{ inputMode: "numeric", maxLength: 6, style: { letterSpacing: 4, fontWeight: 800 } }} />
+            <Button sx={{ mt: 2 }} variant="contained" startIcon={<Save />} disabled={submitting || !sessionid} onClick={submitOtp}>{submitting ? "Submitting..." : "Submit OTP Attendance"}</Button>
+            {submitting && <LinearProgress sx={{ mt: 2 }} />}
+          </Paper>
+        </Stack>
+      </Box>
+    </MenuPageShell>
+  );
 }

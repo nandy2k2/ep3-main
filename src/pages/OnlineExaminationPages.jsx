@@ -2126,7 +2126,7 @@ export function OnlineExaminationSummaryReportPage({ examContext = "Student", pa
   );
 }
 
-export function OnlineExaminationDetailsPage({ examContext = "Student", pageTitle = "Online examination details" }) {
+export function OnlineExaminationDetailsPage({ examContext = "Student", pageTitle = "Online examination details", mappedFromQuestions = false }) {
   const [options, setOptions] = useState({ academicyears: [], faculty: [] });
   const [filters, setFilters] = useState({ academicyear: "", faculty: "" });
   const [rows, setRows] = useState([]);
@@ -2152,7 +2152,8 @@ export function OnlineExaminationDetailsPage({ examContext = "Student", pageTitl
     setLoading(true);
     setMessage("");
     try {
-      const res = await ep1.post("/api/v2/online-exam/examination-details", { colid: global1.colid, examcontext: examContext, ...filters });
+      const endpoint = mappedFromQuestions ? "/api/v2/online-exam/examination-details-mapped" : "/api/v2/online-exam/examination-details";
+      const res = await ep1.post(endpoint, { colid: global1.colid, examcontext: examContext, ...filters });
       setRows(res.data?.data || []);
       setSummary(res.data?.summary || {});
       setSelectedExam(null);
@@ -2187,7 +2188,8 @@ export function OnlineExaminationDetailsPage({ examContext = "Student", pageTitl
       <Box sx={{ p: 2, bgcolor: "#f6f8fb", minHeight: "100vh" }}>
         <Stack spacing={2}>
           <Typography variant="h5" fontWeight={900}>{pageTitle}</Typography>
-          {message && <Alert severity={/unable|select/i.test(message) ? "warning" : "info"} onClose={() => setMessage("")}>{message}</Alert>}
+            {message && <Alert severity={/unable|select/i.test(message) ? "warning" : "info"} onClose={() => setMessage("")}>{message}</Alert>}
+            {mappedFromQuestions && <Alert severity="info">Questionwise CO and Bloom taxonomy are recovered from the original questions, not from the saved answer snapshot.</Alert>}
           <Paper sx={{ p: 2 }}>
             <Grid container spacing={2} alignItems="center">
               <Grid item xs={12} md={3}>
@@ -2306,6 +2308,13 @@ export function OnlineExaminationDetailsPage({ examContext = "Student", pageTitl
                         {(selectedResponse.answers || []).map((answer, index) => (
                           <Paper key={answer._id || index} variant="outlined" sx={{ p: 1.5 }}>
                             <Typography fontWeight={900}>Question {index + 1} | Marks: {answer.marksobtained || 0} / {answer.maxmarks || 0}</Typography>
+                            {mappedFromQuestions && (
+                              <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", my: 1 }}>
+                                <Chip size="small" color="primary" variant="outlined" label={`CO: ${answer.questionCo || "-"}`} />
+                                <Chip size="small" color="secondary" variant="outlined" label={`Bloom: ${answer.questionBloom || "-"}`} />
+                                <Chip size="small" variant="outlined" label={answer.questionSource || "Original question paper"} />
+                              </Stack>
+                            )}
                             <Box sx={{ mt: 1, "& img": { maxWidth: "100%", maxHeight: 240, objectFit: "contain" }, "& table": { borderCollapse: "collapse", width: "100%" }, "& td": { border: "1px solid #cbd5e1", p: 0.75 }, "& .question-math": { fontFamily: "Cambria Math, Georgia, serif", fontSize: 18, my: 1 } }} dangerouslySetInnerHTML={{ __html: richQuestionHtml(answer) }} />
                             <Typography sx={{ whiteSpace: "pre-wrap", mt: 1 }}><b>Response:</b> {answer.answertext || answer.selectedoptiontext || "-"}</Typography>
                             {answer.attachmenturl && <AttachmentLink url={answer.attachmenturl} label="Attachment" />}
@@ -2325,6 +2334,465 @@ export function OnlineExaminationDetailsPage({ examContext = "Student", pageTitl
       </Box>
     </MenuPageShell>
   );
+}
+
+export function OnlineExaminationQuestionMappedDetailsPage() {
+  return (
+    <OnlineExaminationDetailsPage
+      examContext="Student"
+      pageTitle="Online examination details CO Bloom"
+      mappedFromQuestions
+    />
+  );
+}
+
+export function OnlineExaminationBloomCoSummaryPage() {
+  const [options, setOptions] = useState({ academicyears: [], exams: [] });
+  const [academicyear, setAcademicyear] = useState("");
+  const [exam, setExam] = useState(null);
+  const [report, setReport] = useState({ bloomSummary: [], coSummary: [], details: [], summary: {} });
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const loadOptions = async (year = academicyear) => {
+    const res = await ep1.get("/api/v2/online-exam/bloom-co-summary-options", {
+      params: { colid: global1.colid, academicyear: year, examcontext: "Student" }
+    });
+    setOptions(res.data || { academicyears: [], exams: [] });
+  };
+
+  useEffect(() => {
+    loadOptions().catch(() => setMessage("Unable to load summary filters."));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const changeYear = async (value) => {
+    setAcademicyear(value || "");
+    setExam(null);
+    await loadOptions(value || "");
+  };
+
+  const load = async () => {
+    if (!academicyear) {
+      setMessage("Select academic year.");
+      return;
+    }
+    setLoading(true);
+    setMessage("");
+    try {
+      const res = await ep1.post("/api/v2/online-exam/bloom-co-summary", {
+        colid: global1.colid,
+        academicyear,
+        examid: exam?._id || "",
+        examcontext: "Student"
+      });
+      setReport(res.data || { bloomSummary: [], coSummary: [], details: [], summary: {} });
+    } catch (error) {
+      setMessage(error.response?.data?.message || "Unable to load Bloom and CO summary.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cards = [
+    ["Exams", report.summary?.exams || 0],
+    ["Attempts", report.summary?.attempts || 0],
+    ["Question scores", report.summary?.questions || 0],
+    ["Total score", `${report.summary?.totalScore || 0} / ${report.summary?.totalMarks || 0}`]
+  ];
+
+  return (
+    <MenuPageShell title="Bloom CO summary">
+      <Box sx={{ p: 2, bgcolor: "#f6f8fb", minHeight: "100vh" }}>
+        <Stack spacing={2}>
+          <Typography variant="h5" fontWeight={900}>Bloom taxonomy and CO percentage summary</Typography>
+          {message && <Alert severity={/unable|select/i.test(message) ? "warning" : "info"} onClose={() => setMessage("")}>{message}</Alert>}
+          <Paper sx={{ p: 2 }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={4}>
+                <Autocomplete
+                  options={options.academicyears || []}
+                  value={academicyear || ""}
+                  onChange={(_, value) => changeYear(value)}
+                  onInputChange={(_, value) => setAcademicyear(value || "")}
+                  renderInput={(params) => <TextField {...params} label="Academic year" />}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Autocomplete
+                  options={(options.exams || []).filter((item) => !academicyear || item.academicyear === academicyear)}
+                  value={exam}
+                  getOptionLabel={(option) => option?.label || ""}
+                  isOptionEqualToValue={(option, value) => String(option._id) === String(value?._id)}
+                  onChange={(_, value) => setExam(value)}
+                  renderInput={(params) => <TextField {...params} label="Exam (optional)" helperText="Leave blank for all exams in the selected academic year." />}
+                />
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <Button fullWidth variant="contained" sx={{ height: 56 }} disabled={loading || !academicyear} onClick={load}>
+                  {loading ? "Loading..." : "Load"}
+                </Button>
+              </Grid>
+            </Grid>
+            {loading && <LinearProgress sx={{ mt: 2 }} />}
+          </Paper>
+
+          <Grid container spacing={2}>{cards.map(([label, value]) => <Grid item xs={12} sm={6} md={3} key={label}><Card><CardContent><Typography color="text.secondary">{label}</Typography><Typography variant="h4" fontWeight={900}>{value}</Typography></CardContent></Card></Grid>)}</Grid>
+
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <Paper sx={{ p: 2, height: "100%" }}>
+                <Typography variant="h6" fontWeight={900}>Bloom taxonomy summary</Typography>
+                <Box sx={{ height: 280 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={report.bloomSummary || []}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="label" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="percentage" name="Percentage" fill="#3b82f6" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Box>
+                <DataGrid rows={(report.bloomSummary || []).map((row) => ({ ...row, id: row.label }))} columns={[
+                  { field: "label", headerName: "Bloom taxonomy", minWidth: 180, flex: 1 },
+                  { field: "questions", headerName: "Question scores", minWidth: 130 },
+                  { field: "score", headerName: "Score", minWidth: 100 },
+                  { field: "maxmarks", headerName: "Max", minWidth: 100 },
+                  { field: "percentage", headerName: "Percentage", minWidth: 130 }
+                ]} autoHeight slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "bloom_taxonomy_summary" } } }} />
+              </Paper>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Paper sx={{ p: 2, height: "100%" }}>
+                <Typography variant="h6" fontWeight={900}>CO summary</Typography>
+                <Box sx={{ height: 280 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={report.coSummary || []}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="label" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="percentage" name="Percentage" fill="#10b981" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Box>
+                <DataGrid rows={(report.coSummary || []).map((row) => ({ ...row, id: row.label }))} columns={[
+                  { field: "label", headerName: "CO", minWidth: 180, flex: 1 },
+                  { field: "questions", headerName: "Question scores", minWidth: 130 },
+                  { field: "score", headerName: "Score", minWidth: 100 },
+                  { field: "maxmarks", headerName: "Max", minWidth: 100 },
+                  { field: "percentage", headerName: "Percentage", minWidth: 130 }
+                ]} autoHeight slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "co_summary" } } }} />
+              </Paper>
+            </Grid>
+          </Grid>
+
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="h6" fontWeight={900}>Questionwise details</Typography>
+            <DataGrid rows={(report.details || []).map((row, index) => ({ ...row, id: index + 1 }))} columns={[
+              { field: "examname", headerName: "Exam", minWidth: 180 },
+              { field: "examcode", headerName: "Exam code", minWidth: 120 },
+              { field: "coursecode", headerName: "Course code", minWidth: 120 },
+              { field: "student", headerName: "Student", minWidth: 180 },
+              { field: "regno", headerName: "Regno", minWidth: 130 },
+              { field: "cos", headerName: "CO", minWidth: 170 },
+              { field: "bloomlevels", headerName: "Bloom taxonomy", minWidth: 190 },
+              { field: "score", headerName: "Score", minWidth: 100 },
+              { field: "maxmarks", headerName: "Max", minWidth: 100 },
+              { field: "percentage", headerName: "Percentage", minWidth: 130 }
+            ]} autoHeight loading={loading} slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "online_exam_bloom_co_questionwise_details" } } }} pageSizeOptions={[10, 25, 50, 100]} />
+          </Paper>
+        </Stack>
+      </Box>
+    </MenuPageShell>
+  );
+}
+
+function OnlineExamAttainmentPage({ mode = "co", exam2 = false }) {
+  const title = `${exam2 ? "Online examination 2" : "Online examination"} ${mode === "co" ? "CO" : "Bloom taxonomy"} attainment`;
+  const base = exam2 ? "/api/v2/online-exam-2" : "/api/v2/online-exam";
+  const endpoint = `${base}/${mode === "co" ? "co-attainment" : "bloom-attainment"}`;
+  const [exams, setExams] = useState([]);
+  const [academicyear, setAcademicyear] = useState("");
+  const [program, setProgram] = useState("");
+  const [programcode, setProgramcode] = useState("");
+  const [semester, setSemester] = useState("");
+  const [selectedCourses, setSelectedCourses] = useState([]);
+  const [exam, setExam] = useState(null);
+  const [threshold, setThreshold] = useState(50);
+  const [levels, setLevels] = useState([
+    { name: "Level 1", min: 0, max: 39.99 },
+    { name: "Level 2", min: 40, max: 69.99 },
+    { name: "Level 3", min: 70, max: 100 }
+  ]);
+  const [report, setReport] = useState({ rows: [], studentRows: [], summary: {} });
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const loadExams = async () => {
+    const res = await ep1.get(`${base}/exams`, { params: { colid: global1.colid, ...(exam2 ? {} : { examcontext: "Student" }) } });
+    setExams((res.data?.data || []).map((row) => ({
+      ...row,
+      label: `${row.examname || "-"} (${row.examcode || "-"}) - ${row.programcode || ""} ${row.coursecode || ""} ${row.course || ""}`
+    })));
+  };
+
+  useEffect(() => {
+    loadExams().catch(() => setMessage("Unable to load online examination list."));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const uniqValues = (rows, field) => [...new Set((rows || []).map((row) => row?.[field]).filter(Boolean))].sort();
+  const years = useMemo(() => uniqValues(exams, "academicyear").reverse(), [exams]);
+  const filteredExams = useMemo(() => (exams || []).filter((row) => !academicyear || row.academicyear === academicyear), [academicyear, exams]);
+  const programOptions = useMemo(() => uniqValues(filteredExams, "program"), [filteredExams]);
+  const programcodeOptions = useMemo(() => uniqValues(filteredExams.filter((row) => !program || row.program === program), "programcode"), [filteredExams, program]);
+  const semesterOptions = useMemo(() => uniqValues(filteredExams.filter((row) => (!program || row.program === program) && (!programcode || row.programcode === programcode)), "semester"), [filteredExams, program, programcode]);
+  const courseOptions = useMemo(() => {
+    const rows = filteredExams.filter((row) => (!program || row.program === program) && (!programcode || row.programcode === programcode) && (!semester || row.semester === semester));
+    const seen = new Set();
+    return rows.map((row) => ({ course: row.course || "", coursecode: row.coursecode || "", label: `${row.coursecode || "-"} - ${row.course || "-"}` }))
+      .filter((row) => {
+        const key = `${row.coursecode}||${row.course}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return row.coursecode || row.course;
+      })
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [filteredExams, program, programcode, semester]);
+
+  const changeLevel = (index, field, value) => {
+    setLevels((prev) => prev.map((row, i) => i === index ? { ...row, [field]: field === "name" ? value : Number(value) } : row));
+  };
+
+  const load = async () => {
+    if (!academicyear) {
+      setMessage("Select academic year.");
+      return;
+    }
+    setLoading(true);
+    setMessage("");
+    try {
+      const payload = {
+        colid: global1.colid,
+        academicyear,
+        examid: exam?._id || "",
+        examcontext: "Student",
+        program,
+        programcode,
+        semester,
+        coursecodes: selectedCourses.map((row) => row.coursecode).filter(Boolean),
+        courses: selectedCourses.map((row) => row.course).filter(Boolean),
+        threshold: Number(threshold) || 0,
+        levels
+      };
+      const res = await ep1.post(endpoint, payload);
+      setReport(res.data || { rows: [], studentRows: [], summary: {} });
+      if (!(res.data?.rows || []).length) setMessage("No mapped submitted attempts found for the selected criteria.");
+    } catch (error) {
+      setMessage(error.response?.data?.message || "Unable to calculate attainment.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cards = [
+    ["Exams", report.summary?.exams || 0],
+    ["Attempts", report.summary?.attempts || 0],
+    [mode === "co" ? "COs" : "Bloom levels", report.summary?.outcomes || 0],
+    ["Average %", report.summary?.averagePercentage || 0],
+    ["Level 3", report.summary?.level3 || 0]
+  ];
+  const outcomeLabel = mode === "co" ? "CO" : "Bloom taxonomy";
+  const rows = (report.rows || []).map((row) => ({ ...row, id: `${row.coursecode || "all"}-${row.outcome}` }));
+  const studentRows = (report.studentRows || []).map((row, index) => ({ ...row, id: index + 1 }));
+
+  return (
+    <MenuPageShell title={title}>
+      <Box sx={{ p: 2, bgcolor: "#f6f8fb", minHeight: "100vh" }}>
+        <Stack spacing={2}>
+          <Typography variant="h5" fontWeight={900}>{title}</Typography>
+          {message && <Alert severity={/unable|select|no mapped/i.test(message) ? "warning" : "info"} onClose={() => setMessage("")}>{message}</Alert>}
+          <Paper sx={{ p: 2 }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={4}>
+                <Autocomplete
+                  options={years}
+                  value={academicyear || ""}
+                  onChange={(_, value) => {
+                    setAcademicyear(value || "");
+                    setExam(null);
+                    setProgram("");
+                    setProgramcode("");
+                    setSemester("");
+                    setSelectedCourses([]);
+                  }}
+                  onInputChange={(_, value) => setAcademicyear(value || "")}
+                  renderInput={(params) => <TextField {...params} label="Academic year" />}
+                />
+              </Grid>
+              {mode === "co" && (
+                <>
+                  <Grid item xs={12} md={3}>
+                    <Autocomplete
+                      options={programOptions}
+                      value={program || ""}
+                      onChange={(_, value) => { setProgram(value || ""); setProgramcode(""); setSemester(""); setSelectedCourses([]); }}
+                      onInputChange={(_, value) => setProgram(value || "")}
+                      renderInput={(params) => <TextField {...params} label="Program" />}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={3}>
+                    <Autocomplete
+                      options={programcodeOptions}
+                      value={programcode || ""}
+                      onChange={(_, value) => { setProgramcode(value || ""); setSemester(""); setSelectedCourses([]); }}
+                      onInputChange={(_, value) => setProgramcode(value || "")}
+                      renderInput={(params) => <TextField {...params} label="Program code" />}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={2}>
+                    <Autocomplete
+                      options={semesterOptions}
+                      value={semester || ""}
+                      onChange={(_, value) => { setSemester(value || ""); setSelectedCourses([]); }}
+                      onInputChange={(_, value) => setSemester(value || "")}
+                      renderInput={(params) => <TextField {...params} label="Semester" />}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={4}>
+                    <Autocomplete
+                      multiple
+                      options={courseOptions}
+                      value={selectedCourses}
+                      getOptionLabel={(option) => option?.label || ""}
+                      isOptionEqualToValue={(option, value) => `${option.coursecode}||${option.course}` === `${value.coursecode}||${value.course}`}
+                      onChange={(_, value) => setSelectedCourses(value || [])}
+                      renderInput={(params) => <TextField {...params} label="Course / course code" helperText="Select one or more courses. Leave blank for all matching courses." />}
+                    />
+                  </Grid>
+                </>
+              )}
+              <Grid item xs={12} md={6}>
+                <Autocomplete
+                  options={filteredExams}
+                  value={exam}
+                  getOptionLabel={(option) => option?.label || ""}
+                  isOptionEqualToValue={(option, value) => String(option._id) === String(value?._id)}
+                  onChange={(_, value) => setExam(value)}
+                  renderInput={(params) => <TextField {...params} label="Exam (optional)" helperText="Leave blank to include all exams in the selected academic year." />}
+                />
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <TextField fullWidth type="number" label="Threshold %" value={threshold} onChange={(e) => setThreshold(e.target.value)} inputProps={{ min: 0, max: 100, step: 0.01 }} />
+              </Grid>
+              {levels.map((level, index) => (
+                <React.Fragment key={level.name}>
+                  <Grid item xs={12} md={2}>
+                    <TextField fullWidth label={`Level ${index + 1}`} value={level.name} onChange={(e) => changeLevel(index, "name", e.target.value)} />
+                  </Grid>
+                  <Grid item xs={6} md={2}>
+                    <TextField fullWidth type="number" label="Min %" value={level.min} onChange={(e) => changeLevel(index, "min", e.target.value)} />
+                  </Grid>
+                  <Grid item xs={6} md={2}>
+                    <TextField fullWidth type="number" label="Max %" value={level.max} onChange={(e) => changeLevel(index, "max", e.target.value)} />
+                  </Grid>
+                </React.Fragment>
+              ))}
+              <Grid item xs={12} md={2}>
+                <Button fullWidth variant="contained" sx={{ height: 56 }} disabled={loading || !academicyear} onClick={load}>
+                  {loading ? "Loading..." : "Calculate"}
+                </Button>
+              </Grid>
+            </Grid>
+            {loading && <LinearProgress sx={{ mt: 2 }} />}
+          </Paper>
+
+          <Grid container spacing={2}>
+            {cards.map(([label, value]) => (
+              <Grid item xs={12} sm={6} md={2.4} key={label}>
+                <Card><CardContent><Typography color="text.secondary">{label}</Typography><Typography variant="h4" fontWeight={900}>{value}</Typography></CardContent></Card>
+              </Grid>
+            ))}
+          </Grid>
+
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="h6" fontWeight={900}>{outcomeLabel} attainment summary</Typography>
+            <Box sx={{ height: 300, mb: 2 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={rows}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="outcome" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="averagePercentage" name="Average %" fill="#3b82f6" />
+                  <Bar dataKey="aboveThresholdPercentage" name="Students above threshold %" fill="#10b981" />
+                </BarChart>
+              </ResponsiveContainer>
+            </Box>
+            <DataGrid rows={rows} columns={[
+              ...(mode === "co" ? [
+                { field: "program", headerName: "Program", minWidth: 170 },
+                { field: "programcode", headerName: "Program code", minWidth: 130 },
+                { field: "semester", headerName: "Semester", minWidth: 110 },
+                { field: "course", headerName: "Course", minWidth: 220 },
+                { field: "coursecode", headerName: "Course code", minWidth: 130 }
+              ] : []),
+              { field: "outcome", headerName: outcomeLabel, minWidth: 160, flex: 1 },
+              { field: "students", headerName: "Students", minWidth: 110 },
+              { field: "studentsAboveThreshold", headerName: "Above threshold", minWidth: 150 },
+              { field: "aboveThresholdPercentage", headerName: "Above threshold %", minWidth: 160 },
+              { field: "averagePercentage", headerName: "Average %", minWidth: 130 },
+              { field: "totalObtained", headerName: "Obtained", minWidth: 120 },
+              { field: "totalMaxMarks", headerName: "Max marks", minWidth: 120 },
+              { field: "attainmentLevel", headerName: "Attainment level", minWidth: 160 }
+            ]} autoHeight loading={loading} slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: `${mode}_attainment` } } }} pageSizeOptions={[10, 25, 50, 100]} />
+          </Paper>
+
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="h6" fontWeight={900}>Student wise {outcomeLabel} details</Typography>
+            <DataGrid rows={studentRows} columns={[
+              ...(mode === "co" ? [
+                { field: "programcode", headerName: "Program code", minWidth: 130 },
+                { field: "semester", headerName: "Semester", minWidth: 110 }
+              ] : []),
+              { field: "outcome", headerName: outcomeLabel, minWidth: 150 },
+              { field: "student", headerName: "Student", minWidth: 180 },
+              { field: "regno", headerName: "Regno", minWidth: 130 },
+              { field: "examname", headerName: "Exam", minWidth: 180 },
+              { field: "examcode", headerName: "Exam code", minWidth: 130 },
+              { field: "course", headerName: "Course", minWidth: 220 },
+              { field: "coursecode", headerName: "Course code", minWidth: 130 },
+              { field: "obtained", headerName: "Obtained", minWidth: 110 },
+              { field: "maxmarks", headerName: "Max marks", minWidth: 110 },
+              { field: "percentage", headerName: "Percentage", minWidth: 130 },
+              { field: "aboveThreshold", headerName: "Above threshold", minWidth: 150 }
+            ]} autoHeight loading={loading} slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: `${mode}_attainment_student_details` } } }} pageSizeOptions={[10, 25, 50, 100]} />
+          </Paper>
+        </Stack>
+      </Box>
+    </MenuPageShell>
+  );
+}
+
+export function OnlineExaminationCoAttainmentPage() {
+  return <OnlineExamAttainmentPage mode="co" />;
+}
+
+export function OnlineExaminationBloomAttainmentPage() {
+  return <OnlineExamAttainmentPage mode="bloom" />;
+}
+
+export function OnlineExamination2CoAttainmentPage() {
+  return <OnlineExamAttainmentPage mode="co" exam2 />;
+}
+
+export function OnlineExamination2BloomAttainmentPage() {
+  return <OnlineExamAttainmentPage mode="bloom" exam2 />;
 }
 
 const admissionAssignmentFields = ["academicyear", "category", "programapplied", "programcode", "name", "email", "phone", "applicationid", "applicationnumber", "username", "applicationstatus", "enrollmentstatus", "paymentstatus"];

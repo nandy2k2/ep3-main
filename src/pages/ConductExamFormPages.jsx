@@ -15,6 +15,7 @@ import {
   MenuItem,
   Paper,
   Select,
+  Snackbar,
   Stack,
   Tab,
   Tabs,
@@ -1134,7 +1135,7 @@ function DynamicField({ field, value, onChange }) {
   return <TextField fullWidth size="small" type={field.fieldtype === "Date" ? "date" : field.fieldtype === "Number" ? "number" : "text"} label={field.label} value={value || ""} onChange={(e) => onChange(e.target.value)} InputLabelProps={field.fieldtype === "Date" ? { shrink: true } : undefined} required={/^yes$/i.test(field.required)} />;
 }
 
-export function StudentExamDynamicFormPage({ atktMode = false } = {}) {
+export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode = false } = {}) {
   const navigate = useNavigate();
   const [filters, setFilters] = useState({ academicyear: "2026-27", examcode: "", examtype: atktMode ? "ATKT" : "Regular" });
   const [exams, setExams] = useState([]);
@@ -1244,7 +1245,7 @@ export function StudentExamDynamicFormPage({ atktMode = false } = {}) {
       courses: selectedCourseRows.length ? selectedCourseRows : courseRows,
       fees: feeLedgerRows,
       exam: { ...selectedExam, academicyear: filters.academicyear, examcode: filters.examcode },
-      title: atktMode ? "ATKT Form" : "Student Exam Form"
+      title: preapprovedMode ? (atktMode ? "Preapproved ATKT Form" : "Preapproved Regular Form") : atktMode ? "ATKT Form" : "Student Exam Form"
     });
   };
   const uploadDocument = async (doc, file) => {
@@ -1279,6 +1280,7 @@ export function StudentExamDynamicFormPage({ atktMode = false } = {}) {
         exam: selectedExam.exam || selectedExam.examname || filters.examcode,
         examcode: filters.examcode,
         examtype: atktMode ? "ATKT" : filters.examtype,
+        preapproved: preapprovedMode ? "Yes" : "No",
         regulation: context?.student?.regulation,
         semester: context?.student?.semester,
         data,
@@ -1289,7 +1291,11 @@ export function StudentExamDynamicFormPage({ atktMode = false } = {}) {
         setContext((prev) => prev ? { ...prev, examFeeLedger: res.data.examFeeLedger } : prev);
       }
       setSubmittedFeeReady(atktMode && Number(res.data?.totalfee || 0) > 0);
-      setMessage(`Exam form submitted. Ledger rows: ${res.data?.ledgerCreated || 0}, examroll rows: ${res.data?.examRollCreated || 0}`);
+      const barred = Array.isArray(res.data?.barred) ? res.data.barred : [];
+      const barredNames = barred.map((row) => `${row.course || row.coursecode || "Course"}${row.note ? ` - ${row.note}` : ""}`).join("; ");
+      const barredMessage = barred.length ? ` Student is barred for: ${barredNames}. These course(s) were not added to examroll.` : "";
+      const scholarshipMessage = res.data?.scholarshipApplied ? " Exam scholarship applied. Exam fee is zero and no ledger row was created." : "";
+      setMessage(`Exam form submitted. Ledger rows: ${res.data?.ledgerCreated || 0}, examroll rows: ${res.data?.examRollCreated || 0}.${scholarshipMessage}${barredMessage}`);
     } catch (err) {
       const errors = err.response?.data?.errors;
       setError(errors?.length ? errors.join("\n") : err.response?.data?.message || "Unable to submit exam form");
@@ -1299,19 +1305,31 @@ export function StudentExamDynamicFormPage({ atktMode = false } = {}) {
   };
 
   return (
-    <MenuPageShell title={atktMode ? "ATKT Form" : "Student Exam Form"} menuType="student">
+    <MenuPageShell title={preapprovedMode ? (atktMode ? "Preapproved ATKT Form" : "Preapproved Regular Form") : atktMode ? "ATKT Form" : "Student Exam Form"} menuType="student">
       <Box sx={pageBox}>
         <BackButton student />
-        <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>{atktMode ? "ATKT form" : "Exam form"}</Typography>
-        {error && <Alert severity="error" sx={{ mb: 2, whiteSpace: "pre-line" }}>{error}</Alert>}
-        {message && <Alert severity="success" sx={{ mb: 2 }}>{message}</Alert>}
+        <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>{preapprovedMode ? (atktMode ? "Preapproved ATKT form" : "Preapproved regular form") : atktMode ? "ATKT form" : "Exam form"}</Typography>
+        <Snackbar
+          open={Boolean(error || message)}
+          autoHideDuration={9000}
+          onClose={() => { setError(""); setMessage(""); }}
+          anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        >
+          <Alert
+            severity={error ? "error" : "success"}
+            sx={{ whiteSpace: "pre-line", alignItems: "center", maxWidth: 760 }}
+            action={<Button color="inherit" size="small" onClick={() => { setError(""); setMessage(""); }}>Close</Button>}
+          >
+            {error || message}
+          </Alert>
+        </Snackbar>
         <Paper sx={paperSx}>
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} md={3}><SelectText label="Academic year" value={filters.academicyear} options={uniqueSorted([...years, ...exams.map((row) => row.academicyear)])} onChange={(value) => setFilters((prev) => ({ ...prev, academicyear: value, examcode: "" }))} /></Grid>
             <Grid item xs={12} md={4}><SelectText label="Exam" value={filters.examcode} options={uniqueSorted(exams.filter((row) => !filters.academicyear || row.academicyear === filters.academicyear).map((row) => row.examcode))} onChange={(value) => setFilters((prev) => ({ ...prev, examcode: value }))} /></Grid>
             <Grid item xs={12} md={3}>
-              {atktMode ? (
-                <TextField fullWidth size="small" label="Exam type" value="ATKT" InputProps={{ readOnly: true }} />
+              {atktMode || preapprovedMode ? (
+                <TextField fullWidth size="small" label="Exam type" value={atktMode ? "ATKT" : "Regular"} InputProps={{ readOnly: true }} />
               ) : (
                 <SelectText label="Exam type" value={filters.examtype} options={["Regular", "Supplementary"]} onChange={(value) => setFilters((prev) => ({ ...prev, examtype: value }))} />
               )}
@@ -1506,6 +1524,14 @@ export function StudentExamDynamicFormPage({ atktMode = false } = {}) {
 
 export function StudentAtktFormPage() {
   return <StudentExamDynamicFormPage atktMode />;
+}
+
+export function PreapprovedRegularFormPage() {
+  return <StudentExamDynamicFormPage preapprovedMode />;
+}
+
+export function PreapprovedAtktFormPage() {
+  return <StudentExamDynamicFormPage atktMode preapprovedMode />;
 }
 
 function SearchSelect({ label, value, options = [], onChange, getOptionLabel = (option) => option, disabled = false }) {

@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import AutoModeIcon from "@mui/icons-material/AutoMode";
+import DeleteIcon from "@mui/icons-material/Delete";
 import PrintIcon from "@mui/icons-material/Print";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
@@ -290,10 +291,18 @@ export function ConductExamPopulateCoursesPage() {
   const [exams, setExams] = useState([]);
   const [courseMapRows, setCourseMapRows] = useState([]);
   const [rows, setRows] = useState([]);
+  const [selectedRows, setSelectedRows] = useState([]);
   const [form, setForm] = useState({ examId: "", academicyear: "", exam: "", examcode: "", regulation: "", programs: [], subjects: [], courses: [] });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const normalizeSelection = (selection) => {
+    if (Array.isArray(selection)) return selection;
+    if (selection?.ids instanceof Set) return [...selection.ids];
+    if (selection?.ids && Array.isArray(selection.ids)) return selection.ids;
+    return [];
+  };
 
   const loadBase = async () => {
     const [examRes, mapRes, rowRes] = await Promise.all([
@@ -366,6 +375,26 @@ export function ConductExamPopulateCoursesPage() {
     }
   };
 
+  const deleteSelected = async () => {
+    if (!selectedRows.length) {
+      setError("Select at least one populated exam course row.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const res = await ep1.post("/api/v2/conductexam/examcourses-delete", { colid: global1.colid, ids: selectedRows });
+      setMessage(`${res.data?.deleted || selectedRows.length} exam course row(s) deleted.`);
+      setSelectedRows([]);
+      const rowRes = await ep1.get("/api/v2/conductexam/examcourses", { params: { colid: global1.colid, examcode: form.examcode || undefined } });
+      setRows(rowRes.data?.data || []);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to delete selected exam courses.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <MenuPageShell title="Populate exam courses">
       <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
@@ -377,6 +406,7 @@ export function ConductExamPopulateCoursesPage() {
               <Button component={RouterLink} to="/regulationmaster" variant="outlined">Add regulation</Button>
               <Button component={RouterLink} to="/regulationsubjects" variant="outlined">Add regulation group</Button>
               <Button component={RouterLink} to="/regulationcoursemap" variant="outlined">Add regulation course map</Button>
+              <Button variant="outlined" color="error" startIcon={<DeleteIcon />} disabled={loading || !selectedRows.length} onClick={deleteSelected}>Bulk delete</Button>
               <Button variant="contained" startIcon={<AutoModeIcon />} disabled={loading} onClick={populate}>{loading ? "Populating..." : "Populate"}</Button>
             </Stack>
           </Stack>
@@ -394,7 +424,19 @@ export function ConductExamPopulateCoursesPage() {
           </Grid>
         </Paper>
         <Paper elevation={0} sx={{ p: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
-          <Box sx={{ height: 580 }}><DataGrid rows={rows} getRowId={(row) => row._id} columns={courseColumns} slots={{ toolbar: GridToolbar }} pageSizeOptions={[10, 25, 50, 100]} /></Box>
+          <Box sx={{ height: 580 }}>
+            <DataGrid
+              rows={rows}
+              getRowId={(row) => row._id}
+              columns={courseColumns}
+              checkboxSelection
+              disableRowSelectionOnClick
+              rowSelectionModel={selectedRows}
+              onRowSelectionModelChange={(selection) => setSelectedRows(normalizeSelection(selection))}
+              slots={{ toolbar: GridToolbar }}
+              pageSizeOptions={[10, 25, 50, 100]}
+            />
+          </Box>
         </Paper>
       </Box>
     </MenuPageShell>
