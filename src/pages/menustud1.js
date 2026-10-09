@@ -236,6 +236,13 @@ function DefaultStudentListItems({ open }) {
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Bank account" />}
 </ListItem>
 
+        <ListItem button component={RouterLink} to="/student-profile-photo-upload">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Student photo upload" />}
+</ListItem>
+
         <ListItem button component={RouterLink} to="/student-signature-upload">
 <ListItemIcon>
 <PersonIcon />
@@ -1106,6 +1113,20 @@ function DefaultStudentListItems({ open }) {
 <PersonIcon />
 </ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Dynamic exam form" />}
+</ListItem>
+
+          <ListItem button component={RouterLink} to="/student-programwise-exam-form">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Programwise form" />}
+</ListItem>
+
+          <ListItem button component={RouterLink} to="/student-programwise-exam-form-2">
+<ListItemIcon>
+<PersonIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Programwise form 2" />}
 </ListItem>
 
           <ListItem button component={RouterLink} to="/student-atkt-form">

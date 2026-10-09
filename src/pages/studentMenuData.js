@@ -4,6 +4,7 @@ export const studentDefaultMenuGroups = [
     { path: "/studentprofiledynamic", title: "Profile" },
     { path: "/userdocumentupload", title: "Upload documents" },
     { path: "/studentbankaccounts", title: "Bank account" },
+    { path: "/student-profile-photo-upload", title: "Student photo upload" },
     { path: "/studentadmissionprofile", title: "Admission profile" },
     { path: "/studentdynamicprofile", title: "Dynamic profile" },
     { path: "/userprofileprint", title: "Profile print" },
@@ -65,6 +66,8 @@ export const studentDefaultMenuGroups = [
   { group: "Examination", items: [
     // { path: "/student-exam-registration", title: "Exam registration" },
     { path: "/student-exam-dynamic-form", title: "Dynamic exam form" },
+    { path: "/student-programwise-exam-form", title: "Programwise form" },
+    { path: "/student-programwise-exam-form-2", title: "Programwise form 2" },
     { path: "/student-atkt-form", title: "ATKT form" },
     { path: "/preapproved-regular-form", title: "Preapproved regular form" },
     { path: "/preapproved-atkt-form", title: "Preapproved ATKT form" },

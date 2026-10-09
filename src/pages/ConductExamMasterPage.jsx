@@ -10,13 +10,14 @@ import MenuPageShell from "./MenuPageShell";
 const academicYears = ["2026-27", "2027-28", "2028-29", "2029-30", "2030-31"];
 const sessions = ["Odd", "Even"];
 const examTypes = ["Regular", "Supplementary"];
+const yesNoOptions = ["No", "Yes"];
 const semesterOptions = ["All", ...Array.from({ length: 12 }, (_, index) => String(index + 1))];
 const normalizeSemesters = (values = []) => {
   const items = [...new Set((values || []).map((value) => String(value || "").trim()).filter(Boolean))];
   return items.includes("All") ? ["All"] : items;
 };
 const semesterText = (values = []) => normalizeSemesters(values).join(",");
-const blankForm = { academicyear: "2026-27", examname: "", examcode: "", program: "", programcode: "", faculty: "", institution: "", department: "", semester: ["All"], session: "Odd", type: "Regular" };
+const blankForm = { academicyear: "2026-27", examname: "", examcode: "", program: "", programcode: "", faculty: "", institution: "", department: "", semester: ["All"], session: "Odd", type: "Regular", formactive: "No" };
 
 export default function ConductExamMasterPage() {
   const [rows, setRows] = useState([]);
@@ -68,7 +69,8 @@ export default function ConductExamMasterPage() {
       department: row.department || "",
       semester: row.semester ? String(row.semester).split(",").map((item) => item.trim()).filter(Boolean) : ["All"],
       session: row.session || "Odd",
-      type: row.type || "Regular"
+      type: row.type || "Regular",
+      formactive: row.formactive || "No"
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -86,8 +88,8 @@ export default function ConductExamMasterPage() {
 
   const downloadTemplate = () => {
     const worksheet = XLSX.utils.json_to_sheet([
-      { academicyear: "2026-27", examname: "Semester End Examination", examcode: "BSC-2627-SEM1-ODD-REG", program: "B.Sc Computer Science", programcode: "BSC", faculty: "Science", institution: "Main Institution", department: "Computer Science", semester: "1", session: "Odd", type: "Regular" },
-      { academicyear: "2026-27", examname: "Supplementary Examination", examcode: "BSC-2627-ALL-ODD-SUP", program: "B.Sc Computer Science", programcode: "BSC", faculty: "Science", institution: "Main Institution", department: "Computer Science", semester: "All", session: "Odd", type: "Supplementary" }
+      { academicyear: "2026-27", examname: "Semester End Examination", examcode: "BSC-2627-SEM1-ODD-REG", program: "B.Sc Computer Science", programcode: "BSC", faculty: "Science", institution: "Main Institution", department: "Computer Science", semester: "1", session: "Odd", type: "Regular", formactive: "Yes" },
+      { academicyear: "2026-27", examname: "Supplementary Examination", examcode: "BSC-2627-ALL-ODD-SUP", program: "B.Sc Computer Science", programcode: "BSC", faculty: "Science", institution: "Main Institution", department: "Computer Science", semester: "All", session: "Odd", type: "Supplementary", formactive: "No" }
     ]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Exams");
@@ -114,7 +116,8 @@ export default function ConductExamMasterPage() {
         department: row.department || row.Department || "",
         semester: row.semester || row.Semester || "All",
         session: row.session || row.Session || "",
-        type: row.type || row.Type || ""
+        type: row.type || row.Type || "",
+        formactive: row.formactive || row["Form Active"] || row.FormActive || row.formActive || "No"
       }));
       const res = await ep1.post("/api/v2/conductexam/exams-bulk", { colid: global1.colid, user: global1.user, items });
       setMessage(`${res.data?.saved || 0} exams uploaded.`);
@@ -136,6 +139,7 @@ export default function ConductExamMasterPage() {
     { field: "semester", headerName: "Semester", width: 140 },
     { field: "session", headerName: "Session", width: 120 },
     { field: "type", headerName: "Type of Exam", width: 160 },
+    { field: "formactive", headerName: "Form Active", width: 130 },
     {
       field: "actions",
       headerName: "Actions",
@@ -188,6 +192,7 @@ export default function ConductExamMasterPage() {
           </Grid>
           <Grid item xs={12} md={1.6}><TextField select fullWidth label="Session" value={form.session} onChange={(e) => setForm({ ...form, session: e.target.value })}>{sessions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
           <Grid item xs={12} md={2}><TextField select fullWidth label="Type of Exam" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>{examTypes.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+          <Grid item xs={12} md={1.5}><TextField select fullWidth label="Form Active" value={form.formactive} onChange={(e) => setForm({ ...form, formactive: e.target.value })}>{yesNoOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
           <Grid item xs={12} md={1}><Button fullWidth variant="contained" onClick={saveRow} sx={{ height: 56 }}>{editId ? "Update" : "Save"}</Button></Grid>
         </Grid>
       </Paper>

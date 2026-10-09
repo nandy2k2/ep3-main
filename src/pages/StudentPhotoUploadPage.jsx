@@ -2,8 +2,10 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Autocomplete,
+  Avatar,
   Box,
   Button,
+  Chip,
   Grid,
   MenuItem,
   Paper,
@@ -228,6 +230,167 @@ export default function StudentPhotoUploadPage() {
               slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "student_photo_upload" } } }}
             />
           </Box>
+        </Paper>
+      </Stack>
+    </MenuPageShell>
+  );
+}
+
+export function StudentSelfPhotoUploadPage() {
+  const [student, setStudent] = useState(null);
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const loadStudent = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await ep1.get("/api/v2/getuserds", {
+        params: { colid: global1.colid, regno: global1.regno, email: global1.user }
+      });
+      const data = res.data || null;
+      if (!data?._id) throw new Error("Logged-in student profile could not be found.");
+      setStudent(data);
+    } catch (err) {
+      setStudent(null);
+      setError(err.response?.data?.message || err.message || "Unable to load student profile.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadStudent();
+    return () => {
+      if (preview) URL.revokeObjectURL(preview);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const chooseFile = (event) => {
+    const selected = event.target.files?.[0] || null;
+    if (preview) URL.revokeObjectURL(preview);
+    setFile(selected);
+    setPreview(selected ? URL.createObjectURL(selected) : "");
+    setMessage("");
+    setError("");
+  };
+
+  const uploadPhoto = async () => {
+    if (!student?._id) {
+      setError("Student profile is not loaded.");
+      return;
+    }
+    if (!file) {
+      setError("Please select a photo file.");
+      return;
+    }
+    setUploading(true);
+    setProgress(0);
+    setMessage("");
+    setError("");
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("colid", global1.colid);
+      form.append("studentid", student._id);
+      form.append("user", global1.user || "");
+      const res = await ep1.post("/api/v2/student-photo/upload", form, {
+        headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: (event) => {
+          if (event.total) setProgress(Math.round((event.loaded * 100) / event.total));
+        }
+      });
+      setStudent(res.data?.data || student);
+      setMessage("Photo uploaded successfully.");
+      setFile(null);
+      if (preview) URL.revokeObjectURL(preview);
+      setPreview("");
+      setProgress(100);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to upload photo.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const photo = preview || student?.photo || "";
+
+  return (
+    <MenuPageShell title="Student Photo Upload" menuType="student">
+      <Stack spacing={2}>
+        <Box>
+          <Typography variant="h5" fontWeight={900}>Student Photo Upload</Typography>
+          <Typography variant="body2" color="text.secondary">Upload your own profile photo. No student selection is required.</Typography>
+        </Box>
+        {message && <Alert severity="success" onClose={() => setMessage("")}>{message}</Alert>}
+        {error && <Alert severity="error" onClose={() => setError("")}>{error}</Alert>}
+        {loading && <LinearProgress />}
+
+        <Paper sx={{ p: 2 }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={3}>
+              <Box sx={{ display: "flex", justifyContent: { xs: "flex-start", md: "center" } }}>
+                <Avatar
+                  src={photo}
+                  alt={student?.name || "Student photo"}
+                  variant="rounded"
+                  sx={{ width: 150, height: 180, border: "1px solid #d7deea", bgcolor: "#eef4ff", fontSize: 44 }}
+                >
+                  {(student?.name || "S").slice(0, 1)}
+                </Avatar>
+              </Box>
+            </Grid>
+            <Grid item xs={12} md={9}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={4}>
+                  <TextField size="small" label="Student" value={student?.name || global1.name || ""} fullWidth InputProps={{ readOnly: true }} />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField size="small" label="Email" value={student?.email || global1.user || ""} fullWidth InputProps={{ readOnly: true }} />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField size="small" label="Reg No" value={student?.regno || global1.regno || ""} fullWidth InputProps={{ readOnly: true }} />
+                </Grid>
+                <Grid item xs={12}>
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    {student?.academicyear && <Chip label={`Academic year: ${student.academicyear}`} />}
+                    {student?.program && <Chip label={`Program: ${student.program}`} />}
+                    {student?.programcode && <Chip label={`Program code: ${student.programcode}`} />}
+                    {student?.semester && <Chip label={`Semester: ${student.semester}`} />}
+                    {student?.section && <Chip label={`Section: ${student.section}`} />}
+                  </Stack>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Button fullWidth component="label" variant="outlined" startIcon={<UploadFile />} disabled={uploading || loading} sx={{ height: 48 }}>
+                    {file ? file.name : "Choose photo"}
+                    <input hidden type="file" accept="image/*" onChange={chooseFile} />
+                  </Button>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Button fullWidth variant="contained" onClick={uploadPhoto} disabled={uploading || loading || !file || !student?._id} sx={{ height: 48 }}>
+                    {uploading ? `Uploading ${progress || 0}%` : "Upload photo"}
+                  </Button>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Button fullWidth variant="outlined" onClick={loadStudent} disabled={uploading || loading} sx={{ height: 48 }}>
+                    Refresh
+                  </Button>
+                </Grid>
+                {(uploading || progress > 0) && (
+                  <Grid item xs={12}>
+                    <LinearProgress variant="determinate" value={progress} />
+                    <Typography variant="caption" color="text.secondary">{progress}% completed</Typography>
+                  </Grid>
+                )}
+              </Grid>
+            </Grid>
+          </Grid>
         </Paper>
       </Stack>
     </MenuPageShell>

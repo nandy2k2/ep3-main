@@ -1292,7 +1292,7 @@ import { ConductExamExaminerPaymentPage, ConductExamModeratorPaymentPage, Conduc
 import { ConductExamStationaryMasterPage, ConductExamStationaryRequirementPage } from "./pages/ConductExamStationaryPages";
 import { ConductExamGeneratorAllocationPage, ConductExamGeneratorMasterPage, ConductExamGeneratorRequirementPage } from "./pages/ConductExamGeneratorPages";
 import { ConductExamOnScreenMarkingPage, ConductExamScoreRulePage } from "./pages/ConductExamOnScreenMarkingPages";
-import { ConductExamAtktFormPage, ConductExamFeeMaxPage, ConductExamFeePage, ConductExamFormBuilderPage, ConductExamStudentFormPage, PreapprovedAtktFormPage, PreapprovedRegularFormPage, StudentAtktFormPage, StudentExamDynamicFormPage } from "./pages/ConductExamFormPages";
+import { ConductExamAtktFormPage, ConductExamFeeMaxPage, ConductExamFeePage, ConductExamFormBuilderPage, ConductExamStudentFormPage, PreapprovedAtktFormPage, PreapprovedRegularFormPage, StudentAtktFormPage, StudentExamDynamicFormPage, StudentProgramwiseExamFormPage, StudentProgramwiseExamForm2Page } from "./pages/ConductExamFormPages";
 import PreExamEligibilityPage from "./pages/PreExamEligibilityPage";
 import ExamScholarshipPage from "./pages/ExamScholarshipPage";
 import {
@@ -1672,7 +1672,7 @@ import MenuSearchPage from "./pages/MenuSearchPage";
 import UserPivotReportPage from "./pages/UserPivotReportPage";
 import UserPivotCountPage from "./pages/UserPivotCountPage";
 import StudentDetailsReportPage from "./pages/StudentDetailsReportPage";
-import StudentPhotoUploadPage from "./pages/StudentPhotoUploadPage";
+import StudentPhotoUploadPage, { StudentSelfPhotoUploadPage } from "./pages/StudentPhotoUploadPage";
 import UserPhotoUploadPage from "./pages/UserPhotoUploadPage";
 import StudentPhotoBulkUploadPage from "./pages/StudentPhotoBulkUploadPage";
 import FacultyCadraRequirementPage from "./pages/FacultyCadraRequirementPage";
@@ -4599,6 +4599,7 @@ function App() {
         <Route path="/userpivotcount" element={<UserPivotCountPage />} />
         <Route path="/studentdetails" element={<StudentDetailsReportPage />} />
         <Route path="/studentphotoupload" element={<StudentPhotoUploadPage />} />
+        <Route path="/student-profile-photo-upload" element={<StudentSelfPhotoUploadPage />} />
         <Route path="/userphotoupload" element={<UserPhotoUploadPage />} />
         <Route path="/student-photo-bulk-upload" element={<StudentPhotoBulkUploadPage />} />
         <Route path="/faculty-cadra-requirement" element={<FacultyCadraRequirementPage />} />
@@ -4659,6 +4660,8 @@ function App() {
         <Route path="/verify-hallticket" element={<PublicHallTicketVerifyPage />} />
         <Route path="/student-exam-registration" element={<StudentExamRegistrationPage />} />
         <Route path="/student-exam-dynamic-form" element={<StudentExamDynamicFormPage />} />
+        <Route path="/student-programwise-exam-form" element={<StudentProgramwiseExamFormPage />} />
+        <Route path="/student-programwise-exam-form-2" element={<StudentProgramwiseExamForm2Page />} />
         <Route path="/student-atkt-form" element={<StudentAtktFormPage />} />
         <Route path="/preapproved-regular-form" element={<PreapprovedRegularFormPage />} />
         <Route path="/preapproved-atkt-form" element={<PreapprovedAtktFormPage />} />

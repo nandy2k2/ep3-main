@@ -78,6 +78,13 @@ const uniqueSorted = (values = []) => [...new Set(values.map((value) => String(v
 const getId = (row) => row._id || row.id;
 const money = (value) => Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 });
 const courseKey = (row) => `${row.coursecode || ""}||${row.examtype || ""}`;
+const sameClean = (left, right) => String(left || "").trim().toLowerCase() === String(right || "").trim().toLowerCase();
+const rowMatchesStudentProgram = (row = {}, student = {}) => {
+  const studentProgram = student.program || global1.program || "";
+  const studentProgramCode = student.programcode || global1.programcode || "";
+  return sameClean(row.program || row.programname, studentProgram)
+    && sameClean(row.programcode, studentProgramCode);
+};
 
 const pageBox = { p: 3, maxWidth: 1500, mx: "auto" };
 const paperSx = { p: 2.5, borderRadius: 2, border: "1px solid #e5e7eb", boxShadow: "0 10px 28px rgba(15,23,42,0.06)" };
@@ -329,6 +336,117 @@ const openStudentExamFormPrint = ({ institution = {}, student = {}, courses = []
         <div class="place-date"><div>Place: ____________________</div><div>Date: ${today}</div></div>
         <div class="hoi-sign">Signature and Seal of HOI</div>
       </div>
+    </div>
+  </body></html>`);
+  win.document.close();
+};
+
+const revisedProfileFields = [
+  ["Name", "name"],
+  ["Enrollment No", "regno"],
+  ["ABC ID", "abcid"],
+  ["Father's Name", "fathername"],
+  ["Mother's Name", "mothername"],
+  ["Date of Birth", "dateofbirth"],
+  ["Gender", "gender"],
+  ["Nationality", "nationality"],
+  ["Phone", "phone"],
+  ["Program", "program"],
+  ["Semester", "semester"]
+];
+
+const openStudentExamFormRevisedPrint = ({ institution = {}, student = {}, courses = [], exam = {}, fees = [], title = "Student Exam Form" }) => {
+  const logo = institutionLogo(institution);
+  const photo = studentPhoto(student);
+  const today = formatDate(new Date());
+  const profileHtml = revisedProfileFields.map(([label, field]) => `
+    <div class="profile-item"><span>${escapeHtml(label)}</span><strong>${escapeHtml(profileValue(student, field) || "NA")}</strong></div>
+  `).join("");
+  const courseHtml = (courses || []).map((row, index) => `
+    <tr>
+      <td>${index + 1}</td>
+      <td>${escapeHtml(row.coursecode)}</td>
+      <td>${escapeHtml(row.course)}</td>
+      <td>${escapeHtml(row.semester)}</td>
+      <td>${escapeHtml(row.examsection || row.papertype || "")}</td>
+      <td>${escapeHtml(row.examdate)}</td>
+      <td>${escapeHtml(row.examslot)}</td>
+    </tr>
+  `).join("");
+  const feeHtml = (fees || []).map((row) => `
+    <tr>
+      <td>${escapeHtml(row.feegroup)}</td>
+      <td>${escapeHtml(row.feeitem)}</td>
+      <td>${escapeHtml(formatDate(row.classdate))}</td>
+      <td class="num">${feeNumber(row.amount)}</td>
+      <td class="num">${feeNumber(row.paid)}</td>
+      <td class="num">${feeNumber(row.concession)}</td>
+      <td class="num">${feeNumber(row.balance)}</td>
+      <td>${escapeHtml(formatDate(row.paiddate))}</td>
+      <td>${escapeHtml(row.status)}</td>
+    </tr>
+  `).join("");
+  const win = window.open("", "_blank", "width=980,height=900");
+  if (!win) return;
+  win.document.write(`<!doctype html><html><head><title>${escapeHtml(title)}</title><style>
+    @page { size: A4 portrait; margin: 12mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #fff; color: #000; font-family: Arial, Helvetica, sans-serif; font-size: 12px; }
+    .toolbar { padding: 10px; background: #f3f4f6; border-bottom: 1px solid #d1d5db; position: sticky; top: 0; z-index: 2; }
+    .toolbar button { margin-right: 8px; padding: 7px 14px; border: 1px solid #111; background: #fff; cursor: pointer; }
+    .page { width: 210mm; min-height: 297mm; margin: 0 auto; padding: 10mm; background: #fff; color: #000; }
+    .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 10px; }
+    .header img { max-height: 58px; max-width: 120px; object-fit: contain; margin-bottom: 4px; }
+    .inst { font-size: 18px; font-weight: 800; text-transform: uppercase; }
+    .address { font-size: 11px; margin-top: 2px; }
+    .title { text-align: center; font-size: 16px; font-weight: 800; text-transform: uppercase; margin: 10px 0; }
+    .meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
+    .meta div, .profile-item { border: 1px solid #111; padding: 5px; min-height: 30px; }
+    .meta span, .profile-item span { display: block; font-size: 10px; color: #111; text-transform: uppercase; }
+    .meta strong, .profile-item strong { display: block; font-size: 12px; overflow-wrap: anywhere; }
+    .student { display: grid; grid-template-columns: 1fr 96px; gap: 10px; align-items: start; }
+    .profile { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .photo { width: 96px; height: 118px; border: 1px solid #111; object-fit: cover; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #111; padding: 5px; text-align: left; vertical-align: top; }
+    .num { text-align: right; }
+    th { font-weight: 800; background: #f5f5f5; }
+    thead { display: table-header-group; }
+    tr { page-break-inside: avoid; }
+    .note { margin-top: 6px; font-size: 11px; font-weight: 700; }
+    .section-title { font-size: 12px; font-weight: 800; text-transform: uppercase; text-align: center; margin: 12px 0 5px; }
+    .digital { margin-top: 18px; text-align: center; font-size: 12px; font-weight: 800; }
+    @media print { .toolbar { display: none; } .page { width: auto; min-height: auto; margin: 0; padding: 0; } }
+  </style></head><body>
+    <div class="toolbar"><button onclick="window.print()">Print</button><button onclick="window.close()">Close</button></div>
+    <div class="page">
+      <div class="header">
+        ${logo ? `<img src="${escapeHtml(logo)}" alt="Logo" />` : ""}
+        <div class="inst">${escapeHtml(institutionName(institution))}</div>
+        <div class="address">${escapeHtml(institutionAddress(institution))}</div>
+      </div>
+      <div class="title">${escapeHtml(title)}</div>
+      <div class="meta">
+        <div><span>Academic Year</span><strong>${escapeHtml(exam.academicyear || student.academicyear)}</strong></div>
+        <div><span>Exam</span><strong>${escapeHtml(exam.exam || exam.examname || "")}</strong></div>
+        <div><span>Exam Code</span><strong>${escapeHtml(exam.examcode || "")}</strong></div>
+        <div><span>Date</span><strong>${today}</strong></div>
+      </div>
+      <div class="student">
+        <div class="profile">${profileHtml}</div>
+        ${photo ? `<img class="photo" src="${escapeHtml(photo)}" alt="Student photo" />` : `<div class="photo"></div>`}
+      </div>
+      <table>
+        <thead><tr><th>Sr</th><th>Course Code</th><th>Course</th><th>Semester</th><th>Component</th><th>Exam Date</th><th>Slot</th></tr></thead>
+        <tbody>${courseHtml || `<tr><td colspan="7" style="text-align:center">No courses found</td></tr>`}</tbody>
+      </table>
+      <div class="note">“P” indicates Term End Practical Component</div>
+      <div class="section-title">Exam Fee Details</div>
+      <table>
+        <thead><tr><th>Fee Group</th><th>Fee Item</th><th>Date</th><th>Amount</th><th>Paid</th><th>Concession</th><th>Balance</th><th>Paid Date</th><th>Status</th></tr></thead>
+        <tbody>${feeHtml || `<tr><td colspan="9" style="text-align:center">No exam fee ledger rows found</td></tr>`}</tbody>
+      </table>
+      <div class="digital">This is a digitally generated document and does not require a signature.</div>
     </div>
   </body></html>`);
   win.document.close();
@@ -1135,10 +1253,11 @@ function DynamicField({ field, value, onChange }) {
   return <TextField fullWidth size="small" type={field.fieldtype === "Date" ? "date" : field.fieldtype === "Number" ? "number" : "text"} label={field.label} value={value || ""} onChange={(e) => onChange(e.target.value)} InputLabelProps={field.fieldtype === "Date" ? { shrink: true } : undefined} required={/^yes$/i.test(field.required)} />;
 }
 
-export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode = false } = {}) {
+export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode = false, programwiseMode = false, formActiveOnly = false } = {}) {
   const navigate = useNavigate();
   const [filters, setFilters] = useState({ academicyear: "2026-27", examcode: "", examtype: atktMode ? "ATKT" : "Regular" });
   const [exams, setExams] = useState([]);
+  const [studentProfile, setStudentProfile] = useState(null);
   const [context, setContext] = useState(null);
   const [selectedFormId, setSelectedFormId] = useState("");
   const [activeTabIndex, setActiveTabIndex] = useState(0);
@@ -1160,7 +1279,56 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
 
   const loadExams = async () => {
     try {
-      const res = await ep1.get("/api/v2/conductexam/exams", { params: { colid: global1.colid } });
+      let profile = studentProfile;
+      if (programwiseMode && !profile && global1.regno) {
+        const profileRes = await ep1.get("/api/v2/getuserds", { params: { colid: global1.colid, regno: global1.regno, email: global1.user } });
+        profile = profileRes.data || null;
+        if (profile) setStudentProfile(profile);
+      }
+      const matchProfile = profile || global1;
+      if (programwiseMode) {
+        const [courseRes, activeExamRes] = await Promise.all([
+          ep1.get("/api/v2/conductexam/examcourses", {
+            params: {
+              colid: global1.colid,
+              program: matchProfile.program,
+              programcode: matchProfile.programcode
+            }
+          }),
+          formActiveOnly
+            ? ep1.get("/api/v2/conductexam/exams", { params: { colid: global1.colid, formactive: "Yes" } })
+            : Promise.resolve({ data: { data: [] } })
+        ]);
+        const activeExamMap = new Map();
+        (activeExamRes.data?.data || []).forEach((row) => {
+          activeExamMap.set(`${row.academicyear || ""}||${row.examcode || ""}`, row);
+        });
+        const examMap = new Map();
+        (courseRes.data?.data || [])
+          .filter((row) => rowMatchesStudentProgram(row, matchProfile))
+          .forEach((row) => {
+            const key = `${row.academicyear || ""}||${row.examcode || ""}`;
+            const activeExam = activeExamMap.get(key);
+            if (formActiveOnly && !activeExam) return;
+            if (!row.examcode || examMap.has(key)) return;
+            examMap.set(key, {
+              academicyear: row.academicyear,
+              exam: activeExam?.examname || activeExam?.exam || row.exam,
+              examname: activeExam?.examname || row.exam,
+              examcode: row.examcode,
+              program: row.program,
+              programcode: row.programcode,
+              semester: row.semester,
+              regulation: row.regulation,
+              type: activeExam?.type,
+              formactive: activeExam?.formactive || row.formactive
+            });
+          });
+        setExams(Array.from(examMap.values()));
+        return;
+      }
+      const params = { colid: global1.colid };
+      const res = await ep1.get("/api/v2/conductexam/exams", { params });
       setExams(res.data?.data || []);
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load exams");
@@ -1187,7 +1355,8 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
       setLoading(false);
     }
   };
-  const selectedExam = useMemo(() => exams.find((row) => row.examcode === filters.examcode && row.academicyear === filters.academicyear) || {}, [exams, filters]);
+  const visibleExams = useMemo(() => exams.filter((row) => !programwiseMode || rowMatchesStudentProgram(row, studentProfile || context?.student || global1)), [exams, programwiseMode, studentProfile, context]);
+  const selectedExam = useMemo(() => visibleExams.find((row) => row.examcode === filters.examcode && row.academicyear === filters.academicyear) || {}, [visibleExams, filters]);
   const selectedForm = useMemo(() => (context?.forms || []).find((form) => form.formid === selectedFormId), [context, selectedFormId]);
   const formTabs = useMemo(() => [...(selectedForm?.tabs || [])].sort((a, b) => Number(a.order || 0) - Number(b.order || 0)), [selectedForm]);
   const courses = useMemo(
@@ -1240,6 +1409,17 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
   const printExamForm = () => {
     const selectedCourseRows = selectedCourses.map((key) => courseRows.find((row) => row.id === key)).filter(Boolean);
     openStudentExamFormPrint({
+      institution,
+      student: context?.student || {},
+      courses: selectedCourseRows.length ? selectedCourseRows : courseRows,
+      fees: feeLedgerRows,
+      exam: { ...selectedExam, academicyear: filters.academicyear, examcode: filters.examcode },
+      title: preapprovedMode ? (atktMode ? "Preapproved ATKT Form" : "Preapproved Regular Form") : atktMode ? "ATKT Form" : "Student Exam Form"
+    });
+  };
+  const printExamFormRevised = () => {
+    const selectedCourseRows = selectedCourses.map((key) => courseRows.find((row) => row.id === key)).filter(Boolean);
+    openStudentExamFormRevisedPrint({
       institution,
       student: context?.student || {},
       courses: selectedCourseRows.length ? selectedCourseRows : courseRows,
@@ -1305,10 +1485,10 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
   };
 
   return (
-    <MenuPageShell title={preapprovedMode ? (atktMode ? "Preapproved ATKT Form" : "Preapproved Regular Form") : atktMode ? "ATKT Form" : "Student Exam Form"} menuType="student">
+    <MenuPageShell title={formActiveOnly ? "Programwise Form 2" : programwiseMode ? "Programwise Form" : preapprovedMode ? (atktMode ? "Preapproved ATKT Form" : "Preapproved Regular Form") : atktMode ? "ATKT Form" : "Student Exam Form"} menuType="student">
       <Box sx={pageBox}>
         <BackButton student />
-        <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>{preapprovedMode ? (atktMode ? "Preapproved ATKT form" : "Preapproved regular form") : atktMode ? "ATKT form" : "Exam form"}</Typography>
+        <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>{formActiveOnly ? "Programwise form 2" : programwiseMode ? "Programwise form" : preapprovedMode ? (atktMode ? "Preapproved ATKT form" : "Preapproved regular form") : atktMode ? "ATKT form" : "Exam form"}</Typography>
         <Snackbar
           open={Boolean(error || message)}
           autoHideDuration={9000}
@@ -1325,8 +1505,8 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
         </Snackbar>
         <Paper sx={paperSx}>
           <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={3}><SelectText label="Academic year" value={filters.academicyear} options={uniqueSorted([...years, ...exams.map((row) => row.academicyear)])} onChange={(value) => setFilters((prev) => ({ ...prev, academicyear: value, examcode: "" }))} /></Grid>
-            <Grid item xs={12} md={4}><SelectText label="Exam" value={filters.examcode} options={uniqueSorted(exams.filter((row) => !filters.academicyear || row.academicyear === filters.academicyear).map((row) => row.examcode))} onChange={(value) => setFilters((prev) => ({ ...prev, examcode: value }))} /></Grid>
+            <Grid item xs={12} md={3}><SelectText label="Academic year" value={filters.academicyear} options={uniqueSorted([...years, ...visibleExams.map((row) => row.academicyear)])} onChange={(value) => setFilters((prev) => ({ ...prev, academicyear: value, examcode: "" }))} /></Grid>
+            <Grid item xs={12} md={4}><SelectText label="Exam" value={filters.examcode} options={uniqueSorted(visibleExams.filter((row) => !filters.academicyear || row.academicyear === filters.academicyear).map((row) => row.examcode))} onChange={(value) => setFilters((prev) => ({ ...prev, examcode: value }))} /></Grid>
             <Grid item xs={12} md={3}>
               {atktMode || preapprovedMode ? (
                 <TextField fullWidth size="small" label="Exam type" value={atktMode ? "ATKT" : "Regular"} InputProps={{ readOnly: true }} />
@@ -1343,7 +1523,10 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
             <Paper sx={{ ...paperSx, mt: 2 }}>
               <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 1 }}>
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>Student details</Typography>
-                <Button variant="outlined" startIcon={<Print />} onClick={printExamForm}>Print preview</Button>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  {!programwiseMode && <Button variant="outlined" startIcon={<Print />} onClick={printExamForm}>Print preview</Button>}
+                  <Button variant="outlined" startIcon={<Print />} onClick={printExamFormRevised}>Print preview 2</Button>
+                </Stack>
               </Stack>
               <Grid container spacing={2} alignItems="flex-start">
                 <Grid item xs={12} md={10}>
@@ -1430,6 +1613,11 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
                   )}
                 </Stack>
               </Stack>
+              {atktMode && !courseRows.length && (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  No ATKT failed course found for this student. The system checks failed rows in Exam Model 2 viva marks and Exam Model 2 marks using regno only, across all academic years, programs and semesters.
+                </Alert>
+              )}
               <Box sx={{ height: 420 }}>
                 <DataGrid
                   rows={courseRows}
@@ -1465,8 +1653,11 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
                 />
               </Box>
               <Stack direction={{ xs: "column", sm: "row" }} justifyContent="flex-end" spacing={1.5} sx={{ mt: 2 }}>
-                <Button variant="outlined" size="large" startIcon={<Print />} onClick={printExamForm}>
+                {!programwiseMode && <Button variant="outlined" size="large" startIcon={<Print />} onClick={printExamForm}>
                   Print preview
+                </Button>}
+                <Button variant="outlined" size="large" startIcon={<Print />} onClick={printExamFormRevised}>
+                  Print preview 2
                 </Button>
                 <Button variant="contained" size="large" disabled={submitting || !selectedForm || !selectedCourses.length} startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <Save />} onClick={submit}>
                   Submit exam form
@@ -1524,6 +1715,14 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
 
 export function StudentAtktFormPage() {
   return <StudentExamDynamicFormPage atktMode />;
+}
+
+export function StudentProgramwiseExamFormPage() {
+  return <StudentExamDynamicFormPage programwiseMode />;
+}
+
+export function StudentProgramwiseExamForm2Page() {
+  return <StudentExamDynamicFormPage programwiseMode formActiveOnly />;
 }
 
 export function PreapprovedRegularFormPage() {
@@ -1619,6 +1818,20 @@ export function ConductExamStudentFormPage({ atktMode = false } = {}) {
       title: atktMode ? "ATKT Form" : "Student Exam Form"
     });
   };
+  const printSelectedRevised = () => {
+    if (!selectedStudent) {
+      setError("Select a student first");
+      return;
+    }
+    openStudentExamFormRevisedPrint({
+      institution,
+      student: selectedStudent.student,
+      courses: selectedStudent.courses || [],
+      fees: selectedStudent.examFeeLedger || [],
+      exam: { ...selectedExam, academicyear: filters.academicyear, examcode: filters.examcode },
+      title: atktMode ? "ATKT Form" : "Student Exam Form"
+    });
+  };
 
   const studentRows = students.map((row) => ({
     id: row.student?.regno || row.id,
@@ -1683,7 +1896,10 @@ export function ConductExamStudentFormPage({ atktMode = false } = {}) {
         <Paper sx={{ ...paperSx, mt: 2 }}>
           <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 1 }}>
             <Typography variant="h6" sx={{ fontWeight: 800 }}>{atktMode ? "Students with ATKT courses" : "Students from examroll"}</Typography>
-            <Button variant="outlined" startIcon={<Print />} disabled={!selectedStudent} onClick={printSelected}>Print preview</Button>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <Button variant="outlined" startIcon={<Print />} disabled={!selectedStudent} onClick={printSelected}>Print preview</Button>
+              <Button variant="outlined" startIcon={<Print />} disabled={!selectedStudent} onClick={printSelectedRevised}>Print preview 2</Button>
+            </Stack>
           </Stack>
           <Box sx={{ height: 430 }}>
             <DataGrid
@@ -1722,7 +1938,10 @@ export function ConductExamStudentFormPage({ atktMode = false } = {}) {
             <Paper sx={{ ...paperSx, mt: 2 }}>
               <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 1 }}>
                 <Typography variant="h6" sx={{ fontWeight: 800 }}>Selected student profile</Typography>
-                <Button variant="contained" startIcon={<Print />} onClick={printSelected}>Generate print preview</Button>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Button variant="contained" startIcon={<Print />} onClick={printSelected}>Generate print preview</Button>
+                  <Button variant="outlined" startIcon={<Print />} onClick={printSelectedRevised}>Generate print preview 2</Button>
+                </Stack>
               </Stack>
               <Grid container spacing={2} alignItems="flex-start">
                 <Grid item xs={12} md={10}>

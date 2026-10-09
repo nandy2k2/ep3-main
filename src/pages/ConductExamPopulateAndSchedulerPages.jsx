@@ -292,7 +292,7 @@ export function ConductExamPopulateCoursesPage() {
   const [courseMapRows, setCourseMapRows] = useState([]);
   const [rows, setRows] = useState([]);
   const [selectedRows, setSelectedRows] = useState([]);
-  const [form, setForm] = useState({ examId: "", academicyear: "", exam: "", examcode: "", regulation: "", programs: [], subjects: [], courses: [] });
+  const [form, setForm] = useState({ examId: "", academicyear: "", exam: "", examcode: "", regulation: "", programs: [], types: [], subjects: [], semesters: [], courses: [] });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -326,18 +326,20 @@ export function ConductExamPopulateCoursesPage() {
     return [...map.values()].sort((a, b) => text(a.program).localeCompare(text(b.program)));
   }, [courseMapRows, form.academicyear, form.regulation]);
   const selectedProgramCodes = useMemo(() => form.programs.map((row) => row.programcode), [form.programs]);
-  const subjectOptions = useMemo(() => uniq(courseMapRows.filter((row) => row.academicyear === form.academicyear && row.regulation === form.regulation && selectedProgramCodes.includes(row.programcode)).map((row) => row.subject)), [courseMapRows, form.academicyear, form.regulation, selectedProgramCodes]);
+  const typeOptions = useMemo(() => uniq(courseMapRows.filter((row) => row.academicyear === form.academicyear && row.regulation === form.regulation && selectedProgramCodes.includes(row.programcode)).map((row) => row.type)), [courseMapRows, form.academicyear, form.regulation, selectedProgramCodes]);
+  const subjectOptions = useMemo(() => uniq(courseMapRows.filter((row) => row.academicyear === form.academicyear && row.regulation === form.regulation && selectedProgramCodes.includes(row.programcode) && (!form.types.length || form.types.includes(row.type))).map((row) => row.subject)), [courseMapRows, form.academicyear, form.regulation, selectedProgramCodes, form.types]);
+  const semesterOptions = useMemo(() => uniq(courseMapRows.filter((row) => row.academicyear === form.academicyear && row.regulation === form.regulation && selectedProgramCodes.includes(row.programcode) && (!form.types.length || form.types.includes(row.type)) && (!form.subjects.length || form.subjects.includes(row.subject))).map((row) => row.semester)), [courseMapRows, form.academicyear, form.regulation, selectedProgramCodes, form.types, form.subjects]);
   const courseOptions = useMemo(() => {
     const map = new Map();
-    courseMapRows.filter((row) => row.academicyear === form.academicyear && row.regulation === form.regulation && selectedProgramCodes.includes(row.programcode) && (!form.subjects.length || form.subjects.includes(row.subject))).forEach((row) => {
+    courseMapRows.filter((row) => row.academicyear === form.academicyear && row.regulation === form.regulation && selectedProgramCodes.includes(row.programcode) && (!form.types.length || form.types.includes(row.type)) && (!form.subjects.length || form.subjects.includes(row.subject)) && (!form.semesters.length || form.semesters.includes(row.semester))).forEach((row) => {
       if (row.coursecode) map.set(`${row.programcode}||${row.coursecode}||${row.subject}||${row.semester}`, row);
     });
     return [...map.values()].sort((a, b) => `${a.programcode}${a.semester}${a.course}`.localeCompare(`${b.programcode}${b.semester}${b.course}`, undefined, { numeric: true }));
-  }, [courseMapRows, form.academicyear, form.regulation, selectedProgramCodes, form.subjects]);
+  }, [courseMapRows, form.academicyear, form.regulation, selectedProgramCodes, form.types, form.subjects, form.semesters]);
 
   const selectExam = (id) => {
     const exam = exams.find((item) => item._id === id);
-    setForm({ examId: id, academicyear: exam?.academicyear || "", exam: exam?.examname || "", examcode: exam?.examcode || "", regulation: "", programs: [], subjects: [], courses: [] });
+    setForm({ examId: id, academicyear: exam?.academicyear || "", exam: exam?.examname || "", examcode: exam?.examcode || "", regulation: "", programs: [], types: [], subjects: [], semesters: [], courses: [] });
   };
 
   const populate = async () => {
@@ -417,10 +419,12 @@ export function ConductExamPopulateCoursesPage() {
           <Grid container spacing={2}>
             <Grid item xs={12} md={4}><Autocomplete options={exams} value={exams.find((item) => item._id === form.examId) || null} getOptionLabel={(item) => item?._id ? `${item.academicyear} - ${item.examname} (${item.examcode})` : ""} onChange={(_, value) => selectExam(value?._id || "")} renderInput={(params) => <TextField {...params} label="Exam" />} /></Grid>
             <Grid item xs={12} md={2}><TextField fullWidth label="Academic Year" value={form.academicyear} InputProps={{ readOnly: true }} /></Grid>
-            <Grid item xs={12} md={3}><Autocomplete options={regulationOptions} value={form.regulation} onChange={(_, value) => setForm((prev) => ({ ...prev, regulation: value || "", programs: [], subjects: [], courses: [] }))} renderInput={(params) => <TextField {...params} label="Regulation" />} /></Grid>
-            <Grid item xs={12} md={3}><MultiSelect label="Programs" options={programOptions} value={form.programs} onChange={(value) => setForm((prev) => ({ ...prev, programs: value, subjects: [], courses: [] }))} getLabel={(item) => `${item.program} (${item.programcode})`} disabled={!form.regulation} /></Grid>
-            <Grid item xs={12} md={4}><MultiSelect label="Subjects" options={subjectOptions} value={form.subjects} onChange={(value) => setForm((prev) => ({ ...prev, subjects: value, courses: [] }))} disabled={!form.programs.length} /></Grid>
-            <Grid item xs={12} md={8}><MultiSelect label="Courses" options={courseOptions} value={form.courses} onChange={(value) => setForm((prev) => ({ ...prev, courses: value }))} getLabel={(item) => `${item.programcode} | Sem ${item.semester} | ${item.subject} | ${item.course} (${item.coursecode}) | ${item.deliverytype || "-"}`} disabled={!form.programs.length} /></Grid>
+            <Grid item xs={12} md={3}><Autocomplete options={regulationOptions} value={form.regulation} onChange={(_, value) => setForm((prev) => ({ ...prev, regulation: value || "", programs: [], types: [], subjects: [], semesters: [], courses: [] }))} renderInput={(params) => <TextField {...params} label="Regulation" />} /></Grid>
+            <Grid item xs={12} md={3}><MultiSelect label="Programs" options={programOptions} value={form.programs} onChange={(value) => setForm((prev) => ({ ...prev, programs: value, types: [], subjects: [], semesters: [], courses: [] }))} getLabel={(item) => `${item.program} (${item.programcode})`} disabled={!form.regulation} /></Grid>
+            <Grid item xs={12} md={3}><MultiSelect label="Type" options={typeOptions} value={form.types} onChange={(value) => setForm((prev) => ({ ...prev, types: value, subjects: [], semesters: [], courses: [] }))} disabled={!form.programs.length} /></Grid>
+            <Grid item xs={12} md={3}><MultiSelect label="Semester" options={semesterOptions} value={form.semesters} onChange={(value) => setForm((prev) => ({ ...prev, semesters: value, courses: [] }))} disabled={!form.programs.length} /></Grid>
+            <Grid item xs={12} md={4}><MultiSelect label="Subjects" options={subjectOptions} value={form.subjects} onChange={(value) => setForm((prev) => ({ ...prev, subjects: value, semesters: [], courses: [] }))} disabled={!form.programs.length} /></Grid>
+            <Grid item xs={12} md={8}><MultiSelect label="Courses" options={courseOptions} value={form.courses} onChange={(value) => setForm((prev) => ({ ...prev, courses: value }))} getLabel={(item) => `${item.programcode} | ${item.type || "-"} | Sem ${item.semester} | ${item.subject} | ${item.course} (${item.coursecode}) | ${item.deliverytype || "-"}`} disabled={!form.programs.length} /></Grid>
           </Grid>
         </Paper>
         <Paper elevation={0} sx={{ p: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
