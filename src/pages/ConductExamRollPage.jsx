@@ -15,9 +15,11 @@ const filterFields = [
   { key: "regulation", label: "Regulation" },
   { key: "exam", label: "Exam" },
   { key: "examcode", label: "Exam Code" },
+  { key: "batch", label: "Batch" },
   { key: "program", label: "Program" },
   { key: "programcode", label: "Program Code" },
   { key: "type", label: "Type" },
+  { key: "papertype", label: "Paper Type" },
   { key: "subject", label: "Subject" },
   { key: "semester", label: "Semester" },
   { key: "course", label: "Course" },
@@ -34,6 +36,8 @@ const filterFields = [
   { key: "examslot", label: "Exam Slot" },
   { key: "campus", label: "Campus" },
   { key: "building", label: "Building" },
+  { key: "blockno", label: "Block No" },
+  { key: "shortbarcode", label: "Short Barcode" },
   { key: "examroom", label: "Exam Room" },
   { key: "seatno", label: "Seat No" },
   { key: "examseatno", label: "Unique ID" }
@@ -43,9 +47,11 @@ const blankForm = {
   regulation: "",
   exam: "",
   examcode: "",
+  batch: "",
   program: "",
   programcode: "",
   type: "Major",
+  papertype: "Theory",
   subject: "",
   semester: "",
   courses: [],
@@ -65,6 +71,8 @@ const blankForm = {
   examslot: "",
   campus: "",
   building: "",
+  blockno: "",
+  shortbarcode: "",
   examroom: "",
   seatno: "",
   examseatno: ""
@@ -136,7 +144,7 @@ export default function ConductExamRollPage() {
 
   const selectExam = (examcode) => {
     const exam = exams.find((item) => item.examcode === examcode);
-    setForm({ ...blankForm, academicyear: exam?.academicyear || "", exam: exam?.examname || "", examcode: exam?.examcode || "" });
+    setForm({ ...blankForm, academicyear: exam?.academicyear || "", exam: exam?.examname || "", examcode: exam?.examcode || "", batch: exam?.batch || "" });
     if (exam?.examcode) loadExamCourses({ examcode: exam.examcode });
   };
 
@@ -270,7 +278,7 @@ export default function ConductExamRollPage() {
   };
 
   const downloadTemplate = () => {
-    const worksheet = XLSX.utils.json_to_sheet([{ academicyear: "2026-27", regulation: "NEP 2026", exam: "Semester End Examination", examcode: "SEE-2026-ODD", program: "B.Com", programcode: "BCOM", type: "Major", subject: "Accountancy", semester: "1", course: "Financial Accounting", coursecode: "BCOM-MAJ-101", student: "Student Name", regno: "REG001", email: "student@example.com", phone: "9999999999", section: "A", examsection: "Section-A, Section-B, Pr", applied: "Yes", admitcardeligible: "Yes", attended: "No", noofbacklogs: 0, atkt: "", remarks: "", examdate: "2026-12-10", examslot: "10:00 AM - 1:00 PM", campus: "Main Campus", building: "Academic Block", examroom: "", seatno: "", examseatno: "" }]);
+    const worksheet = XLSX.utils.json_to_sheet([{ academicyear: "2026-27", regulation: "NEP 2026", exam: "Semester End Examination", examcode: "SEE-2026-ODD", batch: "SUMMER 25-26-YR(REGULAR)", program: "B.Com", programcode: "BCOM", type: "Major", papertype: "Theory", subject: "Accountancy", semester: "1", course: "Financial Accounting", coursecode: "BCOM-MAJ-101", student: "Student Name", regno: "REG001", email: "student@example.com", phone: "9999999999", section: "A", examsection: "Section-A, Section-B, Pr", applied: "Yes", admitcardeligible: "Yes", attended: "No", noofbacklogs: 0, atkt: "", remarks: "", examdate: "2026-12-10", examslot: "10:00 AM - 1:00 PM", campus: "Main Campus", building: "Academic Block", blockno: "1", shortbarcode: "12345", examroom: "", seatno: "", examseatno: "" }]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Exam Roll");
     XLSX.writeFile(workbook, "conduct_exam_roll_template.xlsx");
@@ -320,8 +328,10 @@ export default function ConductExamRollPage() {
     { field: "regulation", headerName: "Regulation", width: 140 },
     { field: "exam", headerName: "Exam", minWidth: 170, flex: 1 },
     { field: "examcode", headerName: "Exam Code", width: 140 },
+    { field: "batch", headerName: "Batch", width: 170 },
     { field: "programcode", headerName: "Program", width: 120 },
     { field: "type", headerName: "Type", width: 100 },
+    { field: "papertype", headerName: "Paper Type", width: 120 },
     { field: "subject", headerName: "Subject", minWidth: 140, flex: 1 },
     { field: "semester", headerName: "Sem", width: 80 },
     { field: "course", headerName: "Course", minWidth: 170, flex: 1 },
@@ -340,6 +350,8 @@ export default function ConductExamRollPage() {
     { field: "examslot", headerName: "Exam Slot", width: 170 },
     { field: "campus", headerName: "Campus", width: 140 },
     { field: "building", headerName: "Building", width: 150 },
+    { field: "blockno", headerName: "Block No", width: 110 },
+    { field: "shortbarcode", headerName: "Short Barcode", width: 140 },
     { field: "examroom", headerName: "Exam Room", width: 130 },
     { field: "seatno", headerName: "Seat No", width: 110 },
     { field: "actions", headerName: "Actions", width: 170, sortable: false, renderCell: (params) => <Stack direction="row" spacing={1}><Button size="small" onClick={() => editRow(params.row)}>Edit</Button><Button size="small" color="error" onClick={() => deleteRow(params.row._id)}>Delete</Button></Stack> }
@@ -374,9 +386,11 @@ export default function ConductExamRollPage() {
         <Grid container spacing={2}>
           <Grid item xs={12} md={3}><TextField select fullWidth label="Exam" value={form.examcode} onChange={(e) => e.target.value === "__add_exam" ? navigate(embeddedAwarePath("/conduct-exam-master")) : selectExam(e.target.value)}><MenuItem value="__add_exam" sx={{ fontWeight: 800, color: "#2563eb" }}>+ Add Exam</MenuItem>{exams.map((item) => <MenuItem key={item._id} value={item.examcode}>{item.academicyear} - {item.examname} ({item.examcode})</MenuItem>)}</TextField></Grid>
           <Grid item xs={12} md={1.5}><TextField fullWidth label="Academic Year" value={form.academicyear} InputProps={{ readOnly: true }} /></Grid>
+          <Grid item xs={12} md={2}><TextField fullWidth label="Batch" value={form.batch || ""} onChange={(e) => setForm({ ...form, batch: e.target.value })} /></Grid>
           <Grid item xs={12} md={2}><TextField select fullWidth label="Regulation" value={form.regulation} onChange={(e) => e.target.value === "__add_regulation" ? navigate(embeddedAwarePath("/regulationmaster")) : selectRegulation(e.target.value)} disabled={!form.examcode}><MenuItem value="__add_regulation" sx={{ fontWeight: 800, color: "#2563eb" }}>+ Add Regulation</MenuItem>{regulationOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
           <Grid item xs={12} md={3}><TextField select fullWidth label="Program" value={form.programcode} onChange={(e) => e.target.value === "__add_program" ? navigate(embeddedAwarePath("/programmanagement")) : selectProgram(e.target.value)} disabled={!form.regulation}><MenuItem value="__add_program" sx={{ fontWeight: 800, color: "#2563eb" }}>+ Add Program</MenuItem>{programOptions.map((item) => <MenuItem key={item.programcode} value={item.programcode}>{item.program} ({item.programcode})</MenuItem>)}</TextField></Grid>
           <Grid item xs={12} md={1.5}><TextField select fullWidth label="Type" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value, subject: "", semester: "", courses: [] })} disabled={!form.programcode}>{typeOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+          <Grid item xs={12} md={1.5}><TextField select fullWidth label="Paper Type" value={form.papertype || ""} onChange={(e) => setForm({ ...form, papertype: e.target.value })}><MenuItem value="">Blank</MenuItem>{["Theory", "Practical", "Viva"].map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
           <Grid item xs={12} md={2}><TextField select fullWidth label="Subject" value={form.subject} onChange={(e) => e.target.value === "__add_course_map" ? navigate(embeddedAwarePath("/regulationcoursemap")) : setForm({ ...form, subject: e.target.value, semester: "", courses: [] })} disabled={!form.programcode}><MenuItem value="__add_course_map" sx={{ fontWeight: 800, color: "#2563eb" }}>+ Add Regulation Course Map</MenuItem>{subjectOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
           <Grid item xs={12} md={1.5}><TextField select fullWidth label="Semester" value={form.semester} onChange={(e) => e.target.value === "__add_course_map" ? navigate(embeddedAwarePath("/regulationcoursemap")) : setForm({ ...form, semester: e.target.value, courses: [] })} disabled={!form.subject}><MenuItem value="__add_course_map" sx={{ fontWeight: 800, color: "#2563eb" }}>+ Add Regulation Course Map</MenuItem>{semesterOptions.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
           <Grid item xs={12} md={1.5}><Button fullWidth variant="contained" onClick={generateRoll} disabled={generating} sx={{ height: 56 }}>{generating ? "Generating..." : "Generate"}</Button></Grid>
@@ -404,6 +418,8 @@ export default function ConductExamRollPage() {
               <Grid item xs={12} md={2}><TextField fullWidth label="Exam Slot" value={form.examslot || ""} onChange={(e) => setForm({ ...form, examslot: e.target.value })} /></Grid>
               <Grid item xs={12} md={2}><TextField fullWidth label="Campus" value={form.campus || ""} onChange={(e) => setForm({ ...form, campus: e.target.value })} /></Grid>
               <Grid item xs={12} md={2}><TextField fullWidth label="Building" value={form.building || ""} onChange={(e) => setForm({ ...form, building: e.target.value })} /></Grid>
+              <Grid item xs={12} md={2}><TextField fullWidth label="Block No" value={form.blockno || ""} onChange={(e) => setForm({ ...form, blockno: e.target.value })} /></Grid>
+              <Grid item xs={12} md={2}><TextField fullWidth label="Short Barcode" value={form.shortbarcode || ""} onChange={(e) => setForm({ ...form, shortbarcode: e.target.value })} /></Grid>
               <Grid item xs={12} md={2}><TextField fullWidth label="Exam Room" value={form.examroom} onChange={(e) => setForm({ ...form, examroom: e.target.value })} /></Grid>
               <Grid item xs={12} md={2}><TextField fullWidth label="Seat No" value={form.seatno} onChange={(e) => setForm({ ...form, seatno: e.target.value })} /></Grid>
               <Grid item xs={12} md={2}><TextField fullWidth label="Exam Section" placeholder="Section-A, Section-B, Pr" value={form.examsection || ""} onChange={(e) => setForm({ ...form, examsection: e.target.value })} /></Grid>

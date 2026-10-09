@@ -1189,6 +1189,7 @@ import NepLmsAttendanceReviewPage from "./pages/NepLmsAttendanceReviewPage";
 import NepLmsAssessmentMarksPage from "./pages/NepLmsAssessmentMarksPage";
 import InternalMarksEntryPage, { InternalMarksEntryAdminPage } from "./pages/InternalMarksEntryPage";
 import InternalMarksEntryDatesPage from "./pages/InternalMarksEntryDatesPage";
+import { InternalMarksApprovalPage, InternalMarksApprovalWorkflowPage } from "./pages/InternalMarksApprovalPages";
 import MyMarksPage from "./pages/MyMarksPage";
 import NepLmsAssessmentMarksViewPage from "./pages/NepLmsAssessmentMarksViewPage";
 import NepLmsComponentMarksViewPage from "./pages/NepLmsComponentMarksViewPage";
@@ -1219,6 +1220,10 @@ import ConductExamCourseSchedulerPage from "./pages/ConductExamCourseSchedulerPa
 import ConductExamManualSchedulerPage from "./pages/ConductExamManualSchedulerPage";
 import { ConductExamCourseSchedulerReportPage, ConductExamPopulateDatesPage } from "./pages/ConductExamDatePopulationPages";
 import ConductExamBarcodeGenerationPage from "./pages/ConductExamBarcodeGenerationPage";
+import ConductExamBarcode2Page from "./pages/ConductExamBarcode2Page";
+import ConductExamBarcode3Page from "./pages/ConductExamBarcode3Page";
+import ConductExamBarcode4Page from "./pages/ConductExamBarcode4Page";
+import ConductExamBarcode5Page from "./pages/ConductExamBarcode5Page";
 import { ConductExamAutoScheduler2Page, ConductExamAutoScheduler3Page, ConductExamPopulateCoursesPage } from "./pages/ConductExamPopulateAndSchedulerPages";
 import ConductExamAtktSchedulerPage from "./pages/ConductExamAtktSchedulerPage";
 import ConductExamRollPage from "./pages/ConductExamRollPage";
@@ -1258,6 +1263,7 @@ import ConductExamOnlineExamMarksTransferPage, {
 import { ConductExamDaywiseMarksMonitoringPage, ConductExamExaminerReassignmentPage, ConductExamMarksEntryMonitoringPage } from "./pages/ConductExamComponentMonitoringPages";
 import ExamModel2ComponentMarksCrudPage from "./pages/ExamModel2ComponentMarksCrudPage";
 import ExamModel2InterimMarksTransferPage from "./pages/ExamModel2InterimMarksTransferPage";
+import ExamModel2ScoreTypeMarksPage from "./pages/ExamModel2ScoreTypeMarksPage";
 import ConductExamPaperSetterRegistrationPage from "./pages/ConductExamPaperSetterRegistrationPage";
 import {
   ConductExamPaperSetterPanelApprovalPage,
@@ -4072,6 +4078,8 @@ function App() {
         <Route path="/internal-marks-entry" element={<InternalMarksEntryPage />} />
         <Route path="/internal-marks-entry-admin" element={<InternalMarksEntryAdminPage />} />
         <Route path="/internal-marks-entry-dates" element={<InternalMarksEntryDatesPage />} />
+        <Route path="/internal-marks-approval-workflow" element={<InternalMarksApprovalWorkflowPage />} />
+        <Route path="/internal-marks-approval" element={<InternalMarksApprovalPage />} />
         <Route path="/my-marks" element={<MyMarksPage />} />
         <Route path="/neplmsassessmentmarksview" element={<NepLmsAssessmentMarksViewPage />} />
         <Route path="/neplmscomponentmarks" element={<NepLmsComponentMarksViewPage />} />
@@ -4083,6 +4091,7 @@ function App() {
         <Route path="/exammodel2marks" element={<ExaminationModel2MarksPage />} />
         <Route path="/exammodel2-component-marks-crud" element={<ExamModel2ComponentMarksCrudPage />} />
         <Route path="/exammodel2-interim-marks-transfer" element={<ExamModel2InterimMarksTransferPage />} />
+        <Route path="/exammodel2-scoretype-marks" element={<ExamModel2ScoreTypeMarksPage />} />
         <Route path="/exammodel2vivamarks" element={<ExaminationModel2VivaMarksPage />} />
         <Route path="/exammodel2viva-gradingtemplate" element={<ExaminationModel2VivaGradingTemplatePage />} />
         <Route path="/exammodel2viva-gradingtemplatedetails" element={<ExaminationModel2VivaGradingTemplateDetailPage />} />
@@ -4622,6 +4631,10 @@ function App() {
         <Route path="/conduct-exam-scheduler-manual" element={<ConductExamManualSchedulerPage />} />
         <Route path="/conduct-exam-populate-dates" element={<ConductExamPopulateDatesPage />} />
         <Route path="/conduct-exam-barcode-generation" element={<ConductExamBarcodeGenerationPage />} />
+        <Route path="/conduct-exam-barcode-2" element={<ConductExamBarcode2Page />} />
+        <Route path="/conduct-exam-barcode-3" element={<ConductExamBarcode3Page />} />
+        <Route path="/conduct-exam-barcode-4" element={<ConductExamBarcode4Page />} />
+        <Route path="/conduct-exam-barcode-5" element={<ConductExamBarcode5Page />} />
         <Route path="/conduct-exam-course-scheduler-report" element={<ConductExamCourseSchedulerReportPage />} />
         <Route path="/conduct-exam-populate-courses" element={<ConductExamPopulateCoursesPage />} />
         <Route path="/conduct-exam-auto-scheduler-2" element={<ConductExamAutoScheduler2Page />} />

@@ -64,6 +64,30 @@ const steps = [
     description: "Load exam roll students, select one or more rows, and print barcode stickers using MongoDB codes."
   },
   {
+    title: "Exam Barcode 2",
+    path: "/conduct-exam-barcode-2",
+    icon: <Badge />,
+    description: "Print 100mm x 25mm exam barcode stickers in section-wise attendance format."
+  },
+  {
+    title: "Exam Barcode 3",
+    path: "/conduct-exam-barcode-3",
+    icon: <Badge />,
+    description: "Print 100mm x 26mm labels with 8 digit scanner friendly barcodes."
+  },
+  {
+    title: "Exam Barcode 4",
+    path: "/conduct-exam-barcode-4",
+    icon: <Badge />,
+    description: "Print a full-width 100mm x 26mm barcode label with exam code and section in spare space."
+  },
+  {
+    title: "Exam Barcode 5",
+    path: "/conduct-exam-barcode-5",
+    icon: <Badge />,
+    description: "Print right-aligned 100mm x 26mm barcode labels when browser scaling leaves unused space."
+  },
+  {
     title: "Seat Allocation",
     path: "/conduct-exam-seat-allocation",
     icon: <Assignment />,

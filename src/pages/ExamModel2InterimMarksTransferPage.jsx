@@ -44,6 +44,7 @@ export default function ExamModel2InterimMarksTransferPage() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [scoreTypeProcessing, setScoreTypeProcessing] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [scoreTypeUpdate, setScoreTypeUpdate] = useState({ coursecode: "", assessmentcomponent: "", scoretype: "Internal" });
@@ -116,6 +117,35 @@ export default function ExamModel2InterimMarksTransferPage() {
     }
   };
 
+  const processScoreTypeTransfer = async () => {
+    if (!selection.length) {
+      setError("Select one or more students/component rows before processing score type transfer.");
+      return;
+    }
+    try {
+      setScoreTypeProcessing(true);
+      setError("");
+      setMessage("");
+      const payload = {
+        ...filters,
+        colid: global1.colid,
+        user: global1.user,
+        ids: selection,
+        regnos: selectedRegnos
+      };
+      const res = await ep1.post("/api/v2/examination-model2/scoretype-transfer", payload);
+      const errors = res.data?.errors || [];
+      setProcessedRows(res.data?.data || []);
+      setSummary({ processed: res.data?.transferred || 0, errors: errors.length, mode: "scoretype" });
+      setMessage(`Scoretype transfer completed. Transferred: ${res.data?.transferred || 0}`);
+      if (errors.length) setError(errors.slice(0, 5).map((item) => `${item.key || "Row"}: ${item.message}`).join(" | "));
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to process scoretype transfer.");
+    } finally {
+      setScoreTypeProcessing(false);
+    }
+  };
+
   const updateComponentScoreType = async () => {
     if (!scoreTypeUpdate.coursecode || !scoreTypeUpdate.assessmentcomponent || !scoreTypeUpdate.scoretype) {
       setError("Select course, assessment component and Internal/External.");
@@ -168,6 +198,12 @@ export default function ExamModel2InterimMarksTransferPage() {
     "theorymarks", "theoryobtained", "theorystatus", "practicaltotal", "practicalmarks", "practicalstatus",
     "vivatotal", "vivaobtained", "overalltotalmarks", "overallobtained", "overallpercentage", "overallgrade", "overallgradepoint", "gpa", "status"
   ].map((field) => ({ field, headerName: labels[field] || field, width: ["student"].includes(field) ? 180 : 140 }));
+  const scoreTypePreviewColumns = [
+    "academicyear", "programcode", "semester", "coursecode", "student", "regno", "email", "type",
+    "internalmax", "internalobtained", "internalpercentage", "internalgrade", "internalstatus",
+    "externalmax", "externalobtained", "externalpercentage", "externalgrade", "externalstatus",
+    "totalmax", "totalobtained", "totalpercentage", "totalgrade", "totalstatus", "gpa"
+  ].map((field) => ({ field, headerName: labels[field] || field, width: ["student", "email"].includes(field) ? 180 : 140 }));
 
   return (
     <MenuPageShell title="Interim Marks Transfer">
@@ -182,10 +218,11 @@ export default function ExamModel2InterimMarksTransferPage() {
               <Stack direction="row" spacing={1} alignItems="center">
                 <Chip color="primary" label={`Selected rows: ${selection.length}`} />
                 <Chip color="secondary" label={`Students: ${selectedRegnos.length}`} />
-                <Button variant="contained" startIcon={<PlayArrowIcon />} onClick={process} disabled={processing || !selection.length}>{processing ? "Processing..." : "Process"}</Button>
+                <Button variant="contained" startIcon={<PlayArrowIcon />} onClick={process} disabled={processing || scoreTypeProcessing || !selection.length}>{processing ? "Processing..." : "Process"}</Button>
+                <Button variant="outlined" startIcon={<PlayArrowIcon />} onClick={processScoreTypeTransfer} disabled={processing || scoreTypeProcessing || !selection.length}>{scoreTypeProcessing ? "Transferring..." : "Scoretype transfer"}</Button>
               </Stack>
             </Stack>
-            {(loading || processing) && <LinearProgress sx={{ mt: 2 }} />}
+            {(loading || processing || scoreTypeProcessing) && <LinearProgress sx={{ mt: 2 }} />}
           </Paper>
           {error && <Alert severity="error" onClose={() => setError("")}>{error}</Alert>}
           {message && <Alert severity="success" onClose={() => setMessage("")}>{message}</Alert>}
@@ -224,7 +261,7 @@ export default function ExamModel2InterimMarksTransferPage() {
 	                </TextField>
 	              </Grid>
 	              <Grid item xs={12} md={2}>
-	                <Button fullWidth variant="contained" onClick={updateComponentScoreType} disabled={processing || !scoreTypeUpdate.coursecode || !scoreTypeUpdate.assessmentcomponent} sx={{ height: 40 }}>Update</Button>
+                  <Button fullWidth variant="contained" onClick={updateComponentScoreType} disabled={processing || scoreTypeProcessing || !scoreTypeUpdate.coursecode || !scoreTypeUpdate.assessmentcomponent} sx={{ height: 40 }}>Update</Button>
 	              </Grid>
 	            </Grid>
 	            <Typography variant="caption" color="text.secondary">This updates all component marks rows for the selected course and assessment component under the current filters.</Typography>
@@ -254,7 +291,7 @@ export default function ExamModel2InterimMarksTransferPage() {
             <Paper elevation={0} sx={{ p: 2, borderRadius: 3, border: "1px solid #e5e7eb" }}>
               <Stack direction="row" spacing={1} sx={{ mb: 2 }}><Chip color="success" label={`Processed: ${summary.processed}`} /><Chip color={summary.errors ? "warning" : "default"} label={`Errors: ${summary.errors}`} /></Stack>
               <Typography fontWeight={900} sx={{ mb: 1 }}>Processed Preview</Typography>
-              <Box sx={{ height: 420 }}><DataGrid rows={processedRows.map((row, index) => ({ ...row, id: `${row.regno}-${row.coursecode}-${index}` }))} columns={previewColumns} slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: "interim_marks_transfer_preview" } } }} pageSizeOptions={[10, 25, 50, 100]} /></Box>
+              <Box sx={{ height: 420 }}><DataGrid rows={processedRows.map((row, index) => ({ ...row, id: `${row.regno}-${row.coursecode}-${row.type || "row"}-${index}` }))} columns={summary.mode === "scoretype" ? scoreTypePreviewColumns : previewColumns} slots={{ toolbar: GridToolbar }} slotProps={{ toolbar: { showQuickFilter: true, csvOptions: { fileName: summary.mode === "scoretype" ? "scoretype_transfer_preview" : "interim_marks_transfer_preview" } } }} pageSizeOptions={[10, 25, 50, 100]} /></Box>
             </Paper>
           )}
         </Stack>

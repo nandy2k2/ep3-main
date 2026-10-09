@@ -117,8 +117,10 @@ export default function MyMarksPage() {
     { field: "maxmarks", headerName: "Max Marks", minWidth: 110, type: "number" },
     { field: "rawmarks", headerName: "Raw Marks", minWidth: 110, type: "number" },
     { field: "marksobtained", headerName: "Marks Obtained", minWidth: 140, type: "number" },
+    { field: "attendance", headerName: "Attendance", minWidth: 120 },
     { field: "passstatus", headerName: "Pass Status", minWidth: 120 },
-    { field: "submissionstatus", headerName: "Submission", minWidth: 130 }
+    { field: "submissionstatus", headerName: "Submission", minWidth: 130 },
+    { field: "approvalstatus", headerName: "Approval Status", minWidth: 150 }
   ];
 
   return (

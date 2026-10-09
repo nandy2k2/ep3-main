@@ -10,15 +10,17 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
+  FormControlLabel,
   Grid,
   MenuItem,
   Paper,
   Stack,
+  Switch,
   TextField,
   Typography
 } from "@mui/material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
-import { Download, Refresh, Save, UploadFile } from "@mui/icons-material";
+import { Download, Refresh, Save, Send, UploadFile } from "@mui/icons-material";
 import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
@@ -26,15 +28,21 @@ import global1 from "./global1";
 const uniqueSorted = (values = []) => [...new Set(values.map((item) => String(item || "").trim()).filter(Boolean))]
   .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 const courseLabel = (row) => row ? `${row.coursecode || ""} - ${row.course || ""} | ${row.program || ""} (${row.programcode || ""}) | ${row.regulation || ""}` : "";
-const componentLabel = (row) => row ? `${row.assessmentcomponent || ""} | ${row.scoretype || ""} | ${row.assessmentgroup || ""} | Marks: ${row.marks || 0} | Pass: ${row.passmarks || 0} | Weightage: ${row.weightage || 0}` : "";
+const componentLabel = (row) => row ? `${row.assessmentcomponent || ""} | ${row.scoretype || ""} | ${row.assessmentgroup || ""} | Marks: ${row.marks || 0} | Pass: ${row.passmarks || 0} | Weightage: ${row.weightage === "" || row.weightage === undefined || row.weightage === null ? 1 : row.weightage}` : "";
 const examLabel = (row) => row ? `${row.examname || row.exam || ""} (${row.examcode || ""})` : "";
 const facultyLabel = (row) => row ? `${row.facultyname || ""}${row.facultyemail ? ` (${row.facultyemail})` : ""}` : "";
+const normalizedWeightage = (weightage) => {
+  if (weightage === "" || weightage === undefined || weightage === null) return 1;
+  const parsed = Number(weightage);
+  return Number.isFinite(parsed) ? parsed : 1;
+};
 const weightedMarks = (marks, weightage) => {
   const obtained = Number(marks);
-  const weight = Number(weightage) || 0;
+  const weight = normalizedWeightage(weightage);
   if (Number.isNaN(obtained)) return "";
   return Number((obtained * weight).toFixed(2));
 };
+const weightedPassMarks = (passmarks, weightage) => Number(((Number(passmarks) || 0) * normalizedWeightage(weightage)).toFixed(2));
 
 export default function InternalMarksEntryPage({ admin = false }) {
   const [options, setOptions] = useState({ academicyears: [], semesters: [], courses: [], componenttypes: [], scoretypes: [], exams: [], faculty: [] });
@@ -42,9 +50,11 @@ export default function InternalMarksEntryPage({ admin = false }) {
   const [components, setComponents] = useState([]);
   const [students, setStudents] = useState([]);
   const [marksMap, setMarksMap] = useState({});
+  const [attendanceMap, setAttendanceMap] = useState({});
   const [dateWindow, setDateWindow] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [submittingApproval, setSubmittingApproval] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -100,6 +110,7 @@ export default function InternalMarksEntryPage({ admin = false }) {
     });
     setStudents([]);
     setMarksMap({});
+    setAttendanceMap({});
     if (!admin) setDateWindow(null);
     if (field === "coursekey") setComponents([]);
   };
@@ -176,6 +187,7 @@ export default function InternalMarksEntryPage({ admin = false }) {
       const rows = res.data?.data || [];
       setStudents(rows);
       setMarksMap(Object.fromEntries(rows.map((row) => [row._id, row.rawmarks !== "" && row.rawmarks !== undefined ? row.rawmarks : ""])));
+      setAttendanceMap(Object.fromEntries(rows.map((row) => [row._id, row.attendance === "Absent" ? "Absent" : "Present"])));
       if (!rows.length) setMessage("No matching students found for the selected academic year, regulation, program and semester.");
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load students.");
@@ -194,6 +206,7 @@ export default function InternalMarksEntryPage({ admin = false }) {
   };
 
   const updateMarks = (studentId, value) => {
+    if (attendanceMap[studentId] === "Absent") return;
     const marks = Number(value);
     const max = Number(selectedAssessment?.marks) || 0;
     if (value !== "" && (Number.isNaN(marks) || marks < 0)) return;
@@ -205,13 +218,22 @@ export default function InternalMarksEntryPage({ admin = false }) {
     setMarksMap((prev) => ({ ...prev, [studentId]: value }));
   };
 
+  const updateAttendance = (studentId, checked) => {
+    const attendance = checked ? "Present" : "Absent";
+    setAttendanceMap((prev) => ({ ...prev, [studentId]: attendance }));
+    if (attendance === "Absent") {
+      setMarksMap((prev) => ({ ...prev, [studentId]: 0 }));
+    }
+  };
+
   const saveMarks = async () => {
     if (!selectedAssessment) return setError("Select assessment component.");
     if (!selectedExam) return setError("Select exam.");
     const rows = students.map((student) => ({
       ...student,
-      rawmarks: marksMap[student._id]
-    })).filter((row) => row.rawmarks !== "" && row.rawmarks !== undefined && row.rawmarks !== null);
+      attendance: attendanceMap[student._id] === "Absent" ? "Absent" : "Present",
+      rawmarks: attendanceMap[student._id] === "Absent" ? 0 : marksMap[student._id]
+    })).filter((row) => row.attendance === "Absent" || (row.rawmarks !== "" && row.rawmarks !== undefined && row.rawmarks !== null));
     if (!rows.length) return setError("Enter marks for at least one student.");
     setSaving(true);
     setError("");
@@ -248,6 +270,7 @@ export default function InternalMarksEntryPage({ admin = false }) {
       regno: row.regno || "",
       student: row.student || row.name || "",
       email: row.email || "",
+      attendance: row.attendance || "Present",
       rawmarks: row.rawmarks === "" || row.rawmarks === undefined ? "" : row.rawmarks
     })));
     const wb = XLSX.utils.book_new();
@@ -275,6 +298,7 @@ export default function InternalMarksEntryPage({ admin = false }) {
       if (!fileRows.length) throw new Error("Uploaded file has no rows.");
       const currentStudents = students.length ? students : await fetchStudentRows();
       if (!students.length) setStudents(currentStudents);
+      if (!students.length) setAttendanceMap(Object.fromEntries(currentStudents.map((row) => [row._id, row.attendance === "Absent" ? "Absent" : "Present"])));
       const byRegno = new Map(currentStudents.map((row) => [String(row.regno || "").trim().toLowerCase(), row]));
       const byEmail = new Map(currentStudents.map((row) => [String(row.email || "").trim().toLowerCase(), row]));
       const byName = new Map(currentStudents.map((row) => [String(row.student || row.name || "").trim().toLowerCase(), row]));
@@ -286,7 +310,8 @@ export default function InternalMarksEntryPage({ admin = false }) {
         const email = String(row.email || row.Email || row.EMAIL || "").trim().toLowerCase();
         const name = String(row.student || row.Student || row.name || row.Name || "").trim().toLowerCase();
         const matched = byRegno.get(regno) || byEmail.get(email) || byName.get(name);
-        const rawValue = row.rawmarks ?? row.RawMarks ?? row.marks ?? row.Marks ?? row.marksentry ?? row.enteredmarks ?? row.marksobtained;
+        const attendance = /^absent$/i.test(String(row.attendance || row.Attendance || row.presentabsent || row.PresentAbsent || "").trim()) ? "Absent" : "Present";
+        const rawValue = attendance === "Absent" ? 0 : (row.rawmarks ?? row.RawMarks ?? row.marks ?? row.Marks ?? row.marksentry ?? row.enteredmarks ?? row.marksobtained);
         const rawmarks = Number(rawValue);
         if (!matched) {
           issues.push(`Row ${index + 2}: student not matched`);
@@ -296,7 +321,7 @@ export default function InternalMarksEntryPage({ admin = false }) {
           issues.push(`Row ${index + 2}: invalid marks for ${matched.regno || matched.student}`);
           return;
         }
-        rowsToSave.push({ ...matched, rawmarks });
+        rowsToSave.push({ ...matched, attendance, rawmarks });
       });
       if (!rowsToSave.length) throw new Error(issues.slice(0, 5).join(" | ") || "No valid marks found.");
       const res = await ep1.post("/api/v2/internal-marks-entry/save", {
@@ -320,6 +345,30 @@ export default function InternalMarksEntryPage({ admin = false }) {
     }
   };
 
+  const submitForApproval = async () => {
+    if (!selectedAssessment) return setError("Select assessment component.");
+    if (!selectedExam) return setError("Select exam.");
+    setSubmittingApproval(true);
+    setError("");
+    setMessage("");
+    try {
+      const res = await ep1.post("/api/v2/internal-marks-approval/submit", {
+        colid: global1.colid,
+        user: global1.user,
+        username: global1.name,
+        exam: selectedExam.examname || selectedExam.exam || filters.exam,
+        examcode: selectedExam.examcode,
+        assessmentid: selectedAssessment._id
+      });
+      setMessage(`Submitted ${res.data?.markscount || 0} marks row(s) for approval. Request: ${res.data?.requestno || ""}. Pending with ${res.data?.currentapproveremail || "approver"}.`);
+      await loadStudents();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to submit marks for approval.");
+    } finally {
+      setSubmittingApproval(false);
+    }
+  };
+
   const columns = [
     { field: "student", headerName: "Student", minWidth: 190, flex: 1 },
     { field: "regno", headerName: "Reg No", minWidth: 130 },
@@ -335,9 +384,28 @@ export default function InternalMarksEntryPage({ admin = false }) {
         <TextField
           size="small"
           type="number"
-          value={marksMap[row._id] ?? ""}
+          value={attendanceMap[row._id] === "Absent" ? 0 : (marksMap[row._id] ?? "")}
           onChange={(event) => updateMarks(row._id, event.target.value)}
+          disabled={attendanceMap[row._id] === "Absent"}
           inputProps={{ min: 0, max: selectedAssessment?.marks || 0 }}
+        />
+      )
+    },
+    {
+      field: "attendanceentry",
+      headerName: "Attendance",
+      minWidth: 150,
+      renderCell: ({ row }) => (
+        <FormControlLabel
+          sx={{ m: 0 }}
+          control={
+            <Switch
+              size="small"
+              checked={attendanceMap[row._id] !== "Absent"}
+              onChange={(event) => updateAttendance(row._id, event.target.checked)}
+            />
+          }
+          label={attendanceMap[row._id] === "Absent" ? "Absent" : "Present"}
         />
       )
     },
@@ -345,16 +413,16 @@ export default function InternalMarksEntryPage({ admin = false }) {
       field: "weightedmarks",
       headerName: "Weighted marks",
       minWidth: 140,
-      renderCell: ({ row }) => weightedMarks(marksMap[row._id], selectedAssessment?.weightage)
+      renderCell: ({ row }) => attendanceMap[row._id] === "Absent" ? 0 : weightedMarks(marksMap[row._id], selectedAssessment?.weightage)
     },
     {
       field: "passstatuscalc",
       headerName: "Pass Status",
       minWidth: 130,
       renderCell: ({ row }) => {
-        const finalMarks = weightedMarks(marksMap[row._id], selectedAssessment?.weightage);
+        const finalMarks = attendanceMap[row._id] === "Absent" ? 0 : weightedMarks(marksMap[row._id], selectedAssessment?.weightage);
         if (finalMarks === "") return "";
-        const fail = Number(finalMarks) < Number(selectedAssessment?.passmarks || 0);
+        const fail = Number(finalMarks) < weightedPassMarks(selectedAssessment?.passmarks, selectedAssessment?.weightage);
         return <Chip size="small" color={fail ? "error" : "success"} label={fail ? "FAIL" : "PASS"} />;
       }
     }
@@ -450,8 +518,8 @@ export default function InternalMarksEntryPage({ admin = false }) {
                 <Chip label={`Regulation: ${selectedAssessment.regulation}`} />
                 <Chip label={`Course: ${selectedAssessment.coursecode}`} />
                 <Chip color="primary" label={`Component marks: ${selectedAssessment.marks || 0}`} />
-                <Chip color="success" label={`Weightage: ${selectedAssessment.weightage || 0}`} />
-                <Chip color="warning" label={`Pass marks: ${selectedAssessment.passmarks || 0}`} />
+                <Chip color="success" label={`Weightage: ${normalizedWeightage(selectedAssessment.weightage)}`} />
+                <Chip color="warning" label={`Pass marks: ${selectedAssessment.passmarks || 0} | Weighted pass: ${weightedPassMarks(selectedAssessment.passmarks, selectedAssessment.weightage)}`} />
                 {!admin && dateWindow?.data && <Chip color={dateWindow.allowed ? "success" : "error"} label={`Entry dates: ${dateWindow.data.startdate || "-"} to ${dateWindow.data.enddate || "-"}`} />}
               </Stack>
             )}
@@ -467,6 +535,9 @@ export default function InternalMarksEntryPage({ admin = false }) {
             </Stack>
             <Button variant="contained" startIcon={saving ? <CircularProgress size={16} /> : <Save />} disabled={saving || !students.length || !selectedAssessment || !selectedExam} onClick={saveMarks}>
               Save marks
+            </Button>
+            <Button variant="contained" color="secondary" startIcon={submittingApproval ? <CircularProgress size={16} /> : <Send />} disabled={submittingApproval || saving || !students.length || !selectedAssessment || !selectedExam} onClick={submitForApproval}>
+              Submit for approval
             </Button>
             <Button variant="outlined" startIcon={<Download />} disabled={!selectedAssessment || !selectedExam} onClick={downloadTemplate}>
               Template

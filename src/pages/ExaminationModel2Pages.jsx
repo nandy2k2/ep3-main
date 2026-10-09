@@ -212,6 +212,7 @@ function useExamOptions() {
   const [options, setOptions] = useState({});
   const [programs, setPrograms] = useState([]);
   const [courses, setCourses] = useState([]);
+  const [exams, setExams] = useState([]);
   const load = async () => {
     const [res, userAcademicYears] = await Promise.all([
       ep1.get("/api/v2/examination-model2/options", { params: { colid: global1.colid } }),
@@ -220,6 +221,7 @@ function useExamOptions() {
     const nextOptions = res.data?.options || {};
     const nextPrograms = res.data?.programs || [];
     const nextCourses = res.data?.courses || [];
+    const nextExams = res.data?.exams || [];
     setOptions({
       ...nextOptions,
       academicyear: uniqueSorted([
@@ -236,9 +238,10 @@ function useExamOptions() {
     });
     setPrograms(nextPrograms);
     setCourses(nextCourses);
+    setExams(nextExams);
   };
   useEffect(() => { load().catch(() => {}); }, []);
-  return { options, programs, courses, reloadOptions: load };
+  return { options, programs, courses, exams, reloadOptions: load };
 }
 
 export function ExaminationModel2MarksPage() {
@@ -1468,7 +1471,7 @@ export function ExaminationModel2PercentageCalculationPage() {
 }
 
 export function ExaminationModel2ComponentFailRulePage() {
-  const { options } = useExamOptions();
+  const { options, exams } = useExamOptions();
   const [marksRows, setMarksRows] = useState([]);
   const [resultRows, setResultRows] = useState([]);
   const [form, setForm] = useState({
@@ -1497,6 +1500,15 @@ export function ExaminationModel2ComponentFailRulePage() {
     const practicalFail = form.components.includes("Practical") && /^f$/i.test(text(row.practicalgrade));
     return theoryFail || practicalFail;
   }), [filteredRows, form.components]);
+
+  const examChoices = useMemo(() => (exams || []).filter((row) => (
+    (!form.academicyear || text(row.academicyear) === text(form.academicyear))
+    && (!form.regulation || text(row.regulation) === text(form.regulation))
+  )).sort((a, b) => `${a.examname || a.exam || ""} ${a.examcode || ""}`.localeCompare(`${b.examname || b.exam || ""} ${b.examcode || ""}`, undefined, { numeric: true })), [exams, form.academicyear, form.regulation]);
+  const selectedExam = useMemo(() => examChoices.find((row) => text(row.examcode) === text(form.examcode)) || null, [examChoices, form.examcode]);
+  const setAcademicFilter = (field, value) => {
+    setForm((prev) => ({ ...prev, [field]: value, exam: "", examcode: "", programcodes: [], coursecodes: [] }));
+  };
 
   const loadMatchingMarks = async () => {
     try {
@@ -1558,7 +1570,7 @@ export function ExaminationModel2ComponentFailRulePage() {
           {message && <Alert severity="success" onClose={() => setMessage("")}>{message}</Alert>}
           <Paper elevation={0} sx={{ p: 2, borderRadius: 3, border: "1px solid #e5e7eb" }}>
             <Grid container spacing={1.5}>
-              {["academicyear", "regulation", "exam", "examcode", "semester"].map((field) => (
+              {["academicyear", "regulation"].map((field) => (
                 <Grid item xs={12} md={2} key={field}>
                   <TextField
                     select
@@ -1566,13 +1578,37 @@ export function ExaminationModel2ComponentFailRulePage() {
                     size="small"
                     label={labels[field] || field}
                     value={form[field]}
-                    onChange={(e) => setForm({ ...form, [field]: e.target.value, programcodes: [], coursecodes: [] })}
+                    onChange={(e) => setAcademicFilter(field, e.target.value)}
                   >
                     <MenuItem value="">All</MenuItem>
                     {(options[field] || []).map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
                   </TextField>
                 </Grid>
               ))}
+              <Grid item xs={12} md={3}>
+                <Autocomplete
+                  options={examChoices}
+                  value={selectedExam}
+                  getOptionLabel={(row) => row ? `${row.examname || row.exam || ""} (${row.examcode || ""})` : ""}
+                  onChange={(_, value) => setForm((prev) => ({
+                    ...prev,
+                    exam: value?.examname || value?.exam || "",
+                    examcode: value?.examcode || "",
+                    programcodes: [],
+                    coursecodes: []
+                  }))}
+                  renderInput={(params) => <TextField {...params} size="small" label="Exam / Exam code" placeholder="Search exam" />}
+                />
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <TextField fullWidth size="small" label="Exam code" value={form.examcode || ""} InputProps={{ readOnly: true }} />
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <TextField select fullWidth size="small" label={labels.semester || "Semester"} value={form.semester} onChange={(e) => setForm({ ...form, semester: e.target.value, programcodes: [], coursecodes: [] })}>
+                  <MenuItem value="">All</MenuItem>
+                  {(options.semester || []).map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}
+                </TextField>
+              </Grid>
               <Grid item xs={12} md={2}>
                 <Button fullWidth variant="outlined" disabled={loading} sx={{ height: "100%" }} onClick={loadMatchingMarks}>
                   {loading ? <><CircularProgress size={18} sx={{ mr: 1 }} />Loading...</> : "Load marks"}
