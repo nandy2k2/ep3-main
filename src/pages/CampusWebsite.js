@@ -445,8 +445,11 @@ function CampusWebsite() {
             </Grid>
             <Grid item xs={12} md={3}>
               <Typography sx={{ fontWeight: 900, color: "#fff", mb: 1 }}>Contact</Typography>
-              <Typography>support@campus.technology</Typography>
-              <Typography sx={{ mt: 1 }}>Copyright @ 2026 Campus Technology</Typography>
+              <Typography sx={{ fontWeight: 800 }}>Kahan Technologies Pvt Ltd.</Typography>
+              <Typography sx={{ mt: 1 }}>196 Block B Bangur Avenue Kolkata 700055</Typography>
+              <Typography sx={{ mt: 1 }}>HBR Layout Bangalore 560043</Typography>
+              <Typography sx={{ mt: 1 }}>support@kahantechnologies.com</Typography>
+              <Typography sx={{ mt: 1 }}>Copyright © 2026 Kahan Technologies Pvt. Ltd.</Typography>
             </Grid>
           </Grid>
         </Container>

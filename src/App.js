@@ -940,6 +940,7 @@ import RegulationMasterPage from "./pages/RegulationMasterPage";
 import RegulationSubjectPage from "./pages/RegulationSubjectPage";
 import RegulationSeatPage from "./pages/RegulationSeatPage";
 import RegulationCourseMapPage from "./pages/RegulationCourseMapPage";
+import CombinedCourseAssessmentPage from "./pages/CombinedCourseAssessmentPage";
 import RegulationReportPage from "./pages/RegulationReportPage";
 import RegulationGroupedReportPage from "./pages/RegulationGroupedReportPage";
 import AcademicConfigurationWizardPage from "./pages/AcademicConfigurationWizardPage";
@@ -1417,10 +1418,17 @@ import {
   StudentOnlineExamLive2Page
 } from "./pages/OnlineExamination2Pages";
 import {
+  BillingCashfreePaymentLogPage,
+  BillingCashfreePaymentPage,
+  CashfreeConfigurationPage,
+  ClientCashfreeConfigurationPage
+} from "./pages/CashfreePaymentPages";
+import {
   BillingInvoicesPage,
   BillingPayDetailsPage,
   BillingSubscriptionPage,
-  BillingTdsReportPage
+  BillingTdsReportPage,
+  BillingUserExtensionPage
 } from "./pages/BillingModulePages";
 import DynamicAdmissionApplicationsPage from "./pages/DynamicAdmissionApplicationsPage";
 import AdmissionApplicationManagementPage from "./pages/AdmissionApplicationManagementPage";
@@ -1892,6 +1900,7 @@ import IciciPaymentViewPage from "./pages/IciciPaymentViewPage";
 import IciciPaymentManualSuccessPage from "./pages/IciciPaymentManualSuccessPage";
 import { OnlineFeePaymentReceiptPage, OnlinePaymentRegnoEditPage } from "./pages/IciciPaymentUtilityPages";
 import StudentOnlineFeePaymentPage from "./pages/StudentOnlineFeePaymentPage";
+import StudentOnlineFeePaymentCashfreePage from "./pages/StudentOnlineFeePaymentCashfreePage";
 import StudentOnlinePaymentReportPage from "./pages/StudentOnlinePaymentReportPage";
 import StudentMyOnlinePaymentReportPage from "./pages/StudentMyOnlinePaymentReportPage";
 import StudentMyOnlinePaymentReport2Page from "./pages/StudentMyOnlinePaymentReport2Page";
@@ -2054,6 +2063,7 @@ import Apikeyds from "./pages/Apikeyds";
 import Analyticsds from "./pages/Analyticsds";
 import Publiclandingpageds from "./pages/Publiclandingpageds";
 import CommunicationSettings from "./pages/CommunicationSettings";
+import { BhashWhatsappConfigurationPage, SendWhatsappPage } from "./pages/BhashWhatsappPages";
 import Sourceds from "./pages/Sourceds";
 
 import Dashchattest4a from "./pages/Dashchattest4a";
@@ -3649,6 +3659,8 @@ function App() {
         <Route path="/mastergateway" element={<MasterGatewayPage />} />
         <Route path="/icicigateway" element={<IciciGatewayPage />} />
         <Route path="/icici-program-gateway" element={<IciciProgramGatewayPage />} />
+        <Route path="/cashfree-configuration" element={<CashfreeConfigurationPage />} />
+        <Route path="/client-cashfree-configuration" element={<ClientCashfreeConfigurationPage />} />
         <Route path="/easebuzzpaymentprocess" element={<EasebuzzPaymentProcessPage />} />
         <Route path="/easebuzzpaymentview" element={<EasebuzzPaymentViewPage />} />
         <Route path="/icicipaymentview" element={<IciciPaymentViewPage />} />
@@ -3657,6 +3669,7 @@ function App() {
         <Route path="/online-fee-payment-receipt" element={<OnlineFeePaymentReceiptPage />} />
         <Route path="/studentonlinefeepayment" element={<StudentOnlineFeePaymentPage />} />
         <Route path="/studentonlinefeepayment2" element={<StudentOnlineFeePayment2Page />} />
+        <Route path="/studentonlinefeepayment3" element={<StudentOnlineFeePaymentCashfreePage />} />
         <Route path="/student-late-fee-waiver" element={<StudentLateFeeWaiverPage />} />
         <Route path="/studentonlinepaymentreport" element={<StudentOnlinePaymentReportPage />} />
         <Route path="/studentmyonlinepaymentreport" element={<StudentMyOnlinePaymentReportPage />} />
@@ -3912,6 +3925,7 @@ function App() {
         <Route path="/regulationsubjects" element={<RegulationSubjectPage />} />
         <Route path="/regulationseats" element={<RegulationSeatPage />} />
         <Route path="/regulationcoursemap" element={<RegulationCourseMapPage />} />
+        <Route path="/combined-course-assessment" element={<CombinedCourseAssessmentPage />} />
         <Route path="/master-setup-wizard" element={<MasterSetupWizardPage />} />
         <Route path="/all-role-menu-groups" element={<AllRoleMenuGatewayPage />} />
         <Route path="/academic-configuration-wizard" element={<AcademicConfigurationWizardPage />} />
@@ -4231,6 +4245,9 @@ function App() {
         <Route path="/billing-pay-details" element={<BillingPayDetailsPage />} />
         <Route path="/billing-tds-report" element={<BillingTdsReportPage />} />
         <Route path="/billing-subscription" element={<BillingSubscriptionPage />} />
+        <Route path="/billing-user-extension" element={<BillingUserExtensionPage />} />
+        <Route path="/billing-cashfree-pay" element={<BillingCashfreePaymentPage />} />
+        <Route path="/billing-cashfree-payment-log" element={<BillingCashfreePaymentLogPage />} />
         <Route path="/admission-online-examination" element={<AdmissionOnlineExamManagementPage />} />
         <Route path="/admission-exam-assignment" element={<AdmissionExamAssignmentPage />} />
         <Route path="/admission-applicant-exam" element={<AdmissionApplicantExamPage />} />
@@ -5510,6 +5527,8 @@ function App() {
         <Route path="/awsdocuments" element={<AwsDocumentsPage />} />
         <Route path="/institutionpolicies" element={<InstitutionPolicyPage />} />
         <Route path="/studentpolicies" element={<InstitutionPolicyPage studentView />} />
+        <Route path="/bhash-whatsapp-configuration" element={<BhashWhatsappConfigurationPage />} />
+        <Route path="/send-whatsapp" element={<SendWhatsappPage />} />
 
         <Route path="/dashmmvac" element={<Dashmmvac />} />
         <Route path="/dashmmvacadmin" element={<Dashmmvacadmin />} />

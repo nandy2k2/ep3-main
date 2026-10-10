@@ -755,6 +755,13 @@ function DefaultStudentListItems({ open }) {
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Pay fees online 2" />}
 </ListItem>
 
+           <ListItem button component={RouterLink} to="/studentonlinefeepayment3">
+<ListItemIcon>
+<AccountBalanceWalletIcon />
+</ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Pay fees online Cashfree" />}
+</ListItem>
+
            <ListItem button component={RouterLink} to="/studentmyonlinepaymentreport">
 <ListItemIcon>
 <AccountBalanceWalletIcon />

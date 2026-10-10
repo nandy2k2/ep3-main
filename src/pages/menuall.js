@@ -497,6 +497,12 @@ export function menuitemsall() {
 	            </ListItemIcon>
 	            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Regulation Course Map" />}
 	          </ListItem>
+	          <ListItem button component={RouterLink} to="/combined-course-assessment">
+	            <ListItemIcon>
+	              <PersonIcon />
+	            </ListItemIcon>
+	            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Combined Course Assessment" />}
+	          </ListItem>
 	          <ListItem button component={RouterLink} to="/regulationreport">
 	            <ListItemIcon>
 	              <PersonIcon />
@@ -2641,6 +2647,13 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Bulk email users" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/send-whatsapp">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Send whatsapp" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/organizationhierarchy">
@@ -5610,6 +5623,18 @@ export function menuitemsall() {
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Program-wise ICICI configuration" />}
           </ListItem>
+          <ListItem button component={RouterLink} to="/cashfree-configuration">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Cashfree configuration" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/client-cashfree-configuration">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Client cashfree configuration" />}
+          </ListItem>
           <ListItem button component={RouterLink} to="/easebuzzpaymentprocess">
             <ListItemIcon>
               <PersonIcon />
@@ -8362,6 +8387,24 @@ export function menuitemsall() {
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Billing subscription" />}
           </ListItem>
+          <ListItem button component={RouterLink} to="/billing-user-extension">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="User login extension" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/billing-cashfree-pay">
+            <ListItemIcon>
+              <AccountBalanceWalletIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Cashfree payment" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/billing-cashfree-payment-log">
+            <ListItemIcon>
+              <BarChartIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Cashfree payment log" />}
+          </ListItem>
         </AccordionDetails>
       </Accordion>
       <Accordion>
@@ -10318,6 +10361,13 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px" }} primary="Email Configuration" />}
+          </ListItem>
+
+          <ListItem button component={RouterLink} to="/bhash-whatsapp-configuration">
+            <ListItemIcon>
+              <SettingsIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Bhash WhatsApp" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/aiconfiguration">

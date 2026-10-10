@@ -22,7 +22,9 @@ export const applyLoginSession = async (responseData, options = {}) => {
 
   const user = responseData.user;
   const colid = responseData.colid;
+  const normalizedRole = String(responseData.role || "").trim().toLowerCase();
   let subscriptiondeactivated = responseData.subscriptiondeactivated || "No";
+  const responseLoginExpired = /^yes$/i.test(String(responseData.loginexpired || responseData.loginExpired || responseData.accessExpired || ""));
   try {
     const subscriptionRes = await ep1.get("/api/v2/billing/subscription", { params: { colid } });
     subscriptiondeactivated = /^no$/i.test(subscriptionRes.data?.data?.active) ? "Yes" : "No";
@@ -33,6 +35,9 @@ export const applyLoginSession = async (responseData, options = {}) => {
     if (/deactivated/i.test(error.message || "")) {
       throw error;
     }
+  }
+  if (responseLoginExpired && normalizedRole === "all") {
+    subscriptiondeactivated = "Yes";
   }
   global1.studid = user;
   global1.user = user;
@@ -62,7 +67,7 @@ export const applyLoginSession = async (responseData, options = {}) => {
     const lastlogin = new Date(responseData.lastlogin);
     global1.lastlogin = lastlogin.toString();
     const shouldEnforceExpiry = responseData.enforceLastLoginExpiry || responseData.loginexpired || responseData.loginExpired || responseData.accessExpired;
-    if (shouldEnforceExpiry && !Number.isNaN(lastlogin.getTime()) && lastlogin.getTime() < Date.now()) {
+    if (shouldEnforceExpiry && !Number.isNaN(lastlogin.getTime()) && lastlogin.getTime() < Date.now() && normalizedRole !== "all") {
       throw new Error("Login access is expired.");
     }
   }
@@ -93,7 +98,6 @@ export const applyLoginSession = async (responseData, options = {}) => {
     // Country configuration is optional.
   }
 
-  const normalizedRole = String(responseData.role || "").trim().toLowerCase();
   if (normalizedRole === "student") {
     try {
       const yearRes = await ep1.get("/api/v1/getcurrentyearbyprg", {
@@ -114,7 +118,8 @@ export const applyLoginSession = async (responseData, options = {}) => {
   }
 
   if (normalizedRole === "all") {
-    if (subscriptiondeactivated === "Yes") return "/billing-subscription";
+    if (responseLoginExpired) return "/billing-user-extension";
+    if (subscriptiondeactivated === "Yes") return "/billing-invoices";
     return "/configuration";
   }
 
