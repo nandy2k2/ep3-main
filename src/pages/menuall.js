@@ -420,6 +420,38 @@ export function menuitemsall() {
         </AccordionDetails>
       </Accordion>
       <Accordion>
+        <AccordionSummary aria-controls="communication-content" id="communication-header">
+          <BusinessIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{ fontSize: 14 }}>Communication</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          <ListItem button component={RouterLink} to="/bulk-email-users">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Bulk email users" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/whatsapp-templates">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Whatsapp templates" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/send-whatsapp">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Send whatsapp" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/send-direct-whatsapp">
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Send direct whatsapp" />}
+          </ListItem>
+        </AccordionDetails>
+      </Accordion>
+      <Accordion>
         <AccordionSummary aria-controls="panel2-content" id="panel2-header">
           <SettingsIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{ fontSize: 14 }}>Academic Configuration</Typography>}
@@ -2640,20 +2672,6 @@ export function menuitemsall() {
               <PersonIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="User signature upload" />}
-          </ListItem>
-
-          <ListItem button component={RouterLink} to="/bulk-email-users">
-            <ListItemIcon>
-              <PersonIcon />
-            </ListItemIcon>
-            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Bulk email users" />}
-          </ListItem>
-
-          <ListItem button component={RouterLink} to="/send-whatsapp">
-            <ListItemIcon>
-              <PersonIcon />
-            </ListItemIcon>
-            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Send whatsapp" />}
           </ListItem>
 
           <ListItem button component={RouterLink} to="/organizationhierarchy">
@@ -8358,6 +8376,20 @@ export function menuitemsall() {
 	        </AccordionDetails>
 	      </Accordion>
       <Accordion>
+        <AccordionSummary aria-controls="skill-development-zone-content" id="skill-development-zone-header">
+          <AutoStoriesIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{ fontSize: 14 }}>Skill development</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          <ListItem button component={RouterLink} to="/skill-development-zone">
+            <ListItemIcon>
+              <AutoStoriesIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Skill development zone" />}
+          </ListItem>
+        </AccordionDetails>
+      </Accordion>
+      <Accordion>
         <AccordionSummary aria-controls="billing-module-content" id="billing-module-header">
           <AccountBalanceWalletIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{ fontSize: 14 }}>Billing</Typography>}
@@ -8404,6 +8436,18 @@ export function menuitemsall() {
               <BarChartIcon />
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Cashfree payment log" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/whatsapp-credits">
+            <ListItemIcon>
+              <AccountBalanceWalletIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Whatsapp credits" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/whatsapp-credit-payments">
+            <ListItemIcon>
+              <BarChartIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Whatsapp credit payments" />}
           </ListItem>
         </AccordionDetails>
       </Accordion>

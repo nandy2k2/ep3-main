@@ -76,6 +76,31 @@ const AccordionDetails = styled(MuiAccordionDetails)(({ theme }) => ({
   borderTop: '1px solid rgba(0, 0, 0, .125)',
 }));
 
+
+const hiddenStudentMenuGroups = new Set([
+  'central ticketing',
+  'academics',
+  'alumni interaction',
+  'student data',
+  'hostel',
+  'fees ledger',
+  'certificates',
+  'breakout rooms',
+  'breakpout rooms',
+  'discussion board',
+  'forum',
+  'reevaluation',
+  'placement',
+  'placement new',
+  'my data',
+  'virtual lab',
+  'virtual lab games'
+]);
+
+const normalizeStudentMenuLabel = (value = '') => String(value).toLowerCase().replace(/\s+/g, ' ').trim();
+const isStudentMenuGroupHidden = (group = '') => hiddenStudentMenuGroups.has(normalizeStudentMenuLabel(group));
+const StudentMenuSection = ({ group, children }) => (isStudentMenuGroupHidden(group) ? null : <>{children}</>);
+
 const getGroupIcon = (group = '') => {
   const value = String(group).toLowerCase();
   if (value.includes('dashboard')) return <DashboardIcon sx={{ marginRight: 1 }} />;
@@ -91,7 +116,7 @@ const getGroupIcon = (group = '') => {
 function RenderStudentGroups({ open, groups }) {
   return (
     <div style={{ overflowY: 'scroll', height: 600, width: 300, fontSize: 10 }}>
-      {(groups || []).map((group, groupIndex) => (
+      {(groups || []).filter((group) => !isStudentMenuGroupHidden(group.group)).map((group, groupIndex) => (
         <Accordion key={`${group.group}-${groupIndex}`}>
           <AccordionSummary aria-controls={`student-custom-${groupIndex}`} id={`student-custom-${groupIndex}-header`}>
             {getGroupIcon(group.group)}
@@ -172,7 +197,8 @@ function DefaultStudentListItems({ open }) {
         </AccordionDetails>
       </Accordion>
 
-      <Accordion>
+      <StudentMenuSection group="Central Ticketing">
+<Accordion>
         <AccordionSummary aria-controls="panel-central-ticket-content" id="panel-central-ticket-header">
           <BusinessIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{fontSize: 14}}>Central Ticketing</Typography>}
@@ -186,6 +212,7 @@ function DefaultStudentListItems({ open }) {
           </ListItem>
         </AccordionDetails>
       </Accordion>
+      </StudentMenuSection>
 
       <Accordion>
         <AccordionSummary aria-controls="panel-convocation-new-content" id="panel-convocation-new-header">
@@ -346,7 +373,8 @@ function DefaultStudentListItems({ open }) {
         </AccordionDetails>
       </Accordion>
 
-      <Accordion>
+      <StudentMenuSection group="Academics">
+<Accordion>
         <AccordionSummary aria-controls="panel1-content" id="panel1-header">
           <AccountCircleIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{fontSize: 14}}>Academics</Typography>}
@@ -373,6 +401,7 @@ function DefaultStudentListItems({ open }) {
 
         </AccordionDetails>
       </Accordion>
+      </StudentMenuSection>
 
        {/* <Accordion>
         <AccordionSummary aria-controls="panel3-content" id="panel3-header">
@@ -651,7 +680,8 @@ function DefaultStudentListItems({ open }) {
         </AccordionDetails>
         </Accordion>
 
-        <Accordion>
+        <StudentMenuSection group="Alumni interaction">
+<Accordion>
                 <AccordionSummary aria-controls="panel2-content" id="panel2-header">
                   <SettingsIcon sx={{ marginRight: 1 }} />
                   {open && <Typography sx={{ fontSize: 14 }}>Alumni interaction</Typography>}
@@ -683,9 +713,11 @@ function DefaultStudentListItems({ open }) {
         
                 </AccordionDetails>
                 </Accordion>
+      </StudentMenuSection>
 
 
-       <Accordion>
+       <StudentMenuSection group="Student data">
+<Accordion>
         <AccordionSummary aria-controls="panel3-content" id="panel3-header">
           <BusinessIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{fontSize: 14}}>Student data</Typography>}
@@ -709,8 +741,10 @@ function DefaultStudentListItems({ open }) {
 
           </AccordionDetails>
           </Accordion>
+      </StudentMenuSection>
 
-           <Accordion>
+           <StudentMenuSection group="Hostel">
+<Accordion>
         <AccordionSummary aria-controls="panel3-content" id="panel3-header">
           <BusinessIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{fontSize: 14}}>Hostel</Typography>}
@@ -733,6 +767,7 @@ function DefaultStudentListItems({ open }) {
 
         </AccordionDetails>
         </Accordion>
+      </StudentMenuSection>
 
        <Accordion>
         <AccordionSummary aria-controls="panel-student-fees-payment-content" id="panel-student-fees-payment-header">
@@ -863,7 +898,8 @@ function DefaultStudentListItems({ open }) {
         </AccordionDetails>
         </Accordion>
 
-          <Accordion>
+          <StudentMenuSection group="Placement new">
+<Accordion>
         <AccordionSummary aria-controls="panel-placement-new-student-content" id="panel-placement-new-student-header">
           <BusinessIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{fontSize: 14}}>Placement new</Typography>}
@@ -963,8 +999,25 @@ function DefaultStudentListItems({ open }) {
 
         </AccordionDetails>
         </Accordion>
+      </StudentMenuSection>
 
        <Accordion>
+        <AccordionSummary aria-controls="skill-development-student-content" id="skill-development-student-header">
+          <AutoStoriesIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{fontSize: 14}}>Skill development</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          <ListItem button component={RouterLink} to="/student-skill-development-zone">
+            <ListItemIcon>
+              <AutoStoriesIcon />
+            </ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Skill development" />}
+          </ListItem>
+        </AccordionDetails>
+        </Accordion>
+
+       <StudentMenuSection group="Fees Ledger">
+<Accordion>
         <AccordionSummary aria-controls="panel3-content" id="panel3-header">
           <BusinessIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{fontSize: 14}}>Fees Ledger</Typography>}
@@ -980,8 +1033,10 @@ function DefaultStudentListItems({ open }) {
 
         </AccordionDetails>
         </Accordion>
+      </StudentMenuSection>
 
-          <Accordion>
+          <StudentMenuSection group="Certificates">
+<Accordion>
         <AccordionSummary aria-controls="panel3-content" id="panel3-header">
           <BusinessIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{fontSize: 14}}>Certificates</Typography>}
@@ -1009,8 +1064,10 @@ function DefaultStudentListItems({ open }) {
 
         </AccordionDetails>
         </Accordion>
+      </StudentMenuSection>
 
-         <Accordion>
+         <StudentMenuSection group="Breakout rooms">
+<Accordion>
         <AccordionSummary aria-controls="panel3-content" id="panel3-header">
           <BusinessIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{fontSize: 14}}>Breakout rooms</Typography>}
@@ -1026,8 +1083,10 @@ function DefaultStudentListItems({ open }) {
 
         </AccordionDetails>
         </Accordion>
+      </StudentMenuSection>
 
-          <Accordion>
+          <StudentMenuSection group="Discussion Board">
+<Accordion>
         <AccordionSummary aria-controls="panel3-content" id="panel3-header">
           <BusinessIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{fontSize: 14}}>Discussion Board</Typography>}
@@ -1043,8 +1102,10 @@ function DefaultStudentListItems({ open }) {
 
         </AccordionDetails>
         </Accordion>
+      </StudentMenuSection>
 
-         <Accordion>
+         <StudentMenuSection group="Forum">
+<Accordion>
         <AccordionSummary aria-controls="panel3-content" id="panel3-header">
           <BusinessIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{fontSize: 14}}>Forum</Typography>}
@@ -1060,6 +1121,7 @@ function DefaultStudentListItems({ open }) {
 
         </AccordionDetails>
         </Accordion>
+      </StudentMenuSection>
 
 
          <Accordion>
@@ -1232,7 +1294,8 @@ function DefaultStudentListItems({ open }) {
         </AccordionDetails>
         </Accordion>
 
-          <Accordion>
+          <StudentMenuSection group="Reevaluation">
+<Accordion>
         <AccordionSummary aria-controls="panel3-content" id="panel3-header">
           <BusinessIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{fontSize: 14}}>Reevaluation</Typography>}
@@ -1257,6 +1320,7 @@ function DefaultStudentListItems({ open }) {
 
         </AccordionDetails>
         </Accordion>
+      </StudentMenuSection>
 
           <Accordion>
         <AccordionSummary aria-controls="panel-appeal-content" id="panel-appeal-header">
@@ -1275,7 +1339,8 @@ function DefaultStudentListItems({ open }) {
         </AccordionDetails>
         </Accordion>
 
-          <Accordion>
+          <StudentMenuSection group="Placement">
+<Accordion>
         <AccordionSummary aria-controls="panel3-content" id="panel3-header">
           <BusinessIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{fontSize: 14}}>Placement</Typography>}
@@ -1298,8 +1363,10 @@ function DefaultStudentListItems({ open }) {
 
         </AccordionDetails>
         </Accordion>
+      </StudentMenuSection>
 
-      <Accordion>
+      <StudentMenuSection group="My data">
+<Accordion>
         <AccordionSummary aria-controls="panel1-content" id="panel1-header">
           <AccountCircleIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{fontSize: 14}}>My data</Typography>}
@@ -1324,6 +1391,7 @@ function DefaultStudentListItems({ open }) {
 
         </AccordionDetails>
       </Accordion>
+      </StudentMenuSection>
 
 
       <Accordion>
@@ -1362,7 +1430,8 @@ function DefaultStudentListItems({ open }) {
         </AccordionDetails>
       </Accordion>
 
-      <Accordion>
+      <StudentMenuSection group="Virtual lab">
+<Accordion>
         <AccordionSummary aria-controls="panel1-content" id="panel1-header">
           <AccountCircleIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{fontSize: 14}}>Virtual lab</Typography>}
@@ -1735,9 +1804,11 @@ function DefaultStudentListItems({ open }) {
 
         </AccordionDetails>
       </Accordion>
+      </StudentMenuSection>
      
      
-      <Accordion>
+      <StudentMenuSection group="Virtual Lab Games">
+<Accordion>
         <AccordionSummary aria-controls="panel3-content" id="panel3-header">
           <BusinessIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{fontSize: 14}}>Virtual Lab Games</Typography>}
@@ -2020,6 +2091,7 @@ function DefaultStudentListItems({ open }) {
 
         </AccordionDetails>
       </Accordion>
+      </StudentMenuSection>
      
      
      

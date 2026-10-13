@@ -1417,12 +1417,14 @@ import {
   OnlineExam2ResponsesPage,
   StudentOnlineExamLive2Page
 } from "./pages/OnlineExamination2Pages";
+import { SkillDevelopmentZonePage, StudentSkillDevelopmentExamRunnerPage, StudentSkillDevelopmentProjectPage, StudentSkillDevelopmentZonePage } from "./pages/SkillDevelopmentZonePages";
 import {
   BillingCashfreePaymentLogPage,
   BillingCashfreePaymentPage,
   CashfreeConfigurationPage,
   ClientCashfreeConfigurationPage
 } from "./pages/CashfreePaymentPages";
+import { WhatsappCreditPaymentsPage, WhatsappCreditsPage } from "./pages/BillingWhatsappCreditPages";
 import {
   BillingInvoicesPage,
   BillingPayDetailsPage,
@@ -2063,7 +2065,7 @@ import Apikeyds from "./pages/Apikeyds";
 import Analyticsds from "./pages/Analyticsds";
 import Publiclandingpageds from "./pages/Publiclandingpageds";
 import CommunicationSettings from "./pages/CommunicationSettings";
-import { BhashWhatsappConfigurationPage, SendWhatsappPage } from "./pages/BhashWhatsappPages";
+import { BhashWhatsappConfigurationPage, SendDirectWhatsappPage, SendWhatsappPage, WhatsappTemplatesPage } from "./pages/BhashWhatsappPages";
 import Sourceds from "./pages/Sourceds";
 
 import Dashchattest4a from "./pages/Dashchattest4a";
@@ -4241,6 +4243,10 @@ function App() {
         <Route path="/student-online-exam-live-2" element={<StudentOnlineExamLive2Page />} />
         <Route path="/student-placement-practice-test" element={<StudentPlacementPracticeTestPage />} />
         <Route path="/student-psychometric-test" element={<StudentPsychometricTestPage />} />
+        <Route path="/skill-development-zone" element={<SkillDevelopmentZonePage />} />
+        <Route path="/student-skill-development-zone" element={<StudentSkillDevelopmentZonePage />} />
+        <Route path="/student-skill-development-project" element={<StudentSkillDevelopmentProjectPage />} />
+        <Route path="/student-skill-development-exam" element={<StudentSkillDevelopmentExamRunnerPage />} />
         <Route path="/billing-invoices" element={<BillingInvoicesPage />} />
         <Route path="/billing-pay-details" element={<BillingPayDetailsPage />} />
         <Route path="/billing-tds-report" element={<BillingTdsReportPage />} />
@@ -4248,6 +4254,8 @@ function App() {
         <Route path="/billing-user-extension" element={<BillingUserExtensionPage />} />
         <Route path="/billing-cashfree-pay" element={<BillingCashfreePaymentPage />} />
         <Route path="/billing-cashfree-payment-log" element={<BillingCashfreePaymentLogPage />} />
+        <Route path="/whatsapp-credits" element={<WhatsappCreditsPage />} />
+        <Route path="/whatsapp-credit-payments" element={<WhatsappCreditPaymentsPage />} />
         <Route path="/admission-online-examination" element={<AdmissionOnlineExamManagementPage />} />
         <Route path="/admission-exam-assignment" element={<AdmissionExamAssignmentPage />} />
         <Route path="/admission-applicant-exam" element={<AdmissionApplicantExamPage />} />
@@ -5528,7 +5536,9 @@ function App() {
         <Route path="/institutionpolicies" element={<InstitutionPolicyPage />} />
         <Route path="/studentpolicies" element={<InstitutionPolicyPage studentView />} />
         <Route path="/bhash-whatsapp-configuration" element={<BhashWhatsappConfigurationPage />} />
+        <Route path="/whatsapp-templates" element={<WhatsappTemplatesPage />} />
         <Route path="/send-whatsapp" element={<SendWhatsappPage />} />
+        <Route path="/send-direct-whatsapp" element={<SendDirectWhatsappPage />} />
 
         <Route path="/dashmmvac" element={<Dashmmvac />} />
         <Route path="/dashmmvacadmin" element={<Dashmmvacadmin />} />
