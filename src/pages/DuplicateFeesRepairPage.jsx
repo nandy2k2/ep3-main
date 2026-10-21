@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Autocomplete,
@@ -38,7 +38,7 @@ function optionProps(options, value, onChange, label, required = false) {
 
 export default function DuplicateFeesRepairPage() {
   const [password, setPassword] = useState("");
-  const [unlocked, setUnlocked] = useState(false);
+  const [unlocked, setUnlocked] = useState(true);
   const [options, setOptions] = useState({});
   const [filters, setFilters] = useState(emptyFilters);
   const [rows, setRows] = useState([]);
@@ -82,7 +82,7 @@ export default function DuplicateFeesRepairPage() {
       });
       setOptions(res.data?.options || {});
       setUnlocked(true);
-      setMessage("Page unlocked. Select academic year and click Load duplicate fees.");
+      setMessage("Select academic year and click Load duplicate fees.");
       setProgress(100);
     } catch (err) {
       setError(err.response?.data?.message || "Invalid password or unable to unlock page");
@@ -91,6 +91,11 @@ export default function DuplicateFeesRepairPage() {
       setTimeout(() => setProgress(0), 700);
     }
   };
+
+  useEffect(() => {
+    unlock().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const loadRows = async () => {
     if (!filters.academicyear) {

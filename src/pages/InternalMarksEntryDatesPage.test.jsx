@@ -1,0 +1,24 @@
+import React from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import Page from "./InternalMarksEntryDatesPage";
+import ep1 from "../api/ep1";
+import global1 from "./global1";
+jest.mock("../api/ep1", () => ({ get: jest.fn(), post: jest.fn() }));
+jest.mock("./MenuPageShell", () => ({ children }) => <div>{children}</div>);
+jest.mock("react-router-dom", () => ({ useNavigate: () => jest.fn() }));
+jest.mock("@mui/x-data-grid", () => ({ DataGrid: () => null, GridActionsCellItem: () => null, GridToolbar: () => null }));
+test("regulation and semester are searchable master-backed dropdowns", async () => {
+  global1.colid = 42;
+  ep1.get.mockImplementation(async url => ({ data: { data: url.includes("regulationmaster") ? [{ regulation: "R26" }] : url.endsWith("exams") ? [{ examname: "Final", examcode: "E1", academicyear: "2026-27", regulation: "R26" }] : url.includes("mprograms-management") ? [{ program: "BSc", programcode: "P1" }] : url.endsWith("regulationcoursemap") ? [{ semester: "1" }, { semester: "2" }] : [] } }));
+  render(<Page />);
+  await waitFor(() => expect(ep1.get).toHaveBeenCalledWith("/api/v2/mprograms-management", expect.anything()));
+  fireEvent.mouseDown(screen.getByLabelText("Exam"));
+  fireEvent.click(await screen.findByRole("option", { name: "Final (E1)" }));
+  expect(screen.getByLabelText("Regulation").value).toBe("R26");
+  fireEvent.mouseDown(screen.getByLabelText("Program"));
+  fireEvent.click(await screen.findByRole("option", { name: "BSc (P1)" }));
+  await waitFor(() => expect(ep1.get).toHaveBeenCalledWith("/api/v2/regulationcoursemap", expect.objectContaining({ params: { colid: 42, academicyear: "2026-27", regulation: "R26", programcode: "P1" } })));
+  fireEvent.mouseDown(screen.getByLabelText("Semester"));
+  fireEvent.click(await screen.findByRole("option", { name: "2" }));
+  expect(screen.getByLabelText("Semester").value).toBe("2");
+});

@@ -5,6 +5,7 @@ import {
   Box,
   Button,
   Checkbox,
+  CircularProgress,
   Chip,
   Grid,
   ListItemText,
@@ -24,6 +25,17 @@ import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
 import PlacementCoordinatorShell from "./PlacementCoordinatorShell";
 import { openPurchase2PrintWindow } from "./Purchase2PrintTemplates";
+import { calculatePoLine, summarizePo } from "../utils/purchase2Amounts";
+import Purchase2PoAmountsEditor from "./Purchase2PoAmountsEditor";
+
+function PoActionButton({ onClick, disabled, startIcon, children, ...props }) {
+  const [busy, setBusy] = useState(false);
+  return <Button {...props} disabled={disabled || busy} aria-busy={busy} startIcon={busy ? <CircularProgress size={16} color="inherit" /> : startIcon} onClick={async event => {
+    if (busy) return;
+    setBusy(true);
+    try { await onClick?.(event); } finally { setBusy(false); }
+  }}>{children}</Button>;
+}
 
 const today = () => new Date().toISOString().slice(0, 10);
 const nowTime = () => new Date().toTimeString().slice(0, 5);
@@ -50,12 +62,6 @@ const getUserSignature = async (email = currentUser()) => {
 const loadUsers = async () => {
   const res = await ep1.get("/api/v2/hrattendance/options", { params: { colid: global1.colid } });
   return res.data?.users || [];
-};
-const calcLineTotal = (item) => {
-  const amount = num(item.price || item.estimatedprice) * num(item.quantity);
-  const gstAmount = amount * (num(item.gst) / 100);
-  const discount = num(item.discount);
-  return Number((amount + gstAmount - discount).toFixed(2));
 };
 const multiSelectProps = (selected = []) => ({
   multiple: true,
@@ -322,7 +328,7 @@ function Page({ title, subtitle, children, message, error }) {
   );
 }
 
-function ItemsEditor({ items, setItems, showMake = false, showPrice = false, showUnit = false, disabled = false }) {
+function ItemsEditor({ items, setItems, showMake = false, showPrice = false, showUnit = false, disabled = false, financial = false }) {
   const [item, setItem] = useState(null);
   const [qty, setQty] = useState(1);
   const [make, setMake] = useState("");
@@ -371,7 +377,7 @@ function ItemsEditor({ items, setItems, showMake = false, showPrice = false, sho
         {showPrice && <Grid item xs={12} md={2}><TextField size="small" type="number" label="Estimated price" value={estimatedprice} onChange={(e) => setEstimatedprice(e.target.value)} fullWidth /></Grid>}
         <Grid item xs={12} md={2}><Button startIcon={<Add />} variant="contained" onClick={add} disabled={disabled}>Add item</Button></Grid>
       </Grid>
-      <DataGrid sx={{ mt: 2 }} autoHeight density="compact" rows={items.map((row, index) => ({ ...row, id: index }))} columns={[
+      {financial ? <Purchase2PoAmountsEditor items={items} setItems={setItems} disabled={disabled} allowRemove /> : <DataGrid sx={{ mt: 2 }} autoHeight density="compact" rows={items.map((row, index) => ({ ...row, id: index }))} columns={[
         { field: "itemcode", headerName: "Code", width: 130 },
         { field: "itemname", headerName: "Item", flex: 1, minWidth: 180 },
         { field: "category", headerName: "Category", width: 140 },
@@ -381,7 +387,7 @@ function ItemsEditor({ items, setItems, showMake = false, showPrice = false, sho
         { field: "estimatedprice", headerName: "Est. price", width: 120, type: "number" },
         { field: "remarks", headerName: "Remarks", flex: 1, minWidth: 180, editable: !disabled },
         { field: "actions", headerName: "Action", width: 110, renderCell: (params) => <Button color="error" size="small" disabled={disabled} onClick={() => setItems(items.filter((_, idx) => idx !== params.row.id))}>Remove</Button> }
-      ]} processRowUpdate={(row) => { setItems(items.map((it, idx) => idx === row.id ? { ...it, remarks: row.remarks || "" } : it)); return row; }} />
+      ]} processRowUpdate={(row) => { setItems(items.map((it, idx) => idx === row.id ? { ...it, remarks: row.remarks || "" } : it)); return row; }} />}
     </Paper>
   );
 }
@@ -1160,9 +1166,6 @@ export function Purchase2LocalPoPage() {
   const [vendor, setVendor] = useState(null);
   const [store, setStore] = useState(null);
   const [make, setMake] = useState("");
-  const [amount, setAmount] = useState("");
-  const [gst, setGst] = useState("");
-  const [discount, setDiscount] = useState("");
   const [terms, setTerms] = useState("");
   const [remarks, setRemarks] = useState("");
   const [items, setItems] = useState([]);
@@ -1182,25 +1185,23 @@ export function Purchase2LocalPoPage() {
       const poid = key("PO");
       const priced = await Promise.all(items.map(async (item) => {
         const rates = await getRows("vendoritemsds2", [{ field: "vendorid", value: vendor._id }, { field: "itemid", value: item.itemid }]);
-        const rate = rates[0]?.price || item.estimatedprice || 0;
+        const rate = item.price ?? item.estimatedprice ?? rates[0]?.price ?? 0;
         const detail = rates[0] || {};
-        return { ...item, make: item.make || make, price: rate, gst: detail.gst || item.gst || 0, discount: detail.discount || 0, terms: detail.terms || "", warranty: detail.warranty || "", total: calcLineTotal({ ...item, price: rate, gst: detail.gst, discount: detail.discount }) };
+        return calculatePoLine({ ...item, make: item.make || make, price: rate, gst: item.gst ?? detail.gst ?? 0, discount: item.discount ?? detail.discount ?? 0, terms: detail.terms || "", warranty: detail.warranty || "" }, true);
       }));
-      const itemTotal = priced.reduce((sum, item) => sum + num(item.total), 0);
-      const baseAmount = amount === "" ? itemTotal : num(amount);
-      const gstAmount = baseAmount * (num(gst) / 100);
-      const total = Number((baseAmount + gstAmount - num(discount)).toFixed(2));
+      const totals = summarizePo(priced, true);
+      const total = totals.grandtotal;
       const signature = await getUserSignature();
       const storeName = store.storename || store.store || store.name || "";
       const storeId = store._id || store.storeid || "";
-      const header = await saveRow("storepoorderds2", { poid, year: "2026-27", vendor: vendor.vendorname, vendorid: vendor._id, storeid: storeId, storename: storeName, store: storeName, price: baseAmount, amount: baseAmount, gst: num(gst), discount: num(discount), netprice: total, actualAmount: total, poType: "Local", postatus: "Draft", approvalStatus: "Draft", deliveryType: "Physical Delivery", terms, remarks, creatorName: currentName(), creatorEmail: currentUser(), creatorSignature: signature.signaturelink || "", description: "Local PO", createdtime: nowTime() });
-      await Promise.all(priced.map((item) => saveRow("storepoitemsds2", { ...item, poid, vendor: vendor.vendorname, vendorid: vendor._id, storeid: storeId, storename: storeName, postatus: "Draft" })));
+      const header = await saveRow("storepoorderds2", { poid, year: "2026-27", vendor: vendor.vendorname, vendorid: vendor._id, storeid: storeId, storename: storeName, store: storeName, ...totals, poType: "Local", postatus: "Draft", approvalStatus: "Draft", deliveryType: "Physical Delivery", terms, remarks, creatorName: currentName(), creatorEmail: currentUser(), creatorSignature: signature.signaturelink || "", description: "Local PO", createdtime: nowTime() });
+      const savedItems = await Promise.all(priced.map((item) => saveRow("storepoitemsds2", { ...item, poid, vendor: vendor.vendorname, vendorid: vendor._id, storeid: storeId, storename: storeName, postatus: "Draft" })));
       sendPurchase2Notification("PO Generated", { poid, amount: total, status: "Draft" });
       setMessage("Local PO created as draft");
-      setPrintData({ header: { ...vendor, ...header, store: storeName, storename: storeName, terms, remarks }, items: priced });
+      setPrintData({ header: { ...vendor, ...header, ...totals, store: storeName, storename: storeName, terms, remarks }, items: savedItems });
     } catch (err) { setError(err.message); }
   };
-  return <Page title="Local PO Creation" subtitle="Create local purchase orders directly from item master and one selected vendor." message={message} error={error || basicsError}><Paper sx={{ p: 2, mb: 2 }}><Grid container spacing={2}><Grid item xs={12} md={4}><Autocomplete options={vendors} getOptionLabel={(o) => o.vendorname || o.name || ""} value={vendor} onChange={(_, v) => setVendor(v)} renderInput={(params) => <TextField {...params} label="Vendor" size="small" />} /></Grid><Grid item xs={12} md={4}><Autocomplete options={stores} getOptionLabel={(o) => o.storename || o.store || o.name || ""} value={store} onChange={(_, v) => setStore(v)} renderInput={(params) => <TextField {...params} label="Assigned store" size="small" />} /></Grid><Grid item xs={12} md={4}><TextField size="small" label="Make" value={make} onChange={(e) => setMake(e.target.value)} fullWidth /></Grid><Grid item xs={12} md={3}><TextField size="small" type="number" label="Amount" value={amount} onChange={(e) => setAmount(e.target.value)} fullWidth /></Grid><Grid item xs={12} md={3}><TextField size="small" type="number" label="GST %" value={gst} onChange={(e) => setGst(e.target.value)} fullWidth /></Grid><Grid item xs={12} md={3}><TextField size="small" type="number" label="Discount amount" value={discount} onChange={(e) => setDiscount(e.target.value)} fullWidth /></Grid><Grid item xs={12} md={3}><TextField size="small" label="Remarks" value={remarks} onChange={(e) => setRemarks(e.target.value)} fullWidth /></Grid><Grid item xs={12}><TextField size="small" label="Terms and conditions" value={terms} onChange={(e) => setTerms(e.target.value)} multiline minRows={4} fullWidth /></Grid><Grid item xs={12}><Stack direction="row" spacing={1} flexWrap="wrap"><Button variant="contained" onClick={createPo}>Create PO Draft</Button><Button startIcon={<Print />} variant="outlined" disabled={!printData} onClick={() => printPurchase2("localPo", printData)}>Print local PO</Button></Stack></Grid></Grid></Paper><ItemsEditor items={items} setItems={setItems} showMake showPrice showUnit /></Page>;
+  return <Page title="Local PO Creation" subtitle="Create local purchase orders directly from item master and one selected vendor." message={message} error={error || basicsError}><Paper sx={{ p: 2, mb: 2 }}><Grid container spacing={2}><Grid item xs={12} md={4}><Autocomplete options={vendors} getOptionLabel={(o) => o.vendorname || o.name || ""} value={vendor} onChange={(_, v) => setVendor(v)} renderInput={(params) => <TextField {...params} label="Vendor" size="small" />} /></Grid><Grid item xs={12} md={4}><Autocomplete options={stores} getOptionLabel={(o) => o.storename || o.store || o.name || ""} value={store} onChange={(_, v) => setStore(v)} renderInput={(params) => <TextField {...params} label="Assigned store" size="small" />} /></Grid><Grid item xs={12} md={4}><TextField size="small" label="Make" value={make} onChange={(e) => setMake(e.target.value)} fullWidth /></Grid><Grid item xs={12} md={3}><TextField size="small" label="Remarks" value={remarks} onChange={(e) => setRemarks(e.target.value)} fullWidth /></Grid><Grid item xs={12}><TextField size="small" label="Terms and conditions" value={terms} onChange={(e) => setTerms(e.target.value)} multiline minRows={4} fullWidth /></Grid><Grid item xs={12}><Stack direction="row" spacing={1} flexWrap="wrap"><PoActionButton variant="contained" onClick={createPo}>Create PO Draft</PoActionButton><PoActionButton startIcon={<Print />} variant="outlined" disabled={!printData} onClick={() => printPurchase2("localPo", printData)}>Print local PO</PoActionButton></Stack></Grid></Grid></Paper><ItemsEditor items={items} setItems={setItems} financial showMake showPrice showUnit /></Page>;
 }
 
 export function Purchase2StoreItemUserPage() {
@@ -1319,17 +1320,17 @@ function Purchase2ManagePoPage({ admin = false }) {
       const poid = key("PO");
       const priced = items.map((item) => {
         const vi = vendorItems.find((row) => text(row.vendorid) === text(matchingVendor._id) && (text(row.itemid) === text(item.itemid) || text(row.item).toLowerCase() === text(item.itemname).toLowerCase())) || {};
-        return { ...item, price: vi.price || item.estimatedprice || 0, gst: vi.gst || 0, discount: vi.discount || 0, vendor: matchingVendor.vendorname, vendorid: matchingVendor._id, total: calcLineTotal({ ...item, price: vi.price || item.estimatedprice, gst: vi.gst, discount: vi.discount }) };
+        return calculatePoLine({ ...item, price: vi.price ?? item.estimatedprice ?? 0, gst: vi.gst ?? 0, discount: vi.discount ?? 0, vendor: matchingVendor.vendorname, vendorid: matchingVendor._id }, true);
       });
       const total = priced.reduce((sum, item) => sum + num(item.total), 0);
       const signature = await getUserSignature();
       const header = await saveRow("storepoorderds2", { poid, prnumber: assignment.prnumber, year: "2026-27", vendor: matchingVendor.vendorname, vendorid: matchingVendor._id, price: total, netprice: total, actualAmount: total, poType: "Standard", postatus: "Draft", approvalStatus: "Draft", creatorName: currentName(), creatorEmail: currentUser(), creatorSignature: signature.signaturelink || "", terms: terms || matchingVendor.payterm || "", warranty, description: `PO from PR ${assignment.prnumber}`, createdtime: nowTime() });
-      await Promise.all(priced.map((item) => saveRow("storepoitemsds2", { ...item, poid, postatus: "Draft", storereqid: assignment.requestid })));
+      const savedItems = await Promise.all(priced.map((item) => saveRow("storepoitemsds2", { ...item, poid, postatus: "Draft", storereqid: assignment.requestid })));
       await updateRow("storepoassignmentds2", assignment, { status: "PO Created", poid });
       sendPurchase2Notification("PO Generated", { poid, prnumber: assignment.prnumber, amount: total, status: "Draft" });
       setMessage(`PO ${poid} created as draft for ${matchingVendor.vendorname}`);
-      setSelectedPo(header);
-      setPoItems(priced);
+      setSelectedPo({ ...header, ...summarizePo(priced) });
+      setPoItems(savedItems);
       await load();
     } catch (err) { setError(err.message); }
   };
@@ -1343,7 +1344,7 @@ function Purchase2ManagePoPage({ admin = false }) {
     try {
       if (!selectedPo) throw new Error("Open a PO first");
       if (text(selectedPo.postatus).toLowerCase() !== "draft") throw new Error("Only draft PO can be edited");
-      const updatedItems = poItems.map((item) => ({ ...item, total: calcLineTotal(item) }));
+      const updatedItems = poItems.map((item) => calculatePoLine(item, true));
       const total = updatedItems.reduce((sum, item) => sum + num(item.total), 0);
       const updated = await updateRow("storepoorderds2", selectedPo, { terms, warranty, price: total, netprice: total, actualAmount: total, updatedate: today() });
       await Promise.all(updatedItems.map((item) => {
@@ -1351,14 +1352,20 @@ function Purchase2ManagePoPage({ admin = false }) {
         delete payload.id;
         return item._id ? updateRow("storepoitemsds2", item, payload) : saveRow("storepoitemsds2", { ...payload, poid: selectedPo.poid, postatus: "Draft" });
       }));
-      setSelectedPo(updated);
+      const refreshed = await updateRow("storepoorderds2", updated, { terms, warranty });
+      setSelectedPo(refreshed);
       setPoItems(updatedItems);
       setMessage("Draft PO updated");
       await load();
-    } catch (err) { setError(err.message); }
+      return refreshed;
+    } catch (err) { setError(err.message); return null; }
   };
   const submitPo = async (po = selectedPo) => {
     try {
+      if (selectedPo?.poid === po.poid && text(po.postatus).toLowerCase() === "draft") {
+        po = await savePoDraft();
+        if (!po) return;
+      }
       const signature = await getUserSignature(po.creatorEmail || currentUser());
       const updated = await updateRow("storepoorderds2", po, { postatus: "Submitted", approvalStatus: "Pending", currentStep: po.currentStep || 1, creatorSignature: po.creatorSignature || signature.signaturelink || "", submittedtime: nowTime() });
       let emailNote = "";
@@ -1399,7 +1406,7 @@ function Purchase2ManagePoPage({ admin = false }) {
   return <Page title={admin ? "Manage PO Admin" : "Manage PO Creator"} subtitle={admin ? "View all PR and PO records and approve submitted POs." : "Create POs from PRs assigned to you and submit them for approval."} message={message} error={error}>
     <Paper sx={{ p: 2, mb: 2 }}>
       <Typography variant="h6">PR list</Typography>
-      <DataGrid autoHeight rows={(admin ? prs : assignments).map((r) => ({ ...r, id: r._id }))} columns={admin ? [{ field: "prnumber", headerName: "PR", width: 160 }, { field: "storename", headerName: "Store", width: 170 }, { field: "requestedbyemail", headerName: "Requested By", width: 220 }, { field: "status", headerName: "Status", width: 120 }] : [{ field: "prnumber", headerName: "PR", width: 160 }, { field: "assignedto", headerName: "Assigned To", width: 180 }, { field: "status", headerName: "Status", width: 140 }, { field: "actions", headerName: "Create PO", width: 140, renderCell: (p) => <Button size="small" disabled={text(p.row.status).toLowerCase() === "po created"} onClick={() => createPoFromAssignment(p.row)}>Create PO</Button> }]} slots={{ toolbar: GridToolbar }} />
+      <DataGrid autoHeight rows={(admin ? prs : assignments).map((r) => ({ ...r, id: r._id }))} columns={admin ? [{ field: "prnumber", headerName: "PR", width: 160 }, { field: "storename", headerName: "Store", width: 170 }, { field: "requestedbyemail", headerName: "Requested By", width: 220 }, { field: "status", headerName: "Status", width: 120 }] : [{ field: "prnumber", headerName: "PR", width: 160 }, { field: "assignedto", headerName: "Assigned To", width: 180 }, { field: "status", headerName: "Status", width: 140 }, { field: "actions", headerName: "Create PO", width: 140, renderCell: (p) => <PoActionButton size="small" disabled={text(p.row.status).toLowerCase() === "po created"} onClick={() => createPoFromAssignment(p.row)}>Create PO</PoActionButton> }]} slots={{ toolbar: GridToolbar }} />
     </Paper>
     <Paper sx={{ p: 2, mb: 2 }}>
       <Grid container spacing={2} sx={{ mb: 2 }}>
@@ -1409,19 +1416,19 @@ function Purchase2ManagePoPage({ admin = false }) {
         {admin && <Grid item xs={12} md={6}><Autocomplete options={recipientConfigs} value={recipientConfig} getOptionLabel={purchaseEmailLabel} onChange={(_, value) => setRecipientConfig(value)} renderInput={(params) => <TextField {...params} label="Mail recipient" size="small" />} /></Grid>}
         <Grid item xs={12}>
           <Stack direction="row" spacing={1} flexWrap="wrap">
-            <Button startIcon={<Refresh />} onClick={load}>Refresh</Button>
-            <Button variant="outlined" disabled={!selectedPo || text(selectedPo.postatus).toLowerCase() !== "draft"} onClick={savePoDraft}>Save draft changes</Button>
-            <Button variant="contained" disabled={!selectedPo || text(selectedPo.postatus).toLowerCase() !== "draft"} onClick={() => submitPo()}>Submit PO</Button>
-            <Button variant="contained" color="success" disabled={!selectedPo || text(selectedPo.postatus).toLowerCase() !== "submitted"} onClick={() => approvePo()}>Approve PO</Button>
-            <Button startIcon={<Print />} variant="outlined" disabled={!selectedPo} onClick={() => printPurchase2(selectedPo.poType === "Local" ? "localPo" : "po", { header: { ...selectedPo, terms, warranty }, items: poItems })}>Print PO</Button>
+            <PoActionButton startIcon={<Refresh />} onClick={load}>Refresh</PoActionButton>
+            <PoActionButton variant="outlined" disabled={!selectedPo || text(selectedPo.postatus).toLowerCase() !== "draft"} onClick={savePoDraft}>Save draft changes</PoActionButton>
+            <PoActionButton variant="contained" disabled={!selectedPo || text(selectedPo.postatus).toLowerCase() !== "draft"} onClick={() => submitPo()}>Submit PO</PoActionButton>
+            <PoActionButton variant="contained" color="success" disabled={!selectedPo || text(selectedPo.postatus).toLowerCase() !== "submitted"} onClick={() => approvePo()}>Approve PO</PoActionButton>
+            <PoActionButton startIcon={<Print />} variant="outlined" disabled={!selectedPo} onClick={() => printPurchase2(selectedPo.poType === "Local" ? "localPo" : "po", { header: { ...selectedPo, terms, warranty }, items: poItems })}>Print PO</PoActionButton>
           </Stack>
         </Grid>
       </Grid>
-      <DataGrid autoHeight rows={pos.map((r) => ({ ...r, id: r._id }))} columns={[{ field: "poid", headerName: "PO", width: 160 }, { field: "prnumber", headerName: "PR", width: 160 }, { field: "vendor", headerName: "Vendor", flex: 1 }, { field: "postatus", headerName: "PO Status", width: 130 }, { field: "approvalStatus", headerName: "Approval", width: 130 }, { field: "currentStep", headerName: "Level", width: 90 }, { field: "actualAmount", headerName: "Amount", width: 120 }, { field: "actions", headerName: "Open", width: 100, renderCell: (p) => <Button size="small" onClick={() => openPo(p.row)}>Open</Button> }]} slots={{ toolbar: GridToolbar }} />
+      <DataGrid autoHeight rows={pos.map((r) => ({ ...r, id: r._id }))} columns={[{ field: "poid", headerName: "PO", width: 160 }, { field: "prnumber", headerName: "PR", width: 160 }, { field: "vendor", headerName: "Vendor", flex: 1 }, { field: "postatus", headerName: "PO Status", width: 130 }, { field: "approvalStatus", headerName: "Approval", width: 130 }, { field: "currentStep", headerName: "Level", width: 90 }, { field: "actualAmount", headerName: "Amount", width: 120 }, { field: "actions", headerName: "Open", width: 100, renderCell: (p) => <PoActionButton size="small" onClick={() => openPo(p.row)}>Open</PoActionButton> }]} slots={{ toolbar: GridToolbar }} />
     </Paper>
     {selectedPo && <Paper sx={{ p: 2 }}>
       <Typography variant="h6">PO items: {selectedPo.poid}</Typography>
-      <DataGrid autoHeight rows={poItems.map((r, i) => ({ ...r, id: i }))} processRowUpdate={(row) => { setPoItems(poItems.map((item, index) => index === row.id ? { ...item, make: row.make || "", total: calcLineTotal(row) } : item)); return row; }} columns={[{ field: "itemname", headerName: "Item", flex: 1 }, { field: "make", headerName: "Make", width: 180, editable: text(selectedPo.postatus).toLowerCase() === "draft" }, { field: "quantity", headerName: "Qty", width: 100 }, { field: "price", headerName: "Rate", width: 110 }, { field: "gst", headerName: "GST", width: 90 }, { field: "total", headerName: "Total", width: 120 }]} />
+      <Purchase2PoAmountsEditor items={poItems} setItems={setPoItems} disabled={text(selectedPo.postatus).toLowerCase() !== "draft"} />
     </Paper>}
   </Page>;
 }
@@ -1728,11 +1735,11 @@ export function Purchase2PeWorkbenchPage() {
       const sourceItems = empty ? items : (items.length ? items : await getRows("storeprrequestitemsds2", [{ field: "prnumber", value: selectedAssignment?.prnumber }]));
       if (!sourceItems.length) throw new Error("Add items or select a PR with items");
       const poid = humanCode("PO");
-      const priced = sourceItems.map((item) => ({ ...item, vendor: vendor.vendorname, vendorid: vendor._id, price: item.price || item.estimatedprice || item.rate || 0, total: calcLineTotal({ ...item, price: item.price || item.estimatedprice || item.rate || 0 }) }));
+      const priced = sourceItems.map((item) => calculatePoLine({ ...item, vendor: vendor.vendorname, vendorid: vendor._id, price: item.price ?? item.estimatedprice ?? item.rate ?? 0 }, true));
       const total = priced.reduce((sum, item) => sum + num(item.total), 0);
       const sig = await getUserSignature();
       const header = await saveRow("storepoorderds2", { poid, prnumber: empty ? "" : selectedAssignment?.prnumber, vendor: vendor.vendorname, vendorid: vendor._id, price: total, netprice: total, actualAmount: total, poType: empty ? "Empty" : "Standard", postatus: "Draft", approvalStatus: "Draft", creatorName: currentName(), creatorEmail: currentUser(), creatorSignature: sig.signaturelink || "", terms, warranty, createdtime: nowTime() });
-      await Promise.all(priced.map((item) => saveRow("storepoitemsds2", { ...item, poid, postatus: "Draft" })));
+      const savedItems = await Promise.all(priced.map((item) => saveRow("storepoitemsds2", { ...item, poid, postatus: "Draft" })));
       if (selectedAssignment && !empty) await updateRow("storepoassignmentds2", selectedAssignment, { status: "PO Created", poid });
       sendPurchase2Notification("PO Generated", { poid, prnumber: empty ? "" : selectedAssignment?.prnumber, amount: total, status: "Draft" });
       let emailNote = "";
@@ -1742,8 +1749,8 @@ export function Purchase2PeWorkbenchPage() {
       } catch (mailError) {
         emailNote = ` Email failed: ${mailError.response?.data?.message || mailError.response?.data?.msg || mailError.message || "Unable to send"}.`;
       }
-      setSelectedPo(header);
-      setPoItems(priced);
+      setSelectedPo({ ...header, ...summarizePo(priced) });
+      setPoItems(savedItems);
       setMessage(`PO ${poid} created.${emailNote}`);
       await load();
     } catch (err) {
@@ -1756,9 +1763,19 @@ export function Purchase2PeWorkbenchPage() {
     setWarranty(po.warranty || "");
     setPoItems(await getRows("storepoitemsds2", [{ field: "poid", value: po.poid }]));
   };
+  const savePoDraft = async () => {
+    if (!selectedPo?._id || text(selectedPo.postatus).toLowerCase() !== "draft") throw new Error("Open a draft PO");
+    const lines = poItems.map(item => calculatePoLine(item, true));
+    const saved = await Promise.all(lines.map(item => updateRow("storepoitemsds2", item, item)));
+    const updated = await updateRow("storepoorderds2", selectedPo, { terms, warranty });
+    setPoItems(saved);
+    setSelectedPo(updated);
+    return updated;
+  };
   const submitPo = async () => {
     try {
       if (!selectedPo?._id) throw new Error("Open a PO");
+      await savePoDraft();
       const updated = await updateRow("storepoorderds2", selectedPo, { postatus: "Submitted", approvalStatus: "Pending", terms, warranty, submittedtime: nowTime() });
       setSelectedPo(updated);
       setMessage("PO submitted");
@@ -1773,9 +1790,9 @@ export function Purchase2PeWorkbenchPage() {
         <Tabs value={mainTab} onChange={(_, v) => setMainTab(v)}><Tab value="po" label="PO Workflow" /><Tab value="imprest" label="Imprest Management" /></Tabs>
         {mainTab === "po" && <Box sx={{ mt: 2 }}>
           <Tabs value={subTab} onChange={(_, v) => setSubTab(v)}><Tab value="store" label="Store Requests" /><Tab value="create" label="Create PO" /><Tab value="manage" label="Manage PO" /></Tabs>
-          {subTab === "store" && <DataGrid sx={{ mt: 2 }} autoHeight rows={assignments.map((row) => ({ ...row, id: row._id }))} columns={[{ field: "prnumber", headerName: "PR", width: 170 }, { field: "assigneddate", headerName: "Assigned Date", width: 150 }, { field: "assignedby", headerName: "Assigned By", width: 180 }, { field: "status", headerName: "Status", width: 130 }, { field: "remarks", headerName: "Remarks", flex: 1 }, { field: "actions", headerName: "Select", width: 110, renderCell: (p) => <Button size="small" onClick={() => { loadAssignmentItems(p.row); setSubTab("create"); }}>Create PO</Button> }]} slots={{ toolbar: GridToolbar }} />}
-          {subTab === "create" && <Box sx={{ mt: 2 }}><Grid container spacing={2}><Grid item xs={12} md={3}><Autocomplete options={assignments} value={selectedAssignment} onChange={(_, v) => loadAssignmentItems(v)} getOptionLabel={(o) => `${o.prnumber || ""} - ${o.status || ""}`} renderInput={(params) => <TextField {...params} label="Select assigned PR, optional" size="small" />} /></Grid><Grid item xs={12} md={3}><Autocomplete options={vendors} value={vendor} onChange={(_, v) => setVendor(v)} getOptionLabel={(o) => o.vendorname || o.name || ""} renderInput={(params) => <TextField {...params} label="Vendor" size="small" />} /></Grid><Grid item xs={12} md={3}><Autocomplete options={mailConfigs} value={mailConfig} onChange={(_, v) => setMailConfig(v)} getOptionLabel={mailConfigurationLabel} renderInput={(params) => <TextField {...params} label="Mail configuration" size="small" />} /></Grid><Grid item xs={12} md={3}><Autocomplete options={recipientConfigs} value={recipientConfig} onChange={(_, v) => setRecipientConfig(v)} getOptionLabel={purchaseEmailLabel} renderInput={(params) => <TextField {...params} label="Mail recipient" size="small" />} /></Grid><Grid item xs={12}><Stack direction="row" spacing={1} flexWrap="wrap"><Button variant="contained" onClick={() => createPo(false)}>Create PO from PR</Button><Button variant="outlined" onClick={() => createPo(true)}>Create Empty PO</Button></Stack></Grid><Grid item xs={12} md={6}><TextField label="Terms" value={terms} onChange={(e) => setTerms(e.target.value)} multiline minRows={3} fullWidth /></Grid><Grid item xs={12} md={6}><TextField label="Warranty" value={warranty} onChange={(e) => setWarranty(e.target.value)} multiline minRows={3} fullWidth /></Grid></Grid><Box sx={{ mt: 2 }}><ItemsEditor items={items} setItems={setItems} showMake showPrice showUnit /></Box></Box>}
-          {subTab === "manage" && <Box sx={{ mt: 2 }}><Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 2 }}><Button startIcon={<Refresh />} onClick={load}>Refresh</Button><Button variant="contained" disabled={!selectedPo?._id || text(selectedPo.postatus).toLowerCase() !== "draft"} onClick={submitPo}>Submit PO</Button><Button startIcon={<Print />} variant="outlined" disabled={!selectedPo?._id} onClick={() => printPurchase2(selectedPo.poType === "Local" ? "localPo" : "po", { header: { ...selectedPo, terms, warranty }, items: poItems })}>Print PO</Button></Stack><Grid container spacing={2}><Grid item xs={12} md={6}><TextField label="Terms" value={terms} onChange={(e) => setTerms(e.target.value)} multiline minRows={3} fullWidth /></Grid><Grid item xs={12} md={6}><TextField label="Warranty" value={warranty} onChange={(e) => setWarranty(e.target.value)} multiline minRows={3} fullWidth /></Grid></Grid><DataGrid sx={{ mt: 2 }} autoHeight rows={pos.map((row) => ({ ...row, id: row._id }))} columns={[{ field: "poid", headerName: "PO", width: 170 }, { field: "prnumber", headerName: "PR", width: 160 }, { field: "vendor", headerName: "Vendor", flex: 1 }, { field: "postatus", headerName: "PO Status", width: 140 }, { field: "approvalStatus", headerName: "Approval", width: 140 }, { field: "actualAmount", headerName: "Amount", width: 120 }, { field: "actions", headerName: "Open", width: 100, renderCell: (p) => <Button size="small" onClick={() => openPo(p.row)}>Open</Button> }]} slots={{ toolbar: GridToolbar }} />{selectedPo && <DataGrid sx={{ mt: 2 }} autoHeight rows={poItems.map((row, index) => ({ ...row, id: index }))} columns={[{ field: "itemname", headerName: "Item", flex: 1 }, { field: "make", headerName: "Make", width: 150 }, { field: "quantity", headerName: "Qty", width: 100 }, { field: "price", headerName: "Rate", width: 100 }, { field: "total", headerName: "Total", width: 120 }]} />}</Box>}
+          {subTab === "store" && <DataGrid sx={{ mt: 2 }} autoHeight rows={assignments.map((row) => ({ ...row, id: row._id }))} columns={[{ field: "prnumber", headerName: "PR", width: 170 }, { field: "assigneddate", headerName: "Assigned Date", width: 150 }, { field: "assignedby", headerName: "Assigned By", width: 180 }, { field: "status", headerName: "Status", width: 130 }, { field: "remarks", headerName: "Remarks", flex: 1 }, { field: "actions", headerName: "Select", width: 110, renderCell: (p) => <PoActionButton size="small" onClick={() => { loadAssignmentItems(p.row); setSubTab("create"); }}>Create PO</PoActionButton> }]} slots={{ toolbar: GridToolbar }} />}
+          {subTab === "create" && <Box sx={{ mt: 2 }}><Grid container spacing={2}><Grid item xs={12} md={3}><Autocomplete options={assignments} value={selectedAssignment} onChange={(_, v) => loadAssignmentItems(v)} getOptionLabel={(o) => `${o.prnumber || ""} - ${o.status || ""}`} renderInput={(params) => <TextField {...params} label="Select assigned PR, optional" size="small" />} /></Grid><Grid item xs={12} md={3}><Autocomplete options={vendors} value={vendor} onChange={(_, v) => setVendor(v)} getOptionLabel={(o) => o.vendorname || o.name || ""} renderInput={(params) => <TextField {...params} label="Vendor" size="small" />} /></Grid><Grid item xs={12} md={3}><Autocomplete options={mailConfigs} value={mailConfig} onChange={(_, v) => setMailConfig(v)} getOptionLabel={mailConfigurationLabel} renderInput={(params) => <TextField {...params} label="Mail configuration" size="small" />} /></Grid><Grid item xs={12} md={3}><Autocomplete options={recipientConfigs} value={recipientConfig} onChange={(_, v) => setRecipientConfig(v)} getOptionLabel={purchaseEmailLabel} renderInput={(params) => <TextField {...params} label="Mail recipient" size="small" />} /></Grid><Grid item xs={12}><Stack direction="row" spacing={1} flexWrap="wrap"><PoActionButton variant="contained" onClick={() => createPo(false)}>Create PO from PR</PoActionButton><PoActionButton variant="outlined" onClick={() => createPo(true)}>Create Empty PO</PoActionButton></Stack></Grid><Grid item xs={12} md={6}><TextField label="Terms" value={terms} onChange={(e) => setTerms(e.target.value)} multiline minRows={3} fullWidth /></Grid><Grid item xs={12} md={6}><TextField label="Warranty" value={warranty} onChange={(e) => setWarranty(e.target.value)} multiline minRows={3} fullWidth /></Grid></Grid><Box sx={{ mt: 2 }}><ItemsEditor items={items} setItems={setItems} financial showMake showPrice showUnit /></Box></Box>}
+          {subTab === "manage" && <Box sx={{ mt: 2 }}><Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 2 }}><PoActionButton startIcon={<Refresh />} onClick={load}>Refresh</PoActionButton><PoActionButton variant="outlined" disabled={!selectedPo?._id || text(selectedPo.postatus).toLowerCase() !== "draft"} onClick={async () => { try { await savePoDraft(); setMessage("Draft PO updated"); await load(); } catch (err) { setError(err.message); } }}>Save draft changes</PoActionButton><PoActionButton variant="contained" disabled={!selectedPo?._id || text(selectedPo.postatus).toLowerCase() !== "draft"} onClick={submitPo}>Submit PO</PoActionButton><PoActionButton startIcon={<Print />} variant="outlined" disabled={!selectedPo?._id} onClick={() => printPurchase2(selectedPo.poType === "Local" ? "localPo" : "po", { header: { ...selectedPo, terms, warranty }, items: poItems })}>Print PO</PoActionButton></Stack><Grid container spacing={2}><Grid item xs={12} md={6}><TextField label="Terms" value={terms} onChange={(e) => setTerms(e.target.value)} multiline minRows={3} fullWidth /></Grid><Grid item xs={12} md={6}><TextField label="Warranty" value={warranty} onChange={(e) => setWarranty(e.target.value)} multiline minRows={3} fullWidth /></Grid></Grid><DataGrid sx={{ mt: 2 }} autoHeight rows={pos.map((row) => ({ ...row, id: row._id }))} columns={[{ field: "poid", headerName: "PO", width: 170 }, { field: "prnumber", headerName: "PR", width: 160 }, { field: "vendor", headerName: "Vendor", flex: 1 }, { field: "postatus", headerName: "PO Status", width: 140 }, { field: "approvalStatus", headerName: "Approval", width: 140 }, { field: "actualAmount", headerName: "Amount", width: 120 }, { field: "actions", headerName: "Open", width: 100, renderCell: (p) => <PoActionButton size="small" onClick={() => openPo(p.row)}>Open</PoActionButton> }]} slots={{ toolbar: GridToolbar }} />{selectedPo && <Purchase2PoAmountsEditor items={poItems} setItems={setPoItems} disabled={text(selectedPo.postatus).toLowerCase() !== "draft"} />}</Box>}
         </Box>}
         {mainTab === "imprest" && <Box sx={{ mt: 2 }}><ImprestPanel /></Box>}
       </Paper>

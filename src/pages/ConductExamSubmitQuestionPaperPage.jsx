@@ -50,6 +50,7 @@ import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
 import AdvancedDrawingPad from "./QuestionDrawingPad";
+import { ayurvedaPatternRows, fixedAyurvedaSections } from "./ayurvedaPaperPattern";
 import { addOption, handleAddOption, renderAddOption } from "./addableAutocompleteHelpers";
 
 const bloomLevels = ["Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"];
@@ -592,7 +593,8 @@ function RichQuestionTools({ question, disabled, uploadingKey, uploadAttachment,
   );
 }
 
-export default function ConductExamSubmitQuestionPaperPage({ patternwise = false, mathematical = false, templatewise = false }) {
+export default function ConductExamSubmitQuestionPaperPage({ patternwise: customPatternwise = false, mathematical = false, templatewise = false, ayurveda = false }) {
+  const patternwise = customPatternwise || ayurveda;
   const navigate = useNavigate();
   const [papers, setPapers] = useState([]);
   const [selectedPaperId, setSelectedPaperId] = useState("");
@@ -600,12 +602,17 @@ export default function ConductExamSubmitQuestionPaperPage({ patternwise = false
   const [patterns, setPatterns] = useState([]);
   const [ollamaConfigs, setOllamaConfigs] = useState([]);
   const [selectedPatternId, setSelectedPatternId] = useState("");
-  const [patternRows, setPatternRows] = useState([]);
+  const [savedPatternRows, setPatternRows] = useState([]);
+  const patternRows = ayurveda ? ayurvedaPatternRows : savedPatternRows;
   const [translationLanguages, setTranslationLanguages] = useState([]);
   const [includeMathematicalExpressions, setIncludeMathematicalExpressions] = useState(mathematical ? "Yes" : "No");
   const [cos, setCos] = useState([]);
   const [filters, setFilters] = useState({ academicyear: "", examcode: "" });
-  const [sections, setSections] = useState([]);
+  const [sections, storeSections] = useState(ayurveda ? fixedAyurvedaSections() : []);
+  const setSections = (next) => storeSections((previous) => {
+    const value = typeof next === "function" ? next(previous) : next;
+    return ayurveda ? fixedAyurvedaSections(value) : value;
+  });
   const [paperAttachment, setPaperAttachment] = useState({ url: "", filename: "" });
   const [syllabusSource, setSyllabusSource] = useState({ url: "", filename: "" });
   const [sampleQuestionPaper, setSampleQuestionPaper] = useState({ url: "", filename: "" });
@@ -845,7 +852,7 @@ export default function ConductExamSubmitQuestionPaperPage({ patternwise = false
         completeRows: contextRes.data?.completeRows || []
       };
       setSyllabusContext(nextContext);
-      if (patternwise) {
+      if (patternwise && !ayurveda) {
         await loadPatterns(setter);
         if (doc?.patternid) await loadPatternRows(doc.patternid);
       }
@@ -955,8 +962,9 @@ export default function ConductExamSubmitQuestionPaperPage({ patternwise = false
       setClearingGenerated(true);
       setError("");
       setMessage("");
-      const blankSections = [{ title: "Section A", instructions: "", marks: 0, questions: [] }];
+      const blankSections = ayurveda ? fixedAyurvedaSections() : [{ title: "Section A", instructions: "", marks: 0, questions: [] }];
       await ep1.post("/api/v2/conductexam/question-paper", {
+        paperformat: ayurveda ? "Ayurveda" : undefined,
         colid: global1.colid,
         user: global1.user,
         papersetterid: selectedPaper._id,
@@ -970,7 +978,7 @@ export default function ConductExamSubmitQuestionPaperPage({ patternwise = false
         samplequestionpaperfilename: sampleQuestionPaper.filename,
         additionalaiprompt: generateForm.additionalAiPrompt,
         paperdocuments: paperDocuments,
-        patternid: selectedPatternId,
+        patternid: ayurveda ? "" : selectedPatternId,
         pattern: selectedPattern?.pattern || paperDoc?.pattern || "",
         patterndescription: selectedPattern?.description || paperDoc?.patterndescription || "",
         includemathematicalexpressions: includeMathematicalExpressions,
@@ -1013,6 +1021,7 @@ export default function ConductExamSubmitQuestionPaperPage({ patternwise = false
         user: global1.user,
         papersetterid: selectedPaper._id,
         component: selectedPaper.component || paperDoc?.component || "",
+        paperformat: ayurveda ? "Ayurveda" : undefined,
         status,
         paperattachmenturl: paperAttachment.url,
         paperattachmentfilename: paperAttachment.filename,
@@ -1022,7 +1031,7 @@ export default function ConductExamSubmitQuestionPaperPage({ patternwise = false
         samplequestionpaperfilename: sampleQuestionPaper.filename,
         additionalaiprompt: generateForm.additionalAiPrompt,
         paperdocuments: paperDocuments,
-        patternid: selectedPatternId,
+        patternid: ayurveda ? "" : selectedPatternId,
         pattern: selectedPattern?.pattern || paperDoc?.pattern || "",
         patterndescription: selectedPattern?.description || paperDoc?.patterndescription || "",
         includemathematicalexpressions: includeMathematicalExpressions,
@@ -1053,6 +1062,7 @@ export default function ConductExamSubmitQuestionPaperPage({ patternwise = false
       setError("");
       setMessage("");
       const res = await ep1.post("/api/v2/conductexam/question-paper-submit", {
+        paperformat: ayurveda ? "Ayurveda" : undefined,
         colid: global1.colid,
         user: global1.user,
         papersetterid: selectedPaper._id
@@ -1071,7 +1081,7 @@ export default function ConductExamSubmitQuestionPaperPage({ patternwise = false
   const generateQuestions = async () => {
     if (!selectedPaper) return setError("Select an assigned paper.");
     if (paperSubmitted) return setError("Question paper is already submitted for moderation and cannot be edited.");
-    if (patternwise && !selectedPatternId) return setError("Select a question paper pattern.");
+    if (patternwise && !ayurveda && !selectedPatternId) return setError("Select a question paper pattern.");
     if (patternwise && !patternRows.length) return setError("Selected question paper pattern does not have details.");
     if (templatewise && !sampleQuestionPaper.url) return setError("Upload or enter the sample question paper format first.");
     if (templatewise && !syllabusSource.url) return setError("Upload or enter the syllabus/source file first.");
@@ -1086,6 +1096,7 @@ export default function ConductExamSubmitQuestionPaperPage({ patternwise = false
         colid: global1.colid,
         ...selectedPaper,
         ...generateForm,
+        paperformat: ayurveda ? "Ayurveda" : undefined,
         count: patternwise ? patternRows.length : generateForm.count,
         pattern: selectedPattern?.pattern || "",
         patterndescription: selectedPattern?.description || "",
@@ -1354,13 +1365,13 @@ export default function ConductExamSubmitQuestionPaperPage({ patternwise = false
   ];
 
   return (
-    <MenuPageShell title={templatewise ? "Submit Templatewise Paper" : mathematical ? "Submit Mathematical Pattern" : patternwise ? "Submit Questions Patternwise" : "Submit Question Paper"}>
+    <MenuPageShell title={ayurveda ? "Submit Ayurveda Paper" : templatewise ? "Submit Templatewise Paper" : mathematical ? "Submit Mathematical Pattern" : patternwise ? "Submit Questions Patternwise" : "Submit Question Paper"}>
       <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
         <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
           <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2}>
             <Box>
-              <Typography variant="h5" fontWeight={900}>{templatewise ? "Submit Templatewise Paper" : mathematical ? "Submit Mathematical Pattern" : patternwise ? "Submit Questions Patternwise" : "Submit Question Paper"}</Typography>
-              <Typography color="text.secondary">{templatewise ? "Upload syllabus and a sample paper, generate AI questions in the same format, review, print and submit." : mathematical ? "Create patternwise papers with mathematical questions and properly rendered symbols." : patternwise ? "Select a question paper pattern, generate questions as per pattern, translate if required, and submit." : "Select an assigned paper, create sections and questions, upload attachments, and save."}</Typography>
+              <Typography variant="h5" fontWeight={900}>{ayurveda ? "Submit Ayurveda Paper" : templatewise ? "Submit Templatewise Paper" : mathematical ? "Submit Mathematical Pattern" : patternwise ? "Submit Questions Patternwise" : "Submit Question Paper"}</Typography>
+              <Typography color="text.secondary">{ayurveda ? "Fixed 100-mark paper: Section 1 — 20 MCQs × 1 mark; Section 2 — 8 questions × 5 marks; Section 3 — 4 questions × 10 marks." : templatewise ? "Upload syllabus and a sample paper, generate AI questions in the same format, review, print and submit." : mathematical ? "Create patternwise papers with mathematical questions and properly rendered symbols." : patternwise ? "Select a question paper pattern, generate questions as per pattern, translate if required, and submit." : "Select an assigned paper, create sections and questions, upload attachments, and save."}</Typography>
             </Box>
             <Stack direction="row" spacing={1}>
               <Button variant="outlined" component="label" startIcon={<UploadFileIcon />} disabled={!selectedPaper || paperSubmitted || !isActivePaper(selectedPaper) || uploadingKey === "paper-0-0"}>
@@ -1413,7 +1424,7 @@ export default function ConductExamSubmitQuestionPaperPage({ patternwise = false
                   ["Paper Setter", `${selectedPaper.papersettername} (${selectedPaper.papersetteremail})`],
                   ...(patternwise ? [["Pattern", selectedPattern?.pattern || paperDoc?.pattern || "-"]] : [])
                 ].map(([label, value]) => <Grid item xs={12} md={4} key={label}><Typography variant="caption" color="text.secondary">{label}</Typography><Typography fontWeight={800}>{value || "-"}</Typography></Grid>)}
-                {patternwise && <Grid item xs={12} md={4}><Autocomplete options={[addOption("+ Add Question Paper Pattern", "/conduct-exam-question-pattern"), ...patterns]} value={selectedPattern} getOptionLabel={(row) => row?.__addOption ? row.label : row ? `${row.pattern || ""} - ${row.description || ""}` : ""} renderOption={(props, option) => option?.__addOption ? renderAddOption(props, option) : <li {...props}>{`${option.pattern || ""} - ${option.description || ""}`}</li>} onChange={(_, value) => { if (handleAddOption(value, navigate)) return; setSelectedPatternId(value?._id || ""); loadPatternRows(value?._id || "", value); }} renderInput={(params) => <TextField {...params} label="Question Paper Pattern" />} /></Grid>}
+                {patternwise && !ayurveda && <Grid item xs={12} md={4}><Autocomplete options={[addOption("+ Add Question Paper Pattern", "/conduct-exam-question-pattern"), ...patterns]} value={selectedPattern} getOptionLabel={(row) => row?.__addOption ? row.label : row ? `${row.pattern || ""} - ${row.description || ""}` : ""} renderOption={(props, option) => option?.__addOption ? renderAddOption(props, option) : <li {...props}>{`${option.pattern || ""} - ${option.description || ""}`}</li>} onChange={(_, value) => { if (handleAddOption(value, navigate)) return; setSelectedPatternId(value?._id || ""); loadPatternRows(value?._id || "", value); }} renderInput={(params) => <TextField {...params} label="Question Paper Pattern" />} /></Grid>}
                 {(patternwise || templatewise) && <Grid item xs={12} md={5}><Autocomplete multiple disableCloseOnSelect options={languages.filter((item) => item !== "English")} value={translationLanguages} onChange={(_, value) => setTranslationLanguages(value)} renderOption={renderCheckboxOption} renderInput={(params) => <TextField {...params} label="Translate Languages" />} /></Grid>}
                 {(patternwise || templatewise) && <Grid item xs={12} md={3}><Button fullWidth variant="outlined" color="secondary" disabled={paperSubmitted || translating || !translationLanguages.length} onClick={translatePaper} sx={{ height: 56 }}>{translating ? "Translating..." : "Translate Paper"}</Button></Grid>}
                 {patternwise && !!patternRows.length && <Grid item xs={12}><Alert severity="info">{patternRows.length} question format row(s) loaded. AI generation will create exactly these rows, using the question type, marks, group, subquestion and math settings from the format.</Alert></Grid>}
@@ -1433,7 +1444,7 @@ export default function ConductExamSubmitQuestionPaperPage({ patternwise = false
             <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2, ...(paperSubmitted ? { pointerEvents: "none", opacity: 0.72 } : {}) }}>
               <Typography variant="h6" fontWeight={900} sx={{ mb: 2 }}>AI Question Generation and Mapping</Typography>
               <Grid container spacing={2}>
-                {!templatewise && <Grid item xs={12} md={2}><TextField select fullWidth label="Section" value={generateForm.sectionIndex} onChange={(e) => setGenerateForm({ ...generateForm, sectionIndex: e.target.value })}>{sections.map((section, index) => <MenuItem key={index} value={index}>{section.title || `Section ${index + 1}`}</MenuItem>)}</TextField></Grid>}
+                {!templatewise && !ayurveda && <Grid item xs={12} md={2}><TextField select fullWidth label="Section" value={generateForm.sectionIndex} onChange={(e) => setGenerateForm({ ...generateForm, sectionIndex: e.target.value })}>{sections.map((section, index) => <MenuItem key={index} value={index}>{section.title || `Section ${index + 1}`}</MenuItem>)}</TextField></Grid>}
                 {!(patternwise || templatewise) && <Grid item xs={12} md={1.5}><TextField fullWidth type="number" label="No. of Questions" value={generateForm.count} onChange={(e) => setGenerateForm({ ...generateForm, count: e.target.value })} /></Grid>}
                 {!(patternwise || templatewise) && <Grid item xs={12} md={2}><TextField select fullWidth label="Question Type" value={generateForm.questiontype} onChange={(e) => setGenerateForm({ ...generateForm, questiontype: e.target.value })}>{questionTypes.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>}
                 {!templatewise && <Grid item xs={12} md={1.5}><TextField select fullWidth label="Difficulty" value={generateForm.difficultylevel} onChange={(e) => setGenerateForm({ ...generateForm, difficultylevel: e.target.value })}>{difficulties.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>}
@@ -1525,15 +1536,15 @@ export default function ConductExamSubmitQuestionPaperPage({ patternwise = false
             </Paper>
 
             <Stack spacing={2} sx={paperSubmitted ? { pointerEvents: "none", opacity: 0.72 } : {}}>
-              <Stack direction="row" spacing={1}><Button variant="contained" startIcon={<AddIcon />} disabled={paperSubmitted} onClick={addSection}>Add Section</Button><Chip label={`${sections.length} sections`} /></Stack>
+              <Stack direction="row" spacing={1}><Button variant="contained" startIcon={<AddIcon />} disabled={paperSubmitted || ayurveda} onClick={addSection}>Add Section</Button><Chip label={`${sections.length} sections`} /></Stack>
               {sections.map((section, sectionIndex) => (
                 <Card key={sectionIndex} variant="outlined" sx={{ borderRadius: 2 }}>
                   <CardContent>
                     <Grid container spacing={2} alignItems="center" sx={{ mb: 2 }}>
-                      <Grid item xs={12} md={3}><TextField fullWidth label="Section" value={section.title || ""} onChange={(e) => updateSection(sectionIndex, { title: e.target.value })} /></Grid>
+                      <Grid item xs={12} md={3}><TextField disabled={ayurveda} fullWidth label="Section" value={section.title || ""} onChange={(e) => updateSection(sectionIndex, { title: e.target.value })} /></Grid>
                       <Grid item xs={12} md={6}><TextField fullWidth label="Instructions" value={section.instructions || ""} onChange={(e) => updateSection(sectionIndex, { instructions: e.target.value })} /></Grid>
-                      <Grid item xs={12} md={1.5}><TextField fullWidth type="number" label="Marks" value={section.marks || 0} onChange={(e) => updateSection(sectionIndex, { marks: e.target.value })} /></Grid>
-                      <Grid item xs={12} md={1.5}><Button fullWidth color="error" variant="outlined" onClick={() => deleteSection(sectionIndex)}>Delete</Button></Grid>
+                      <Grid item xs={12} md={1.5}><TextField disabled={ayurveda} fullWidth type="number" label="Marks" value={section.marks || 0} onChange={(e) => updateSection(sectionIndex, { marks: e.target.value })} /></Grid>
+                      <Grid item xs={12} md={1.5}><Button disabled={ayurveda} fullWidth color="error" variant="outlined" onClick={() => deleteSection(sectionIndex)}>Delete</Button></Grid>
                     </Grid>
                     <Stack spacing={2}>
                       {(section.questions || []).map((question, questionIndex) => {
@@ -1542,7 +1553,7 @@ export default function ConductExamSubmitQuestionPaperPage({ patternwise = false
                           <Paper key={questionIndex} variant="outlined" sx={{ p: 2, bgcolor: "#fbfdff" }}>
                             <Grid container spacing={2}>
                               {patternwise && <Grid item xs={12}><Alert severity="info">{[question.patternquestion, question.patterngroup, question.patternsubquestion].filter(Boolean).join(" / ") || `Question ${questionIndex + 1}`}</Alert></Grid>}
-                              <Grid item xs={12}><TextField fullWidth multiline minRows={2} label={`Question ${questionIndex + 1}`} value={question.question || ""} onChange={(e) => updateQuestion(sectionIndex, questionIndex, { question: e.target.value })} /></Grid>
+                              <Grid item xs={12}><TextField fullWidth multiline minRows={2} label={`Question ${ayurveda ? `${sectionIndex + 1}.${questionIndex + 1}` : questionIndex + 1}`} value={question.question || ""} onChange={(e) => updateQuestion(sectionIndex, questionIndex, { question: e.target.value })} /></Grid>
                               <OrderedQuestionContentEditor
                                 question={question}
                                 disabled={paperSubmitted}
@@ -1552,7 +1563,7 @@ export default function ConductExamSubmitQuestionPaperPage({ patternwise = false
                                 sectionIndex={sectionIndex}
                                 questionIndex={questionIndex}
                               />
-                              <Grid item xs={12} md={2}><TextField select fullWidth label="Type" value={question.questiontype || "Short Answer Type"} onChange={(e) => updateQuestion(sectionIndex, questionIndex, { questiontype: e.target.value })}>{questionTypes.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
+                              <Grid item xs={12} md={2}><TextField disabled={ayurveda} select fullWidth label="Type" value={question.questiontype || "Short Answer Type"} onChange={(e) => updateQuestion(sectionIndex, questionIndex, { questiontype: e.target.value })}>{questionTypes.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
                               {mathematical && (
                                 <Grid item xs={12} md={3}>
                                   <Paper variant="outlined" sx={{ px: 2, py: 1.2, borderRadius: 2, height: "100%", display: "flex", alignItems: "center" }}>
@@ -1565,7 +1576,7 @@ export default function ConductExamSubmitQuestionPaperPage({ patternwise = false
                               )}
                               <Grid item xs={12} md={2}><TextField select fullWidth label="Difficulty" value={question.difficultylevel || "Medium"} onChange={(e) => updateQuestion(sectionIndex, questionIndex, { difficultylevel: e.target.value })}>{difficulties.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
                               <Grid item xs={12} md={2}><TextField select fullWidth label="Language" value={question.language || "English"} onChange={(e) => updateQuestion(sectionIndex, questionIndex, { language: e.target.value })}>{languages.map((item) => <MenuItem key={item} value={item}>{item}</MenuItem>)}</TextField></Grid>
-                              <Grid item xs={12} md={1}><TextField fullWidth type="number" label="Marks" value={question.marks || 0} onChange={(e) => updateQuestion(sectionIndex, questionIndex, { marks: e.target.value })} /></Grid>
+                              <Grid item xs={12} md={1}><TextField disabled={ayurveda} fullWidth type="number" label="Marks" value={question.marks || 0} onChange={(e) => updateQuestion(sectionIndex, questionIndex, { marks: e.target.value })} /></Grid>
                               <Grid item xs={12} md={3}><Autocomplete multiple disableCloseOnSelect options={bloomLevels} value={question.bloomlevels || []} onChange={(e, value) => updateQuestion(sectionIndex, questionIndex, { bloomlevels: value })} renderInput={(params) => <TextField {...params} label="Bloom Levels" />} /></Grid>
                               <Grid item xs={12} md={2}><TextField select fullWidth label="CO" value={question.conumber || ""} onChange={(e) => {
                                 const co = coOptions.find((item) => item.conumber === e.target.value);
@@ -1573,7 +1584,7 @@ export default function ConductExamSubmitQuestionPaperPage({ patternwise = false
                               }}><MenuItem value="">Select</MenuItem>{coOptions.map((item) => <MenuItem key={item.conumber || item.co} value={item.conumber}>{item.label}</MenuItem>)}</TextField></Grid>
                               <Grid item xs={12} md={6}><TextField fullWidth label="Attachment link" value={question.attachmenturl || ""} onChange={(e) => updateQuestion(sectionIndex, questionIndex, { attachmenturl: e.target.value })} /></Grid>
                               <Grid item xs={12} md={3}><Button fullWidth component="label" variant="outlined" startIcon={<UploadFileIcon />} disabled={uploadingKey === `question-${sectionIndex}-${questionIndex}`} sx={{ height: 56 }}>{uploadingKey === `question-${sectionIndex}-${questionIndex}` ? "Uploading..." : "Upload Attachment"}<input hidden type="file" onChange={(e) => uploadAttachment(e.target.files?.[0], "question", sectionIndex, questionIndex)} /></Button></Grid>
-                              <Grid item xs={12} md={2}><Button fullWidth color="error" variant="outlined" onClick={() => deleteQuestion(sectionIndex, questionIndex)} sx={{ height: 56 }}>Delete Question</Button></Grid>
+                              <Grid item xs={12} md={2}><Button disabled={ayurveda} fullWidth color="error" variant="outlined" onClick={() => deleteQuestion(sectionIndex, questionIndex)} sx={{ height: 56 }}>Delete Question</Button></Grid>
                               <Grid item xs={12}><TextField fullWidth label="AI Mapping Comments" value={question.aimappingcomments || ""} onChange={(e) => updateQuestion(sectionIndex, questionIndex, { aimappingcomments: e.target.value })} /></Grid>
                               {patternwise && (question.translations || []).map((translation, tIndex) => (
                                 <Grid item xs={12} md={6} key={`${translation.language}-${tIndex}`}>
@@ -1589,7 +1600,7 @@ export default function ConductExamSubmitQuestionPaperPage({ patternwise = false
                           </Paper>
                         );
                       })}
-                      <Button variant="outlined" startIcon={<AddIcon />} onClick={() => addQuestion(sectionIndex)}>Add Question</Button>
+                      <Button disabled={ayurveda} variant="outlined" startIcon={<AddIcon />} onClick={() => addQuestion(sectionIndex)}>Add Question</Button>
                     </Stack>
                   </CardContent>
                 </Card>

@@ -34,6 +34,12 @@ const steps = [
     description: "Populate courses for selected programs using regulation course map data."
   },
   {
+    title: "Populate Exam Courses 2",
+    path: "/conduct-exam-populate-courses-2",
+    icon: <Assignment />,
+    description: "Populate exam courses filtered by course type and delivery type."
+  },
+  {
     title: "Exam Auto Scheduler 3",
     path: "/conduct-exam-auto-scheduler-3",
     icon: <Today />,
@@ -92,6 +98,12 @@ const steps = [
     path: "/conduct-exam-seat-allocation",
     icon: <Assignment />,
     description: "Allocate seats and rooms for eligible exam roll students after barcode generation."
+  },
+  {
+    title: "Manual Seat Allocation",
+    path: "/conduct-exam-manual-seat-allocation",
+    icon: <Assignment />,
+    description: "Select students and assign room seats with a sitting skip rule."
   },
   {
     title: "ATKT Scheduler",

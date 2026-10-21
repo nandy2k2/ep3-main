@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Autocomplete,
@@ -48,7 +48,7 @@ function apiError(err, fallback) {
 
 export default function UserToCounterFeePage() {
   const [password, setPassword] = useState("");
-  const [unlocked, setUnlocked] = useState(false);
+  const [unlocked, setUnlocked] = useState(true);
   const [options, setOptions] = useState({});
   const [filters, setFilters] = useState(initialFilters);
   const [matchMode, setMatchMode] = useState("all");
@@ -78,7 +78,7 @@ export default function UserToCounterFeePage() {
       });
       setOptions(res.data?.options || {});
       setUnlocked(true);
-      setMessage("Page unlocked. Select filters and click Load.");
+      setMessage("Select filters and click Load.");
       setProgress(100);
     } catch (err) {
       setError(apiError(err, "Invalid password or unable to unlock page"));
@@ -87,6 +87,11 @@ export default function UserToCounterFeePage() {
       setTimeout(() => setProgress(0), 700);
     }
   };
+
+  useEffect(() => {
+    unlock().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const loadRows = async () => {
     if (!requiredOk) {

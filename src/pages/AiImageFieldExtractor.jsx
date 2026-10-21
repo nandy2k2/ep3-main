@@ -202,7 +202,9 @@ export default function AiImageFieldExtractor({ title = "AI extract from image",
                   fullWidth
                   size="small"
                   label={field.label || field.name}
-                  value={result[field.name] ?? ""}
+                  multiline={field.type === "json"}
+                  minRows={field.type === "json" ? 6 : undefined}
+                  value={typeof result[field.name] === "object" && result[field.name] !== null ? JSON.stringify(result[field.name], null, 2) : result[field.name] ?? ""}
                   onChange={(event) => updateResult(field.name, event.target.value)}
                 />
               </Grid>

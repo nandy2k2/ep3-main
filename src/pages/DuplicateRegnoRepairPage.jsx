@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Autocomplete,
@@ -36,7 +36,7 @@ function autoProps(options, value, onChange, label) {
 
 export default function DuplicateRegnoRepairPage() {
   const [password, setPassword] = useState("");
-  const [unlocked, setUnlocked] = useState(false);
+  const [unlocked, setUnlocked] = useState(true);
   const [options, setOptions] = useState({});
   const [filters, setFilters] = useState(blankFilters);
   const [rows, setRows] = useState([]);
@@ -60,13 +60,18 @@ export default function DuplicateRegnoRepairPage() {
       });
       setOptions(res.data?.options || {});
       setUnlocked(true);
-      setMessage("Page unlocked. Add optional filters and click Load duplicate regno.");
+      setMessage("Add optional filters and click Load duplicate regno.");
     } catch (err) {
       setError(err.response?.data?.message || "Invalid password or unable to unlock page");
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    unlock().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const setFilter = (field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value || "" }));

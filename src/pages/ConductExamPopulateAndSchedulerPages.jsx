@@ -287,7 +287,7 @@ const courseColumns = [
   { field: "examslot", headerName: "Exam Slot", width: 160 }
 ];
 
-export function ConductExamPopulateCoursesPage() {
+export function ConductExamPopulateCoursesPage({ extended = false }) {
   const [exams, setExams] = useState([]);
   const [courseMapRows, setCourseMapRows] = useState([]);
   const [rows, setRows] = useState([]);
@@ -296,6 +296,8 @@ export function ConductExamPopulateCoursesPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [courseTypes, setCourseTypes] = useState([]);
+  const [deliveryTypes, setDeliveryTypes] = useState([]);
 
   const normalizeSelection = (selection) => {
     if (Array.isArray(selection)) return selection;
@@ -308,7 +310,7 @@ export function ConductExamPopulateCoursesPage() {
     const [examRes, mapRes, rowRes] = await Promise.all([
       ep1.get("/api/v2/conductexam/exams", { params: { colid: global1.colid } }),
       ep1.get("/api/v2/conductexam/course-options", { params: { colid: global1.colid } }),
-      ep1.get("/api/v2/conductexam/examcourses", { params: { colid: global1.colid } })
+      extended ? Promise.resolve({ data: { data: [] } }) : ep1.get("/api/v2/conductexam/examcourses", { params: { colid: global1.colid } })
     ]);
     setExams(examRes.data?.data || []);
     setCourseMapRows(mapRes.data?.data || []);
@@ -326,7 +328,7 @@ export function ConductExamPopulateCoursesPage() {
     return [...map.values()].sort((a, b) => text(a.program).localeCompare(text(b.program)));
   }, [courseMapRows, form.academicyear, form.regulation]);
   const selectedProgramCodes = useMemo(() => form.programs.map((row) => row.programcode), [form.programs]);
-  const typeOptions = useMemo(() => uniq(courseMapRows.filter((row) => row.academicyear === form.academicyear && row.regulation === form.regulation && selectedProgramCodes.includes(row.programcode)).map((row) => row.type)), [courseMapRows, form.academicyear, form.regulation, selectedProgramCodes]);
+  const typeOptions = useMemo(() => uniq(["Major", "Minor", "IDC", "VAC", "MDC", "SEC", "AEC", ...courseMapRows.filter((row) => row.academicyear === form.academicyear && row.regulation === form.regulation && selectedProgramCodes.includes(row.programcode)).map((row) => row.type)]), [courseMapRows, form.academicyear, form.regulation, selectedProgramCodes]);
   const subjectOptions = useMemo(() => uniq(courseMapRows.filter((row) => row.academicyear === form.academicyear && row.regulation === form.regulation && selectedProgramCodes.includes(row.programcode) && (!form.types.length || form.types.includes(row.type))).map((row) => row.subject)), [courseMapRows, form.academicyear, form.regulation, selectedProgramCodes, form.types]);
   const semesterOptions = useMemo(() => uniq(courseMapRows.filter((row) => row.academicyear === form.academicyear && row.regulation === form.regulation && selectedProgramCodes.includes(row.programcode) && (!form.types.length || form.types.includes(row.type)) && (!form.subjects.length || form.subjects.includes(row.subject))).map((row) => row.semester)), [courseMapRows, form.academicyear, form.regulation, selectedProgramCodes, form.types, form.subjects]);
   const courseOptions = useMemo(() => {
@@ -334,8 +336,8 @@ export function ConductExamPopulateCoursesPage() {
     courseMapRows.filter((row) => row.academicyear === form.academicyear && row.regulation === form.regulation && selectedProgramCodes.includes(row.programcode) && (!form.types.length || form.types.includes(row.type)) && (!form.subjects.length || form.subjects.includes(row.subject)) && (!form.semesters.length || form.semesters.includes(row.semester))).forEach((row) => {
       if (row.coursecode) map.set(`${row.programcode}||${row.coursecode}||${row.subject}||${row.semester}`, row);
     });
-    return [...map.values()].sort((a, b) => `${a.programcode}${a.semester}${a.course}`.localeCompare(`${b.programcode}${b.semester}${b.course}`, undefined, { numeric: true }));
-  }, [courseMapRows, form.academicyear, form.regulation, selectedProgramCodes, form.types, form.subjects, form.semesters]);
+    return [...map.values()].filter((row) => !extended || ((!courseTypes.length || courseTypes.includes(row.coursetype || "Theory")) && (!deliveryTypes.length || deliveryTypes.includes(row.deliverytype || "Compulsory")))).sort((a, b) => `${a.programcode}${a.semester}${a.course}`.localeCompare(`${b.programcode}${b.semester}${b.course}`, undefined, { numeric: true }));
+  }, [courseMapRows, form.academicyear, form.regulation, selectedProgramCodes, form.types, form.subjects, form.semesters, extended, courseTypes, deliveryTypes]);
 
   const selectExam = (id) => {
     const exam = exams.find((item) => item._id === id);
@@ -398,11 +400,11 @@ export function ConductExamPopulateCoursesPage() {
   };
 
   return (
-    <MenuPageShell title="Populate exam courses">
+    <MenuPageShell title={extended ? "Populate exam courses 2" : "Populate exam courses"}>
       <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
         <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
           <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2}>
-            <Box><Typography variant="h5" fontWeight={900}>Populate exam courses</Typography><Typography color="text.secondary">Create exam-course rows without exam date and slot. Semester and regular/elective values are picked from Regulation Course Map.</Typography></Box>
+            <Box><Typography variant="h5" fontWeight={900}>{extended ? "Populate exam courses 2" : "Populate exam courses"}</Typography><Typography color="text.secondary">Create exam-course rows without exam date and slot. Semester and regular/elective values are picked from Regulation Course Map.</Typography></Box>
             <Stack direction="row" spacing={1} flexWrap="wrap" rowGap={1}>
               <Button component={RouterLink} to="/programmanagement" variant="outlined">Add programs</Button>
               <Button component={RouterLink} to="/regulationmaster" variant="outlined">Add regulation</Button>
@@ -424,6 +426,7 @@ export function ConductExamPopulateCoursesPage() {
             <Grid item xs={12} md={3}><MultiSelect label="Type" options={typeOptions} value={form.types} onChange={(value) => setForm((prev) => ({ ...prev, types: value, subjects: [], semesters: [], courses: [] }))} disabled={!form.programs.length} /></Grid>
             <Grid item xs={12} md={3}><MultiSelect label="Semester" options={semesterOptions} value={form.semesters} onChange={(value) => setForm((prev) => ({ ...prev, semesters: value, courses: [] }))} disabled={!form.programs.length} /></Grid>
             <Grid item xs={12} md={4}><MultiSelect label="Subjects" options={subjectOptions} value={form.subjects} onChange={(value) => setForm((prev) => ({ ...prev, subjects: value, semesters: [], courses: [] }))} disabled={!form.programs.length} /></Grid>
+            {extended && <><Grid item xs={12} md={4}><MultiSelect label="Course type" options={["Theory", "Practical", "Viva"]} value={courseTypes} onChange={(value) => { setCourseTypes(value); setForm((prev) => ({ ...prev, courses: [] })); }} /></Grid><Grid item xs={12} md={4}><MultiSelect label="Delivery type" options={["Compulsory", "Elective"]} value={deliveryTypes} onChange={(value) => { setDeliveryTypes(value); setForm((prev) => ({ ...prev, courses: [] })); }} /></Grid></>}
             <Grid item xs={12} md={8}><MultiSelect label="Courses" options={courseOptions} value={form.courses} onChange={(value) => setForm((prev) => ({ ...prev, courses: value }))} getLabel={(item) => `${item.programcode} | ${item.type || "-"} | Sem ${item.semester} | ${item.subject} | ${item.course} (${item.coursecode}) | ${item.deliverytype || "-"}`} disabled={!form.programs.length} /></Grid>
           </Grid>
         </Paper>

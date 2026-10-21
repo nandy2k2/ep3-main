@@ -8,11 +8,13 @@ import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 
-const fields = ["academicyear", "program", "programcode", "examfee", "lastdate", "lastdatefine1", "lastdatefine1amount", "lastdatefine2", "lastdatefine2amount", "lastdatefine3", "lastdatefine3amount", "iafillingdate"];
+const fields = ["academicyear", "exam", "examcode", "program", "programcode", "examfee", "lastdate", "lastdatefine1", "lastdatefine1amount", "lastdatefine2", "lastdatefine2amount", "lastdatefine3", "lastdatefine3amount", "iafillingdate"];
 const dateFields = ["lastdate", "lastdatefine1", "lastdatefine2", "lastdatefine3", "iafillingdate"];
 const amountFields = ["examfee", "lastdatefine1amount", "lastdatefine2amount", "lastdatefine3amount"];
 const labels = {
   academicyear: "Academic Year",
+  exam: "Exam",
+  examcode: "Exam Code",
   program: "Program",
   programcode: "Program Code",
   examfee: "Exam Fee",
@@ -25,7 +27,7 @@ const labels = {
   lastdatefine3amount: "Fine 3 Amount",
   iafillingdate: "Internal Assessment Filling End Date"
 };
-const blank = { academicyear: "2026-27", program: "", programcode: "", examfee: "", lastdate: "", lastdatefine1: "", lastdatefine1amount: "", lastdatefine2: "", lastdatefine2amount: "", lastdatefine3: "", lastdatefine3amount: "", iafillingdate: "" };
+const blank = { academicyear: "2026-27", exam: "", examcode: "", program: "", programcode: "", examfee: "", lastdate: "", lastdatefine1: "", lastdatefine1amount: "", lastdatefine2: "", lastdatefine2amount: "", lastdatefine3: "", lastdatefine3amount: "", iafillingdate: "" };
 const blankFilter = { field: "academicyear", value: "" };
 const safe = (value) => String(value ?? "")
   .replace(/&/g, "&amp;")
@@ -145,6 +147,8 @@ export default function ConductExamFormFillupDatesPage() {
 
   const programValue = useMemo(() => (options.programs || []).find((row) => row.programcode === form.programcode) || null, [options.programs, form.programcode]);
   const filterFieldOptions = (field) => {
+    if (field === "exam") return unique((options.exams || []).map((row) => row.examname));
+    if (field === "examcode") return unique((options.exams || []).map((row) => row.examcode));
     if (field === "academicyear") return options.academicyears || [];
     if (field === "program") return unique([...(options.programs || []).map((row) => row.program), ...(options.fieldOptions?.program || [])]);
     if (field === "programcode") return unique([...(options.programs || []).map((row) => row.programcode), ...(options.fieldOptions?.programcode || [])]);
@@ -271,7 +275,16 @@ export default function ConductExamFormFillupDatesPage() {
 
         <Paper sx={{ p: 2.5, mb: 2 }}>
           <Grid container spacing={2}>
-            <Grid item xs={12} md={2}><SearchSelect label="Academic year" value={form.academicyear} options={unique(["2026-27", ...(options.academicyears || [])])} onChange={(value) => setForm((prev) => ({ ...prev, academicyear: value }))} /></Grid>
+            <Grid item xs={12} md={2}><SearchSelect label="Academic year" value={form.academicyear} options={unique(["2026-27", ...(options.academicyears || []), ...(options.exams || []).map((row) => row.academicyear)])} onChange={(value) => setForm((prev) => ({ ...prev, academicyear: value, exam: "", examcode: "" }))} /></Grid>
+            <Grid item xs={12} md={4}>
+              <Autocomplete size="small" options={[{ _add: true }, ...(options.exams || []).filter((row) => row.academicyear === form.academicyear)]}
+                value={(options.exams || []).find((row) => row.academicyear === form.academicyear && row.examcode === form.examcode) || null}
+                getOptionLabel={(row) => row._add ? "+ Add exam" : `${row.examname} (${row.examcode})`}
+                isOptionEqualToValue={(a, b) => a.examcode === b.examcode && a.academicyear === b.academicyear}
+                onChange={(_, row) => { if (row?._add) { window.open("/conduct-exam-master?embedded=1", "_blank"); return; } setForm((prev) => ({ ...prev, exam: row?.examname || "", examcode: row?.examcode || "" })); }}
+                renderInput={(params) => <TextField {...params} label="Exam" />} />
+            </Grid>
+            <Grid item xs={12} md={2}><TextField fullWidth size="small" label="Exam code" value={form.examcode || ""} InputProps={{ readOnly: true }} /></Grid>
             <Grid item xs={12} md={4}>
               <Autocomplete
                 size="small"

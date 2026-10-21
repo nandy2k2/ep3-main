@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { orderMenuTree } from './menuOrder';
 import { styled } from '@mui/material/styles';
 import MuiAccordion from '@mui/material/Accordion';
 import MuiAccordionSummary from '@mui/material/AccordionSummary';
@@ -1715,10 +1716,6 @@ const MenuCasAdminFilteredTree = ({ open }) => {
   const [rules, setRules] = useState([]);
 
   useEffect(() => {
-    if (normalizedRole === 'all' || normalizedRole === 'admin') {
-      return;
-    }
-
     const loadRules = async () => {
       try {
         const res = await ep1.get('/api/v2/menu-access', {
@@ -1734,7 +1731,7 @@ const MenuCasAdminFilteredTree = ({ open }) => {
   }, [normalizedRole]);
 
   if (normalizedRole === 'all' || normalizedRole === 'admin') {
-    return <MenuCasAdminFullTree open={open} />;
+    return orderMenuTree(MenuCasAdminFullTree({ open }), rules, role);
   }
 
   const { allowedKeys, allowedPaths, deniedKeys, deniedPaths, displayGroupsByKey, displayGroupsByPath } = rules.reduce((acc, rule) => {
@@ -1766,7 +1763,7 @@ const MenuCasAdminFilteredTree = ({ open }) => {
     displayGroupsByPath: new Map()
   });
 
-  return filterMenuTree(
+  return orderMenuTree(filterMenuTree(
     MenuCasAdminFullTree({ open }),
     allowedKeys,
     allowedPaths,
@@ -1774,7 +1771,7 @@ const MenuCasAdminFilteredTree = ({ open }) => {
     deniedPaths,
     displayGroupsByKey,
     displayGroupsByPath
-  );
+  ), rules, role);
 };
 
 export function mainListItems({ open }) {

@@ -25,7 +25,12 @@ const loadGoogleScript = () => new Promise((resolve, reject) => {
 
 export default function GoogleCredentialButton({ onCredential, text = "Continue with Google" }) {
   const buttonRef = useRef(null);
+  const credentialCallbackRef = useRef(onCredential);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    credentialCallbackRef.current = onCredential;
+  }, [onCredential]);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,7 +44,7 @@ export default function GoogleCredentialButton({ onCredential, text = "Continue 
         if (cancelled || !buttonRef.current) return;
         window.google.accounts.id.initialize({
           client_id: clientId,
-          callback: (credentialResponse) => onCredential?.(credentialResponse.credential)
+          callback: (credentialResponse) => credentialCallbackRef.current?.(credentialResponse.credential)
         });
         window.google.accounts.id.renderButton(buttonRef.current, {
           theme: "outline",
@@ -53,7 +58,7 @@ export default function GoogleCredentialButton({ onCredential, text = "Continue 
     };
     init();
     return () => { cancelled = true; };
-  }, [onCredential]);
+  }, []);
 
   return (
     <Box sx={{ width: "100%" }}>

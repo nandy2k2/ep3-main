@@ -31,7 +31,8 @@ const emptyForm = {
   title: "",
   path: "",
   role: "",
-  access: "Allow"
+  access: "Allow",
+  order: ""
 };
 
 const PAGE_SELECT_ALL = "__ALL_PAGES__";
@@ -225,6 +226,7 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
           path: form.path,
           role: form.role,
           access: form.access,
+          order: form.order,
           user: global1.user
         });
         setMessage("Menu access rule updated.");
@@ -237,6 +239,7 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
           path: page.path,
           role,
           access: form.access,
+          order: form.order,
           user: global1.user
         })));
         await Promise.all(payloads.map((payload) => ep1.post("/api/v2/menu-access", payload)));
@@ -338,7 +341,8 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
       title: row.title || "",
       path: row.path || "",
       role: row.role || "",
-      access: row.access || "Allow"
+      access: row.access || "Allow",
+      order: row.order ?? ""
     });
     setSelectedPagePaths(row.path ? [row.path] : []);
     setSelectedRoles(row.role ? [row.role] : []);
@@ -353,6 +357,7 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
     { field: "path", headerName: "Path", minWidth: 220, flex: 1 },
     { field: "role", headerName: "Role", minWidth: 160, flex: 1 },
     { field: "access", headerName: "Access", width: 120 },
+    { field: "order", headerName: "Order", type: "number", width: 100 },
     {
       field: "actions",
       headerName: "Actions",
@@ -574,6 +579,7 @@ const MenuAccessControlPage = ({ embedded = false, onRowsChange }) => {
               )}
             />
 
+            <TextField label="Order (optional)" type="number" value={form.order} onChange={event => setForm(previous => ({ ...previous, order: event.target.value }))} />
             <FormControl fullWidth>
               <InputLabel id="menu-access-status-label">Allow/Deny</InputLabel>
               <Select

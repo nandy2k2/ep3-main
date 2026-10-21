@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Autocomplete,
@@ -73,7 +73,7 @@ function RegnoRepairPage({ direction, matchBy = "name" }) {
     : "Load ledger students for the selected academic year, program, program code and semester. Compare User regno by matching academic year, program code, semester and student name, then update User from ledger.";
 
   const [password, setPassword] = useState("");
-  const [unlocked, setUnlocked] = useState(false);
+  const [unlocked, setUnlocked] = useState(true);
   const [options, setOptions] = useState({});
   const [filters, setFilters] = useState(initialFilters);
   const [mismatchOnly, setMismatchOnly] = useState(false);
@@ -114,7 +114,7 @@ function RegnoRepairPage({ direction, matchBy = "name" }) {
       }
       setOptions(res.data?.options || {});
       setUnlocked(true);
-      setMessage("Page unlocked. Select the mandatory filters and click Load.");
+      setMessage("Select the mandatory filters and click Load.");
       setProgress(100);
     } catch (err) {
       setError(apiError(err, "Invalid password or unable to unlock page"));
@@ -123,6 +123,11 @@ function RegnoRepairPage({ direction, matchBy = "name" }) {
       setTimeout(() => setProgress(0), 700);
     }
   };
+
+  useEffect(() => {
+    unlock().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const loadRows = async () => {
     if (!requiredOk) {

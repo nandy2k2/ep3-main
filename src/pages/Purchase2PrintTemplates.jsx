@@ -1,4 +1,5 @@
 import React from "react";
+import { calculatePoLine, summarizePo } from "../utils/purchase2Amounts";
 import * as ReactDOMServer from "react-dom/server";
 import global1 from "./global1";
 
@@ -69,9 +70,6 @@ const defaultInstitution = (config = {}) => ({
   logolink: config.logolink || config.logo || global1.logo || ""
 });
 
-const getTotal = (items = []) => items.reduce((sum, item) => sum + Number(pick(item, ["total", "amount", "estimatedtotal"], 0) || 0), 0);
-const getTax = (items = []) => items.reduce((sum, item) => sum + Number(pick(item, ["tax", "taxamount", "gstamount"], 0) || 0), 0);
-const getDiscount = (items = []) => items.reduce((sum, item) => sum + Number(pick(item, ["discount", "discountamount"], 0) || 0), 0);
 
 function Header({ title, institution }) {
   const inst = defaultInstitution(institution);
@@ -145,11 +143,7 @@ function Signatures({ labels }) {
 }
 
 function Totals({ items, header = {} }) {
-  const hasHeaderAmount = header.amount !== undefined || header.price !== undefined;
-  const subtotal = hasHeaderAmount ? Number(pick(header, ["amount", "price"], 0) || 0) : getTotal(items);
-  const tax = header.gst !== undefined && header.gst !== "" ? subtotal * (Number(header.gst || 0) / 100) : getTax(items);
-  const discount = header.discount !== undefined && header.discount !== "" ? Number(header.discount || 0) : getDiscount(items);
-  const grand = header.actualAmount !== undefined || header.netprice !== undefined ? Number(pick(header, ["actualAmount", "netprice"], 0) || 0) : subtotal + tax - discount;
+  const { subtotal, gstamount: tax, discountamount: discount, grandtotal: grand } = summarizePo(items);
   return (
     <section className="totals">
       <div className="amount-words"><strong>Amount in Words:</strong><br />{amountInWords(grand)}</div>
@@ -265,10 +259,12 @@ function PoLikePrint({ header = {}, items = [], institution = {}, title, omitChe
         { key: "unit", label: "Unit" },
         { key: "quantity", label: "Quantity", render: (row) => formatQty(row.quantity) },
         { key: "price", label: "Rate", render: (row) => formatCurrency(pick(row, ["price", "rate", "estimatedprice"], 0)) },
-        { key: "discount", label: "Discount", render: (row) => formatCurrency(row.discount) },
-        { key: "gst", label: "Tax/GST", render: (row) => value(row.gst || row.tax || row.taxamount) },
-        { key: "total", label: "Amount", render: (row) => formatCurrency(row.total || Number(pick(row, ["price", "rate", "estimatedprice"], 0)) * Number(row.quantity || 0)) }
-      ]} rows={items} />
+        { key: "subtotal", label: "Subtotal", render: (row) => formatCurrency(row.subtotal) },
+        { key: "discountamount", label: "Discount", render: (row) => formatCurrency(row.discountamount) },
+        { key: "gst", label: "GST %", render: (row) => value(row.gst) },
+        { key: "gstamount", label: "GST Amount", render: (row) => formatCurrency(row.gstamount) },
+        { key: "total", label: "Amount", render: (row) => formatCurrency(row.total) }
+      ]} rows={items.map(item => calculatePoLine(item))} />
       <Totals items={items} header={header} />
       <Remarks>{pick(header, ["remarks", "terms", "generalterms", "paymentterms", "description"], "No additional terms.")}</Remarks>
       <Signatures labels={[

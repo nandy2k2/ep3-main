@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import LibraryIssueLookup from "./LibraryIssueLookup";
 import {
   Alert,
   Autocomplete,
@@ -73,7 +74,7 @@ function useLibraryList(all = false) {
   const [libraries, setLibraries] = useState([]);
   const loadLibraries = async () => {
     const res = await ep1.get("/api/v2/librarynew/libraries/accessible", {
-      params: { colid: global1.colid, user: global1.user, all: all ? "yes" : "no" }
+      params: { colid: global1.colid, user: global1.user, role: global1.role, all: all ? "yes" : "no" }
     });
     setLibraries(res.data?.data || []);
   };
@@ -866,22 +867,31 @@ export function LibraryCounterPage() {
   );
 }
 
-function useLibrarySearch() {
+function useLibrarySearch(lazy = false) {
   const { libraries } = useLibraryList(false);
   const [libraryid, setLibraryid] = useState("");
   const [bookRows, setBookRows] = useState([]);
   const [bookOptions, setBookOptions] = useState({});
+  const [booksLoading, setBooksLoading] = useState(false);
+  const [booksError, setBooksError] = useState("");
   const [studentRows, setStudentRows] = useState([]);
   const [studentOptions, setStudentOptions] = useState({});
   const [bookFilters, setBookFilters] = useState([{ field: "title", value: "" }]);
   const [studentFilters, setStudentFilters] = useState([{ field: "name", value: "" }]);
   const loadBooks = async () => {
-    const params = { colid: global1.colid, user: global1.user };
+    setBooksLoading(true);
+    setBooksError("");
+    try {
+    const params = { colid: global1.colid, user: global1.user, role: global1.role };
     if (libraryid) params.libraryid = libraryid;
     bookFilters.forEach((f) => { if (f.field && f.value) params[f.field] = f.value; });
     const res = await ep1.get("/api/v2/librarynew/books", { params });
     setBookRows(res.data?.data || []);
     setBookOptions(res.data?.options || {});
+    } catch (error) {
+      setBookRows([]);
+      setBooksError(error.response?.data?.message || error.message || "Unable to load books");
+    } finally { setBooksLoading(false); }
   };
   const loadStudents = async () => {
     const params = { colid: global1.colid };
@@ -890,17 +900,58 @@ function useLibrarySearch() {
     setStudentRows(res.data?.data || []);
     setStudentOptions(res.data?.options || {});
   };
-  useEffect(() => { loadBooks(); loadStudents(); }, []);
-  return { libraries, libraryid, setLibraryid, bookRows, bookOptions, studentRows, studentOptions, bookFilters, setBookFilters, studentFilters, setStudentFilters, loadBooks, loadStudents };
+  useEffect(() => { if (!lazy) { loadBooks(); loadStudents(); } }, []);
+  return { libraries, libraryid, setLibraryid, bookRows, bookOptions, booksLoading, booksError, studentRows, studentOptions, bookFilters, setBookFilters, studentFilters, setStudentFilters, loadBooks, loadStudents };
 }
 
 export function LibraryIssuePage() {
-  const s = useLibrarySearch();
+  const s = useLibrarySearch(true);
   const [book, setBook] = useState(null);
   const [student, setStudent] = useState(null);
   const [issue, setIssue] = useState({ issuetype: "Regular", issuedate: shortDate(new Date()), duedate: "" });
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [bookSearch, setBookSearch] = useState({ filters: {}, revision: 0 });
+  const [studentSearch, setStudentSearch] = useState({ filters: {}, revision: 0 });
+  const [issuedRows, setIssuedRows] = useState([]);
+  const [issuedTotal, setIssuedTotal] = useState(0);
+  const [issuedLoading, setIssuedLoading] = useState(false);
+  const [issuedLoaded, setIssuedLoaded] = useState(false);
+  const [pagination, setPagination] = useState({ page: 0, pageSize: 25 });
+  const issuedSequence = useRef(0);
+  const filterParams = filters => Object.fromEntries(filters.filter(f => f.field && String(f.value || "").trim()).map(f => [f.field, f.value]));
+  const loadIssued = async (selected = student, page = pagination) => {
+    const request = ++issuedSequence.current;
+    setIssuedLoading(true);
+    setIssuedLoaded(true);
+    try {
+      const response = await ep1.get("/api/v2/librarynew/issues", { params: {
+        colid: global1.colid, user: global1.user, role: global1.role, status: "Issued", compact: "yes",
+        ...(s.libraryid ? { libraryid: s.libraryid } : {}),
+        ...(selected?.regno ? { regno: selected.regno, exactregno: "yes" } : {}),
+        limit: page.pageSize, skip: page.page * page.pageSize
+      } });
+      if (request === issuedSequence.current) { setIssuedRows(response.data?.data || []); setIssuedTotal(response.data?.total || 0); }
+    } catch (err) { if (request === issuedSequence.current) setError(err.response?.data?.message || err.message); }
+    finally { if (request === issuedSequence.current) setIssuedLoading(false); }
+  };
+  const selectStudent = selected => {
+    setStudent(selected);
+    const page = { ...pagination, page: 0 };
+    setPagination(page);
+    if (selected) loadIssued(selected, page);
+    else { issuedSequence.current++; setIssuedRows([]); setIssuedTotal(0); setIssuedLoaded(false); setIssuedLoading(false); }
+  };
+  useEffect(() => {
+    setBook(null);
+    setBookSearch({ filters: {}, revision: 0 });
+    issuedSequence.current++;
+    setIssuedRows([]); setIssuedTotal(0); setIssuedLoaded(false); setIssuedLoading(false);
+  }, [s.libraryid]);
   const issueBook = async () => {
+    setSaving(true); setError("");
+    try {
     const res = await ep1.post("/api/v2/librarynew/issue", {
       colid: global1.colid,
       libraryid: book?.libraryid,
@@ -913,33 +964,53 @@ export function LibraryIssuePage() {
       user: global1.user
     });
     setMessage(`Book issued: ${res.data?.data?.accessionno}`);
-    setBook(null); setStudent(null);
-    s.loadBooks();
+    setBook(null);
+    setBookSearch(previous => ({ ...previous, revision: previous.revision + 1 }));
+    await loadIssued(student, { ...pagination, page: 0 });
+    setPagination(previous => ({ ...previous, page: 0 }));
+    } catch (err) { setError(err.response?.data?.message || err.message || "Unable to issue book"); }
+    finally { setSaving(false); }
   };
   return (
     <MenuPageShell title="Library Issue Book">
       <Stack spacing={2}>
         {message && <Alert severity="success">{message}</Alert>}
+        {error && <Alert severity="error">{error}</Alert>}
         <Paper sx={{ p: 2 }}>
           <Typography fontWeight={900}>Search Book</Typography>
           <Box sx={{ mb: 2, maxWidth: 420 }}><LibrarySelect libraries={s.libraries} value={s.libraryid} onChange={s.setLibraryid} allowAll /></Box>
           <FieldFilters fields={bookFields} options={s.bookOptions} filters={s.bookFilters} setFilters={s.setBookFilters} />
-          <Button onClick={s.loadBooks} variant="contained" sx={{ mt: 1 }}>Apply Book Filter</Button>
-          <Autocomplete sx={{ mt: 2 }} options={s.bookRows.filter((row) => /^Available$/i.test(row.status || ""))} value={book} onChange={(_, v) => setBook(v)} getOptionLabel={(o) => `${o.accessionno || ""} - ${o.title || ""} - ${o.status || ""}`} renderInput={(params) => <TextField {...params} label="Select or scan accession no" />} />
+          <Button onClick={() => { setBook(null); setBookSearch(previous => ({ filters: filterParams(s.bookFilters), revision: previous.revision + 1 })); }} variant="contained" sx={{ mt: 1 }}>Apply Book Filter</Button>
+          <LibraryIssueLookup kind="books" filters={{ ...bookSearch.filters, ...(s.libraryid ? { libraryid: s.libraryid } : {}) }} revision={bookSearch.revision} value={book} onChange={setBook} />
         </Paper>
         <Paper sx={{ p: 2 }}>
           <Typography fontWeight={900}>Search Student</Typography>
           <FieldFilters fields={studentFields} options={s.studentOptions} filters={s.studentFilters} setFilters={s.setStudentFilters} />
-          <Button onClick={s.loadStudents} variant="contained" sx={{ mt: 1 }}>Apply Student Filter</Button>
-          <Autocomplete sx={{ mt: 2 }} options={s.studentRows} value={student} onChange={(_, v) => setStudent(v)} getOptionLabel={(o) => `${o.name || ""} - ${o.regno || ""} - ${o.email || o.user || ""}`} renderInput={(params) => <TextField {...params} label="Select student" />} />
+          <Button onClick={() => { selectStudent(null); setStudentSearch(previous => ({ filters: filterParams(s.studentFilters), revision: previous.revision + 1 })); }} variant="contained" sx={{ mt: 1 }}>Apply Student Filter</Button>
+          <Button sx={{ mt: 1, ml: 1 }} onClick={() => {
+            s.setStudentFilters([{ field: "name", value: "" }]);
+            selectStudent(null);
+            setStudentSearch(previous => ({ filters: {}, revision: previous.revision + 1 }));
+          }}>Clear Student Filters</Button>
+          {Object.keys(studentSearch.filters).length > 0 && <Alert severity="info" sx={{ mt: 1 }}>Active student filters: {Object.entries(studentSearch.filters).map(([field, value]) => `${field}: ${value}`).join("; ")}. Search results must match these filters. Clear the filters to search all students.</Alert>}
+          <LibraryIssueLookup kind="students" filters={studentSearch.filters} revision={studentSearch.revision} value={student} onChange={selectStudent} />
         </Paper>
         <Paper sx={{ p: 2 }}>
           <Grid container spacing={2}>
             <Grid item xs={12} md={3}><TextField select fullWidth label="Issue Type" value={issue.issuetype} onChange={(e) => setIssue({ ...issue, issuetype: e.target.value })}>{issueTypes.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12} md={3}><TextField fullWidth type="date" label="Issue Date" InputLabelProps={{ shrink: true }} value={issue.issuedate} onChange={(e) => setIssue({ ...issue, issuedate: e.target.value })} /></Grid>
             <Grid item xs={12} md={3}><TextField fullWidth type="date" label="Return Due Date" InputLabelProps={{ shrink: true }} value={issue.duedate} onChange={(e) => setIssue({ ...issue, duedate: e.target.value })} /></Grid>
-            <Grid item xs={12} md={3}><Button fullWidth variant="contained" sx={{ height: 56 }} disabled={!book || !student} onClick={issueBook}>Issue Book</Button></Grid>
+            <Grid item xs={12} md={3}><Button fullWidth variant="contained" sx={{ height: 56 }} disabled={saving || !book || !student} onClick={issueBook}>{saving ? "Issuing..." : "Issue Book"}</Button></Grid>
           </Grid>
+        </Paper>
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6">Issued books{student ? ` - ${student.name}` : ""}</Typography>
+          <Button disabled={issuedLoading} onClick={() => { const page = { ...pagination, page: 0 }; setPagination(page); loadIssued(student, page); }}>{issuedLoading ? "Loading..." : "Load issued books"}</Button>
+          <Box sx={{ height: 420, mt: 1 }}><DataGrid rows={issuedRows} getRowId={row => row._id} loading={issuedLoading} rowCount={issuedTotal}
+            paginationMode="server" paginationModel={pagination} pageSizeOptions={[25, 50, 100]}
+            onPaginationModelChange={page => { setPagination(page); if (issuedLoaded) loadIssued(student, page); }}
+            columns={[{ field: "accessionno", headerName: "Accession No", width: 150 }, { field: "title", headerName: "Book", minWidth: 220, flex: 1 }, { field: "student", headerName: "Student", width: 180 }, { field: "regno", headerName: "Reg No", width: 160 }, { field: "issuedate", headerName: "Issue date", width: 130, valueGetter: p => shortDate(p.row.issuedate) }, { field: "duedate", headerName: "Due date", width: 130, valueGetter: p => shortDate(p.row.duedate) }, { field: "status", headerName: "Status", width: 100 }]} />
+          </Box>
         </Paper>
       </Stack>
     </MenuPageShell>
@@ -951,17 +1022,35 @@ export function LibraryReturnPage() {
   const [libraryid, setLibraryid] = useState("");
   const [rows, setRows] = useState([]);
   const [message, setMessage] = useState("");
-  const load = async () => {
-    const params = { colid: global1.colid, user: global1.user, status: "Issued" };
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [returning, setReturning] = useState("");
+  const [total, setTotal] = useState(0);
+  const [pagination, setPagination] = useState({ page: 0, pageSize: 25 });
+  const requestSequence = useRef(0);
+  const load = async (page = pagination) => {
+    const request = ++requestSequence.current;
+    setLoading(true); setError("");
+    try {
+    const params = { colid: global1.colid, user: global1.user, role: global1.role, status: "Issued", compact: "yes", limit: page.pageSize, skip: page.page * page.pageSize };
     if (libraryid) params.libraryid = libraryid;
     const res = await ep1.get("/api/v2/librarynew/issues", { params });
-    setRows(res.data?.data || []);
+    if (request === requestSequence.current) { setRows(res.data?.data || []); setTotal(res.data?.total || 0); }
+    } catch (err) {
+      if (request === requestSequence.current) { setRows([]); setTotal(0); setError(err.response?.data?.message || err.message || "Unable to load issued books"); }
+    } finally { if (request === requestSequence.current) setLoading(false); }
   };
   useEffect(() => { load(); }, []);
   const returnBook = async (row) => {
+    setReturning(row._id); setError("");
+    try {
     const res = await ep1.post("/api/v2/librarynew/return", { id: row._id, colid: global1.colid, returndate: shortDate(new Date()), user: global1.user });
     setMessage(`Book returned. Fine added: Rs. ${money(res.data?.fineamount)}`);
-    load();
+    const page = { ...pagination, page: 0 };
+    setPagination(page);
+    await load(page);
+    } catch (err) { setError(err.response?.data?.message || err.message || "Unable to return book"); }
+    finally { setReturning(""); }
   };
   const columns = [
     { field: "libraryname", headerName: "Library", minWidth: 170 },
@@ -974,9 +1063,9 @@ export function LibraryReturnPage() {
     { field: "regno", headerName: "Reg No", minWidth: 130 },
     { field: "issuedate", headerName: "Issue Date", minWidth: 120, valueGetter: (p) => shortDate(p.row.issuedate) },
     { field: "duedate", headerName: "Due Date", minWidth: 120, valueGetter: (p) => shortDate(p.row.duedate) },
-    { field: "actions", type: "actions", width: 100, getActions: (p) => [<GridActionsCellItem icon={<Save />} label="Return" onClick={() => returnBook(p.row)} />] }
+    { field: "actions", type: "actions", width: 100, getActions: (p) => [<GridActionsCellItem icon={<Save />} label={returning === p.row._id ? "Returning..." : "Return"} disabled={Boolean(returning) || loading} onClick={() => returnBook(p.row)} />] }
   ];
-  return <MenuPageShell title="Library Return Book"><Stack spacing={2}>{message && <Alert severity="success">{message}</Alert>}<Paper sx={{ p: 2 }}><Box sx={{ maxWidth: 420 }}><LibrarySelect libraries={libraries} value={libraryid} onChange={setLibraryid} allowAll /></Box><Button sx={{ mt: 1 }} variant="contained" onClick={load}>Apply</Button></Paper><Box sx={{ height: 620 }}><DataGrid rows={rows} columns={columns} getRowId={(r) => r._id} slots={{ toolbar: GridToolbar }} /></Box></Stack></MenuPageShell>;
+  return <MenuPageShell title="Library Return Book"><Stack spacing={2}>{message && <Alert severity="success">{message}</Alert>}{error && <Alert severity="error">{error}</Alert>}<Paper sx={{ p: 2 }}><Box sx={{ maxWidth: 420 }}><LibrarySelect libraries={libraries} value={libraryid} onChange={setLibraryid} allowAll /></Box><Button sx={{ mt: 1 }} variant="contained" disabled={loading || Boolean(returning)} onClick={() => { const page = { ...pagination, page: 0 }; setPagination(page); load(page); }}>{loading ? "Loading..." : "Load issued books"}</Button>{returning && <Typography role="status" sx={{ mt: 1 }}>Returning book...</Typography>}</Paper><Box sx={{ height: 620 }}><DataGrid rows={rows} columns={columns} getRowId={(r) => r._id} loading={loading} rowCount={total} paginationMode="server" paginationModel={pagination} pageSizeOptions={[25, 50, 100]} onPaginationModelChange={page => { setPagination(page); load(page); }} slots={{ toolbar: GridToolbar }} /></Box></Stack></MenuPageShell>;
 }
 
 export function LibraryReportsPage() {

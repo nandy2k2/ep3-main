@@ -44,7 +44,7 @@ const weightedMarks = (marks, weightage) => {
 };
 const weightedPassMarks = (passmarks, weightage) => Number(((Number(passmarks) || 0) * normalizedWeightage(weightage)).toFixed(2));
 
-export default function InternalMarksEntryPage({ admin = false }) {
+export default function InternalMarksEntryPage({ admin = false, elective = false }) {
   const [options, setOptions] = useState({ academicyears: [], semesters: [], courses: [], componenttypes: [], scoretypes: [], exams: [], faculty: [] });
   const [filters, setFilters] = useState({ academicyear: "", examcode: "", exam: "", facultyemail: "", semester: "", coursekey: "", componenttype: "", scoretype: "", assessmentid: "" });
   const [components, setComponents] = useState([]);
@@ -77,6 +77,7 @@ export default function InternalMarksEntryPage({ admin = false }) {
       const res = await ep1.get("/api/v2/internal-marks-entry/options", {
         params: {
           colid: global1.colid,
+          includeAllUsers: admin && elective ? "Yes" : undefined,
           academicyear: next.academicyear,
           semester: next.semester,
           facultyemail: admin ? next.facultyemail : global1.user
@@ -182,7 +183,7 @@ export default function InternalMarksEntryPage({ admin = false }) {
         return;
       }
       const res = await ep1.get("/api/v2/internal-marks-entry/students", {
-        params: { colid: global1.colid, assessmentid: selectedAssessment._id, examcode: selectedExam.examcode }
+        params: { colid: global1.colid, assessmentid: selectedAssessment._id, examcode: selectedExam.examcode, elective: elective ? "Yes" : undefined }
       });
       const rows = res.data?.data || [];
       setStudents(rows);
@@ -200,7 +201,7 @@ export default function InternalMarksEntryPage({ admin = false }) {
     if (!selectedAssessment) throw new Error("Select assessment component.");
     if (!selectedExam) throw new Error("Select exam.");
     const res = await ep1.get("/api/v2/internal-marks-entry/students", {
-      params: { colid: global1.colid, assessmentid: selectedAssessment._id, examcode: selectedExam.examcode }
+      params: { colid: global1.colid, assessmentid: selectedAssessment._id, examcode: selectedExam.examcode, elective: elective ? "Yes" : undefined }
     });
     return res.data?.data || [];
   };
@@ -245,6 +246,7 @@ export default function InternalMarksEntryPage({ admin = false }) {
         return;
       }
       const res = await ep1.post("/api/v2/internal-marks-entry/save", {
+        elective: elective ? "Yes" : undefined,
         colid: global1.colid,
         user: global1.user,
         username: global1.name,
@@ -325,6 +327,7 @@ export default function InternalMarksEntryPage({ admin = false }) {
       });
       if (!rowsToSave.length) throw new Error(issues.slice(0, 5).join(" | ") || "No valid marks found.");
       const res = await ep1.post("/api/v2/internal-marks-entry/save", {
+        elective: elective ? "Yes" : undefined,
         colid: global1.colid,
         user: global1.user,
         username: global1.name,
@@ -429,7 +432,7 @@ export default function InternalMarksEntryPage({ admin = false }) {
   ];
 
   return (
-    <MenuPageShell title={admin ? "Internal marks entry admin" : "Internal marks entry"} subtitle="Enter internal component marks directly into exammodel2-component-marks-crud.">
+    <MenuPageShell title={elective ? (admin ? "Internal marks entry elective admin" : "Internal marks entry elective") : admin ? "Internal marks entry admin" : "Internal marks entry"} subtitle="Enter internal component marks directly into exammodel2-component-marks-crud.">
       <Stack spacing={2}>
         {error && <Alert severity="error" onClose={() => setError("")}>{error}</Alert>}
         {message && <Alert severity="info" onClose={() => setMessage("")}>{message}</Alert>}
@@ -443,7 +446,7 @@ export default function InternalMarksEntryPage({ admin = false }) {
                     value={selectedFaculty}
                     getOptionLabel={facultyLabel}
                     onChange={(_, value) => updateFilter("facultyemail", value?.facultyemail || "")}
-                    renderInput={(params) => <TextField {...params} label="Faculty" placeholder="Search faculty" />}
+                    renderInput={(params) => <TextField {...params} label={elective ? "User" : "Faculty"} placeholder={elective ? "Search user" : "Search faculty"} />}
                   />
                 </Grid>
               )}

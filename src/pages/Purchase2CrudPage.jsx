@@ -19,6 +19,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import { calculatePoLine } from "../utils/purchase2Amounts";
 import PlacementCoordinatorShell from "./PlacementCoordinatorShell";
 
 const commonFields = [
@@ -148,6 +149,9 @@ const configs = {
   storepoitemsds2: {
     title: "Store PO items",
     fields: [
+      { field: "discounttype", label: "Discount type", options: ["Amount", "Percentage"] },
+      { field: "discount", label: "Discount", type: "number" },
+      ...["subtotal", "discountamount", "taxableamount", "gstamount"].map(field => ({ field, label: field, type: "number", calculated: true })),
       ...commonFields,
       { field: "year", label: "Year" },
       { field: "poid", label: "PO ID" },
@@ -946,7 +950,9 @@ export default function Purchase2CrudPage() {
                 size="small"
                 label={field.label}
                 type={field.type === "date" ? "date" : field.type === "number" ? "number" : "text"}
-                value={form[field.field] || ""}
+                value={modelKey === "storepoitemsds2" && ["subtotal", "discountamount", "taxableamount", "gstamount", "total", "unitPriceWithTax"].includes(field.field) ? calculatePoLine(form)[field.field] : form[field.field] ?? ""}
+                select={Boolean(field.options)}
+                InputProps={{ readOnly: Boolean(field.calculated || (modelKey === "storepoitemsds2" && ["total", "unitPriceWithTax"].includes(field.field)) || (modelKey === "storepoorderds2" && ["price", "netprice", "actualAmount"].includes(field.field))) }}
                 onChange={(event) => setForm({ ...form, [field.field]: event.target.value })}
                 required={field.required}
                 disabled={isStoreUsers && field.field === "storeid"}
@@ -954,7 +960,7 @@ export default function Purchase2CrudPage() {
                 minRows={field.type === "json" ? 2 : undefined}
                 InputLabelProps={field.type === "date" ? { shrink: true } : undefined}
                 sx={field.type === "json" ? { gridColumn: { xs: "1", md: "span 4" } } : undefined}
-              />
+              >{field.options?.map(option => <MenuItem key={option} value={option}>{option}</MenuItem>)}</TextField>
             );
           })}
         </Box>

@@ -21,6 +21,8 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import { useNavigate } from "react-router-dom";
+import { addOption, handleAddOption, optionLabel, renderAddOption } from "./addableAutocompleteHelpers";
 
 const blankForm = { academicyear: "", regulation: "", exam: "", examcode: "", program: "", programcode: "", semester: "", startdate: "", enddate: "" };
 const filterFields = ["academicyear", "regulation", "examcode", "programcode", "semester"];
@@ -30,10 +32,13 @@ const uniq = (items = []) => [...new Set(items.map(text).filter(Boolean))].sort(
 const normalizeSelection = (selection) => Array.isArray(selection) ? selection : Array.from(selection?.ids || []);
 
 export default function InternalMarksEntryDatesPage() {
+  const navigate = useNavigate();
   const [rows, setRows] = useState([]);
   const [options, setOptions] = useState({});
   const [exams, setExams] = useState([]);
   const [programs, setPrograms] = useState([]);
+  const [regulations, setRegulations] = useState([]);
+  const [semesters, setSemesters] = useState([]);
   const [form, setForm] = useState(blankForm);
   const [filters, setFilters] = useState({ academicyear: "", regulation: "", examcode: "", programcode: "", semester: "" });
   const [editingId, setEditingId] = useState("");
@@ -57,6 +62,8 @@ export default function InternalMarksEntryDatesPage() {
 
   const loadBase = async () => {
     try {
+      const regulationRes = await ep1.get("/api/v2/regulationmaster", { params: { colid: global1.colid } });
+      setRegulations(uniq((regulationRes.data?.data || []).map(row => row.regulation)));
       const examRes = await ep1.get("/api/v2/conductexam/exams", { params: { colid: global1.colid } });
       setExams(examRes.data?.data || []);
       await loadPrograms();
@@ -84,6 +91,16 @@ export default function InternalMarksEntryDatesPage() {
   };
 
   useEffect(() => { loadBase(); }, []);
+
+  useEffect(() => {
+    setSemesters([]);
+    if (!form.academicyear || !form.regulation || !form.programcode) return;
+    const controller = new AbortController();
+    ep1.get("/api/v2/regulationcoursemap", { params: { colid: global1.colid, academicyear: form.academicyear, regulation: form.regulation, programcode: form.programcode }, signal: controller.signal })
+      .then(res => setSemesters(uniq((res.data?.data || []).map(row => row.semester))))
+      .catch(err => { if (!controller.signal.aborted) setError(err.response?.data?.message || "Unable to load semesters from Regulation Course Map."); });
+    return () => controller.abort();
+  }, [form.academicyear, form.regulation, form.programcode]);
 
   const dynamicOptions = useMemo(() => {
     const merged = { ...options };
@@ -176,14 +193,15 @@ export default function InternalMarksEntryDatesPage() {
       exam: exam?.examname || exam?.exam || "",
       examcode: exam?.examcode || "",
       program: "",
-      programcode: ""
+      programcode: "",
+      semester: ""
     };
     setForm((prev) => ({ ...prev, ...next }));
     loadPrograms(next);
   };
-  const selectProgram = (program) => setForm((prev) => ({ ...prev, program: program?.program || "", programcode: program?.programcode || "" }));
+  const selectProgram = (program) => setForm((prev) => ({ ...prev, program: program?.program || "", programcode: program?.programcode || "", semester: "" }));
   const updateAcademicContext = (field, value) => {
-    const next = { ...form, [field]: value, program: "", programcode: "" };
+    const next = { ...form, [field]: value, program: "", programcode: "", semester: "" };
     setForm(next);
     loadPrograms(next);
   };
@@ -220,10 +238,10 @@ export default function InternalMarksEntryDatesPage() {
             <Grid container spacing={2}>
               <Grid item xs={12} md={3}><Autocomplete options={exams} getOptionLabel={(option) => `${option.examname || option.exam || ""} (${option.examcode || ""})`} value={exams.find((item) => item.examcode === form.examcode) || null} onChange={(_, value) => selectExam(value)} renderInput={(params) => <TextField {...params} label="Exam" />} /></Grid>
               <Grid item xs={12} md={1.5}><TextField fullWidth label="Academic Year" value={form.academicyear} onChange={(e) => updateAcademicContext("academicyear", e.target.value)} /></Grid>
-              <Grid item xs={12} md={1.5}><TextField fullWidth label="Regulation" value={form.regulation} onChange={(e) => updateAcademicContext("regulation", e.target.value)} /></Grid>
+              <Grid item xs={12} md={1.5}><Autocomplete options={[addOption("+ Add Regulation", "/regulationmaster"), ...uniq([...regulations, form.regulation])]} getOptionLabel={optionLabel} renderOption={renderAddOption} value={form.regulation || null} onChange={(_, value) => { if (!handleAddOption(value, navigate)) updateAcademicContext("regulation", value || ""); }} renderInput={params => <TextField {...params} label="Regulation" />} /></Grid>
               <Grid item xs={12} md={3}><Autocomplete options={programs} getOptionLabel={(option) => `${option.program || ""} (${option.programcode || ""})`} value={programs.find((item) => item.programcode === form.programcode) || null} onChange={(_, value) => selectProgram(value)} renderInput={(params) => <TextField {...params} label="Program" />} /></Grid>
               <Grid item xs={12} md={1.5}><TextField fullWidth label="Program Code" value={form.programcode} onChange={(e) => setForm({ ...form, programcode: e.target.value })} /></Grid>
-              <Grid item xs={12} md={1.5}><TextField fullWidth label="Semester" value={form.semester} onChange={(e) => setForm({ ...form, semester: e.target.value })} /></Grid>
+              <Grid item xs={12} md={1.5}><Autocomplete options={[addOption("+ Add Semester in Regulation Course Map", "/regulationcoursemap"), ...uniq([...semesters, form.semester])]} getOptionLabel={optionLabel} renderOption={renderAddOption} value={form.semester || null} onChange={(_, value) => { if (!handleAddOption(value, navigate)) setForm(previous => ({ ...previous, semester: value || "" })); }} renderInput={params => <TextField {...params} label="Semester" />} /></Grid>
               <Grid item xs={12} md={2}><TextField type="date" InputLabelProps={{ shrink: true }} fullWidth label="Start Date" value={form.startdate} onChange={(e) => setForm({ ...form, startdate: e.target.value })} /></Grid>
               <Grid item xs={12} md={2}><TextField type="date" InputLabelProps={{ shrink: true }} fullWidth label="End Date" value={form.enddate} onChange={(e) => setForm({ ...form, enddate: e.target.value })} /></Grid>
               <Grid item xs={12} md={2}><Button fullWidth variant="contained" startIcon={<SaveIcon />} sx={{ height: 56 }} onClick={save} disabled={saving}>{editingId ? "Update" : "Save"}</Button></Grid>

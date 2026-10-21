@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Autocomplete,
@@ -26,7 +26,7 @@ const selectedIds = (selection) => Array.from(selection?.ids || selection || [])
 
 export default function MatchRegnoFromLedgerPage() {
   const [password, setPassword] = useState("");
-  const [unlocked, setUnlocked] = useState(false);
+  const [unlocked, setUnlocked] = useState(true);
   const [fields, setFields] = useState([]);
   const [options, setOptions] = useState({});
   const [filters, setFilters] = useState([{ ...emptyFilter }]);
@@ -49,13 +49,18 @@ export default function MatchRegnoFromLedgerPage() {
       setFields(res.data?.fields || []);
       setOptions(res.data?.options || {});
       setUnlocked(true);
-      setMessage("Page unlocked. Select filters and click Load ledger rows.");
+      setMessage("Select filters and click Load ledger rows.");
     } catch (err) {
       setError(err.response?.data?.message || "Invalid password or unable to unlock page");
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    unlock().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const loadRows = async () => {
     try {
