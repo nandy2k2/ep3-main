@@ -141,7 +141,7 @@ export function Crm2Content({ entity, mode = '', autoLoad = false, initialLead =
   const [identityDone, setIdentityDone] = useState(false);
   const identityReady = !!form._id || !!(checkedIdentity && checkedIdentity.email === form.email && checkedIdentity.phone === form.phone);
   const completedStages = form._id ? (form.wizardcompleted?.length ? form.wizardcompleted : leadStages) : identityDone ? ['Identity'] : [];
-  const stageAllowed = stage => identityReady && leadStages.slice(0, leadStages.indexOf(stage)).every(step => completedStages.includes(step));
+  const stageAllowed = stage => leadSections.includes(stage) ? !!form._id : identityReady && leadStages.slice(0, leadStages.indexOf(stage)).every(step => completedStages.includes(step));
   const [activeTab, setActiveTab] = useState(dashboard ? 'All' : 'Yes');
   const busy = requestBusy || uploadCount > 0;
   const uploadActivity = useCallback(delta => setUploadCount(value => Math.max(0, value + delta)), []);

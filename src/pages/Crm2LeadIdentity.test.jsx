@@ -34,7 +34,14 @@ test.each(['', 'my', 'agent'])('email and phone gate details and image extractio
   await screen.findByText('Stage: Family & Address');
   expect(screen.getByRole('button', { name: 'Family & Address' })).toBeEnabled();
   expect(screen.getByRole('button', { name: 'Education & Work' })).toBeDisabled();
+  for (const section of ['Programs Interested', 'Applications', 'Interactions', 'Lead Tasks', 'Lead Notes']) expect(screen.getByRole('button', { name: new RegExp(section) })).not.toHaveAttribute('aria-disabled', 'true');
   expect(screen.queryByRole('tab', { name: /Programs|Applications|Interactions|Lead tasks|Lead notes/ })).not.toBeInTheDocument();
+});
+test('sections are active immediately when editing a saved lead with incomplete profile progress', async () => {
+  render(<Crm2Content entity="leads" initialLead={{ _id: 'lead1', name: 'Ann', email: 'ann@example.com', phone: '9876543210', stage: 'Family & Address', wizardcompleted: ['Identity', 'CRM Details'] }} />);
+  await screen.findByText('Stage: Family & Address');
+  for (const section of ['Programs Interested', 'Applications', 'Interactions', 'Lead Tasks', 'Lead Notes']) expect(screen.getByRole('button', { name: new RegExp(section) })).not.toHaveAttribute('aria-disabled', 'true');
+  expect(screen.getByRole('button', { name: 'Education & Work' })).toBeDisabled();
 });
 test('stage timestamp is displayed in day/month/year and time format', () => {
   expect(leadStageTime('2026-10-29T10:00:00Z')).toMatch(/^29\/10\/2026, \d{2}:\d{2}:\d{2}$/);

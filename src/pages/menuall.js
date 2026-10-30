@@ -411,6 +411,10 @@ export function menuitemsall() {
             </ListItemIcon>
             {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="CRM setup wizard" />}
           </ListItem>
+          <ListItem button component={RouterLink} to="/crm2-setup-wizard">
+            <ListItemIcon><PersonIcon /></ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="CRM 2 Setup Wizard" />}
+          </ListItem>
           <ListItem button component={RouterLink} to="/user-management-wizard">
             <ListItemIcon>
               <PersonIcon />
@@ -850,10 +854,11 @@ export function menuitemsall() {
           <ListItem button component={RouterLink} to="/crm2-confirm-admission"><ListItemIcon><PersonIcon /></ListItemIcon>{open && <ListItemText primary="Confirm admission" />}</ListItem>
           <ListItem button component={RouterLink} to="/crm2-counselor-program-mapping"><ListItemIcon><PersonIcon /></ListItemIcon>{open && <ListItemText primary="Counselor program mapping" />}</ListItem>
           <ListItem button component={RouterLink} to="/crm2-lead-program-assignment"><ListItemIcon><PersonIcon /></ListItemIcon>{open && <ListItemText primary="Lead program assignment" />}</ListItem>
-          <ListItem button component={RouterLink} to="/crm2-programwise-leads"><ListItemIcon><PersonIcon /></ListItemIcon>{open && <ListItemText primary="Programwise leads" />}</ListItem>
-          <ListItem button component={RouterLink} to="/crm2-programwise-lead-report"><ListItemIcon><PersonIcon /></ListItemIcon>{open && <ListItemText primary="Programwise lead report" />}</ListItem>
-          <ListItem button component={RouterLink} to="/crm2-programwise-summary-report"><ListItemIcon><PersonIcon /></ListItemIcon>{open && <ListItemText primary="Programwise summary report" />}</ListItem>
+          {/* <ListItem button component={RouterLink} to="/crm2-programwise-leads"><ListItemIcon><PersonIcon /></ListItemIcon>{open && <ListItemText primary="Programwise leads" />}</ListItem> */}
+          {/* <ListItem button component={RouterLink} to="/crm2-programwise-lead-report"><ListItemIcon><PersonIcon /></ListItemIcon>{open && <ListItemText primary="Programwise lead report" />}</ListItem> */}
+          {/* <ListItem button component={RouterLink} to="/crm2-programwise-summary-report"><ListItemIcon><PersonIcon /></ListItemIcon>{open && <ListItemText primary="Programwise summary report" />}</ListItem> */}
           <ListItem button component={RouterLink} to="/crm2-interactions"><ListItemIcon><PersonIcon /></ListItemIcon>{open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Interactions" />}</ListItem>
+          <ListItem button component={RouterLink} to="/crm2-lead-report"><ListItemIcon><PersonIcon /></ListItemIcon>{open && <ListItemText primaryTypographyProps={{ fontSize: "14px", whiteSpace: "normal" }} primary="Lead report" />}</ListItem>
         </AccordionDetails>
       </Accordion>
       <Accordion>

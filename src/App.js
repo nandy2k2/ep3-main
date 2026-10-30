@@ -953,6 +953,8 @@ import RegulationGroupedReportPage from "./pages/RegulationGroupedReportPage";
 import AcademicConfigurationWizardPage from "./pages/AcademicConfigurationWizardPage";
 import { AcademicMasterPage, ProgramOutcomePage, MyProgramStudentsPage } from "./pages/AcademicConfigurationNewPages";
 import MasterSetupWizardPage from "./pages/MasterSetupWizardPage";
+import Crm2SetupWizardPage from './pages/Crm2SetupWizardPage';
+import Crm2LeadReportPage from './pages/Crm2LeadReportPage';
 import AllRoleMenuGatewayPage from "./pages/AllRoleMenuGatewayPage";
 import ExaminationConductWizardPage, { ExaminationConductWizard2Page } from "./pages/ExaminationConductWizardPage";
 import ConductExamFinePage from './pages/ConductExamFinePage';
@@ -3976,6 +3978,7 @@ function App() {
         <Route path="/internal-marks-entry-wizard" element={<InternalMarksEntryWizardPage />} />
         <Route path="/lms-wizard" element={<LmsWizardPage />} />
         <Route path="/crm-setup-wizard" element={<CrmSetupWizardPage />} />
+        <Route path="/crm2-setup-wizard" element={<Crm2SetupWizardPage />} />
         <Route path="/user-management-wizard" element={<UserManagementWizardPage />} />
         <Route path="/student-management-wizard" element={<StudentManagementWizardPage />} />
         <Route path="/student-parent-management-wizard" element={<StudentParentManagementWizardStep />} />
@@ -4341,6 +4344,7 @@ function App() {
         <Route path="/crm2-lead-program-assignment" element={<Crm2ProgramPage mode="assignment" />} />
         <Route path="/crm2-programwise-leads" element={<Crm2ProgramPage mode="my" />} />
         <Route path="/crm2-programwise-lead-report" element={<Crm2ProgramReportPage />} />
+        <Route path="/crm2-lead-report" element={<Crm2LeadReportPage />} />
         <Route path="/crm2-programwise-summary-report" element={<Crm2ProgramReportPage summaryMode />} />
         <Route path="/crm2-interactionmode-master" element={<Crm2Page key="interactionmode" entity="interactionmode" />} />
         <Route path="/crm2-interactions" element={<Crm2InteractionsPage />} />
