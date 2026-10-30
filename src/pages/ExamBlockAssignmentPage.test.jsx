@@ -1,0 +1,26 @@
+import React from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import Page from "./ExamBlockAssignmentPage";
+import ep1 from "../api/ep1";
+import global1 from "./global1";
+jest.mock("../api/ep1", () => ({ get: jest.fn(), post: jest.fn() }));
+jest.mock("./MenuPageShell", () => ({ children }) => <div>{children}</div>);
+jest.mock("react-router-dom", () => ({ useNavigate: () => jest.fn() }));
+jest.mock("@mui/x-data-grid", () => ({ DataGrid: () => null, GridToolbar: () => null }));
+test("block allocation cascades exam and programs but only loads students on demand", async () => {
+  global1.colid = 42;
+  ep1.get.mockImplementation(async url => ({ data: { data: url.endsWith("exams") ? [{ academicyear: "2026-27", examname: "Final", examcode: "E1" }] : [{ program: "BSc", programcode: "P1" }] } }));
+  ep1.post.mockResolvedValue({ data: { data: [] } });
+  render(<Page />);
+  await waitFor(() => expect(ep1.get).toHaveBeenCalledTimes(1));
+  expect(ep1.post).not.toHaveBeenCalled();
+  const choose = async (label, name) => { fireEvent.mouseDown(screen.getByLabelText(label)); fireEvent.click(await screen.findByRole("option", { name })); };
+  await choose("Academic year", "2026-27");
+  await choose("Exam", "Final (E1)");
+  await waitFor(() => expect(ep1.get).toHaveBeenCalledWith("/api/v2/conductexam/block-assignment/programs", expect.objectContaining({ params: { colid: 42, academicyear: "2026-27", examcode: "E1" } })));
+  await choose("Programs / program codes", "BSc (P1)");
+  fireEvent.keyDown(screen.getByRole("combobox", { name: "Programs / program codes" }), { key: "Escape" });
+  expect(ep1.post).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Load students" }));
+  await waitFor(() => expect(ep1.post).toHaveBeenCalledWith("/api/v2/conductexam/block-assignment/students", { colid: 42, academicyear: "2026-27", examcode: "E1", programs: [{ program: "BSc", programcode: "P1" }] }));
+});

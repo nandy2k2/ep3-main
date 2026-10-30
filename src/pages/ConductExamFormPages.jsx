@@ -31,6 +31,7 @@ import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
 import { openExamForm2Print } from "./examForm2Print";
 import ExamForm2Overview from "./ExamForm2Overview";
+import { calculateExamFine } from '../utils/conductExamFine';
 
 const years = ["2023-24", "2024-25", "2025-26", "2026-27", "2027-28", "2028-29", "2029-30", "2030-31"];
 const blankFee = {
@@ -1359,7 +1360,7 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
       setSelectedFormId("");
       setSubmittedFeeReady(false);
       const res = await ep1.get("/api/v2/conductexam/student-exam-form-context", {
-        params: { colid: global1.colid, regno: global1.regno, academicyear: filters.academicyear, examcode: filters.examcode, examtype: atktMode ? "ATKT" : filters.examtype, mode: atktMode ? "ATKT" : undefined, overview: puPrintMode ? "Yes" : undefined }
+        params: { colid: global1.colid, regno: global1.regno, academicyear: filters.academicyear, examcode: filters.examcode, examtype: atktMode ? "ATKT" : filters.examtype, mode: atktMode ? "ATKT" : undefined, overview: puPrintMode ? "Yes" : undefined, examFine: formActiveOnly && !mastercodeMode ? 'Yes' : undefined }
       });
       const nextContext = res.data?.data || null;
       setContext(nextContext);
@@ -1393,7 +1394,9 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
     return sum + Number(course?.fee || 0);
   }, 0);
   const configuredMaxFee = Number(context?.maxFee?.maxfees || 0);
-  const totalFee = configuredMaxFee > 0 && rawTotalFee > configuredMaxFee ? configuredMaxFee : rawTotalFee;
+  const baseFee = configuredMaxFee > 0 && rawTotalFee > configuredMaxFee ? configuredMaxFee : rawTotalFee;
+  const fine = calculateExamFine(formActiveOnly && !mastercodeMode ? context?.examFineRules : [], new Set(selectedCourses.map(key => courseRows.find(row => row.id === key)?.coursecode).filter(Boolean)).size);
+  const totalFee = context?.examScholarship ? 0 : Math.round((baseFee + fine.total) * 100) / 100;
   const calculatedFeeRows = useMemo(() => totalFee > 0 ? [{
     id: "calculated-exam-fee",
     feegroup: "Exam Fee",
@@ -1495,7 +1498,7 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
       setError("");
       setMessage("");
       const selectedCourseRows = selectedCourses.map((key) => courseRows.find((row) => row.id === key)).filter(Boolean);
-      const res = await ep1.post("/api/v2/conductexam/student-exam-form-submit", {
+      const res = await ep1.post(formActiveOnly && !mastercodeMode ? '/api/v2/conductexam/student-programwise-exam-form-2-submit' : "/api/v2/conductexam/student-exam-form-submit", {
         colid: global1.colid,
         regno: global1.regno,
         formid: selectedFormId,
@@ -1651,6 +1654,7 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
                 <Typography variant="h6" sx={{ fontWeight: 700 }}>{atktMode ? "ATKT failed courses" : filters.examtype === "Regular" ? "Regular and elective courses" : "Failed supplementary courses"}</Typography>
                 <Stack spacing={0.5} alignItems={{ xs: "flex-start", md: "flex-end" }}>
                   <Typography sx={{ fontWeight: 800 }}>Payable fee: Rs. {money(totalFee)}</Typography>
+                  {formActiveOnly && !mastercodeMode && fine.total > 0 && <Typography variant="body2" color="error">Exam fine: Rs. {money(fine.total)}{context?.examScholarship ? ' (waived by exam scholarship)' : ''}</Typography>}
                   {configuredMaxFee > 0 && (
                     <Typography variant="body2" color={rawTotalFee > configuredMaxFee ? "error" : "text.secondary"}>
                       Selected total Rs. {money(rawTotalFee)} capped at Rs. {money(configuredMaxFee)}
@@ -1658,6 +1662,7 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
                   )}
                 </Stack>
               </Stack>
+              {formActiveOnly && !mastercodeMode && fine.applied.map((rule, index) => <Typography variant="body2" key={`${rule.ruleid}-${index}`} sx={{ mb: 1 }}>Fine: Rs. {money(rule.rate)} × {rule.days} {rule.finetype === 'per day' ? 'day(s)' : 'flat charge'} × {rule.courses} {rule.coursetype === 'per course' ? 'course(s)' : 'form'} = Rs. {money(rule.amount)}</Typography>)}
               {atktMode && !courseRows.length && (
                 <Alert severity="warning" sx={{ mb: 2 }}>
                   No ATKT failed course found for this student. The system checks failed rows in Exam Model 2 viva marks and Exam Model 2 marks using regno only, across all academic years, programs and semesters.

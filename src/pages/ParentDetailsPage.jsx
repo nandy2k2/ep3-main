@@ -119,7 +119,7 @@ function ParentCrud({ kind }) {
   const [message, setMessage] = useState("");
 
   const columns = useMemo(() => [
-    ...fields.filter((field) => field !== "password").map((field) => ({ field, headerName: fieldLabel(field), minWidth: 140, flex: 1 })),
+    ...fields.map((field) => ({ field, headerName: fieldLabel(field), minWidth: 140, flex: 1, disableExport: field === "password" })),
     { field: "actions", headerName: "Actions", width: 110, sortable: false, renderCell: (params) => <Button size="small" onClick={() => { setForm(params.row); setOpen(true); }}><Edit fontSize="small" /></Button> }
   ], [fields]);
 
@@ -203,7 +203,7 @@ function ParentCrud({ kind }) {
             <Button variant="outlined" startIcon={<Add />} onClick={() => { setForm({ status: "Active", password: "Password@123" }); setOpen(true); }} disabled={busy}>Add</Button>
             <Button variant="outlined" component="label" startIcon={<UploadFile />} disabled={busy}>Bulk upload<input hidden type="file" accept=".xlsx,.xls,.csv" onChange={bulkUpload} /></Button>
             <Button variant="outlined" color="error" startIcon={<Delete />} onClick={bulkDelete} disabled={busy || !selected.length}>Bulk delete</Button>
-            <Button variant="outlined" startIcon={<Print />} onClick={() => printGrid(title, rows, columns.filter((col) => col.field !== "actions"), institution)}>Print preview</Button>
+            <Button variant="outlined" startIcon={<Print />} onClick={() => printGrid(title, rows, columns.filter((col) => !["actions", "password"].includes(col.field)), institution)}>Print preview</Button>
           </Stack>
         </Paper>
         {busy && <LinearProgress sx={{ mb: 1 }} />}
@@ -235,7 +235,7 @@ function ParentCrud({ kind }) {
               )}
               {fields.map((field) => (
                 <Grid item xs={12} md={field === "address" ? 12 : 6} key={field}>
-                  <TextField fullWidth label={fieldLabel(field)} type={field === "password" ? "password" : "text"} multiline={field === "address"} rows={field === "address" ? 2 : 1} value={form[field] || ""} onChange={(event) => setForm((prev) => ({ ...prev, [field]: event.target.value }))} />
+                  <TextField fullWidth label={fieldLabel(field)} type="text" multiline={field === "address"} rows={field === "address" ? 2 : 1} value={form[field] || ""} onChange={(event) => setForm((prev) => ({ ...prev, [field]: event.target.value }))} />
                 </Grid>
               ))}
             </Grid>

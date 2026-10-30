@@ -1,0 +1,51 @@
+import React from 'react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { Crm2Content, leadStageTime } from './Crm2Pages';
+import ep1 from '../api/ep1';
+jest.mock('../api/ep1', () => ({ get: jest.fn(), post: jest.fn() }));
+jest.mock('./global1', () => ({ colid: 42, email: 'staff@example.com', name: 'Staff' }));
+jest.mock('@mui/x-data-grid', () => ({ DataGrid: () => null, GridToolbar: () => null }));
+jest.mock('./AiImageFieldExtractor', () => ({ onApply }) => <button onClick={() => onApply({ name: 'Extracted Lead', email: 'wrong@example.com' })}>Extract fields</button>);
+beforeEach(() => {
+  ep1.get.mockReset(); ep1.post.mockReset();
+  ep1.get.mockResolvedValue({ data: { fields: ['name', 'email', 'phone'].map(field => ({ field, group: 'Identity', type: 'String' })) } });
+});
+test.each(['', 'my', 'agent'])('email and phone gate details and image extraction in %s workspace', async mode => {
+  ep1.post.mockImplementation(async (url, payload) => ({ data: url.endsWith('/check') ? { success: true, available: true } : { success: true, data: { ...payload, _id: 'lead1', stage: 'Family & Address', stagetime: '2026-10-29T10:00:00Z', wizardcompleted: ['Identity', 'CRM Details'] } } }));
+  render(<Crm2Content entity="leads" mode={mode} />);
+  expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
+  expect(screen.queryByText('Extract fields')).not.toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'lead@example.com' } });
+  fireEvent.change(screen.getByLabelText('Phone'), { target: { value: '9876543210' } });
+  fireEvent.click(screen.getByText('Check duplicates & continue'));
+  fireEvent.click(await screen.findByText('Extract fields'));
+  expect(screen.getByLabelText('Name')).toHaveValue('Extracted Lead');
+  expect(screen.getByLabelText('Email')).toHaveValue('lead@example.com');
+  expect(ep1.post).toHaveBeenCalledTimes(1);
+  expect(ep1.post.mock.calls[0][0]).toMatch(/leads\/check$/);
+  expect(screen.getByRole('button', { name: 'CRM Details' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: /Programs Interested/ })).toHaveAttribute('aria-disabled', 'true');
+  fireEvent.click(screen.getByText('Continue to CRM details'));
+  expect(ep1.post).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole('button', { name: 'Family & Address' })).toBeDisabled();
+  fireEvent.click(screen.getByText('Save & continue'));
+  await waitFor(() => expect(ep1.post.mock.calls[1][0]).toMatch(/leads\/save$/));
+  expect(ep1.post.mock.calls[1][1].wizardstep).toBe('CRM Details');
+  await screen.findByText('Stage: Family & Address');
+  expect(screen.getByRole('button', { name: 'Family & Address' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Education & Work' })).toBeDisabled();
+  expect(screen.queryByRole('tab', { name: /Programs|Applications|Interactions|Lead tasks|Lead notes/ })).not.toBeInTheDocument();
+});
+test('stage timestamp is displayed in day/month/year and time format', () => {
+  expect(leadStageTime('2026-10-29T10:00:00Z')).toMatch(/^29\/10\/2026, \d{2}:\d{2}:\d{2}$/);
+});
+test('duplicate check failure keeps details and extraction inaccessible', async () => {
+  ep1.post.mockRejectedValue({ response: { data: { message: 'Lead exists' } } });
+  render(<Crm2Content entity="leads" mode="agent" />);
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'lead@example.com' } });
+  fireEvent.change(screen.getByLabelText('Phone'), { target: { value: '9876543210' } });
+  fireEvent.click(screen.getByText('Check duplicates & continue'));
+  expect(await screen.findByRole('dialog')).toHaveTextContent('Lead exists');
+  expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
+  expect(screen.queryByText('Extract fields')).not.toBeInTheDocument();
+});

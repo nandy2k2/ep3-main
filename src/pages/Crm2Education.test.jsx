@@ -14,3 +14,10 @@ test("manual subject marks remain editable", () => {
   fireEvent.change(screen.getByLabelText("obtained"), { target: { value: "80" } });
   expect(onChange.mock.calls[0][0][0].subjects[0].obtained).toBe("80");
 });
+test("each education record supports overall marks and grade", () => {
+  const onChange = jest.fn();
+  render(<Crm2Education value={[{ level: "12th", marks: 450, grade: "A", subjects: [] }]} onChange={onChange} />);
+  expect(screen.getByLabelText("Overall marks obtained").value).toBe("450");
+  fireEvent.change(screen.getByLabelText("Overall grade"), { target: { value: "A+" } });
+  expect(onChange.mock.calls[0][0][0]).toEqual(expect.objectContaining({ level: "12th", marks: 450, grade: "A+" }));
+});

@@ -1,0 +1,30 @@
+import React from 'react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import Page from './Crm2ConfigurationPages';
+import ep1 from '../api/ep1';
+import { DataGrid } from '@mui/x-data-grid';
+jest.mock('../api/ep1', () => ({ get: jest.fn(), post: jest.fn() }));
+jest.mock('./MenuPageShell', () => ({ children }) => <div>{children}</div>);
+jest.mock('./global1', () => ({ colid: 42, user: 'user@example.com' }));
+jest.mock('@mui/x-data-grid', () => ({ GridToolbar: () => null, DataGrid: jest.fn(() => <div>Grid</div>) }));
+jest.mock('./Crm2ProgramPages', () => ({ ProgramChoice: ({ title, onChange, disabled, params }) => <button disabled={disabled} onClick={() => onChange(title === 'Academic year' ? { name: '2026-27' } : title === 'Program' ? { program: 'Pharmacy', programcode: '012' } : { formid: 'FORM1', title: 'Admission' })}>{title}{params?.academicyear ? ` ${params.academicyear}` : ''}</button> }));
+beforeEach(() => { ep1.get.mockResolvedValue({ data: { data: [] } }); ep1.post.mockResolvedValue({ data: { success: true } }); });
+test('program selection cascades by year, auto-fills code and saves selected form', async () => {
+  render(<Page kind="form-mapping" />);
+  expect(screen.getByRole('button', { name: 'Program' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Academic year' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Program 2026-27' }));
+  expect(screen.getByLabelText('Program code')).toHaveValue('012');
+  fireEvent.click(screen.getByRole('button', { name: 'Dynamic admission form' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(ep1.post).toHaveBeenCalledWith('/api/v2/crm2/config/form-mapping/save', expect.objectContaining({ colid: 42, academicyear: '2026-27', programcode: '012', formid: 'FORM1' })));
+});
+test('address entry does not rerender results while typing and supports repeated saves', async () => {
+  render(<Page />);
+  const count = DataGrid.mock.calls.length;
+  for (const [label,value] of [['Country','India'],['State','Gujarat'],['City','Ahmedabad']]) fireEvent.change(screen.getByLabelText(label), { target: { value } });
+  expect(DataGrid.mock.calls.length).toBe(count);
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(screen.getByLabelText('City')).toHaveValue(''));
+  expect(ep1.post).toHaveBeenCalledWith('/api/v2/crm2/config/address/save', expect.objectContaining({ colid: 42, country: 'India', state: 'Gujarat', city: 'Ahmedabad' }));
+});

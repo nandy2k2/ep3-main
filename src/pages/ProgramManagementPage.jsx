@@ -5,6 +5,7 @@ import {
   Box,
   Button,
   Container,
+  CircularProgress,
   MenuItem,
   Paper,
   Stack,
@@ -20,13 +21,33 @@ import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
 import { embeddedAwarePath, isEmbeddedPage } from "./addableAutocompleteHelpers";
 
+export const programAdditionalFields = [
+  { field: 'enrollmentcode', label: 'Enrollment code', sample: 'ENR001' },
+  { field: 'displayname', label: 'Display name', sample: 'B.Com' },
+  { field: 'marksheetname', label: 'Marksheet name', sample: 'Bachelor of Commerce' },
+  { field: 'branchcode', label: 'Branch code', sample: 'COM' },
+  { field: 'programlevelcode', label: 'Program level code', sample: 'UG' },
+  { field: 'gender', label: 'Gender', options: ['Male', 'Female', 'All'], sample: 'All' },
+  { field: 'coursetype', label: 'Course type', options: ['Regular', 'Online', 'ODL'], sample: 'Regular' },
+  { field: 'coursetime', label: 'Course time', options: ['Full', 'Parttime'], sample: 'Full' },
+  { field: 'shift', label: 'Shift', sample: 'Morning' },
+  { field: 'programincharge', label: 'Program incharge', sample: '' },
+  { field: 'programinchargeemail', label: 'Program incharge email', sample: '' },
+  { field: 'semestertype', label: 'Semester type', options: ['Annual', 'Semester', 'Trimester'], sample: 'Semester' },
+  { field: 'noofsemesters', label: 'No. of semesters', type: 'number', sample: 6 },
+  { field: 'noofyears', label: 'No. of years', type: 'number', sample: 3 },
+  { field: 'maxallowedyear', label: 'Max allowed year', type: 'number', sample: 6 }
+];
+
 const emptyForm = {
+  ...Object.fromEntries(programAdditionalFields.map(item => [item.field, ''])),
   id: "",
   year: "2026-27",
   level: "",
   type: "",
   program: "",
   programcode: "",
+  programgroup: "",
 	  institution: global1.insname || "",
 	  department: "",
   faculty: "",
@@ -67,6 +88,23 @@ const optionLabel = (option, field) => {
   );
 };
 
+function ProgramInchargeSelect({ colid, name, email, onChange, embedded }) {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false), [search, setSearch] = useState(''), [users, setUsers] = useState([]), [busy, setBusy] = useState(false), [error, setError] = useState('');
+  useEffect(() => {
+    if (!open) return undefined;
+    const controller = new AbortController(); setBusy(true); setError('');
+    const timer = setTimeout(() => {
+      ep1.get('/api/v2/mprograms-management/incharges', { params: { colid, search }, signal: controller.signal }).then(res => setUsers(res.data.data || [])).catch(err => { if (!controller.signal.aborted) setError(err.response?.data?.message || err.message); }).finally(() => { if (!controller.signal.aborted) setBusy(false); });
+    }, 200);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [open, search, colid]);
+  return <Autocomplete open={open} onOpen={() => setOpen(true)} onClose={() => setOpen(false)} loading={busy} options={[addOption('+ Add user', '/mbuser'), ...users]} value={email || name ? { name, email } : null} isOptionEqualToValue={(a, b) => a.email === b.email} getOptionLabel={option => option.__addOption ? option.label : `${option.name || ''}${option.email ? ` (${option.email})` : ''}`} onInputChange={(_, value, reason) => { if (reason === 'input' || reason === 'clear') setSearch(value); }} onChange={(_, value) => {
+    if (value?.__addOption) { navigate(embedded ? `${value.path}?embedded=1` : embeddedAwarePath(value.path)); return; }
+    onChange(value);
+  }} renderInput={params => <TextField {...params} size="small" label="Program incharge" error={Boolean(error)} helperText={error} InputProps={{ ...params.InputProps, endAdornment: <>{busy && <CircularProgress size={16} />}{params.InputProps.endAdornment}</> }} />} />;
+}
+
 export default function ProgramManagementPage({ embedded = false, onRowsChange }) {
   const navigate = useNavigate();
   const embeddedMode = embedded || isEmbeddedPage();
@@ -83,7 +121,8 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
     sessionTypes: defaultSessionTypes,
     institutions: [],
     faculties: [],
-    departments: []
+    departments: [],
+    programgroups: []
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -122,7 +161,8 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
       sessionTypes: merged(defaultSessionTypes, res.data.sessionTypes),
       institutions: masterRes.data?.institutions || [],
       faculties: masterRes.data?.faculties || [],
-      departments: masterRes.data?.departments || []
+      departments: masterRes.data?.departments || [],
+      programgroups: res.data.programgroups || []
     });
   };
 
@@ -206,12 +246,14 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
 
   const editRow = (row) => {
     setForm({
+      ...Object.fromEntries(programAdditionalFields.map(item => [item.field, row[item.field] ?? ''])),
       id: row._id,
       year: row.year || "2026-27",
       level: row.level || "",
       type: row.type || "",
       program: row.program || row.name || "",
       programcode: row.programcode || "",
+      programgroup: row.programgroup || "",
 	      institution: row.institution || "",
 	      department: row.department || "",
       faculty: row.faculty || "",
@@ -247,11 +289,13 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
 
   const downloadTemplate = () => {
     const sample = [{
+      ...Object.fromEntries(programAdditionalFields.map(item => [item.field, item.sample])),
       year: "2026-27",
       level: "UG",
       type: "Grant-in",
       program: "B.Com",
       programcode: "BCOM",
+      programgroup: "Commerce",
 	      institution: global1.insname || "",
 	      department: "Commerce",
 	      faculty: "Commerce and Management",
@@ -346,6 +390,8 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
     { field: "type", headerName: "Type", minWidth: 150 },
     { field: "program", headerName: "Program", minWidth: 260, flex: 1 },
     { field: "programcode", headerName: "Program code", minWidth: 150 },
+    { field: "programgroup", headerName: "Program group", minWidth: 180 },
+    ...programAdditionalFields.map(item => ({ field: item.field, headerName: item.label, minWidth: item.field.includes('email') ? 240 : 170, ...(item.type === 'number' ? { type: 'number' } : {}) })),
 	    { field: "institution", headerName: "Institution", minWidth: 220 },
 	    { field: "department", headerName: "Department", minWidth: 180 },
 	    { field: "faculty", headerName: "Faculty", minWidth: 190 },
@@ -391,6 +437,10 @@ export default function ProgramManagementPage({ embedded = false, onRowsChange }
           </TextField>
           <TextField size="small" label="Program" value={form.program} onChange={(e) => updateForm("program", e.target.value)} sx={{ gridColumn: { xs: "1", md: "span 2" } }} />
           <TextField size="small" label="Program code" value={form.programcode} onChange={(e) => updateForm("programcode", e.target.value)} />
+          <Autocomplete freeSolo options={options.programgroups || []} value={form.programgroup} onInputChange={(_, value) => updateForm("programgroup", value)} onChange={(_, value) => updateForm("programgroup", value || "")} renderInput={params => <TextField {...params} size="small" label="Program group" />} />
+          {programAdditionalFields.filter(item => !['programincharge', 'programinchargeemail'].includes(item.field)).map(item => item.options ? <Autocomplete key={item.field} options={item.options} value={form[item.field] || null} onChange={(_, value) => updateForm(item.field, value || '')} renderInput={params => <TextField {...params} size="small" label={item.label} />} /> : <TextField key={item.field} size="small" type={item.type || 'text'} label={item.label} value={form[item.field]} inputProps={item.type === 'number' ? { min: 0, step: item.field === 'noofsemesters' ? 1 : 'any' } : undefined} onChange={event => updateForm(item.field, event.target.value)} />)}
+          <ProgramInchargeSelect colid={colid} embedded={embeddedMode} name={form.programincharge} email={form.programinchargeemail} onChange={person => setForm(previous => ({ ...previous, programincharge: person?.name || '', programinchargeemail: person?.email || '' }))} />
+          <TextField size="small" label="Program incharge email" value={form.programinchargeemail} InputProps={{ readOnly: true }} />
           <Autocomplete
             freeSolo
             options={withAdd("Add master institution", "/academic-master-institutions", options.institutions)}

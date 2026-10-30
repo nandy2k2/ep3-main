@@ -1,0 +1,24 @@
+import React from 'react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import ParentDetailsPage from './ParentDetailsPage';
+import ep1 from '../api/ep1';
+import { DataGrid } from '@mui/x-data-grid';
+jest.mock('../api/ep1', () => ({ get: jest.fn() }));
+jest.mock('./global1', () => ({ colid: 42 }));
+jest.mock('./MenuPageShell', () => ({ children }) => <div>{children}</div>);
+jest.mock('@mui/x-data-grid', () => ({ DataGrid: jest.fn(() => null), GridToolbar: () => null }));
+test('parent passwords are available in the grid and visible in the edit field, excluded from export and print', async () => {
+  ep1.get.mockImplementation(async url => ({ data: url.endsWith('/parents') ? { data: [{ _id: 'p1', parentname: 'Parent', password: 'Example123' }] } : {} }));
+  render(<ParentDetailsPage />);
+  await waitFor(() => expect(DataGrid.mock.calls.at(-1)[0].rows).toHaveLength(1));
+  const grid = DataGrid.mock.calls.at(-1)[0];
+  expect(grid.columns.find(column => column.field === 'password')).toMatchObject({ headerName: 'Password', disableExport: true });
+  render(grid.columns.find(column => column.field === 'actions').renderCell({ row: grid.rows[0] }));
+  fireEvent.click(screen.getByRole('button', { name: '' }));
+  expect(await screen.findByLabelText('Password')).toHaveAttribute('type', 'text');
+  expect(screen.getByLabelText('Password')).toHaveValue('Example123');
+  const write = jest.fn(); jest.spyOn(window, 'open').mockReturnValue({ document: { write, close: jest.fn() } });
+  fireEvent.click(screen.getByText('Print preview'));
+  expect(write.mock.calls[0][0]).not.toContain('Example123');
+  window.open.mockRestore();
+});

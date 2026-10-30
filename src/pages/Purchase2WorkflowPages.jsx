@@ -27,6 +27,8 @@ import PlacementCoordinatorShell from "./PlacementCoordinatorShell";
 import { openPurchase2PrintWindow } from "./Purchase2PrintTemplates";
 import { calculatePoLine, summarizePo } from "../utils/purchase2Amounts";
 import Purchase2PoAmountsEditor from "./Purchase2PoAmountsEditor";
+import Purchase2PoWorkbench from './Purchase2PoWorkbench';
+import { resolvePoDelivery } from '../utils/purchase2Delivery';
 
 function PoActionButton({ onClick, disabled, startIcon, children, ...props }) {
   const [busy, setBusy] = useState(false);
@@ -84,7 +86,16 @@ const loadPrintInstitution = async () => {
 };
 const printPurchase2 = async (type, data) => {
   const institution = await loadPrintInstitution();
-  openPurchase2PrintWindow(type, { ...(data || {}), institution });
+  let header = data?.header || {};
+  if (['po','localPo'].includes(type)) {
+    if (!header.storeid && header.prnumber) {
+      const pr = (await getRows('storeprrequestds2', [{ field: 'prnumber', value: header.prnumber }])).find(row => row.prnumber === header.prnumber);
+      if (pr) header = { ...header, storeid: pr.storeid, storename: header.storename || pr.storename };
+    }
+    const stores = await getRows('storemasterds2');
+    header = { ...header, ...resolvePoDelivery(header, stores) };
+  }
+  openPurchase2PrintWindow(type, { ...(data || {}), header, institution });
 };
 const uniqueOptions = (rows = [], field) => [...new Set(rows.map((row) => text(row[field])).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 const inDateRange = (value, start, end) => {
@@ -166,6 +177,26 @@ const saveRow = async (model, payload) => {
   return res.data?.data;
 };
 const updateRow = async (model, row, patch) => saveRow(model, { ...row, id: row._id, ...patch });
+const getPrAvailability = async prnumber => {
+  const response = await ep1.get('/api/v2/purchase2/pr-availability', { params: { colid: global1.colid, ...(prnumber ? { prnumber } : {}) } });
+  return response.data.data || [];
+};
+export const pendingPoAssignments = (assignments, states) => {
+  const byPr = new Map(states.map(state => [state.prnumber, state]));
+  return assignments.filter(row => {
+    const state = byPr.get(row.prnumber);
+    return state && state.allowed !== false && !state.complete && state.remaining.length > 0 && !['hold','reject','rejected'].includes(text(row.status).toLowerCase());
+  }).map(row => ({ ...row, pocomplete: false, status: byPr.get(row.prnumber).ordered > 0 ? 'Partially PO Generated' : ['PO Created','PO Generated','Completed'].includes(row.status) ? 'Assigned' : row.status }));
+};
+const remainingPrItems = async assignment => {
+  const state = (await getPrAvailability(assignment.prnumber))[0];
+  if (!state || !state.allowed || state.complete || !state.remaining.length) throw new Error('This PR is completed or unavailable. No further PO can be created');
+  return state.remaining.map(row => ({ ...row, quantity: row.remainingquantity }));
+};
+const createPrPo = async (assignment, header, items) => {
+  const response = await ep1.post('/api/v2/purchase2/po-from-pr', { ...base(), prnumber: assignment.prnumber, assignmentid: assignment._id, header, items }, { headers: { Authorization: `Bearer ${global1.token}` } });
+  return response.data.data;
+};
 const itemSearchText = (option = {}) => [
   option.itemname,
   option.item,
@@ -1298,10 +1329,10 @@ function Purchase2ManagePoPage({ admin = false }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const load = async () => {
-    const [prRows, assRows, poRows] = await Promise.all([getRows("storeprrequestds2"), getRows("storepoassignmentds2"), getRows("storepoorderds2")]);
+    const [prRows, assRows, poRows, states] = await Promise.all([getRows("storeprrequestds2"), getRows("storepoassignmentds2"), getRows("storepoorderds2"), getPrAvailability()]);
     const email = text(currentUser()).toLowerCase();
     setPrs(prRows);
-    setAssignments(admin ? assRows : assRows.filter((row) => sameEmail(row.assignedtoemail, email)));
+    setAssignments(pendingPoAssignments(admin ? assRows : assRows.filter((row) => sameEmail(row.assignedtoemail, email)), states));
     setPos(admin ? poRows : poRows.filter((row) => sameEmail(row.creatorEmail || row.user, email)));
   };
   useEffect(() => { load(); }, [admin]);
@@ -1312,23 +1343,20 @@ function Purchase2ManagePoPage({ admin = false }) {
   }, [admin]);
   const createPoFromAssignment = async (assignment) => {
     try {
-      const items = await getRows("storeprrequestitemsds2", [{ field: "prnumber", value: assignment.prnumber }]);
+      const items = await remainingPrItems(assignment);
       if (!items.length) throw new Error("No PR items found");
       const [vendors, vendorItems] = await Promise.all([getRows("vendorsds2"), getRows("vendoritemsds2")]);
       const matchingVendor = vendors.find((vendor) => items.every((item) => vendorItems.some((vi) => text(vi.vendorid) === text(vendor._id) && (text(vi.itemid) === text(item.itemid) || text(vi.item).toLowerCase() === text(item.itemname).toLowerCase()))));
       if (!matchingVendor) throw new Error("No single vendor found for all PR items in vendor item master");
-      const poid = key("PO");
       const priced = items.map((item) => {
         const vi = vendorItems.find((row) => text(row.vendorid) === text(matchingVendor._id) && (text(row.itemid) === text(item.itemid) || text(row.item).toLowerCase() === text(item.itemname).toLowerCase())) || {};
         return calculatePoLine({ ...item, price: vi.price ?? item.estimatedprice ?? 0, gst: vi.gst ?? 0, discount: vi.discount ?? 0, vendor: matchingVendor.vendorname, vendorid: matchingVendor._id }, true);
       });
       const total = priced.reduce((sum, item) => sum + num(item.total), 0);
       const signature = await getUserSignature();
-      const header = await saveRow("storepoorderds2", { poid, prnumber: assignment.prnumber, year: "2026-27", vendor: matchingVendor.vendorname, vendorid: matchingVendor._id, price: total, netprice: total, actualAmount: total, poType: "Standard", postatus: "Draft", approvalStatus: "Draft", creatorName: currentName(), creatorEmail: currentUser(), creatorSignature: signature.signaturelink || "", terms: terms || matchingVendor.payterm || "", warranty, description: `PO from PR ${assignment.prnumber}`, createdtime: nowTime() });
-      const savedItems = await Promise.all(priced.map((item) => saveRow("storepoitemsds2", { ...item, poid, postatus: "Draft", storereqid: assignment.requestid })));
-      await updateRow("storepoassignmentds2", assignment, { status: "PO Created", poid });
-      sendPurchase2Notification("PO Generated", { poid, prnumber: assignment.prnumber, amount: total, status: "Draft" });
-      setMessage(`PO ${poid} created as draft for ${matchingVendor.vendorname}`);
+      const { header, items: savedItems } = await createPrPo(assignment, { year: "2026-27", vendorid: matchingVendor._id, creatorSignature: signature.signaturelink || "", terms: terms || matchingVendor.payterm || "", warranty, description: `PO from PR ${assignment.prnumber}`, createdtime: nowTime() }, priced);
+      sendPurchase2Notification("PO Generated", { poid: header.poid, prnumber: assignment.prnumber, amount: total, status: "Draft" });
+      setMessage(`PO ${header.poid} created as draft for ${matchingVendor.vendorname}`);
       setSelectedPo({ ...header, ...summarizePo(priced) });
       setPoItems(savedItems);
       await load();
@@ -1434,11 +1462,11 @@ function Purchase2ManagePoPage({ admin = false }) {
 }
 
 export function Purchase2ManagePoAdminPage() {
-  return <Purchase2ManagePoPage admin />;
+  return <Purchase2PoWorkbench admin helpers={{ printPurchase2, loadMailConfigurations, activePurchaseEmails, sendConfiguredPurchaseEmail, sendPurchase2Notification }} />;
 }
 
 export function Purchase2ManagePoCreatorPage() {
-  return <Purchase2ManagePoPage />;
+  return <Purchase2PoWorkbench helpers={{ printPurchase2, loadMailConfigurations, activePurchaseEmails, sendConfiguredPurchaseEmail, sendPurchase2Notification }} />;
 }
 
 const humanCode = (prefix) => `${prefix}-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
@@ -1698,6 +1726,7 @@ export function Purchase2PeWorkbenchPage() {
   const [poItems, setPoItems] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [vendor, setVendor] = useState(null);
+  const [receivingStores, setReceivingStores] = useState([]), [receivingStore, setReceivingStore] = useState(null);
   const [terms, setTerms] = useState("");
   const [warranty, setWarranty] = useState("");
   const [items, setItems] = useState([]);
@@ -1709,9 +1738,12 @@ export function Purchase2PeWorkbenchPage() {
   const [error, setError] = useState("");
   const load = async () => {
     try {
-      const [assignmentRows, prRows, poRows, vendorRows] = await Promise.all([getRows("storepoassignmentds2"), getRows("storeprrequestds2"), getRows("storepoorderds2"), getRows("vendorsds2")]);
+      const [assignmentRows, prRows, poRows, vendorRows, states, storeRows] = await Promise.all([getRows("storepoassignmentds2"), getRows("storeprrequestds2"), getRows("storepoorderds2"), getRows("vendorsds2"), getPrAvailability(), getRows('storemasterds2')]);
+      setReceivingStores(storeRows);
       const email = text(currentUser()).toLowerCase();
-      setAssignments(assignmentRows.filter((row) => sameEmail(row.assignedtoemail, email)));
+      const available = pendingPoAssignments(assignmentRows.filter((row) => sameEmail(row.assignedtoemail, email)), states);
+      setAssignments(available);
+      if (selectedAssignment && !available.some(row => row._id === selectedAssignment._id)) { setSelectedAssignment(null); setItems([]); }
       setPrs(prRows);
       setPos(poRows.filter((row) => sameEmail(row.creatorEmail || row.user, email)));
       setVendors(vendorRows);
@@ -1725,33 +1757,41 @@ export function Purchase2PeWorkbenchPage() {
     activePurchaseEmails("PO").then((rows) => { setRecipientConfigs(rows); setRecipientConfig(rows[0] || null); }).catch(() => setRecipientConfigs([]));
   }, []);
   const loadAssignmentItems = async (assignment) => {
-    setSelectedAssignment(assignment);
-    const prItems = assignment?.prnumber ? await getRows("storeprrequestitemsds2", [{ field: "prnumber", value: assignment.prnumber }]) : [];
-    setItems(prItems);
+    setSelectedAssignment(assignment); setItems([]);
+    try { if (assignment?.prnumber) setItems(await remainingPrItems(assignment)); }
+    catch (error) { setSelectedAssignment(null); setError(error.message); await load(); }
   };
   const createPo = async (empty = false) => {
     try {
       if (!vendor) throw new Error("Select vendor");
-      const sourceItems = empty ? items : (items.length ? items : await getRows("storeprrequestitemsds2", [{ field: "prnumber", value: selectedAssignment?.prnumber }]));
+      if (!empty && !selectedAssignment) throw new Error('Select an available assigned PR');
+      if (empty && selectedAssignment) throw new Error('Clear the PR selection before creating an empty PO');
+      if (empty && !receivingStore) throw new Error('Select a receiving store');
+      const sourceItems = items;
       if (!sourceItems.length) throw new Error("Add items or select a PR with items");
       const poid = humanCode("PO");
       const priced = sourceItems.map((item) => calculatePoLine({ ...item, vendor: vendor.vendorname, vendorid: vendor._id, price: item.price ?? item.estimatedprice ?? item.rate ?? 0 }, true));
       const total = priced.reduce((sum, item) => sum + num(item.total), 0);
       const sig = await getUserSignature();
-      const header = await saveRow("storepoorderds2", { poid, prnumber: empty ? "" : selectedAssignment?.prnumber, vendor: vendor.vendorname, vendorid: vendor._id, price: total, netprice: total, actualAmount: total, poType: empty ? "Empty" : "Standard", postatus: "Draft", approvalStatus: "Draft", creatorName: currentName(), creatorEmail: currentUser(), creatorSignature: sig.signaturelink || "", terms, warranty, createdtime: nowTime() });
-      const savedItems = await Promise.all(priced.map((item) => saveRow("storepoitemsds2", { ...item, poid, postatus: "Draft" })));
-      if (selectedAssignment && !empty) await updateRow("storepoassignmentds2", selectedAssignment, { status: "PO Created", poid });
-      sendPurchase2Notification("PO Generated", { poid, prnumber: empty ? "" : selectedAssignment?.prnumber, amount: total, status: "Draft" });
+      let header, savedItems;
+      if (empty) {
+        header = await saveRow("storepoorderds2", { poid, ...(receivingStore ? resolvePoDelivery({ storeid: receivingStore._id }, receivingStores) : {}), vendor: vendor.vendorname, vendorid: vendor._id, price: total, netprice: total, actualAmount: total, poType: "Empty", postatus: "Draft", approvalStatus: "Draft", creatorName: currentName(), creatorEmail: currentUser(), creatorSignature: sig.signaturelink || "", terms, warranty, createdtime: nowTime() });
+        savedItems = await Promise.all(priced.map(item => saveRow('storepoitemsds2', { ...item, poid, postatus: 'Draft' })));
+      } else {
+        const result = await createPrPo(selectedAssignment, { vendorid: vendor._id, ...(receivingStore ? { storeid: receivingStore._id } : {}), creatorSignature: sig.signaturelink || '', terms, warranty, createdtime: nowTime() }, priced);
+        header = result.header; savedItems = result.items;
+      }
+      sendPurchase2Notification("PO Generated", { poid: header.poid, prnumber: empty ? "" : selectedAssignment?.prnumber, amount: total, status: "Draft" });
       let emailNote = "";
       try {
-        const sent = await sendConfiguredPurchaseEmail(mailConfig, recipientConfig, empty ? "Empty purchase order created" : "Purchase order created from PR", { "PO Number": poid, "PR Number": empty ? "" : selectedAssignment?.prnumber, Vendor: vendor.vendorname, "PO Type": empty ? "Empty" : "Standard", Status: "Draft", Amount: total, "Created By": currentName(), "Created Email": currentUser(), Date: today(), Time: nowTime(), Terms: terms, Warranty: warranty }, priced);
+        const sent = await sendConfiguredPurchaseEmail(mailConfig, recipientConfig, empty ? "Empty purchase order created" : "Purchase order created from PR", { "PO Number": header.poid, "PR Number": empty ? "" : selectedAssignment?.prnumber, Vendor: vendor.vendorname, "PO Type": empty ? "Empty" : "Standard", Status: "Draft", Amount: total, "Created By": currentName(), "Created Email": currentUser(), Date: today(), Time: nowTime(), Terms: terms, Warranty: warranty }, priced);
         emailNote = sent?.skipped ? ` Email not sent: ${sent.reason || "configuration missing"}.` : ` Email sent to ${sent.email}.`;
       } catch (mailError) {
         emailNote = ` Email failed: ${mailError.response?.data?.message || mailError.response?.data?.msg || mailError.message || "Unable to send"}.`;
       }
       setSelectedPo({ ...header, ...summarizePo(priced) });
       setPoItems(savedItems);
-      setMessage(`PO ${poid} created.${emailNote}`);
+      setMessage(`PO ${header.poid} created.${emailNote}`);
       await load();
     } catch (err) {
       setError(err.message || "Unable to create PO");
@@ -1765,19 +1805,16 @@ export function Purchase2PeWorkbenchPage() {
   };
   const savePoDraft = async () => {
     if (!selectedPo?._id || text(selectedPo.postatus).toLowerCase() !== "draft") throw new Error("Open a draft PO");
-    const lines = poItems.map(item => calculatePoLine(item, true));
-    const saved = await Promise.all(lines.map(item => updateRow("storepoitemsds2", item, item)));
-    const updated = await updateRow("storepoorderds2", selectedPo, { terms, warranty });
-    setPoItems(saved);
-    setSelectedPo(updated);
-    return updated;
+    const result = await ep1.post('/api/v2/purchase2/po-draft/save', { id: selectedPo._id, header: { ...selectedPo, terms, warranty }, items: poItems }, { headers: { Authorization: `Bearer ${global1.token}` } });
+    setPoItems(result.data.data.items); setSelectedPo(result.data.data.header);
+    return result.data.data.header;
   };
   const submitPo = async () => {
     try {
       if (!selectedPo?._id) throw new Error("Open a PO");
       await savePoDraft();
-      const updated = await updateRow("storepoorderds2", selectedPo, { postatus: "Submitted", approvalStatus: "Pending", terms, warranty, submittedtime: nowTime() });
-      setSelectedPo(updated);
+      const result = await ep1.post('/api/v2/purchase2/po-draft/action', { id: selectedPo._id, action: 'submit' }, { headers: { Authorization: `Bearer ${global1.token}` } });
+      setSelectedPo(result.data.data);
       setMessage("PO submitted");
       await load();
     } catch (err) {
@@ -1786,12 +1823,13 @@ export function Purchase2PeWorkbenchPage() {
   };
   return (
     <Page title="PE Workbench" subtitle="Unified purchase executive workbench for PO workflow and imprest management." message={message} error={error}>
+      {mainTab === 'po' && <Paper sx={{ p: 2, mb: 2 }}><Autocomplete options={receivingStores} value={subTab === 'manage' ? receivingStores.find(row => row._id === selectedPo?.storeid) || null : receivingStore} disabled={subTab === 'manage' && (!selectedPo || selectedPo.postatus !== 'Draft')} getOptionLabel={row => row.storename || row.name || ''} onChange={(_, value) => { if (subTab === 'manage') setSelectedPo(previous => ({ ...previous, storeid: value?._id || '' })); else setReceivingStore(value); }} renderInput={params => <TextField {...params} label="Receiving store" size="small" />} /></Paper>}
       <Paper sx={{ p: 2 }}>
         <Tabs value={mainTab} onChange={(_, v) => setMainTab(v)}><Tab value="po" label="PO Workflow" /><Tab value="imprest" label="Imprest Management" /></Tabs>
         {mainTab === "po" && <Box sx={{ mt: 2 }}>
           <Tabs value={subTab} onChange={(_, v) => setSubTab(v)}><Tab value="store" label="Store Requests" /><Tab value="create" label="Create PO" /><Tab value="manage" label="Manage PO" /></Tabs>
           {subTab === "store" && <DataGrid sx={{ mt: 2 }} autoHeight rows={assignments.map((row) => ({ ...row, id: row._id }))} columns={[{ field: "prnumber", headerName: "PR", width: 170 }, { field: "assigneddate", headerName: "Assigned Date", width: 150 }, { field: "assignedby", headerName: "Assigned By", width: 180 }, { field: "status", headerName: "Status", width: 130 }, { field: "remarks", headerName: "Remarks", flex: 1 }, { field: "actions", headerName: "Select", width: 110, renderCell: (p) => <PoActionButton size="small" onClick={() => { loadAssignmentItems(p.row); setSubTab("create"); }}>Create PO</PoActionButton> }]} slots={{ toolbar: GridToolbar }} />}
-          {subTab === "create" && <Box sx={{ mt: 2 }}><Grid container spacing={2}><Grid item xs={12} md={3}><Autocomplete options={assignments} value={selectedAssignment} onChange={(_, v) => loadAssignmentItems(v)} getOptionLabel={(o) => `${o.prnumber || ""} - ${o.status || ""}`} renderInput={(params) => <TextField {...params} label="Select assigned PR, optional" size="small" />} /></Grid><Grid item xs={12} md={3}><Autocomplete options={vendors} value={vendor} onChange={(_, v) => setVendor(v)} getOptionLabel={(o) => o.vendorname || o.name || ""} renderInput={(params) => <TextField {...params} label="Vendor" size="small" />} /></Grid><Grid item xs={12} md={3}><Autocomplete options={mailConfigs} value={mailConfig} onChange={(_, v) => setMailConfig(v)} getOptionLabel={mailConfigurationLabel} renderInput={(params) => <TextField {...params} label="Mail configuration" size="small" />} /></Grid><Grid item xs={12} md={3}><Autocomplete options={recipientConfigs} value={recipientConfig} onChange={(_, v) => setRecipientConfig(v)} getOptionLabel={purchaseEmailLabel} renderInput={(params) => <TextField {...params} label="Mail recipient" size="small" />} /></Grid><Grid item xs={12}><Stack direction="row" spacing={1} flexWrap="wrap"><PoActionButton variant="contained" onClick={() => createPo(false)}>Create PO from PR</PoActionButton><PoActionButton variant="outlined" onClick={() => createPo(true)}>Create Empty PO</PoActionButton></Stack></Grid><Grid item xs={12} md={6}><TextField label="Terms" value={terms} onChange={(e) => setTerms(e.target.value)} multiline minRows={3} fullWidth /></Grid><Grid item xs={12} md={6}><TextField label="Warranty" value={warranty} onChange={(e) => setWarranty(e.target.value)} multiline minRows={3} fullWidth /></Grid></Grid><Box sx={{ mt: 2 }}><ItemsEditor items={items} setItems={setItems} financial showMake showPrice showUnit /></Box></Box>}
+          {subTab === "create" && <Box sx={{ mt: 2 }}><Grid container spacing={2}><Grid item xs={12} md={3}><Autocomplete options={assignments} value={selectedAssignment} onChange={(_, v) => loadAssignmentItems(v)} getOptionLabel={(o) => `${o.prnumber || ""} - ${o.status || ""}`} renderInput={(params) => <TextField {...params} label="Select assigned PR, optional" size="small" />} /></Grid><Grid item xs={12} md={3}><Autocomplete options={vendors} value={vendor} onChange={(_, v) => setVendor(v)} getOptionLabel={(o) => o.vendorname || o.name || ""} renderInput={(params) => <TextField {...params} label="Vendor" size="small" />} /></Grid><Grid item xs={12} md={3}><Autocomplete options={mailConfigs} value={mailConfig} onChange={(_, v) => setMailConfig(v)} getOptionLabel={mailConfigurationLabel} renderInput={(params) => <TextField {...params} label="Mail configuration" size="small" />} /></Grid><Grid item xs={12} md={3}><Autocomplete options={recipientConfigs} value={recipientConfig} onChange={(_, v) => setRecipientConfig(v)} getOptionLabel={purchaseEmailLabel} renderInput={(params) => <TextField {...params} label="Mail recipient" size="small" />} /></Grid><Grid item xs={12}><Stack direction="row" spacing={1} flexWrap="wrap"><PoActionButton variant="contained" disabled={!selectedAssignment || !items.length} onClick={() => createPo(false)}>Create PO from PR</PoActionButton><PoActionButton variant="outlined" disabled={Boolean(selectedAssignment) || !items.length} onClick={() => createPo(true)}>Create Empty PO</PoActionButton></Stack></Grid><Grid item xs={12} md={6}><TextField label="Terms" value={terms} onChange={(e) => setTerms(e.target.value)} multiline minRows={3} fullWidth /></Grid><Grid item xs={12} md={6}><TextField label="Warranty" value={warranty} onChange={(e) => setWarranty(e.target.value)} multiline minRows={3} fullWidth /></Grid></Grid><Box sx={{ mt: 2 }}><ItemsEditor items={items} setItems={setItems} financial showMake showPrice showUnit /></Box></Box>}
           {subTab === "manage" && <Box sx={{ mt: 2 }}><Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 2 }}><PoActionButton startIcon={<Refresh />} onClick={load}>Refresh</PoActionButton><PoActionButton variant="outlined" disabled={!selectedPo?._id || text(selectedPo.postatus).toLowerCase() !== "draft"} onClick={async () => { try { await savePoDraft(); setMessage("Draft PO updated"); await load(); } catch (err) { setError(err.message); } }}>Save draft changes</PoActionButton><PoActionButton variant="contained" disabled={!selectedPo?._id || text(selectedPo.postatus).toLowerCase() !== "draft"} onClick={submitPo}>Submit PO</PoActionButton><PoActionButton startIcon={<Print />} variant="outlined" disabled={!selectedPo?._id} onClick={() => printPurchase2(selectedPo.poType === "Local" ? "localPo" : "po", { header: { ...selectedPo, terms, warranty }, items: poItems })}>Print PO</PoActionButton></Stack><Grid container spacing={2}><Grid item xs={12} md={6}><TextField label="Terms" value={terms} onChange={(e) => setTerms(e.target.value)} multiline minRows={3} fullWidth /></Grid><Grid item xs={12} md={6}><TextField label="Warranty" value={warranty} onChange={(e) => setWarranty(e.target.value)} multiline minRows={3} fullWidth /></Grid></Grid><DataGrid sx={{ mt: 2 }} autoHeight rows={pos.map((row) => ({ ...row, id: row._id }))} columns={[{ field: "poid", headerName: "PO", width: 170 }, { field: "prnumber", headerName: "PR", width: 160 }, { field: "vendor", headerName: "Vendor", flex: 1 }, { field: "postatus", headerName: "PO Status", width: 140 }, { field: "approvalStatus", headerName: "Approval", width: 140 }, { field: "actualAmount", headerName: "Amount", width: 120 }, { field: "actions", headerName: "Open", width: 100, renderCell: (p) => <PoActionButton size="small" onClick={() => openPo(p.row)}>Open</PoActionButton> }]} slots={{ toolbar: GridToolbar }} />{selectedPo && <Purchase2PoAmountsEditor items={poItems} setItems={setPoItems} disabled={text(selectedPo.postatus).toLowerCase() !== "draft"} />}</Box>}
         </Box>}
         {mainTab === "imprest" && <Box sx={{ mt: 2 }}><ImprestPanel /></Box>}

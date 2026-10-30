@@ -797,6 +797,11 @@ function DefaultStudentListItems({ open }) {
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Pay fees online Cashfree" />}
 </ListItem>
 
+           <ListItem button component={RouterLink} to="/student-online-fees-3">
+<ListItemIcon><AccountBalanceWalletIcon /></ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Online fees 3" />}
+</ListItem>
+
            <ListItem button component={RouterLink} to="/studentmyonlinepaymentreport">
 <ListItemIcon>
 <AccountBalanceWalletIcon />
@@ -1169,6 +1174,18 @@ function DefaultStudentListItems({ open }) {
           {open && <Typography sx={{fontSize: 14}}>Examination</Typography>}
         </AccordionSummary>
         <AccordionDetails>
+          <ListItem button component={RouterLink} to="/student-internal-marks-view">
+            <ListItemIcon><AssignmentIcon /></ListItemIcon>
+            {open && <ListItemText primary="Internal marks view" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/student-internal-marks-view-2">
+            <ListItemIcon><AssignmentIcon /></ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ whiteSpace: 'normal' }} primary="Internal Marks View 2" />}
+          </ListItem>
+          <ListItem button component={RouterLink} to="/student-internal-marks-view-3">
+            <ListItemIcon><AssignmentIcon /></ListItemIcon>
+            {open && <ListItemText primaryTypographyProps={{ whiteSpace: 'normal' }} primary="Internal Marks View 3" />}
+          </ListItem>
 
           {/* <ListItem button component={RouterLink} to="/student-exam-registration">
 <ListItemIcon>

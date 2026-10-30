@@ -1,0 +1,46 @@
+import React from 'react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import Purchase2PoWorkbench from './Purchase2PoWorkbench';
+import ep1 from '../api/ep1';
+jest.mock('../api/ep1', () => ({ get: jest.fn(), post: jest.fn() }));
+jest.mock('./MenuPageShell', () => ({ children }) => children);
+jest.mock('./global1', () => ({ colid: 42, user: 'me@example.com', name: 'Me', token: 'signed' }));
+jest.mock('@mui/x-data-grid', () => ({ GridToolbar: () => null, DataGrid: ({ rows, columns }) => <div data-testid="po-grid">{rows.map(row => <div key={row._id}>{columns[0].renderCell({ row })}</div>)}</div> }));
+const po = { _id: 'po1', poid: 'PO1', creatorEmail: 'me@example.com', vendorid: 'v1', vendor: 'Vendor 1', storeid: 's1', postatus: 'Draft', approvalStatus: 'Draft' };
+const poItems = [{ _id: 'i1', itemname: 'Paper', unit: 'Ream', quantity: 2, price: 100, gst: 18 }];
+const vendors = [{ _id: 'v1', vendorname: 'Vendor 1' }, { _id: 'v2', vendorname: 'Vendor 2' }];
+const stores = [{ _id: 's1', storename: 'Main Store', address: 'Main address' }, { _id: 's2', storename: 'Annex Store', address: 'Annex address', phone: '123' }];
+let current;
+const helpers = { printPurchase2: jest.fn(), loadMailConfigurations: jest.fn(), activePurchaseEmails: jest.fn(), sendConfiguredPurchaseEmail: jest.fn(), sendPurchase2Notification: jest.fn() };
+beforeEach(() => {
+  current = { ...po };
+  helpers.loadMailConfigurations.mockResolvedValue([]); helpers.activePurchaseEmails.mockResolvedValue([]);
+  ep1.get.mockImplementation(async url => ({ data: { data: url.endsWith('storepoorderds2') ? [current] : url.endsWith('storepoitemsds2') ? poItems : url.endsWith('vendorsds2') ? vendors : url.endsWith('storemasterds2') ? stores : [] } }));
+  ep1.post.mockImplementation(async (_, body) => ({ data: { data: { header: { ...current, ...body.header }, items: body.items } } }));
+});
+test('admin is a PO-focused workbench with draft vendor/store/item/delivery editing', async () => {
+  render(<Purchase2PoWorkbench admin helpers={helpers} />);
+  fireEvent.click(await within(screen.getByTestId('po-grid')).findByRole('button', { name: 'Open' }));
+  await screen.findByLabelText('Quantity');
+  expect(screen.queryByText('PR list')).not.toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '3' } });
+  fireEvent.change(screen.getByLabelText('Unit rate'), { target: { value: '150' } });
+  expect(screen.getByLabelText('Grand total')).toHaveValue('531.00');
+  fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Vendor' })); fireEvent.click(await screen.findByRole('option', { name: 'Vendor 2' }));
+  fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Receiving store' })); fireEvent.click(await screen.findByRole('option', { name: 'Annex Store' }));
+  expect(screen.getByText('Annex address')).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Delivery instructions'), { target: { value: 'Deliver to receiving counter' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save draft' }));
+  await waitFor(() => expect(ep1.post).toHaveBeenCalledWith('/api/v2/purchase2/po-draft/save', expect.objectContaining({ id: 'po1', header: expect.objectContaining({ vendorid: 'v2', storeid: 's2', deliveryinstructions: 'Deliver to receiving counter' }), items: expect.arrayContaining([expect.objectContaining({ quantity: '3', price: '150' })]) }), expect.anything()));
+  await screen.findByText('Draft saved');
+});
+test('submitted POs lock vendor, store, line amounts and draft actions', async () => {
+  current = { ...po, postatus: 'Submitted', approvalStatus: 'Pending', submittedtime: '2026-10-28' };
+  render(<Purchase2PoWorkbench admin helpers={helpers} />);
+  await waitFor(() => expect(ep1.get).toHaveBeenCalled());
+  fireEvent.click(screen.getByRole('tab', { name: 'Submitted' }));
+  fireEvent.click(await within(screen.getByTestId('po-grid')).findByRole('button', { name: 'Open' }));
+  await screen.findByLabelText('Quantity');
+  expect(screen.getByRole('combobox', { name: 'Vendor' })).toBeDisabled(); expect(screen.getByRole('combobox', { name: 'Receiving store' })).toBeDisabled();
+  expect(screen.getByLabelText('Quantity')).toBeDisabled(); expect(screen.getByLabelText('Delivery instructions')).toBeDisabled(); expect(screen.getByRole('button', { name: 'Save draft' })).toBeDisabled();
+});

@@ -41,6 +41,7 @@ import { useNavigate } from 'react-router-dom';
 import { styled } from '@mui/material/styles';
 import ep1 from "../api/ep1.js";
 import global1 from "./global1.js";
+import FacultyDashboardActions from './FacultyDashboardActions';
 
 // Enhanced Styled Components with Fixed Dimensions and Different Gradients
 const StyledCardContent = styled(CardContent)(({ theme }) => ({
@@ -290,6 +291,7 @@ const FacultyDashboardds = () => {
   return (
     <React.Fragment>
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+      <FacultyDashboardActions />
       {/* Faculty Profile Section */}
       {loading.profile ? (
         <Box display="flex" justifyContent="center" p={4}>

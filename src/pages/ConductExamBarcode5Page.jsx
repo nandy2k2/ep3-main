@@ -23,6 +23,8 @@ import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
 import { addOption, handleAddOption, renderAddOption } from "./addableAutocompleteHelpers";
+import ExamBarcodeDynamicFormatter from "./ExamBarcodeDynamicFormatter";
+import { barcode5cDocument, barcode5cMarkup, barcode5cStyles } from './ExamBarcode5cLayout';
 
 const filterFields = [
   { key: "program", label: "Program" },
@@ -85,7 +87,14 @@ const escapeHtml = (value) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
-export default function ConductExamBarcode5Page() {
+export const barcode5aTextStyles = `.line { font-size: 3.2mm; }.meta { font-size: 1.9mm; }`;
+export const barcode5aPreviewTextStyles = `.barcode5a-sheet .barcode5-line { font-size: 3.2mm; }.barcode5a-sheet .barcode5-exam, .barcode5a-sheet .barcode5-section { font-size: 1.9mm; }`;
+export const barcode5bTextStyles = `.meta { font-size: 2.35mm; }`;
+export const barcode5bPreviewTextStyles = `.barcode5b-sheet .barcode5-exam, .barcode5b-sheet .barcode5-section { font-size: 2.35mm; }`;
+
+export default function ConductExamBarcode5Page({ dynamic = false, largeText = false, largeMetaText = false, dualBarcode = false } = {}) {
+  const enlargedText = largeText || largeMetaText;
+  const title = dualBarcode ? "Exam barcode 5c" : largeMetaText ? "Exam barcode 5b" : largeText ? "Exam barcode 5a" : dynamic ? "Exam barcode dynamic" : "Exam barcode 5";
   const navigate = useNavigate();
   const [exams, setExams] = useState([]);
   const [form, setForm] = useState({ academicyear: "", exam: "", examcode: "" });
@@ -261,7 +270,7 @@ const generatePreview = () => {
     const html = `<!doctype html>
       <html>
         <head>
-          <title>Exam barcode 5</title>
+          <title>${escapeHtml(title)}</title>
           <style>
             @page { size: 100mm 26mm; margin: 0; }
             html, body {
@@ -350,6 +359,8 @@ const generatePreview = () => {
               html, body { width: 100mm; margin: 0 !important; padding: 0 !important; }
               .sticker:last-child { break-after: auto; page-break-after: auto; }
             }
+            ${enlargedText ? barcode5aTextStyles : ''}
+            ${largeMetaText ? barcode5bTextStyles : ''}
           </style>
         </head>
         <body>${stickers}</body>
@@ -360,7 +371,7 @@ const generatePreview = () => {
       return;
     }
     win.document.open();
-    win.document.write(html);
+    win.document.write(dualBarcode ? barcode5cDocument(previewRows, barcodeMap) : html);
     win.document.close();
     win.focus();
     setTimeout(() => {
@@ -385,7 +396,7 @@ const generatePreview = () => {
   ];
 
   return (
-    <MenuPageShell title="Exam barcode 5">
+    <MenuPageShell title={title}>
       <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
         <style>{`
           @page { size: 100mm 26mm; margin: 0; }
@@ -508,9 +519,11 @@ const generatePreview = () => {
             .barcode5-sheet { display: grid !important; grid-template-columns: 100mm !important; grid-auto-rows: 26mm !important; width: 100mm !important; padding: 0 !important; gap: 0 !important; }
             .barcode5-sticker { width: 100mm !important; height: 26mm !important; padding: 0 !important; page-break-inside: avoid; break-inside: avoid; border: 0 !important; }
           }
+          ${enlargedText ? barcode5aPreviewTextStyles : ''}
+          ${largeMetaText ? barcode5bPreviewTextStyles : ''}
         `}</style>
         <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }} className="no-print">
-          <Typography variant="h5" fontWeight={900}>Exam barcode 5</Typography>
+          <Typography variant="h5" fontWeight={900}>{title}</Typography>
           <Typography color="text.secondary">
             Generate 100mm x 26mm barcode stickers with 8 digit numeric short barcodes. Select one or both sections to generate section-wise stickers.
           </Typography>
@@ -658,10 +671,11 @@ const generatePreview = () => {
           />
         </Paper>
 
+        {dynamic && previewRows.length > 0 && <ExamBarcodeDynamicFormatter rows={previewRows} barcodeMap={barcodeMap} />}
         {previewRows.length > 0 && (
           <Paper elevation={0} sx={{ p: 2.5, border: "1px solid #e5e7eb", borderRadius: 2 }} className="barcode5-print">
             <Box
-              className="barcode5-sheet"
+              className={largeMetaText ? "barcode5-sheet barcode5a-sheet barcode5b-sheet" : largeText ? "barcode5-sheet barcode5a-sheet" : "barcode5-sheet"}
               sx={{
                 display: "grid",
                 gridTemplateColumns: "100mm",
@@ -673,7 +687,8 @@ const generatePreview = () => {
                 width: "100mm"
               }}
             >
-              {previewRows.map((row) => (
+              {dualBarcode && <style>{barcode5cStyles}</style>}
+              {previewRows.map((row) => dualBarcode ? <div key={row.stickerid} dangerouslySetInnerHTML={{ __html: barcode5cMarkup(row, barcodeMap[row.stickerid] || '') }} /> : (
                 <Box
                   key={row.stickerid}
                   className="barcode5-sticker"

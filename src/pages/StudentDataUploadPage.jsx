@@ -32,6 +32,7 @@ import AiImageFieldExtractor from "./AiImageFieldExtractor";
 import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import { studentDobValue, studentDobInputValue } from "./studentDobValue";
 
 const subjectFields = ["Major", "Minor", "AEC", "SEC", "VAC", "IDC", "MDC"];
 const fields = ["name", "regno", "scholarnumber", "abcid", "password", "email", "googleemail", "excluded", "phone", "fathername", "mothername", "dob", "nationality", "address", "regulation", "program", "programcode", "Mediumofinstruction", "specialization1", "specialization2", ...subjectFields, "academicyear", "isfinalyear", "admissionyear", "rollno", "gender", "category", "annualincome", "freeshipcardholder", "state", "city", "district", "pincode", "guardianname", "guardianmobile", "guardianemail", "photo", "semester", "section"];
@@ -337,6 +338,7 @@ export default function StudentDataUploadPage() {
   };
 
   const fieldValue = (field) => {
+    if (field === "dob") return studentDobInputValue(form.dob);
     if (field === "program" && form.program) return `${form.program || ""} (${form.programcode || ""})`;
     return form[field] || "";
   };
@@ -755,7 +757,8 @@ export default function StudentDataUploadPage() {
         const row = excelRows[index];
         const item = { rowNumber: index + 2 };
         fields.forEach((field) => {
-          item[field] = valueFromRow(row, field);
+          const value = valueFromRow(row, field);
+          item[field] = field === 'dob' ? studentDobValue(value, Boolean(workbook.Workbook?.WBProps?.date1904)) : value;
         });
         if (bulkGeneratePasswords) item.password = generatePasswordValue(bulkPasswordLength);
         if (!item.password) item.password = "";
@@ -1042,6 +1045,8 @@ export default function StudentDataUploadPage() {
               ) : (
                 <TextField
                   fullWidth
+                  type={field === "dob" ? "date" : "text"}
+                  InputLabelProps={field === "dob" ? { shrink: true } : undefined}
                   select={fieldOptions(field).length > 0 && field !== "programcode"}
                   disabled={field === "programcode" || (field === "scholarnumber" && autoScholarNumber) || (field === "regno" && autoRegno)}
                   required={field === "email"}

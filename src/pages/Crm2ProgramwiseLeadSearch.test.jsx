@@ -1,0 +1,20 @@
+import React from 'react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import Page from './Crm2ProgramwiseLeadSearch';
+import ep1 from '../api/ep1';
+jest.mock('../api/ep1', () => ({ get: jest.fn() }));
+jest.mock('./global1', () => ({ colid: 42 }));
+jest.mock('./MenuPageShell', () => ({ children }) => <div>{children}</div>);
+jest.mock('@mui/x-data-grid', () => ({ GridToolbar: () => null, DataGrid: () => <div>Results</div> }));
+jest.mock('./Crm2ProgramPages', () => ({ ProgramChoice: ({ title, onChange, disabled }) => <button disabled={disabled} onClick={() => onChange(title === 'Academic year' ? { name: '2026-27' } : [{ program: 'Science', programcode: '012' }, { program: 'Pharmacy', programcode: '013' }])}>{title}</button> }));
+test('requires year and programs and queries the interested array endpoint only on Load', async () => {
+  ep1.get.mockResolvedValue({ data: { data: [], total: 0 } });
+  render(<Page />);
+  expect(ep1.get).not.toHaveBeenCalled();
+  expect(screen.getByRole('button', { name: 'Load leads' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Academic year' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Programs' }));
+  expect(screen.getByLabelText('Program codes')).toHaveValue('012, 013');
+  fireEvent.click(screen.getByRole('button', { name: 'Load leads' }));
+  await waitFor(() => expect(ep1.get).toHaveBeenCalledWith('/api/v2/crm2/config/interested-leads', expect.objectContaining({ params: expect.objectContaining({ colid: 42, academicyear: '2026-27', programcodes: '["012","013"]' }) })));
+});

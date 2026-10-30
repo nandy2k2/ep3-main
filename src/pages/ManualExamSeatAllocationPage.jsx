@@ -18,6 +18,7 @@ function Content() {
   const [form, setForm] = useState(empty), [exams, setExams] = useState([]), [courses, setCourses] = useState([]), [rooms, setRooms] = useState([]), [regulations, setRegulations] = useState([]);
   const [rows, setRows] = useState([]), [selected, setSelected] = useState([]), [busy, setBusy] = useState(false), [notice, setNotice] = useState(null);
   const [building, setBuilding] = useState(""), [room, setRoom] = useState(""), [roomid, setRoomid] = useState(""), [capacity, setCapacity] = useState(""), [skip, setSkip] = useState(0);
+  const [blockno, setBlockno] = useState("");
   const fail = error => setNotice({ severity: "error", text: error.response?.data?.message || error.message });
   const loadOptions = async () => {
     try {
@@ -51,7 +52,7 @@ function Content() {
     if (!window.confirm(`Allocate ${selected.length} selected examroll rows to ${building}, ${room}, skipping ${skip} seat(s)? Existing allocations for these rows will be replaced.`)) return;
     setBusy(true);
     try {
-      const res = await ep1.post(`${root}/manual-seat-allocation/allocate`, { colid: global1.colid, ...form, ids: selected, building, room, roomid, noofseats: Number(capacity), skip });
+      const res = await ep1.post(`${root}/manual-seat-allocation/allocate`, { colid: global1.colid, ...form, ids: selected, building, room, roomid, noofseats: Number(capacity), skip, blockno });
       setNotice({ severity: "success", text: `${res.data.allocated} examroll rows allocated.` });
       await load();
     } catch (error) { fail(error); } finally { setBusy(false); }
@@ -78,6 +79,7 @@ function Content() {
       <Grid item xs={12} md={3}>{choice("Room", uniq(rooms.filter(row => row.building === building).map(row => row.room)), room, value => { setRoom(value); const match = rooms.find(row => row.building === building && row.room === value); setRoomid(match?._id || ""); setCapacity(match?.noofseats ?? ""); }, "/conduct-exam-rooms", true)}</Grid>
       <Grid item xs={12} md={3}><TextField fullWidth disabled={busy} size="small" label="Number of seats" type="number" value={capacity} onChange={event => setCapacity(event.target.value)} /></Grid>
       <Grid item xs={12} md={3}><Autocomplete disabled={busy} options={[0, 1, 2, 3]} value={skip} getOptionLabel={value => String(value)} onChange={(_, value) => setSkip(value ?? 0)} renderInput={params => <TextField {...params} size="small" label="Sitting skip rule" />} /></Grid>
+      <Grid item xs={12} md={3}><TextField fullWidth disabled={busy} size="small" label="Block number (optional)" value={blockno} onChange={event => setBlockno(event.target.value)} inputProps={{ maxLength: 100 }} helperText="Leave blank to keep existing block numbers" /></Grid>
       <Grid item xs={12}><Button variant="contained" startIcon={<EventSeat />} disabled={busy || !selected.length || !ready || !building || !room || !(Number(capacity) > 0)} onClick={allocate}>Allocate selected ({selected.length})</Button></Grid>
     </Grid></Paper>
     <Snackbar open={Boolean(notice)} autoHideDuration={8000} anchorOrigin={{ vertical: "top", horizontal: "center" }} onClose={() => setNotice(null)}><Alert variant="filled" severity={notice?.severity || "info"} onClose={() => setNotice(null)}>{notice?.text}</Alert></Snackbar>

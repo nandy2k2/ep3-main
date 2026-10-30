@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCrm2Dashboard } from './Crm2DashboardContext';
 import { Box, Button, Grid, IconButton, LinearProgress, Paper, Stack, TextField, Typography } from "@mui/material";
 import { Add, Delete, Download, Edit, Save, UploadFile } from "@mui/icons-material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
@@ -7,7 +8,7 @@ import ep1 from "../api/ep1";
 import global1 from "./global1";
 
 const root = "/api/v2/crm2/interactions";
-const scope = () => ({ colid: global1.colid, user: global1.user });
+const sessionScope = () => ({ colid: global1.colid, user: global1.user || global1.email });
 const initial = lead => ({ details: "", mode: "", pipeline: lead.pipeline || "", nextfollowupdate: lead.followupdate ? String(lead.followupdate).slice(0, 10) : "" });
 const localDate = value => value ? new Date(new Date(value).getTime() - new Date(value).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "";
 
@@ -17,7 +18,9 @@ function useStableEvent(handler) {
   return useCallback((...args) => ref.current(...args), []);
 }
 
-export default function Crm2Interactions({ lead, Choice, onAdd, notify, onSaved, refresh = 0 }) {
+export default function Crm2Interactions({ lead, Choice, onAdd, notify, onSaved, refresh = 0, leadmode = '' }) {
+  const dashboard = useCrm2Dashboard();
+  const scope = () => ({ ...sessionScope(), ...(leadmode ? { leadmode } : {}), ...(dashboard ? { dashboardyear: dashboard.academicyear, token: global1.token } : {}) });
   const [form, setForm] = useState(() => initial(lead)), [rows, setRows] = useState([]), [total, setTotal] = useState(0);
   const [busy, setBusy] = useState(false), [selected, setSelected] = useState([]), [progress, setProgress] = useState(null);
   const [page, setPage] = useState({ page: 0, pageSize: 25 });

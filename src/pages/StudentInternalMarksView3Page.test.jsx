@@ -1,0 +1,47 @@
+import React from 'react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import Page, { CceReport, cceStyles } from './StudentInternalMarksView3Page';
+import { buildCceReports } from './internalMarksCce';
+import ep1 from '../api/ep1';
+jest.mock('react-dom/server', () => jest.requireActual('react-dom/server.node'));
+jest.mock('../api/ep1', () => ({ get: jest.fn() }));
+jest.mock('./global1', () => ({ colid: 42, user: 'ann@example.com' }));
+jest.mock('./MenuPageShell', () => ({ children }) => <div>{children}</div>);
+const base = { academicyear: '2026-27', regulation: 'R2026', program: 'Management', programcode: 'MBA', semester: '1', exam: 'Semester Examination', examcode: 'EX1', componenttype: 'Theory', assessmentgroup: 'CCE', scoretype: 'Internal', approvalstatus: 'Approved' };
+const types = [{ assessmentcomponent: 'Mid Sem', marks: 50, weightage: 0.4 }, { assessmentcomponent: 'Quiz', marks: 50, weightage: 0.2 }, { assessmentcomponent: 'Project', marks: 20, weightage: 0.5 }, { assessmentcomponent: 'Case Analysis', marks: 10, weightage: 1 }];
+const courses = [['SOM010201','Marketing Management'], ['SOM010202','Macro Economics'], ['SOM010203','Cost and Management Accounting'], ['SOM010204','Business Statistics']];
+const raw = [[21,38,null,3], [33,35,null,3], [38,34,14,'Absent'], [18,31,17,9]];
+const components = courses.flatMap(([coursecode]) => types.map(type => ({ ...base, ...type, coursecode })));
+const marks = courses.flatMap(([coursecode,course], index) => types.flatMap((type,i) => raw[index][i] == null ? [] : [{ ...base, ...type, _id: `${index}-${i}`, coursecode, course, rawmarks: typeof raw[index][i] === 'number' ? raw[index][i] : 0, rawmaxmarks: type.marks, maxmarks: type.marks * type.weightage, marksobtained: typeof raw[index][i] === 'number' ? raw[index][i] * type.weightage : 0, attendance: raw[index][i] === 'Absent' ? 'Absent' : 'Present' }]));
+const student = { name: 'Ann Student', regno: 'MBA-2026-001' }, institution = { institutionname: 'Example Institution', address: 'Campus Road, City' };
+test('course-wise CCE report preserves weighted marks, missing and absent indicators and sample totals', () => {
+  const [report] = buildCceReports(marks, components);
+  expect(report.rows.map(row => row.total)).toEqual([19,24,29,31]);
+  expect(report.totalmax).toBe(50);
+  expect(report.columns.map(column => column.name)).toEqual(['Mid Sem','Quiz','Project','Case Analysis']);
+  expect(report.rows[0].cells[report.columns[2].key].raw).toBe('NS');
+  expect(report.rows[2].cells[report.columns[3].key].raw).toBe('Absent');
+  expect(buildCceReports([...marks, { ...marks[0], approvalstatus: 'Pending', coursecode: 'PENDING' }], components)[0].rows).toHaveLength(4);
+  const html = renderToStaticMarkup(<CceReport report={report} student={student} institution={institution} header />);
+  require('fs').writeFileSync('/tmp/internal-marks-3-preview.html', `<!doctype html><html><head><style>body{margin:24px}${cceStyles}</style></head><body>${html}</body></html>`);
+  expect(html).toContain('Continuous and Comprehensive Evaluation (CCE)');
+  expect(html).not.toContain('Pass / Fail');
+});
+test('derives legacy raw marks without multiplying weighted marks twice and separates examinations', () => {
+  const legacy = { ...marks[0], rawmarks: undefined, marksobtained: 8.4 };
+  const reports = buildCceReports([legacy, { ...legacy, examcode: 'EX2', exam: 'Other exam' }], components);
+  expect(reports).toHaveLength(2);
+  const cell = reports[0].rows[0].cells[reports[0].columns[0].key];
+  expect(cell.raw).toBe(21); expect(cell.weighted).toBe(8.4);
+});
+test('loads new student endpoint and opens print preview with institution and student details', async () => {
+  ep1.get.mockResolvedValue({ data: { data: marks, components, student, institution } });
+  render(<Page />); fireEvent.click(screen.getByRole('button', { name: 'Load marks' }));
+  await screen.findByText('Marketing Management');
+  expect(ep1.get).toHaveBeenCalledWith('/api/v2/student-internal-marks-3', { params: { colid: 42, email: 'ann@example.com' } });
+  fireEvent.click(screen.getAllByRole('button', { name: 'Print preview' })[0]);
+  expect(await screen.findByRole('dialog')).toHaveTextContent('Example Institution');
+  expect(screen.getByRole('dialog')).toHaveTextContent('MBA-2026-001');
+  expect(screen.getByRole('button', { name: 'Print' })).toBeInTheDocument();
+});

@@ -46,6 +46,7 @@ export const studentDefaultMenuGroups = [
   { group: "Fees payment", items: [
     { path: "/studentonlinefeepayment", title: "Pay fees online" },
     { path: "/studentonlinefeepayment2", title: "Pay fees online 2" },
+    { path: '/student-online-fees-3', title: 'Online fees 3' },
     { path: "/studentonlinefeepayment3", title: "Pay fees online Cashfree" },
     { path: "/studentmyonlinepaymentreport", title: "My online payments" },
     { path: "/studentmyonlinepaymentreport2", title: "My online payments 2" },
@@ -65,6 +66,9 @@ export const studentDefaultMenuGroups = [
   { group: "Discussion Board", items: [{ path: "/studenttopicpageds", title: "Course Discussion" }] },
   { group: "Forum", items: [{ path: "/studenttopicpage1ds", title: "All Forum" }] },
   { group: "Examination", items: [
+    { path: "/student-internal-marks-view", title: "Internal marks view" },
+    { path: '/student-internal-marks-view-2', title: 'Internal Marks View 2' },
+    { path: '/student-internal-marks-view-3', title: 'Internal Marks View 3' },
     // { path: "/student-exam-registration", title: "Exam registration" },
     { path: "/student-exam-dynamic-form", title: "Dynamic exam form" },
     { path: "/student-programwise-exam-form", title: "Programwise form" },

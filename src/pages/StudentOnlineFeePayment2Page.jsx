@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, Box, Button, Card, CardContent, Chip, FormControl, Grid, InputLabel, MenuItem, Paper, Select, Stack, Typography } from "@mui/material";
+import { Alert, Box, Button, Card, CardContent, Chip, FormControl, Grid, InputLabel, MenuItem, Paper, Select, Snackbar, Stack, Typography } from "@mui/material";
 import { AccountBalanceWallet, ArrowBack, Payment, Refresh } from "@mui/icons-material";
 import { DataGrid, GridToolbar } from "@mui/x-data-grid";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import MenuPageShell from "./MenuPageShell";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
+import { fineToday } from '../utils/conductExamFine';
 
 const currency = (value) => Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const normalizedGateway = (value) => String(value || "").replace(/\s|-/g, "").toLowerCase();
@@ -30,7 +31,7 @@ const columns = [
   { field: "balance", headerName: "Balance Payable", minWidth: 160, type: "number", valueFormatter: (p) => currency(p.value) }
 ];
 
-export default function StudentOnlineFeePayment2Page() {
+export default function StudentOnlineFeePayment2Page({ lateFineMode = false }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [fees, setFees] = useState([]);
@@ -42,27 +43,31 @@ export default function StudentOnlineFeePayment2Page() {
   const [message, setMessage] = useState("");
   const [messageSeverity, setMessageSeverity] = useState("success");
   const [error, setError] = useState("");
+  const [lateFine, setLateFine] = useState({ total: 0, applied: [] });
+  const paymentRoot = lateFineMode ? '/api/v2/studentonlinepayment3' : '/api/v2/studentonlinepayment';
   const colid = useMemo(() => global1.colid, []);
   const regno = useMemo(() => global1.regno || global1.user || "", []);
   const selectedGateway = useMemo(() => gateways.find((gateway) => gateway._id === selectedGatewayId), [gateways, selectedGatewayId]);
   const pastDueFees = useMemo(() => {
     const today = new Date();
     today.setHours(23, 59, 59, 999);
-    return fees.filter((row) => row.duedate && new Date(row.duedate) <= today);
-  }, [fees]);
+    return fees.filter((row) => row.duedate && (lateFineMode ? fineToday(row.duedate) <= (lateFine.date || fineToday()) : new Date(row.duedate) <= today));
+  }, [fees, lateFineMode, lateFine.date]);
   const selectedRows = useMemo(() => pastDueFees.map((row) => row._id), [pastDueFees]);
-  const totalPayable = useMemo(() => pastDueFees.reduce((sum, row) => sum + Number(row.balance || 0), 0), [pastDueFees]);
+  const basePayable = useMemo(() => pastDueFees.reduce((sum, row) => sum + Number(row.balance || 0), 0), [pastDueFees]);
+  const totalPayable = Math.round((basePayable + (lateFineMode ? Number(lateFine.total || 0) : 0)) * 100) / 100;
 
   const loadData = async () => {
     setLoading(true);
     setError("");
     try {
       const [feeRes, gatewayRes] = await Promise.all([
-        ep1.get("/api/v2/studentonlinepayment/pending", { params: { colid, regno } }),
+        ep1.get(`${paymentRoot}/pending`, { params: { colid, regno } }),
         ep1.get("/api/v2/mastergateway", { params: { colid, status: "Active" } })
       ]);
       setStudentUser(feeRes.data.studentuser || null);
       setFees(feeRes.data.data || []);
+      if (lateFineMode) setLateFine(feeRes.data.latefine || { total: 0, applied: [] });
       const activeGateways = (gatewayRes.data.data || []).filter((gateway) => String(gateway.status || "").toLowerCase() === "active");
       setGateways(activeGateways);
       const preferred = activeGateways.find((gateway) => gateway.default === "Yes") || activeGateways[0];
@@ -97,7 +102,7 @@ export default function StudentOnlineFeePayment2Page() {
     setError("");
     setMessage("");
     try {
-      const sessionRes = await ep1.post("/api/v2/studentonlinepayment/session", {
+      const sessionRes = await ep1.post(`${paymentRoot}/session`, {
         colid,
         regno,
         ledgerids: selectedRows,
@@ -115,6 +120,7 @@ export default function StudentOnlineFeePayment2Page() {
         section: studentUser?.section || global1.section || ""
       });
       const session = sessionRes.data.data;
+      if (lateFineMode && Math.abs(Number(session.payment.totalamount) - totalPayable) > 0.009 && !window.confirm(`The current total including late fine is Rs. ${currency(session.payment.totalamount)}. Continue to payment?`)) return;
       const gatewayName = normalizedGateway(selectedGateway.gatewayname);
       if (selectedGateway.type === "External" && !gatewayName.includes("easebuzz") && !gatewayName.includes("icici")) {
         const params = new URLSearchParams({ colid: String(colid), regno, student: session.payment.student || "", amount: String(session.payment.totalamount || totalPayable), onlinepaymentid: session.payment._id, returnurl: window.location.href });
@@ -131,7 +137,7 @@ export default function StudentOnlineFeePayment2Page() {
         name: global1.name || session.payment.student || regno,
         user: global1.user || "",
         gateway: selectedGateway.gatewayname,
-        frontendcallbackurl: `${window.location.origin}/studentonlinefeepayment2`
+        frontendcallbackurl: `${window.location.origin}${lateFineMode ? '/student-online-fees-3' : '/studentonlinefeepayment2'}`
       });
       const paymentUrl = payRes.data?.data?.paymenturl || payRes.data?.paymenturl || payRes.data?.data?.paymentUrl || payRes.data?.paymentUrl;
       if (!paymentUrl) throw new Error("Gateway did not return a payment URL.");
@@ -144,16 +150,17 @@ export default function StudentOnlineFeePayment2Page() {
   };
 
   return (
-    <MenuPageShell title="Pay fees online 2" menuType="student">
+    <MenuPageShell title={lateFineMode ? 'Online fees 3' : 'Pay fees online 2'} menuType="student">
       <Box sx={{ p: { xs: 2, md: 3 } }}>
         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
-          <Box><Typography variant="h5" fontWeight={900}>Pay Past Due Fees</Typography><Typography color="text.secondary">All past due fees are selected automatically.</Typography></Box>
+          <Box><Typography variant="h5" fontWeight={900}>{lateFineMode ? 'Online fees 3' : 'Pay Past Due Fees'}</Typography><Typography color="text.secondary">All past due fees are selected automatically.</Typography></Box>
           <Stack direction="row" spacing={1}><Button variant="outlined" startIcon={<Refresh />} onClick={loadData} disabled={loading || paying}>Refresh</Button><Button variant="outlined" startIcon={<ArrowBack />} onClick={() => navigate("/studentdashboard")}>Dashboard</Button></Stack>
         </Stack>
-        {message && <Alert severity={messageSeverity} sx={{ mb: 2 }}>{message}</Alert>}
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {!lateFineMode && message && <Alert severity={messageSeverity} sx={{ mb: 2 }}>{message}</Alert>}
+        {!lateFineMode && error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {lateFineMode && <Snackbar open={!!(error || message)} autoHideDuration={8000} onClose={() => { setError(''); setMessage(''); }} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}><Alert variant="filled" severity={error ? 'error' : messageSeverity} onClose={() => { setError(''); setMessage(''); }}>{error || message}</Alert></Snackbar>}
         <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={12} md={4}><Card><CardContent><Stack direction="row" spacing={1} alignItems="center"><AccountBalanceWallet color="primary" /><Typography fontWeight={800}>Past Due Amount</Typography></Stack><Typography variant="h4" fontWeight={900}>Rs. {currency(totalPayable)}</Typography><Chip size="small" label={`${pastDueFees.length} item(s) auto selected`} /></CardContent></Card></Grid>
+          <Grid item xs={12} md={4}><Card><CardContent><Stack direction="row" spacing={1} alignItems="center"><AccountBalanceWallet color="primary" /><Typography fontWeight={800}>{lateFineMode ? 'Total payable' : 'Past Due Amount'}</Typography></Stack><Typography variant="h4" fontWeight={900}>Rs. {currency(totalPayable)}</Typography>{lateFineMode && <Stack spacing={1} sx={{ my: 1 }}><Typography>Fees: Rs. {currency(basePayable)}</Typography><Typography color="error">Late fine: Rs. {currency(lateFine.total)}</Typography></Stack>}<Chip size="small" label={`${pastDueFees.length} item(s) auto selected`} /></CardContent></Card></Grid>
           <Grid item xs={12} md={8}>
             <Paper sx={{ p: 2 }}>
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
@@ -162,11 +169,12 @@ export default function StudentOnlineFeePayment2Page() {
               </Stack>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={7}><FormControl fullWidth size="small"><InputLabel>Payment Gateway</InputLabel><Select label="Payment Gateway" value={selectedGatewayId} onChange={(e) => setSelectedGatewayId(e.target.value)}>{gateways.map((gateway) => <MenuItem key={gateway._id} value={gateway._id}>{gateway.gatewayname} {gateway.default === "Yes" ? "(Default)" : ""}</MenuItem>)}</Select></FormControl></Grid>
-                <Grid item xs={12} md={5}><Button fullWidth variant="contained" startIcon={<Payment />} onClick={startPayment} disabled={paying || totalPayable <= 0 || !selectedGatewayId}>{paying ? "Starting payment..." : "Pay all past due fees"}</Button></Grid>
+                <Grid item xs={12} md={5}><Button fullWidth variant="contained" startIcon={<Payment />} onClick={startPayment} disabled={paying || (lateFineMode && loading) || totalPayable <= 0 || !selectedGatewayId}>{paying ? "Starting payment..." : "Pay all past due fees"}</Button></Grid>
               </Grid>
             </Paper>
           </Grid>
         </Grid>
+        {lateFineMode && lateFine.applied?.length > 0 && <Box sx={{ mb: 2 }}><Typography variant="h6">Late fine details</Typography>{lateFine.applied.map((rule, index) => <Typography key={`${rule.ruleid}-${index}`}>{rule.academicyear} · {rule.program}: Rs. {currency(rule.rate)}{rule.finetype === 'per day' ? ` × ${rule.days} day(s)` : ' flat'} = Rs. {currency(rule.amount)}</Typography>)}</Box>}
         <Paper sx={{ height: 560 }}>
           <DataGrid rows={pastDueFees} columns={columns} getRowId={(row) => row._id} loading={loading} pageSizeOptions={[10, 25, 50, 100]} initialState={{ pagination: { paginationModel: { pageSize: 25 } } }} slots={{ toolbar: GridToolbar }} />
         </Paper>

@@ -41,9 +41,9 @@ const formatCurrency = (input) => {
   return number.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-const amountInWords = (amount) => {
-  const number = Math.round(Number(amount || 0));
-  if (!number) return "Zero only";
+export const amountInWords = (amount) => {
+  const rounded = Math.round(Number(amount || 0) * 100), number = Math.floor(rounded / 100), paise = rounded % 100;
+  if (!number && !paise) return "Rupees Zero only";
   const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
   const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
   const two = (n) => n < 20 ? ones[n] : `${tens[Math.floor(n / 10)]}${n % 10 ? ` ${ones[n % 10]}` : ""}`;
@@ -57,7 +57,13 @@ const amountInWords = (amount) => {
   if (lakh) parts.push(`${three(lakh)} Lakh`);
   if (thousand) parts.push(`${three(thousand)} Thousand`);
   if (n) parts.push(three(n));
-  return `${parts.join(" ")} only`;
+  return `Rupees ${parts.join(" ") || 'Zero'}${paise ? ` and ${two(paise)} Paise` : ''} only`;
+};
+export const printablePoLine = item => {
+  const quantity = Number(item.quantity ?? item.qty ?? 0), rawPrice = item.price ?? item.rate ?? item.unitprice ?? item.unitPrice ?? item.estimatedprice;
+  const price = rawPrice !== undefined && rawPrice !== '' ? Number(String(rawPrice).replace(/,/g, '')) : quantity > 0 ? Number(item.subtotal ?? (Number(item.total || item.grandtotal || 0) - Number(item.gstamount || item.taxamount || 0) + Number(item.discountamount || 0))) / quantity : 0;
+  const taxable = Number(item.taxableamount ?? (quantity * price - Number(item.discountamount || 0)));
+  return calculatePoLine({ ...item, itemname: item.itemname || item.item || item.description, unit: item.unit || item.uom, quantity, price, discount: item.discount ?? item.discountamount ?? 0, discounttype: item.discounttype || 'Amount', gst: item.gst ?? (taxable ? Number(item.gstamount || item.taxamount || 0) * 100 / taxable : 0) });
 };
 
 const defaultInstitution = (config = {}) => ({
@@ -104,13 +110,14 @@ function InfoGrid({ items }) {
 function Table({ columns, rows }) {
   return (
     <table className="item-table">
+      <colgroup>{columns.map(column => <col key={column.key} style={column.width ? { width: column.width } : undefined} />)}</colgroup>
       <thead>
         <tr>{columns.map((column) => <th key={column.key}>{column.label}</th>)}</tr>
       </thead>
       <tbody>
         {(rows || []).length ? rows.map((row, index) => (
           <tr key={row._id || `${index}-${row.itemcode || row.itemname}`}>
-            {columns.map((column) => <td key={column.key}>{column.render ? column.render(row, index) : value(row[column.key])}</td>)}
+            {columns.map((column) => <td key={column.key} className={column.numeric ? 'money-cell' : undefined}>{column.render ? column.render(row, index) : value(row[column.key])}</td>)}
           </tr>
         )) : (
           <tr><td colSpan={columns.length} className="empty-row">No items available</td></tr>
@@ -143,7 +150,8 @@ function Signatures({ labels }) {
 }
 
 function Totals({ items, header = {} }) {
-  const { subtotal, gstamount: tax, discountamount: discount, grandtotal: grand } = summarizePo(items);
+  const summary = summarizePo(items.map(printablePoLine));
+  const subtotal = items.length ? summary.subtotal : Number(header.subtotal || header.price || 0), tax = items.length ? summary.gstamount : Number(header.gstamount || 0), discount = items.length ? summary.discountamount : Number(header.discountamount || 0), grand = items.length ? summary.grandtotal : Number(header.grandtotal ?? header.actualAmount ?? header.netprice ?? header.total ?? 0);
   return (
     <section className="totals">
       <div className="amount-words"><strong>Amount in Words:</strong><br />{amountInWords(grand)}</div>
@@ -227,7 +235,7 @@ export function Purchase2PrPrint({ header = {}, items = [], institution = {} }) 
 
 function PoLikePrint({ header = {}, items = [], institution = {}, title, omitChecked = false }) {
   return (
-    <PrintShell landscape={items.length > 6}>
+    <PrintShell landscape>
       <Header title={title} institution={institution} />
       <section className="boxed">
         <strong>To,</strong>
@@ -245,6 +253,9 @@ function PoLikePrint({ header = {}, items = [], institution = {}, title, omitChe
         { label: "Store", value: pick(header, ["storename", "store"]) },
         { label: "Department", value: pick(header, ["departmentname", "department"]) },
         { label: "Delivery Location", value: pick(header, ["deliverylocation", "deliveryLocation", "storename"]) },
+        { label: "Delivery address", value: header.deliveryaddress },
+        { label: "Store contact", value: [header.deliverycontactperson, header.deliveryphone, header.deliveryemail].filter(Boolean).join(' | ') },
+        { label: "Delivery instructions", value: header.deliveryinstructions },
         { label: "Payment Terms", value: pick(header, ["paymentterms", "paymentTerms", "payterm"]) },
         { label: "Delivery Schedule", value: pick(header, ["deliveryschedule", "deliveryType", "deliveryType"]) },
         { label: "Status", value: pick(header, ["postatus", "approvalStatus", "status"]) }
@@ -252,19 +263,17 @@ function PoLikePrint({ header = {}, items = [], institution = {}, title, omitChe
       <p><strong>Subject:</strong> Supply of Material</p>
       <p>Dear Sir/Madam,<br />We are pleased to place the order for the following material.</p>
       <Table columns={[
-        { key: "sr", label: "Sr No", render: (_, i) => i + 1 },
-        { key: "itemcode", label: "Item Code" },
-        { key: "itemname", label: "Item Name" },
-        { key: "description", label: "Description/Specification", render: (row) => pick(row, ["description", "specification", "itemname"]) },
-        { key: "unit", label: "Unit" },
-        { key: "quantity", label: "Quantity", render: (row) => formatQty(row.quantity) },
-        { key: "price", label: "Rate", render: (row) => formatCurrency(pick(row, ["price", "rate", "estimatedprice"], 0)) },
-        { key: "subtotal", label: "Subtotal", render: (row) => formatCurrency(row.subtotal) },
-        { key: "discountamount", label: "Discount", render: (row) => formatCurrency(row.discountamount) },
-        { key: "gst", label: "GST %", render: (row) => value(row.gst) },
-        { key: "gstamount", label: "GST Amount", render: (row) => formatCurrency(row.gstamount) },
-        { key: "total", label: "Amount", render: (row) => formatCurrency(row.total) }
-      ]} rows={items.map(item => calculatePoLine(item))} />
+        { key: "sr", label: "Sr", width: '3%', render: (_, i) => i + 1 },
+        { key: "itemcode", label: "Item Code", width: '8%' },
+        { key: "description", label: "Item description / specification", width: '25%', render: row => [row.itemname, row.description !== row.itemname ? row.description : '', row.make].filter(Boolean).join(' - ') },
+        { key: "unit", label: "UOM", width: '5%' },
+        { key: "quantity", label: "Quantity", width: '7%', numeric: true, render: row => formatQty(row.quantity) },
+        { key: "price", label: "Unit price", width: '10%', numeric: true, render: row => formatCurrency(row.price) },
+        { key: "gst", label: "GST %", width: '6%', numeric: true, render: row => formatQty(row.gst) },
+        { key: "gstamount", label: "GST amount", width: '11%', numeric: true, render: row => formatCurrency(row.gstamount) },
+        { key: "discountamount", label: "Discount", width: '10%', numeric: true, render: row => formatCurrency(row.discountamount) },
+        { key: "total", label: "Line total", width: '15%', numeric: true, render: row => formatCurrency(row.total) }
+      ]} rows={items.map(printablePoLine)} />
       <Totals items={items} header={header} />
       <Remarks>{pick(header, ["remarks", "terms", "generalterms", "paymentterms", "description"], "No additional terms.")}</Remarks>
       <Signatures labels={[
@@ -426,6 +435,9 @@ const css = `
   .item-table { width: 100%; border-collapse: collapse; margin: 10px 0; table-layout: fixed; }
   .item-table th, .item-table td { border: 1px solid #000; padding: 6px 7px; font-size: 11px; vertical-align: top; overflow-wrap: anywhere; color: #000; }
   .item-table th { font-size: 11px; font-weight: 900; background: #fff; text-align: left; }
+  .item-table td.money-cell { text-align: right; white-space: nowrap; overflow-wrap: normal; font-variant-numeric: tabular-nums; }
+  .totals td:last-child, .totals th:last-child { white-space: nowrap; text-align: right; }
+  .totals { break-inside: avoid; page-break-inside: avoid; }
   .empty-row { text-align: center; height: 42px; }
   .totals { display: grid; grid-template-columns: 1.35fr .85fr; border: 1px solid #000; border-top: 0; margin-top: -10px; }
   .amount-words { padding: 10px; font-size: 12px; border-right: 1px solid #000; min-height: 76px; }
@@ -452,6 +464,7 @@ const css = `
   }
 `;
 
+export const purchase2PrintCss = css;
 const templates = {
   indent: Purchase2IndentPrint,
   pr: Purchase2PrPrint,

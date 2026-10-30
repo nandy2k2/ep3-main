@@ -131,6 +131,10 @@ const configs = {
       ...commonFields,
       { field: "storename", label: "Store Name" },
       { field: "location", label: "Location" },
+      { field: "address", label: "Physical address" },
+      { field: "email", label: "Email" },
+      { field: "contactperson", label: "Contact person" },
+      { field: "contactnumber", label: "Contact number" },
       { field: "phone", label: "Phone" },
       { field: "storemanager", label: "Store Manager" }
     ]

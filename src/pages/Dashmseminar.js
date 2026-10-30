@@ -178,5 +178,6 @@ function DashboardContent() {
 }
 
 export default function Dashboard() {
+    if (new URLSearchParams(window.location.search).get('embedded') === '1') return <PersonalDataSubmissionPage kind="seminar" />;
     return <DashboardContent />;
 }

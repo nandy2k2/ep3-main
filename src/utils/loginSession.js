@@ -117,11 +117,19 @@ export const applyLoginSession = async (responseData, options = {}) => {
     return "/studentdashboard";
   }
 
+  if (responseData.token) {
+    try { await ep1.post('/api/v2/crm2-counselor-dashboard/login', { token: responseData.token }, { timeout: 5000 }); }
+    catch { /* Sign-in history must not prevent login when unavailable. */ }
+  }
+
   if (normalizedRole === "all") {
     if (responseLoginExpired) return "/billing-user-extension";
     if (subscriptiondeactivated === "Yes") return "/billing-invoices";
     return "/configuration";
   }
+
+  if (['counselor', 'counsellor'].includes(normalizedRole)) return '/counsellor-dashboard';
+  if (normalizedRole === 'telecaller') return '/telecaller-dashboard';
 
   if (await hasRoleChatbotDefinition({ colid, role: responseData.role })) {
     return "/ai-chatbot-help";

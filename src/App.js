@@ -1,4 +1,11 @@
 import React, { useEffect } from 'react';
+import Crm2LeadRecordPage from './pages/Crm2LeadRecords';
+import Crm2ProgramwiseLeadSearch from './pages/Crm2ProgramwiseLeadSearch';
+import Crm2ConfigurationPage from './pages/Crm2ConfigurationPages';
+import StudentInternalMarksViewPage from './pages/StudentInternalMarksViewPage';
+import StudentInternalMarksView2Page from './pages/StudentInternalMarksView2Page';
+import StudentInternalMarksView3Page from './pages/StudentInternalMarksView3Page';
+import SkillDevelopmentPaymentLinkPage from './pages/SkillDevelopmentPaymentLinkPage';
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 import { loadColourScheme } from './utils/colourScheme';
 import {
@@ -948,6 +955,7 @@ import { AcademicMasterPage, ProgramOutcomePage, MyProgramStudentsPage } from ".
 import MasterSetupWizardPage from "./pages/MasterSetupWizardPage";
 import AllRoleMenuGatewayPage from "./pages/AllRoleMenuGatewayPage";
 import ExaminationConductWizardPage, { ExaminationConductWizard2Page } from "./pages/ExaminationConductWizardPage";
+import ConductExamFinePage from './pages/ConductExamFinePage';
 import InternalMarksEntryWizardPage from "./pages/InternalMarksEntryWizardPage";
 import InternalQuestionwisePage, { InternalQuestionwiseWizard } from "./pages/InternalQuestionwisePages";
 import LmsWizardPage from "./pages/LmsWizardPage";
@@ -1234,6 +1242,13 @@ import StudentExamRegistrationPage from "./pages/StudentExamRegistrationPage";
 import ConductExamRoomPage from "./pages/ConductExamRoomPage";
 import ConductExamSeatAllocationPage from "./pages/ConductExamSeatAllocationPage";
 import ManualExamSeatAllocationPage from "./pages/ManualExamSeatAllocationPage";
+import ExamBlockAssignmentPage from "./pages/ExamBlockAssignmentPage";
+import AdmitCard4Page from "./pages/AdmitCard4Page";
+import SupervisorSheet2Page from "./pages/SupervisorSheet2Page";
+import RolewiseSignaturePage from "./pages/RolewiseSignaturePage";
+import Crm2ProgramPage from "./pages/Crm2ProgramPages";
+import Crm2ProgramReportPage from "./pages/Crm2ProgramReportPage";
+import StudentBulkFieldUpdatePage from "./pages/StudentBulkFieldUpdatePages";
 import ConductExamInvigilationPage from "./pages/ConductExamInvigilationPage";
 import ConductExamInvigilatorAllocationPage from "./pages/ConductExamInvigilatorAllocationPage";
 import ConductExamInvigilatorAttendancePage from "./pages/ConductExamInvigilatorAttendancePage";
@@ -1277,6 +1292,8 @@ import {
 import ConductExamSubmitQuestionPaperPage from "./pages/ConductExamSubmitQuestionPaperPage";
 import QuestionPaperIndentPage, { QuestionPaperIndentInvitationPage } from "./pages/QuestionPaperIndentPages";
 import Crm2Page, { Crm2InteractionsPage } from "./pages/Crm2Pages";
+import LeadLoginPortal from './pages/LeadLoginPortal';
+import CounselorDashboard from './pages/CounselorDashboard';
 import ConductExamSubmitQuestionsPatternwisePage from "./pages/ConductExamSubmitQuestionsPatternwisePage";
 import ConductExamSubmitMathematicalPatternPage from "./pages/ConductExamSubmitMathematicalPatternPage";
 import ConductExamSubmitTemplatewisePaperPage from "./pages/ConductExamSubmitTemplatewisePaperPage";
@@ -1316,6 +1333,10 @@ import HrLeaveDashboardPage from "./pages/HrLeaveDashboardPage";
 import HrLeaveHrDashboardPage from "./pages/HrLeaveHrDashboardPage";
 import HrLeaveAllLeavesPage from "./pages/HrLeaveAllLeavesPage";
 import HrEmployeeAttendancePage from "./pages/HrEmployeeAttendancePage";
+import HrBiometricAttendancePage from "./pages/HrBiometricAttendancePage";
+import Crm2MergeLeadsPage from './pages/Crm2MergeLeadsPage';
+import AdmissionScholarshipMasterPage from './pages/AdmissionScholarshipMasterPage';
+import Crm2ConfirmAdmissionPage from './pages/Crm2ConfirmAdmissionPage';
 import HrEmployeeAttendanceMatrixPage from "./pages/HrEmployeeAttendanceMatrixPage";
 import HrEmployeeAttendanceApprovalPage from "./pages/HrEmployeeAttendanceApprovalPage";
 import { HrEmployeeHoursPage, HrShiftAllocationPage, HrShiftTimingPage } from "./pages/HrShiftPages";
@@ -2513,6 +2534,9 @@ import CounterFee4ReceiptPage from './pages/CounterFee4ReceiptPage';
 import CounterFeeEditPage from './pages/CounterFeeEditPage';
 import FeesReceiptNotePage from './pages/FeesReceiptNotePage';
 import StudentOnlineFeePayment2Page from './pages/StudentOnlineFeePayment2Page';
+import StudentOnlineFees3Page from './pages/StudentOnlineFees3Page';
+import LateFinePolicyPage from './pages/LateFinePolicyPage';
+import LateFeesLedgerPage from './pages/LateFeesLedgerPage';
 import ChequePaymentDetailsPage from './pages/ChequePaymentDetailsPage';
 import { MiscellaneousAmountPage, MiscellaneousFeeCollectionPage, MiscellaneousFeeCollection2Page, MiscellaneousFeeCollection3Page, MiscellaneousFeesReportPage } from './pages/MiscellaneousFeesPages';
 import StudentFeesReceiptPage from './pages/StudentFeesReceiptPage';
@@ -2833,7 +2857,7 @@ function HomeRouteClass() {
 function AdminNavbarGate() {
   const location = useLocation();
   const embedded = new URLSearchParams(location.search).get("embedded") === "1";
-  return embedded || location.pathname === "/question-paper-indent-invitation" ? null : <AdminNavbar />;
+  return embedded || ["/question-paper-indent-invitation", "/skill-development-payment-link", '/lead-login'].includes(location.pathname) ? null : <AdminNavbar />;
 }
 
 function App() {
@@ -2853,8 +2877,12 @@ function App() {
          <HomeRouteClass />
          <AdminNavbarGate />
       <Routes>
+        <Route path="/skill-development-payment-link" element={<SkillDevelopmentPaymentLinkPage />} />
         {/* <Route path="/" element={<Login />} /> */}
         <Route path="/" element={<HomePage />} />
+        <Route path="/lead-login" element={<LeadLoginPortal />} />
+        <Route path="/counsellor-dashboard" element={<CounselorDashboard key="counselor" />} />
+        <Route path="/telecaller-dashboard" element={<CounselorDashboard key="telecaller" telecaller />} />
         <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
         <Route path="/terms-of-service" element={<TermsOfServicePage />} />
         <Route path="/event-new-public-register" element={<EventNewPublicRegisterPage />} />
@@ -3679,6 +3707,9 @@ function App() {
         <Route path="/online-fee-payment-receipt" element={<OnlineFeePaymentReceiptPage />} />
         <Route path="/studentonlinefeepayment" element={<StudentOnlineFeePaymentPage />} />
         <Route path="/studentonlinefeepayment2" element={<StudentOnlineFeePayment2Page />} />
+        <Route path="/student-online-fees-3" element={<StudentOnlineFees3Page />} />
+        <Route path="/late-fee-policy" element={<LateFinePolicyPage />} />
+        <Route path="/late-fees-ledger" element={<LateFeesLedgerPage />} />
         <Route path="/studentonlinefeepayment3" element={<StudentOnlineFeePaymentCashfreePage />} />
         <Route path="/student-late-fee-waiver" element={<StudentLateFeeWaiverPage />} />
         <Route path="/studentonlinepaymentreport" element={<StudentOnlinePaymentReportPage />} />
@@ -3726,6 +3757,7 @@ function App() {
         <Route path="/purchase2-quality-check" element={<Purchase2QualityCheckPage />} />
         <Route path="/purchase2-grn-creation" element={<Purchase2GrnCreationPage />} />
         <Route path="/user-signature-upload" element={<UserSignatureUploadPage />} />
+        <Route path="/rolewise-signature-upload" element={<RolewiseSignaturePage />} />
         <Route path="/student-signature-upload" element={<StudentSignatureUploadPage />} />
         <Route path="/researchapprovalmatrix" element={<ResearchApprovalMatrixPage />} />
         <Route path="/researchcomponents" element={<ResearchComponentPage />} />
@@ -4246,6 +4278,9 @@ function App() {
         <Route path="/student-online-exam" element={<StudentOnlineExamPage />} />
         <Route path="/student-online-exam-2" element={<StudentOnlineExam2Page />} />
         <Route path="/student-online-exam-marks-view" element={<StudentOnlineExamMarksViewPage />} />
+        <Route path="/student-internal-marks-view" element={<StudentInternalMarksViewPage />} />
+        <Route path="/student-internal-marks-view-2" element={<StudentInternalMarksView2Page />} />
+        <Route path="/student-internal-marks-view-3" element={<StudentInternalMarksView3Page />} />
         <Route path="/student-online-exam-marks-view-co-bloom" element={<StudentOnlineExamMarksMappedViewPage />} />
         <Route path="/online-examination-2" element={<OnlineExam2ManagementPage />} />
         <Route path="/online-examination-2-details" element={<OnlineExam2LiveControlPage />} />
@@ -4287,10 +4322,26 @@ function App() {
         <Route path="/crm2-case-master" element={<Crm2Page key="case" entity="case" />} />
         <Route path="/crm2-distributiontype-master" element={<Crm2Page key="distributiontype" entity="distributiontype" />} />
         <Route path="/crm2-leads" element={<Crm2Page key="leads" entity="leads" />} />
+        <Route path="/crm2-lead-tasks" element={<Crm2LeadRecordPage key="tasks" kind="tasks" />} />
+        <Route path="/crm2-lead-notes" element={<Crm2LeadRecordPage key="notes" kind="notes" />} />
+        <Route path="/crm2-program-form-mapping" element={<Crm2ConfigurationPage key="form-mapping" kind="form-mapping" />} />
+        <Route path="/crm2-programwise-lead-search" element={<Crm2ProgramwiseLeadSearch />} />
+        <Route path="/crm2-address-master" element={<Crm2ConfigurationPage key="address" kind="address" />} />
+        <Route path="/crm2-my-leads" element={<Crm2Page entity="leads" mode="my" />} />
+        <Route path="/crm2-agent-lead-add" element={<Crm2Page entity="leads" mode="agent" />} />
+        <Route path="/crm2-merge-leads" element={<Crm2MergeLeadsPage />} />
+        <Route path="/crm2-confirm-admission" element={<Crm2ConfirmAdmissionPage />} />
+        <Route path="/admission-scholarship-master" element={<AdmissionScholarshipMasterPage />} />
         <Route path="/crm2-mediumofinstruction-master" element={<Crm2Page key="mediumofinstruction" entity="mediumofinstruction" />} />
         <Route path="/crm2-quota-master" element={<Crm2Page key="quota" entity="quota" />} />
         <Route path="/crm2-document-master" element={<Crm2Page key="document" entity="document" />} />
         <Route path="/crm2-admissionoffice-master" element={<Crm2Page key="admissionoffice" entity="admissionoffice" />} />
+        <Route path="/crm2-agent-master" element={<Crm2Page key="agent" entity="agent" />} />
+        <Route path="/crm2-counselor-program-mapping" element={<Crm2ProgramPage mode="mapping" />} />
+        <Route path="/crm2-lead-program-assignment" element={<Crm2ProgramPage mode="assignment" />} />
+        <Route path="/crm2-programwise-leads" element={<Crm2ProgramPage mode="my" />} />
+        <Route path="/crm2-programwise-lead-report" element={<Crm2ProgramReportPage />} />
+        <Route path="/crm2-programwise-summary-report" element={<Crm2ProgramReportPage summaryMode />} />
         <Route path="/crm2-interactionmode-master" element={<Crm2Page key="interactionmode" entity="interactionmode" />} />
         <Route path="/crm2-interactions" element={<Crm2InteractionsPage />} />
         <Route path="/crm-admin-users" element={<CrmAdminUsersPage />} />
@@ -4359,6 +4410,7 @@ function App() {
         <Route path="/hrleavepopulatevacation" element={<HrLeavePopulateVacationPage />} />
         <Route path="/hrleavecompbalance" element={<HrLeaveCompensatoryBalancePage />} />
         <Route path="/hremployeeattendance" element={<HrEmployeeAttendancePage />} />
+        <Route path="/hr-biometric-attendance" element={<HrBiometricAttendancePage />} />
         <Route path="/hrattendanceprocessingrules" element={<HrAttendanceProcessingRulesPage />} />
         <Route path="/hrattendancerulebased" element={<HrAttendanceRuleBasedPage />} />
         <Route path="/hrshifttiming" element={<HrShiftTimingPage />} />
@@ -4660,6 +4712,10 @@ function App() {
         <Route path="/student-profile-photo-upload" element={<StudentSelfPhotoUploadPage />} />
         <Route path="/userphotoupload" element={<UserPhotoUploadPage />} />
         <Route path="/student-photo-bulk-upload" element={<StudentPhotoBulkUploadPage />} />
+        <Route path="/bulk-regno-update" element={<StudentBulkFieldUpdatePage field="regno" />} />
+        <Route path="/bulk-rollno-update" element={<StudentBulkFieldUpdatePage field="rollno" />} />
+        <Route path="/bulk-photo-update" element={<StudentBulkFieldUpdatePage field="photo" />} />
+        <Route path="/biometric-id-mapping" element={<StudentBulkFieldUpdatePage field="biometricid" />} />
         <Route path="/faculty-cadra-requirement" element={<FacultyCadraRequirementPage />} />
         <Route path="/studentpromotion" element={<StudentPromotionPage />} />
         <Route path="/programtransfer" element={<ProgramTransferPage />} />
@@ -4675,6 +4731,7 @@ function App() {
         <Route path="/conduct-exam-auto-institution" element={<ConductExamAutoInstitutionPage />} />
         <Route path="/conduct-exam-fees" element={<ConductExamFeePage />} />
         <Route path="/conduct-exam-fees-max" element={<ConductExamFeeMaxPage />} />
+        <Route path="/conduct-exam-fine" element={<ConductExamFinePage />} />
         <Route path="/conduct-exam-form-fillup-dates" element={<ConductExamFormFillupDatesPage />} />
         <Route path="/exam-appeal-workflow" element={<ExamAppealWorkflowPage />} />
         <Route path="/student-exam-appeal" element={<StudentExamAppealPage />} />
@@ -4694,6 +4751,10 @@ function App() {
         <Route path="/conduct-exam-barcode-3" element={<ConductExamBarcode3Page />} />
         <Route path="/conduct-exam-barcode-4" element={<ConductExamBarcode4Page />} />
         <Route path="/conduct-exam-barcode-5" element={<ConductExamBarcode5Page />} />
+        <Route path="/conduct-exam-barcode-5a" element={<ConductExamBarcode5Page key="barcode5a" largeText />} />
+        <Route path="/conduct-exam-barcode-5b" element={<ConductExamBarcode5Page key="barcode5b" largeText largeMetaText />} />
+        <Route path="/conduct-exam-barcode-5c" element={<ConductExamBarcode5Page key="barcode5c" largeText largeMetaText dualBarcode />} />
+        <Route path="/conduct-exam-barcode-dynamic" element={<ConductExamBarcode5Page dynamic />} />
         <Route path="/conduct-exam-course-scheduler-report" element={<ConductExamCourseSchedulerReportPage />} />
         <Route path="/conduct-exam-populate-courses" element={<ConductExamPopulateCoursesPage />} />
         <Route path="/conduct-exam-populate-courses-2" element={<ConductExamPopulateCoursesPage extended />} />
@@ -4712,6 +4773,12 @@ function App() {
         <Route path="/conduct-exam-hall-ticket-1" element={<ConductExamHallTicket1Page />} />
         <Route path="/conduct-exam-hall-ticket-2" element={<ConductExamHallTicket2Page />} />
         <Route path="/conduct-exam-hall-ticket-3" element={<ConductExamHallTicket3Page />} />
+        <Route path="/conduct-exam-admit-card-4" element={<AdmitCard4Page />} />
+        <Route path="/conduct-exam-admit-card-4a" element={<AdmitCard4Page variant="4a" />} />
+        <Route path="/conduct-exam-admit-card-4b" element={<AdmitCard4Page variant="4b" />} />
+        <Route path="/conduct-exam-admit-card-4c" element={<AdmitCard4Page variant="4c" />} />
+        <Route path="/conduct-exam-supervisor-sheet-2" element={<SupervisorSheet2Page />} />
+        <Route path="/conduct-exam-supervisor-sheet-3" element={<SupervisorSheet2Page variant="3" />} />
         <Route path="/student-view-control" element={<StudentViewControlPage />} />
         <Route path="/student-admit-card-new" element={<StudentAdmitCardNewPage />} />
         <Route path="/student-admit-card-3" element={<StudentAdmitCard3Page />} />
@@ -4765,6 +4832,7 @@ function App() {
         <Route path="/student-phd-noc" element={<StudentPhdNocDownloadPage />} />
         <Route path="/conduct-exam-seat-allocation" element={<ConductExamSeatAllocationPage />} />
         <Route path="/conduct-exam-manual-seat-allocation" element={<ManualExamSeatAllocationPage />} />
+        <Route path="/conduct-exam-block-allocation" element={<ExamBlockAssignmentPage />} />
         <Route path="/conduct-exam-invigilation" element={<ConductExamInvigilationPage />} />
         <Route path="/conduct-exam-invigilator-allocation" element={<ConductExamInvigilatorAllocationPage />} />
         <Route path="/conduct-exam-invigilator-attendance" element={<ConductExamInvigilatorAttendancePage />} />

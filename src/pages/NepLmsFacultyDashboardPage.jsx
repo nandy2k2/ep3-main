@@ -49,6 +49,7 @@ import {
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import FacultyDashboardActions from './FacultyDashboardActions';
 
 const colors = ["#1e88e5", "#43a047", "#fb8c00", "#8e24aa", "#00acc1", "#e53935", "#3949ab"];
 
@@ -267,6 +268,7 @@ export default function NepLmsFacultyDashboardPage() {
       </Grid>
 
       {taskPanel}
+      <FacultyDashboardActions />
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid item xs={12} md={8}>

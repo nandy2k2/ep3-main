@@ -43,6 +43,7 @@ import { Add, AutoFixHigh, CloudUpload, Delete, Edit, Print, Refresh, Save } fro
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import MenuPageShell from "./MenuPageShell";
+import AdmissionExamApplicantLink from "./AdmissionExamApplicantLink";
 import AdvancedDrawingPad from "./QuestionDrawingPad";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
@@ -810,6 +811,7 @@ export function OnlineExamManagementPage({ myMode = false, admissionMode = false
       <Box sx={{ p: 2, bgcolor: "#f6f8fb", minHeight: "100vh" }}>
         <Stack spacing={2}>
           <Stack direction="row" alignItems="center"><Typography variant="h5" fontWeight={900} sx={{ flex: 1 }}>{activeTitle}</Typography><Button startIcon={<Refresh />} onClick={load}>Refresh</Button></Stack>
+          {admissionMode && <AdmissionExamApplicantLink />}
           {myMode && <Alert severity="info">Only exams created by {global1.name || global1.user} are shown on this page.</Alert>}
           {message && <Alert severity={/unable|select/i.test(message) ? "warning" : "success"} onClose={() => setMessage("")}>{message}</Alert>}
           {loading && <LinearProgress />}
@@ -2861,6 +2863,7 @@ export function AdmissionExamAssignmentPage() {
       <Box sx={{ p: 2, bgcolor: "#f6f8fb", minHeight: "100vh" }}>
         <Stack spacing={2}>
           <Typography variant="h5" fontWeight={900}>Admission Exam Assignment</Typography>
+          <AdmissionExamApplicantLink />
           {message && <Alert severity={/unable|select/i.test(message) ? "warning" : "success"} onClose={() => setMessage("")}>{message}</Alert>}
           {loading && <LinearProgress />}
           <Paper sx={{ p: 2 }}>
@@ -3280,7 +3283,7 @@ export function AdmissionEntranceReportPage() {
 
 export function AdmissionApplicantExamPage() {
   const [login, setLogin] = useState(() => JSON.parse(localStorage.getItem("admissionApplicantExamLogin") || "null"));
-  const [form, setForm] = useState({ colid: "", username: "", password: "" });
+  const [form, setForm] = useState(() => ({ colid: new URLSearchParams(window.location.search).get("colid") || "", username: "", password: "" }));
   const [exams, setExams] = useState([]);
   const [selectedExam, setSelectedExam] = useState(null);
   const [attempt, setAttempt] = useState(null);
@@ -3503,7 +3506,7 @@ export function AdmissionApplicantExamPage() {
                     <Typography variant="body2"><b>Your timezone:</b> {userZone}</Typography>
                     <Typography variant="body2">Your start: {fmtZone(exam.starttime, userZone)}</Typography>
                     <Typography variant="body2">Your end: {fmtZone(exam.endtime, userZone)}</Typography>
-                    {exam.attempt?.submittime ? <Chip label={`Submitted | Score ${exam.attempt.marksobtained || 0}/${exam.attempt.totalmarks || 0}`} /> : <Button variant="contained" disabled={!exam.canStart} onClick={() => start(exam)}>{exam.canStart ? "Start Exam" : "Not Available Now"}</Button>}
+                    {exam.attempt?.submittime ? <Chip label="Submitted" /> : <Button variant="contained" disabled={!exam.canStart} onClick={() => start(exam)}>{exam.canStart ? "Start Exam" : "Not Available Now"}</Button>}
                   </Stack>
                 </CardContent>
               </Card>

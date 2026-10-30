@@ -62,6 +62,7 @@ const navigation = [
 const quickLinks = [
   { label: "Faculty login", to: "/Login" },
   { label: "Student login", to: "/loginstud" },
+  { label: "Lead login", to: "/lead-login" },
   { label: "Applicant entrance exam", to: "/admission-applicant-exam" },
   { label: "Vendor login", to: "/purchase-new-vendor-login" },
   { label: "Create account", to: "/signuppage" }
@@ -233,13 +234,14 @@ function CampusWebsite() {
           <Box component={RouterLink} to="/" sx={{ display: "flex", alignItems: "center", textDecoration: "none", color: "inherit", flexGrow: 1 }}>
             <Box component="img" src={logoUrl} alt="Campus Technology" sx={{ width: { xs: 150, md: 190 }, maxHeight: 52, objectFit: "contain" }} />
           </Box>
-          <Stack direction="row" spacing={1} sx={{ display: { xs: "none", md: "flex" }, alignItems: "center" }}>
+          <Stack direction="row" spacing={1} sx={{ display: { xs: "none", md: "flex" }, alignItems: "center", flexWrap: 'wrap', justifyContent: 'flex-end', rowGap: 1, py: 1, maxWidth: '78%' }}>
             {navigation.map((item) => (
               <Button key={item.label} component="a" href={item.href} sx={{ color: "#334155" }}>
                 {item.label}
               </Button>
             ))}
             <Button variant="outlined" onClick={() => navigate("/Login")}>Login</Button>
+            <Button variant="outlined" onClick={() => navigate('/lead-login')}>Lead Login</Button>
             <Button variant="outlined" onClick={() => navigate("/parent-login")}>Parent Login</Button>
             <Button variant="outlined" onClick={() => navigate("/purchase-new-vendor-login")}>Vendor Login</Button>
             <Button variant="contained" onClick={() => navigate("/signuppage")}>Create Account</Button>

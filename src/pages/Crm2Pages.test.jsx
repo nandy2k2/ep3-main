@@ -1,10 +1,12 @@
 import React from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import Crm2Page from "./Crm2Pages";
+import Crm2Page, { Crm2Content, orderFamilyFields } from "./Crm2Pages";
+import { Crm2DashboardContext } from './Crm2DashboardContext';
 import ep1 from "../api/ep1";
 import MenuPageShell from "./MenuPageShell";
 import { DataGrid } from "@mui/x-data-grid";
 jest.mock("../api/ep1", () => ({ get: jest.fn(), post: jest.fn() }));
+jest.mock('./global1', () => ({ colid: 42, email: 'counselor@example.com', name: 'Counselor' }));
 jest.mock("./MenuPageShell", () => jest.fn(({ children }) => <div>{children}</div>));
 jest.mock("@mui/x-data-grid", () => ({ DataGrid: jest.fn(() => <div data-testid="grid" />), GridToolbar: () => null }));
 
@@ -20,6 +22,73 @@ const fillBasic = () => {
   fireEvent.change(screen.getByLabelText("Email"), { target: { value: "lead@example.com" } });
   fireEvent.change(screen.getByLabelText("Phone"), { target: { value: "9876543210" } });
 };
+test('dashboard embeds My leads with automatic year-scoped loading and preserves the detail filter', async () => {
+  render(<Crm2DashboardContext.Provider value={{ academicyear: '2026-27', view: 'admitted' }}><Crm2Content entity="leads" mode="my" autoLoad /></Crm2DashboardContext.Provider>);
+  await waitFor(() => expect(ep1.get).toHaveBeenCalledWith('/api/v2/crm2/leads', expect.objectContaining({ params: expect.objectContaining({ leadmode: 'my', dashboardyear: '2026-27', dashboardview: 'admitted' }) })));
+});
+test('task lead details display all editor tabs without a new lead form or second lead list', async () => {
+  render(<Crm2DashboardContext.Provider value={{ academicyear: '2026-27', taskStatusOnly: true }}><Crm2Content entity="leads" mode="my" initialLead={{ _id: 'lead1', name: 'Ann', email: 'ann@example.com', phone: '1234567890' }} detailOnly /></Crm2DashboardContext.Provider>);
+  await screen.findByRole('tab', { name: 'Identity' });
+  for (const name of ['Interactions','Applications','Lead tasks','Lead notes']) expect(screen.getByRole('tab', { name })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'New' })).not.toBeInTheDocument();
+  expect(screen.queryByTestId('grid')).not.toBeInTheDocument();
+});
+test.each([['', true], ['my', false], ['agent', false]])('auto assignment checkbox is available only in lead master (%s)', async (mode, visible) => {
+  ep1.post.mockImplementation(async (_, payload) => ({ data: { success: true, data: { ...payload, _id: 'lead1' } } }));
+  render(<Crm2Page mode={mode} />); fillBasic();
+  fireEvent.click(screen.getByRole('button', { name: 'Check duplicates & continue' }));
+  await screen.findByRole('tab', { name: 'CRM Details' });
+  expect(Boolean(screen.queryByRole('checkbox', { name: /Auto assign counselor/ }))).toBe(visible);
+});
+test('opt-in is passed to save and no matching counselor is shown as a warning', async () => {
+  ep1.post.mockImplementation(async (_, payload) => ({ data: { success: true, assignmentwarning: payload.autoassign ? 'No matching counselor found. Lead saved without changing counselor.' : undefined, data: { ...payload, _id: 'lead1' } } }));
+  render(<Crm2Page />); fillBasic();
+  fireEvent.click(screen.getByRole('button', { name: 'Check duplicates & continue' }));
+  const checkbox = await screen.findByRole('checkbox', { name: /Auto assign counselor/ });
+  expect(checkbox).not.toBeChecked(); fireEvent.click(checkbox);
+  expect(screen.getByLabelText('Counsellor name')).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  expect(await screen.findByText(/No matching counselor found/)).toBeTruthy();
+  expect(ep1.post.mock.calls.at(-1)[1].autoassign).toBe(true);
+});
+test('Family & Address starts with country, state and city regardless of metadata order', () => {
+  const fields = ['fathername', 'city', 'address', 'state', 'country'].map(field => ({ field }));
+  expect(orderFamilyFields(fields).map(row => row.field)).toEqual(['country','state','city','fathername','address']);
+  expect(fields[0].field).toBe('fathername');
+});
+test('country cascades state and city from Address master and clears dependent selections', async () => {
+  ep1.get.mockImplementation(async (url, options) => ({ data: url.endsWith('metadata') ? { fields: ['country','state','city'].map(field => ({ field, type: 'String', group: 'Family & Address' })) } : { data: [options.params.field === 'country' ? 'India' : options.params.field === 'state' ? 'Gujarat' : 'Ahmedabad'] } }));
+  ep1.post.mockResolvedValue({ data: { data: { _id: 'lead1', name: 'Lead', email: 'lead@example.com', phone: '9876543210' } } });
+  render(<Crm2Page />); fillBasic(); fireEvent.click(screen.getByText('Check duplicates & continue'));
+  fireEvent.click(await screen.findByRole('tab', { name: 'Family & Address' }));
+  expect(screen.getByLabelText('State')).toBeDisabled(); expect(screen.getByLabelText('City')).toBeDisabled();
+  for (const [field, option] of [['Country','India'],['State','Gujarat'],['City','Ahmedabad']]) {
+    fireEvent.mouseDown(screen.getByLabelText(field));
+    fireEvent.click(await screen.findByRole('option', { name: option }));
+  }
+  expect(ep1.get.mock.calls.some(([url, options]) => url.endsWith('/config/address-options') && options.params.field === 'city' && options.params.country === 'India' && options.params.state === 'Gujarat')).toBe(true);
+  fireEvent.change(screen.getByLabelText('Country'), { target: { value: '' } });
+  fireEvent.keyDown(screen.getByLabelText('Country'), { key: 'Escape' });
+  expect(screen.getByLabelText('State')).toHaveValue(''); expect(screen.getByLabelText('City')).toHaveValue('');
+});
+test.each(['my', 'agent'])('owned %s workspace passes scope on list and save', async mode => {
+  ep1.post.mockResolvedValue({ data: { data: { _id: 'lead1', name: 'Lead', email: 'lead@example.com', phone: '9876543210' } } });
+  render(<Crm2Page mode={mode} />);
+  fillBasic(); fireEvent.click(screen.getByText('Check duplicates & continue'));
+  await screen.findByRole('tab', { name: 'CRM Details' });
+  expect(ep1.post.mock.calls[0][1].leadmode).toBe(mode);
+  expect(screen.getByLabelText('Added by').readOnly).toBe(true);
+  expect(screen.getByLabelText('Date added').readOnly).toBe(true);
+  expect(screen.getByLabelText('Counsellor email').readOnly).toBe(true);
+  fireEvent.click(screen.getByRole('button', { name: 'Load' }));
+  await waitFor(() => expect(ep1.get.mock.calls.some(([url, options]) => url.endsWith('/leads') && options.params.leadmode === mode)).toBe(true));
+});
+test('agent recent duplicate shows Lead exists popup', async () => {
+  ep1.post.mockRejectedValue({ response: { data: { message: 'Lead exists' } } });
+  render(<Crm2Page mode="agent" />); fillBasic();
+  fireEvent.click(screen.getByText('Check duplicates & continue'));
+  expect(await screen.findByRole('dialog')).toHaveTextContent('Lead exists');
+});
 test("no leads load initially and successful identity creation opens the grouped tabs", async () => {
   ep1.post.mockResolvedValue({ data: { data: { _id: "lead1", name: "Lead", email: "lead@example.com", phone: "9876543210" } } });
   render(<Crm2Page />);
@@ -34,9 +103,26 @@ test("duplicate error keeps the lead in the initial identity step", async () => 
   ep1.post.mockRejectedValue({ response: { data: { message: "Duplicate found: email or phone already exists. Cannot proceed." } } });
   render(<Crm2Page />);
   fillBasic(); fireEvent.click(screen.getByText("Check duplicates & continue"));
-  await screen.findByText(/Duplicate found:/);
+  expect(await screen.findByRole('dialog')).toHaveTextContent(/Duplicate found:/);
   expect(screen.queryByRole("tab", { name: "CRM Details" })).toBeNull();
   expect(screen.getByLabelText("Email").value).toBe("lead@example.com");
+});
+test('My leads shows checking state, uses fallback session email and advances on success', async () => {
+  let finish;
+  ep1.post.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  render(<Crm2Page mode="my" />); fillBasic();
+  fireEvent.click(screen.getByRole('button', { name: 'Check duplicates & continue' }));
+  expect(screen.getByRole('button', { name: 'Checking duplicates...' })).toBeDisabled();
+  expect(ep1.post.mock.calls[0][1]).toEqual(expect.objectContaining({ user: 'counselor@example.com', leadmode: 'my' }));
+  await act(async () => finish({ data: { success: true, data: { _id: 'lead1', name: 'Lead', email: 'lead@example.com', phone: '9876543210' } } }));
+  expect(await screen.findByRole('tab', { name: 'CRM Details' })).toBeTruthy();
+});
+test('My leads never silently accepts a malformed save response', async () => {
+  ep1.post.mockResolvedValue({ data: { success: true } });
+  render(<Crm2Page mode="my" />); fillBasic();
+  fireEvent.click(screen.getByRole('button', { name: 'Check duplicates & continue' }));
+  await waitFor(() => expect(screen.getAllByText(/server did not return the saved lead/i).length).toBeGreaterThan(0));
+  expect(screen.getByRole('button', { name: 'Check duplicates & continue' })).toBeEnabled();
 });
 test.each(["source", "pipeline", "type", "category", "leadrating", "case", "distributiontype", "mediumofinstruction", "quota", "document", "admissionoffice", "interactionmode"])("%s master allows consecutive new entries without overwriting", async entity => {
   ep1.post.mockImplementation(async (_, payload) => ({ data: { data: { _id: "saved-id", ...payload } } }));
@@ -85,6 +171,7 @@ const profileMetadata = [
   { field: "quota", type: "String", group: "Family & Address" },
   { field: "12thmarks", type: "Number", group: "Education & Work" }, { field: "Mediumofinstruction", type: "String", group: "Education & Work" },
   { field: "active", type: "String", options: ["Yes", "No"], group: "CRM Details" }, { field: "followupdate", type: "Date", group: "CRM Details" },
+  { field: "agentname", type: "String", group: "CRM Details" }, { field: "agentemail", type: "String", group: "CRM Details" },
   { field: "admissionoffice", type: "String", group: "CRM Details" }, { field: "admissionofficeid", type: "String", group: "CRM Details" },
   { field: "campuscounsellor", type: "String", group: "CRM Details" }, { field: "campuscounseloremail", type: "String", group: "CRM Details" },
   { field: "password", type: "String", group: "Additional Details" }
@@ -96,6 +183,20 @@ async function openProfile() {
   fillBasic(); fireEvent.click(screen.getByText("Check duplicates & continue"));
   await screen.findByRole("tab", { name: "Identity" });
 }
+test("agent master includes the requested contact and tax fields", async () => {
+  render(<Crm2Page entity="agent" />);
+  for (const field of ["Name", "Email", "Phone", "PAN", "GST", "Address", "State", "Country"]) expect(screen.getByLabelText(field)).toBeTruthy();
+});
+test("selecting an agent automatically fills its read-only email", async () => {
+  await openProfile();
+  ep1.get.mockResolvedValue({ data: { data: [{ _id: "agent1", name: "Real agent", email: "agent@example.com" }] } });
+  fireEvent.mouseDown(screen.getByLabelText("Agent name"));
+  fireEvent.click(await screen.findByRole("option", { name: /Real agent.*agent@example.com/ }));
+  const email = screen.getByLabelText("Agent email");
+  expect(email.value).toBe("agent@example.com"); expect(email.readOnly).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(ep1.post.mock.calls.at(-1)[1]).toEqual(expect.objectContaining({ agentname: "Real agent", agentemail: "agent@example.com" })));
+});
 test("CRM category, follow-up and profile fields are separated into their correct tabs", async () => {
   await openProfile();
   expect(screen.getByLabelText("CRM category")).toBeTruthy();

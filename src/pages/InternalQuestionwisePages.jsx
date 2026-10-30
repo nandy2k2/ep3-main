@@ -94,6 +94,10 @@ function Content({ mode }) {
     } catch (error) { fail(error); } finally { setBusy(false); }
   };
   const saveMarks = async () => {
+    for (const student of students) for (const question of questions) {
+      const value = marks[`${student.regno}|${question._id}`];
+      if (value !== "" && value != null && (!Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > question.fullmarks)) return notify(`Marks for ${student.regno}, Q${question.questionno} must be between 0 and ${question.fullmarks}`, "error");
+    }
     setBusy(true);
     try {
       const cells = students.flatMap(student => questions.map(question => ({ regno: student.regno, questionid: question._id, marks: marks[`${student.regno}|${question._id}`] ?? "" })));
@@ -146,7 +150,7 @@ function Content({ mode }) {
   const columns = multi ? ["programcode", "semester", "course", "coursecode", "questionno", "question", "questiontype", "fullmarks", "conumber", "co"].map(field => ({ field, headerName: field, width: field === "question" || field === "co" ? 300 : 150 })) : [
     { field: "name", headerName: "Student", width: 200 }, { field: "regno", headerName: "Regno", width: 170 },
     ...questions.map(question => ({ field: question._id, headerName: `Q${question.questionno} / ${question.fullmarks}`, description: `${question.question} | ${question.conumber || ""}: ${question.co || ""}`, width: 160, sortable: false,
-      renderCell: ({ row }) => mode === "entry" ? <TextField size="small" type="number" inputProps={{ min: 0, max: question.fullmarks, step: "any", "aria-label": `${row.regno} Q${question.questionno}` }} value={marks[`${row.regno}|${question._id}`] ?? ""} onChange={event => setMarks(previous => ({ ...previous, [`${row.regno}|${question._id}`]: event.target.value }))} /> : marks[`${row.regno}|${question._id}`] ?? "—" })),
+      renderCell: ({ row }) => mode === "entry" ? <TextField size="small" type="number" inputProps={{ min: 0, max: question.fullmarks, step: "any", "aria-label": `${row.regno} Q${question.questionno}` }} value={marks[`${row.regno}|${question._id}`] ?? ""} onChange={event => { const value = event.target.value; if (value !== "" && (!Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > question.fullmarks)) { notify(`Q${question.questionno}: marks must be between 0 and ${question.fullmarks}`, "error"); return; } setMarks(previous => ({ ...previous, [`${row.regno}|${question._id}`]: value })); }} /> : marks[`${row.regno}|${question._id}`] ?? "—" })),
     { field: "total", headerName: "Total", width: 120, renderCell: ({ row }) => questions.reduce((sum, question) => sum + Number(marks[`${row.regno}|${question._id}`] || 0), 0).toFixed(2) }
   ];
   return <Stack spacing={2} sx={{ p: 2 }}>

@@ -8,6 +8,7 @@ import {
   FormControlLabel,
   Grid,
   IconButton,
+  LinearProgress,
   MenuItem,
   Paper,
   Radio,
@@ -19,7 +20,7 @@ import {
   Typography
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
-import ep1 from "../api/ep1";
+import defaultApi from "../api/ep1";
 
 const academicYears = ["2026-27", "2027-28", "2028-29"];
 const documentTypes = [
@@ -129,13 +130,21 @@ const applicationToForm = (application = {}) => ({
   extraFields: application.extraFields || {}
 });
 
-export default function PublicAdmissionApplyTabbedProgramDraftPage() {
+export default function PublicAdmissionApplyTabbedProgramDraftPage({ crmContext = null }) {
   const location = useLocation();
   const query = new URLSearchParams(location.search);
-  const colid = query.get("colid");
-  const formid = query.get("formid") || "default";
+  const colid = crmContext?.colid || query.get("colid");
+  const formid = crmContext?.application?.formid || query.get("formid") || "default";
   const levelFromQuery = query.get("level") || "";
-  const applicationIdFromQuery = query.get("applicationid") || "";
+  const applicationIdFromQuery = crmContext?.application?._id || query.get("applicationid") || "";
+  const ep1 = useMemo(() => crmContext ? {
+    get: (url, options) => url === '/admission-dynamic/application'
+      ? (crmContext.api || defaultApi).get(`${crmContext.endpoint || '/api/v2/crm2/applications'}/application`, { ...options, params: { ...options?.params, ...crmContext.scope } })
+      : defaultApi.get(url, options),
+    post: (url, data, options) => ['/admission-dynamic/applications-draft-save','/admission-dynamic/applications-draft-submit'].includes(url)
+      ? (crmContext.api || defaultApi).post(`${crmContext.endpoint || '/api/v2/crm2/applications'}/save`, { ...data, ...crmContext.scope, submit: url.endsWith('-submit') }, options)
+      : defaultApi.post(url, data, options)
+  } : defaultApi, [crmContext]);
   const [institution, setInstitution] = useState(null);
   const [formDefinition, setFormDefinition] = useState(null);
   const [fields, setFields] = useState([]);
@@ -148,6 +157,7 @@ export default function PublicAdmissionApplyTabbedProgramDraftPage() {
   const [retrieveEmail, setRetrieveEmail] = useState("");
   const [retrievePhone, setRetrievePhone] = useState("");
   const [isDraftEditable, setIsDraftEditable] = useState(true);
+  const [loadingApplication, setLoadingApplication] = useState(Boolean(crmContext));
   const [saving, setSaving] = useState(false);
   const [uploadingDocument, setUploadingDocument] = useState(false);
   const [message, setMessage] = useState("");
@@ -258,7 +268,7 @@ export default function PublicAdmissionApplyTabbedProgramDraftPage() {
       setRetrieveEmail(application.email || cleanEmail);
       setRetrievePhone(application.phone || cleanPhone);
       setForm(applicationToForm(application));
-      const draft = application.applicationstatus === "Draft";
+      const draft = application.applicationstatus === "Draft" || (crmContext?.allowSubmitted && application.applicationstatus === 'Applied');
       setIsDraftEditable(draft);
       setMessage(draft ? "Draft application loaded. You can continue editing." : "This application is already submitted and cannot be edited here.");
       if (!draft) {
@@ -274,6 +284,7 @@ export default function PublicAdmissionApplyTabbedProgramDraftPage() {
       setMessage(err.response?.data?.msg || "Unable to retrieve application.");
     } finally {
       setSaving(false);
+      setLoadingApplication(false);
     }
   };
 
@@ -592,7 +603,7 @@ export default function PublicAdmissionApplyTabbedProgramDraftPage() {
       setRetrieveApplicationId(res.data?._id || "");
       setForm(applicationToForm(res.data));
       setIsDraftEditable(true);
-      setMessage(`Draft saved successfully. Application ID: ${res.data?._id || ""}`);
+      setMessage(`${res.data?.applicationstatus === 'Applied' ? 'Application updated' : 'Draft saved successfully'}. Application ID: ${res.data?._id || ""}`);
       return res.data;
     } catch (err) {
       setMessage(err.response?.data?.msg || "Unable to save draft. Please try again.");
@@ -709,6 +720,18 @@ export default function PublicAdmissionApplyTabbedProgramDraftPage() {
     </Grid>
   );
 
+  useEffect(() => {
+    if (!crmContext?.saveRef) return undefined;
+    crmContext.saveRef.current = async () => {
+      if (saving || uploadingDocument) return false;
+      if (loadingApplication || !form._id || !isDraftEditable) return true;
+      return Boolean(await saveDraft());
+    };
+    return () => { crmContext.saveRef.current = null; };
+  });
+
+  if (crmContext && loadingApplication) return <Box sx={{ p: 3 }}><LinearProgress /><Typography sx={{ mt: 2 }}>Loading application...</Typography></Box>;
+
   if (submittedApplication) {
     const application = submittedApplication;
     const commonDetails = [
@@ -753,6 +776,7 @@ export default function PublicAdmissionApplyTabbedProgramDraftPage() {
           `}
         </style>
         <Stack className="no-print" direction="row" spacing={1} justifyContent="center" sx={{ mb: 2, flexWrap: "wrap" }}>
+          {crmContext?.allowSubmitted && <Button onClick={() => setSubmittedApplication(null)}>Edit application</Button>}
           <Button variant="contained" onClick={() => window.print()}>Print Acknowledgement</Button>
           <Button variant="outlined" onClick={() => window.print()}>Download PDF</Button>
           <Button variant="outlined" onClick={() => {
@@ -964,7 +988,7 @@ export default function PublicAdmissionApplyTabbedProgramDraftPage() {
           </Grid>
         )}
 
-        <Grid item xs={12}>
+        {!crmContext && <Grid item xs={12}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 1 }}>Retrieve Application and Continue Editing</Typography>
             <Stack direction={{ xs: "column", md: "row" }} spacing={1}>
@@ -992,7 +1016,7 @@ export default function PublicAdmissionApplyTabbedProgramDraftPage() {
               </Button>
             </Stack>
           </Paper>
-        </Grid>
+        </Grid>}
 
         <Grid item xs={12}>
           <Paper sx={{ p: 3 }}>
@@ -1013,12 +1037,12 @@ export default function PublicAdmissionApplyTabbedProgramDraftPage() {
             {activeTab === 0 && (
               <Grid container spacing={2}>
                 <Grid item xs={12} md={4}>
-                  <TextField select fullWidth label="Academic Year" value={form.academicyear} onChange={(e) => updateAcademicYear(e.target.value)}>
-                    {academicYears.map((year) => <MenuItem key={year} value={year}>{year}</MenuItem>)}
+                  <TextField select fullWidth disabled={Boolean(crmContext)} label="Academic Year" value={form.academicyear} onChange={(e) => updateAcademicYear(e.target.value)}>
+                    {Array.from(new Set([...academicYears, form.academicyear])).map((year) => <MenuItem key={year} value={year}>{year}</MenuItem>)}
                   </TextField>
                 </Grid>
                 <Grid item xs={12}>
-                  <FormControl fullWidth required>
+                  {crmContext ? <TextField fullWidth label="Selected program" value={form.programapplied || ''} InputProps={{ readOnly: true }} /> : <FormControl fullWidth required>
                     <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 1 }}>Select Program</Typography>
                     <RadioGroup value={form.programcode} onChange={(e) => selectGroupedProgram(e.target.value)} sx={{ mb: 3 }}>
                       <Grid container spacing={2}>
@@ -1041,7 +1065,7 @@ export default function PublicAdmissionApplyTabbedProgramDraftPage() {
                         ))}
                       </Grid>
                     </RadioGroup>
-                  </FormControl>
+                  </FormControl>}
                 </Grid>
                 <Grid item xs={12} md={4}>
                   <TextField fullWidth label="Program Code" value={form.programcode} disabled />
@@ -1183,7 +1207,7 @@ export default function PublicAdmissionApplyTabbedProgramDraftPage() {
                 Previous
               </Button>
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
-                <Button variant="outlined" onClick={saveDraft} disabled={saving || !isDraftEditable}>
+              <Button variant="outlined" onClick={saveDraft} disabled={saving || !isDraftEditable}>
                   {saving ? "Saving..." : "Save This Tab"}
                 </Button>
                 <Button
@@ -1193,9 +1217,12 @@ export default function PublicAdmissionApplyTabbedProgramDraftPage() {
                 >
                   Next
                 </Button>
-                <Button variant="contained" size="large" onClick={submitApplication} disabled={saving || !isDraftEditable}>
+                {crmContext?.allowSubmitted && form.applicationstatus === 'Applied' ? <Button onClick={async () => {
+                  const saved = await saveDraft();
+                  if (saved) { setApplicationFee(await getApplicationFeeForApplication(saved)); setProvisionalFee(await getProvisionalFeeForApplication(saved)); setSubmittedApplication(saved); }
+                }} disabled={saving}>View payments and acknowledgement</Button> : <Button variant="contained" size="large" onClick={submitApplication} disabled={saving || !isDraftEditable}>
                   {saving ? "Submitting..." : "Submit Application"}
-                </Button>
+                </Button>}
               </Stack>
             </Stack>
           </Paper>

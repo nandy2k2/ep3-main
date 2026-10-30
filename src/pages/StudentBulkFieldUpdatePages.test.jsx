@@ -1,0 +1,33 @@
+import React from "react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import Page from "./StudentBulkFieldUpdatePages";
+import ep1 from "../api/ep1";
+import global1 from "./global1";
+jest.mock("../api/ep1", () => ({ get: jest.fn(), post: jest.fn() }));
+jest.mock("./MenuPageShell", () => ({ children }) => <div>{children}</div>);
+jest.mock("react-router-dom", () => ({ useNavigate: () => jest.fn() }));
+jest.mock("@mui/x-data-grid", () => ({ DataGrid: ({ rows, columns }) => <div>{rows.map(row => <div key={row._id}>{columns.filter(column => column.renderCell).map(column => <div key={column.field}>{column.renderCell({ row })}</div>)}</div>)}</div>, GridToolbar: () => null }));
+jest.mock("@mui/material", () => {
+  const actual = jest.requireActual("@mui/material");
+  return { ...actual, Autocomplete: ({ options, value, onChange, multiple, renderInput, getOptionLabel }) => <select aria-label={renderInput({}).props.label} value="" onChange={event => onChange(null, multiple ? [...value, options[Number(event.target.value)]] : options[Number(event.target.value)])}><option value="">Choose</option>{options.map((option, index) => <option key={index} value={index}>{getOptionLabel ? getOptionLabel(option) : String(option)}</option>)}</select> };
+});
+test("loads on demand, prepopulates regnos and submits only the changed student", async () => {
+  global1.colid = 42;
+  window.confirm = jest.fn(() => true);
+  ep1.get.mockResolvedValue({ data: { fields: ["academicyear"], options: { academicyear: ["2026-27"] }, programs: [] } });
+  const rows = [{ _id: "s1", name: "One", regno: "OLD1", rollno: "1" }, { _id: "s2", name: "Two", regno: "OLD2", rollno: "2" }];
+  ep1.post.mockImplementation(async (url, body) => ({ data: url.endsWith("students") ? { data: rows, total: 2 } : { saved: 1, results: [{ id: "s1", status: "saved", value: "NEW1" }] } }));
+  const view = render(<Page field="regno" />);
+  await waitFor(() => expect(ep1.get).toHaveBeenCalledTimes(1)); expect(ep1.post).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Add filter" }));
+  fireEvent.change(screen.getByLabelText("Filter values"), { target: { value: "1" } });
+  fireEvent.click(screen.getByRole("button", { name: "Load students" }));
+  const input = await screen.findByLabelText("regno s1"); expect(input.value).toBe("OLD1");
+  fireEvent.change(input, { target: { value: "NEW1" } });
+  fireEvent.click(screen.getByRole("button", { name: "Submit changed entries (1)" }));
+  await waitFor(() => expect(ep1.post).toHaveBeenCalledWith("/api/v2/student-bulk-fields/save", { colid: 42, field: "regno", rows: [{ id: "s1", value: "NEW1", oldvalue: "OLD1" }] }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Submit changed entries (0)" }).disabled).toBe(true));
+  expect(screen.getByLabelText("regno s2").value).toBe("OLD2");
+  view.rerender(<Page field="rollno" />);
+  expect(screen.queryByLabelText("rollno s1")).toBeNull();
+});

@@ -163,6 +163,12 @@ export default function ExaminationConductWizardPage() {
 const feesAndScholarshipSteps = [
   ...steps.slice(0, 3),
   {
+    title: 'Exam Fine',
+    path: '/conduct-exam-fine',
+    icon: <Paid />,
+    description: 'Configure date-range fines per day or flat, charged per course or as a flat overall amount, for Programwise Form 2.'
+  },
+  {
     title: "Exam Fees",
     path: "/conduct-exam-fees",
     icon: <Paid />,
