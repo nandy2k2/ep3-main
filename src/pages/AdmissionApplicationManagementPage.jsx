@@ -73,7 +73,7 @@ const emptyGeneralAdmission = {
   section: ""
 };
 
-export default function AdmissionApplicationManagementPage() {
+export default function AdmissionApplicationManagementPage({ title = 'Application Management', renderExtraActions }) {
   const [fieldList, setFieldList] = useState([]);
   const [options, setOptions] = useState({});
   const [filters, setFilters] = useState([{ ...emptyFilter }]);
@@ -437,12 +437,12 @@ export default function AdmissionApplicationManagementPage() {
   }, [fieldList]);
 
   return (
-    <MenuPageShell title="Application Management">
+    <MenuPageShell title={title}>
       <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
         <Paper elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
           <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2}>
             <Box>
-              <Typography variant="h5" fontWeight={900}>Application Management</Typography>
+              <Typography variant="h5" fontWeight={900}>{title}</Typography>
               <Typography color="text.secondary">Search across all admission forms, select applicants, delete in bulk, or send email messages.</Typography>
             </Box>
             <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
@@ -463,6 +463,7 @@ export default function AdmissionApplicationManagementPage() {
           </Stack>
         </Paper>
 
+        {renderExtraActions?.(selectedRows)}
         {(loadingOptions || loadingRows || deleting || sending || bulkUploading || admitting || statusUpdating) && (
           <Paper elevation={0} sx={{ p: 2, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2 }}>
             <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={1} sx={{ mb: 1 }}>

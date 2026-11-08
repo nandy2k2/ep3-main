@@ -1,6 +1,6 @@
 import React from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import Crm2Page, { Crm2Content, orderFamilyFields } from "./Crm2Pages";
+import Crm2Page, { Crm2Content, LeadOverviewPanel, orderFamilyFields } from "./Crm2Pages";
 import { Crm2DashboardContext } from './Crm2DashboardContext';
 import ep1 from "../api/ep1";
 import MenuPageShell from "./MenuPageShell";
@@ -22,6 +22,18 @@ const fillBasic = () => {
   fireEvent.change(screen.getByLabelText("Email"), { target: { value: "lead@example.com" } });
   fireEvent.change(screen.getByLabelText("Phone"), { target: { value: "9876543210" } });
 };
+test('lead overview panel shows live summary and opens existing lead sections', () => {
+  const onSection = jest.fn();
+  render(<LeadOverviewPanel lead={{ _id: '1234567890abcdef345621', name: 'Prem Pal', photo: 'https://example.com/lead.jpg', email: 'prem@example.com', phone: '9876543210', source: 'Website', addedby: 'Counselor', counsellorname: 'Primary Counselor', programsinterested: [{ program: 'Master of Arts', programcode: 'MA' }] }} onSection={onSection} />);
+  expect(screen.getByText('Lead #345621')).toBeInTheDocument();
+  expect(screen.getByText('Master of Arts (MA)')).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Email lead' })).toHaveAttribute('href', 'mailto:prem@example.com');
+  expect(screen.getByRole('img', { name: 'Prem Pal profile photo' })).toHaveAttribute('src', 'https://example.com/lead.jpg');
+  fireEvent.click(screen.getByRole('button', { name: 'Edit photo' }));
+  expect(onSection).toHaveBeenCalledWith('Identity');
+  fireEvent.click(screen.getByRole('button', { name: 'Edit program choices' }));
+  expect(onSection).toHaveBeenCalledWith('Programs interested');
+});
 test('dashboard embeds My leads with automatic year-scoped loading and preserves the detail filter', async () => {
   render(<Crm2DashboardContext.Provider value={{ academicyear: '2026-27', view: 'admitted' }}><Crm2Content entity="leads" mode="my" autoLoad /></Crm2DashboardContext.Provider>);
   await waitFor(() => expect(ep1.get).toHaveBeenCalledWith('/api/v2/crm2/leads', expect.objectContaining({ params: expect.objectContaining({ leadmode: 'my', dashboardyear: '2026-27', dashboardview: 'admitted' }) })));

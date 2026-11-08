@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
+import StudentFormReportFilters from './StudentFormReportFilters';
 import { customFieldsPrintHtml } from "./examFormCustomFieldsPrint";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import {
@@ -1265,7 +1266,7 @@ function DynamicField({ field, value, onChange }) {
   return <TextField fullWidth size="small" type={field.fieldtype === "Date" ? "date" : field.fieldtype === "Number" ? "number" : "text"} label={field.label} value={value || ""} onChange={(e) => onChange(e.target.value)} InputLabelProps={field.fieldtype === "Date" ? { shrink: true } : undefined} required={/^yes$/i.test(field.required)} />;
 }
 
-export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode = false, programwiseMode = false, formActiveOnly = false, puPrintMode = false, mastercodeMode = false } = {}) {
+export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode = false, programwiseMode = false, formActiveOnly = false, puPrintMode = false, mastercodeMode = false, examForm3 = false } = {}) {
   const navigate = useNavigate();
   const [filters, setFilters] = useState({ academicyear: "2026-27", examcode: "", examtype: atktMode ? "ATKT" : "Regular" });
   const [exams, setExams] = useState([]);
@@ -1284,6 +1285,8 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
   const [error, setError] = useState("");
   const [submittedFeeReady, setSubmittedFeeReady] = useState(false);
   const [printingForm, setPrintingForm] = useState(false);
+  const [lifecycle, setLifecycle] = useState(null);
+  const form3Locked = examForm3 && !!lifecycle && lifecycle.status !== 'Draft';
 
   useEffect(() => {
     loadExams();
@@ -1359,10 +1362,18 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
       setSelectedCourses([]);
       setSelectedFormId("");
       setSubmittedFeeReady(false);
+      setLifecycle(null);
+      setData({}); setDocuments([]);
       const res = await ep1.get("/api/v2/conductexam/student-exam-form-context", {
-        params: { colid: global1.colid, regno: global1.regno, academicyear: filters.academicyear, examcode: filters.examcode, examtype: atktMode ? "ATKT" : filters.examtype, mode: atktMode ? "ATKT" : undefined, overview: puPrintMode ? "Yes" : undefined, examFine: formActiveOnly && !mastercodeMode ? 'Yes' : undefined }
+        params: { colid: global1.colid, regno: global1.regno, academicyear: filters.academicyear, examcode: filters.examcode, examtype: atktMode ? "ATKT" : filters.examtype, mode: atktMode ? "ATKT" : undefined, overview: puPrintMode ? "Yes" : undefined, examFine: formActiveOnly && !mastercodeMode && !examForm3 ? 'Yes' : undefined }
       });
       const nextContext = res.data?.data || null;
+      if (examForm3) {
+        const state = await ep1.get('/api/v2/exam-form-3', { params: { token: global1.token, academicyear: filters.academicyear, examcode: filters.examcode } });
+        setLifecycle(state.data?.data || null);
+        const saved = state.data?.data?.snapshot;
+        if (saved) { setData(saved.data || {}); setDocuments(saved.documents || []); }
+      }
       setContext(nextContext);
       if (nextContext?.forms?.length) setSelectedFormId(nextContext.forms[0].formid);
     } catch (err) {
@@ -1386,8 +1397,9 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
   const someCoursesSelected = allCourseIds.some((id) => selectedCourses.includes(id));
 
   useEffect(() => {
-    setSelectedCourses(allCourseIds);
-  }, [allCourseIds]);
+    setSelectedCourses(examForm3 && lifecycle?.snapshot ? (lifecycle.snapshot.courses || []).map(row => courseKey(row)).filter(key => allCourseIds.includes(key)) : allCourseIds);
+    if (examForm3 && lifecycle?.snapshot?.formid) setSelectedFormId(lifecycle.snapshot.formid);
+  }, [allCourseIds, examForm3, lifecycle]);
 
   const rawTotalFee = selectedCourses.reduce((sum, key) => {
     const course = courseRows.find((row) => row.id === key);
@@ -1424,7 +1436,25 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
   const toggleAllCourses = () => {
     setSelectedCourses(allCoursesSelected ? [] : allCourseIds);
   };
+  const verifyExamForm2PrintEligibility = async () => {
+    if (!puPrintMode) return true;
+    try {
+      setPrintingForm(true);
+      const res = await ep1.get('/api/v2/conductexam/student-exam-form-print-eligibility', { params: { colid: global1.colid, regno: global1.regno, academicyear: filters.academicyear, examcode: filters.examcode } });
+      const eligibility = res.data?.data;
+      setContext(previous => previous ? { ...previous, formOverview: { ...(previous.formOverview || {}), printEligibility: eligibility } } : previous);
+      if (!eligibility?.eligible) {
+        setError(eligibility?.message || 'Printing is disabled because Fees is not Yes in Exam Roll.');
+        return false;
+      }
+      return true;
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to verify Exam Roll fee status. Printing is disabled.');
+      return false;
+    } finally { setPrintingForm(false); }
+  };
   const printExamForm = async () => {
+    if (!await verifyExamForm2PrintEligibility()) return;
     const selectedCourseRows = selectedCourses.map((key) => courseRows.find((row) => row.id === key)).filter(Boolean);
     const printData = {
       institution,
@@ -1460,7 +1490,8 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
       title: preapprovedMode ? (atktMode ? "Preapproved ATKT Form" : "Preapproved Regular Form") : atktMode ? "ATKT Form" : "Student Exam Form"
     });
   };
-  const printExamFormCustomFields = () => {
+  const printExamFormCustomFields = async () => {
+    if (!await verifyExamForm2PrintEligibility()) return;
     const selectedCourseRows = selectedCourses.map(key => courseRows.find(row => row.id === key)).filter(Boolean);
     openStudentExamFormPrint({
       institution,
@@ -1492,7 +1523,23 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
       setUploadingDoc("");
     }
   };
+  const saveForm3 = async draft => {
+    if (submitting || form3Locked) return;
+    setSubmitting(true); setError(''); setMessage('');
+    const snapshot = { formid: selectedFormId, exam: selectedExam.exam || selectedExam.examname || filters.examcode, examtype: filters.examtype, regulation: context?.student?.regulation, semester: context?.student?.semester, data, documents, courses: selectedCourses.map(key=>courseRows.find(row=>row.id===key)).filter(Boolean) };
+    try {
+      const result = await ep1.post(`/api/v2/exam-form-3/${draft ? 'draft' : 'submit'}`, { token: global1.token, academicyear: filters.academicyear, examcode: filters.examcode, snapshot });
+      if (draft) setLifecycle(result.data.data);
+      else {
+        setLifecycle({ status: 'Submitted', snapshot });
+        if (Array.isArray(result.data.examFeeLedger)) setContext(previous=>({...previous,examFeeLedger:result.data.examFeeLedger}));
+      }
+      setMessage(draft ? 'Draft saved. You can return and edit it.' : 'Exam form submitted. You can now pay fees and print. Further changes are not allowed.');
+    } catch (err) { setError(err.response?.data?.message || err.message); }
+    finally { setSubmitting(false); }
+  };
   const submit = async () => {
+    if (examForm3) { await saveForm3(false); return; }
     try {
       setSubmitting(true);
       setError("");
@@ -1534,7 +1581,7 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
     <MenuPageShell title={mastercodeMode ? "Programwise mastercode" : formActiveOnly ? "Programwise Form 2" : programwiseMode ? "Programwise Form" : preapprovedMode ? (atktMode ? "Preapproved ATKT Form" : "Preapproved Regular Form") : atktMode ? "ATKT Form" : "Student Exam Form"} menuType="student">
       <Box sx={pageBox}>
         <BackButton student />
-        <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>{mastercodeMode ? "Programwise mastercode" : puPrintMode ? "Exam form 2" : formActiveOnly ? "Programwise form 2" : programwiseMode ? "Programwise form" : preapprovedMode ? (atktMode ? "Preapproved ATKT form" : "Preapproved regular form") : atktMode ? "ATKT form" : "Exam form"}</Typography>
+        <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>{mastercodeMode ? "Programwise mastercode" : puPrintMode ? (examForm3 ? "Exam form 3" : "Exam form 2") : formActiveOnly ? "Programwise form 2" : programwiseMode ? "Programwise form" : preapprovedMode ? (atktMode ? "Preapproved ATKT form" : "Preapproved regular form") : atktMode ? "ATKT form" : "Exam form"}</Typography>
         <Snackbar
           open={Boolean(error || message)}
           autoHideDuration={9000}
@@ -1565,7 +1612,7 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
         </Paper>
 
         {context && (
-          <>
+          <fieldset disabled={form3Locked} style={{border:0,padding:0,margin:0,minWidth:0,pointerEvents:form3Locked?'none':undefined}}>
             {puPrintMode && <ExamForm2Overview overview={context.formOverview} student={context.student || {}} />}
             <Paper sx={{ ...paperSx, mt: 2 }}>
               <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 1 }}>
@@ -1573,7 +1620,7 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                   {!programwiseMode && <Button variant="outlined" disabled={printingForm} startIcon={printingForm ? <CircularProgress size={16} /> : <Print />} onClick={printExamForm}>{printingForm ? "Loading preview..." : "Print preview"}</Button>}
                   {!puPrintMode && <Button variant="outlined" startIcon={<Print />} onClick={printExamFormRevised}>Print preview 2</Button>}
-                  <Button variant="outlined" startIcon={<Print />} onClick={printExamFormCustomFields}>Print preview with custom fields</Button>
+                  <Button variant="outlined" disabled={printingForm} startIcon={<Print />} onClick={printExamFormCustomFields}>Print preview with custom fields</Button>
                 </Stack>
               </Stack>
               <Grid container spacing={2} alignItems="flex-start">
@@ -1702,14 +1749,14 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
                   disableRowSelectionOnClick
                 />
               </Box>
-              <Stack direction={{ xs: "column", sm: "row" }} justifyContent="flex-end" spacing={1.5} sx={{ mt: 2 }}>
+              <Stack direction={{ xs: "column", sm: "row" }} justifyContent="flex-end" spacing={1.5} sx={{ mt: 2, display: examForm3 ? 'none' : undefined }}>
                 {!programwiseMode && <Button variant="outlined" size="large" disabled={printingForm} startIcon={printingForm ? <CircularProgress size={16} /> : <Print />} onClick={printExamForm}>
                   {printingForm ? "Loading preview..." : "Print preview"}
                 </Button>}
                 {!puPrintMode && <Button variant="outlined" size="large" startIcon={<Print />} onClick={printExamFormRevised}>
                   Print preview 2
                 </Button>}
-                <Button variant="outlined" size="large" startIcon={<Print />} onClick={printExamFormCustomFields}>Print preview with custom fields</Button>
+                <Button variant="outlined" size="large" disabled={printingForm} startIcon={<Print />} onClick={printExamFormCustomFields}>Print preview with custom fields</Button>
                 <Button variant="contained" size="large" disabled={submitting || !selectedForm || !selectedCourses.length} startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <Save />} onClick={submit}>
                   Submit exam form
                 </Button>
@@ -1757,8 +1804,17 @@ export function StudentExamDynamicFormPage({ atktMode = false, preapprovedMode =
                 />
               </Box>
             </Paper>
-          </>
+          </fieldset>
         )}
+        {examForm3 && context && <Stack spacing={2} sx={{mt:2}}>
+          {lifecycle && <Alert severity={lifecycle.status==='Submitted'?'success':'info'}>Status: {lifecycle.status}{form3Locked ? '. This form is read-only.' : '. You can edit and save this draft.'}</Alert>}
+          <Stack direction="row" spacing={2} useFlexGap flexWrap="wrap">
+            <Button variant="contained" disabled={lifecycle?.status!=='Submitted'} onClick={()=>window.location.assign('/studentonlinefeepayment2')}>Pay fees</Button>
+            <Button startIcon={<Print/>} disabled={printingForm} onClick={printExamForm}>Print preview</Button>
+            <Button startIcon={<Save/>} disabled={submitting||form3Locked||!selectedForm} onClick={()=>saveForm3(true)}>Save</Button>
+            <Button variant="contained" disabled={submitting||form3Locked||!selectedForm||!selectedCourses.length} onClick={()=>saveForm3(false)}>Submit</Button>
+          </Stack>
+        </Stack>}
       </Box>
     </MenuPageShell>
   );
@@ -1804,6 +1860,7 @@ function SearchSelect({ label, value, options = [], onChange, getOptionLabel = (
 }
 
 export function ConductExamStudentFormPage({ atktMode = false } = {}) {
+  const dynamicFilterRef = useRef(null);
   const [filters, setFilters] = useState({ academicyear: "", regulation: "", examcode: "", program: "", programcode: "", semester: "" });
   const [options, setOptions] = useState({ academicyears: [], regulations: [], exams: [], programs: [], semesters: [] });
   const [students, setStudents] = useState([]);
@@ -1846,7 +1903,7 @@ export function ConductExamStudentFormPage({ atktMode = false } = {}) {
       setError("");
       setMessage("");
       setSelectedRegno("");
-      const params = { colid: global1.colid, ...filters, mode: atktMode ? "ATKT" : undefined, examtype: atktMode ? "ATKT" : undefined };
+      const params = { colid: global1.colid, ...filters, dynamicfilters: !atktMode ? JSON.stringify(dynamicFilterRef.current?.getFilters() || []) : undefined, mode: atktMode ? "ATKT" : undefined, examtype: atktMode ? "ATKT" : undefined };
       Object.keys(params).forEach((key) => !params[key] && delete params[key]);
       const res = await ep1.get("/api/v2/conductexam/student-exam-form-report", { params });
       setStudents(res.data?.data?.students || []);
@@ -1948,6 +2005,7 @@ export function ConductExamStudentFormPage({ atktMode = false } = {}) {
           </Grid>
         </Paper>
 
+        {!atktMode && <Paper sx={{ ...paperSx, mt: 2, p: 2 }}><Typography variant="h6">Additional filters</Typography><StudentFormReportFilters ref={dynamicFilterRef} scope={filters}/><Button variant="contained" disabled={loadingRows} onClick={loadStudents} sx={{mt:2}}>Load filtered students</Button></Paper>}
         <Paper sx={{ ...paperSx, mt: 2 }}>
           <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 1 }}>
             <Typography variant="h6" sx={{ fontWeight: 800 }}>{atktMode ? "Students with ATKT courses" : "Students from examroll"}</Typography>

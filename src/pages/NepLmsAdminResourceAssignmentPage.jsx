@@ -27,6 +27,7 @@ import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import { AiContentCheckbox, AiContentReport } from './AssignmentAiContentReview';
 import {
   deleteSequentialContent,
   generateSequentialContentFile,
@@ -84,7 +85,7 @@ const blankAiResourceForm = {
 };
 const blankAiQuestionForm = { provider: "Gemini", questioncount: "5", difficulty: "Medium", language: "English", courseMaterialId: "", additionalprompt: "" };
 const blankLessonAiForm = { provider: "Gemini", geminiModel: "gemini-2.5-flash", ollamaConfigId: "", language: "English", flashcardcount: "6", additionalprompt: "" };
-const blankAiEvaluationForm = { provider: "Gemini", model: "gemini-2.5-flash", ollamaConfigId: "" };
+const blankAiEvaluationForm = { provider: "Gemini", model: "gemini-2.5-flash", ollamaConfigId: "", checkAiContent: false };
 const resourceTypes = ["Assignment", "Course Material", "Lesson Plan", "Timetable", "Quiz"];
 const lessonContentTypes = ["Text", "File Link", "Infographics", "Video Link", "Quiz", "Mindmap", "Flash Card"];
 const geminiModels = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
@@ -845,6 +846,7 @@ export default function NepLmsAdminResourceAssignmentPage() {
         provider: aiEvaluationForm.provider,
         model: aiEvaluationForm.model,
         ollamaConfigId: aiEvaluationForm.ollamaConfigId,
+        checkAiContent: aiEvaluationForm.checkAiContent,
         gradedby: global1.name || global1.user,
         user: global1.user
       });
@@ -1374,6 +1376,7 @@ export default function NepLmsAdminResourceAssignmentPage() {
   ];
 
   const assignmentSubmissionColumns = [
+    { field: 'aicontentreview', headerName: 'AI content assessment', width: 260, sortable: false, renderCell: ({row}) => <AiContentReport report={row.aicontentreview}/> },
     { field: "student", headerName: "Student", width: 180 },
     { field: "regno", headerName: "Reg No", width: 130 },
     { field: "email", headerName: "Email", width: 220 },
@@ -1761,6 +1764,7 @@ export default function NepLmsAdminResourceAssignmentPage() {
         {resourceType === "Assignment" && (
           <Paper sx={{ p: 2, mt: 2, overflowX: "auto" }}>
             <Typography variant="h6" fontWeight={800} sx={{ mb: 2 }}>Assignment Submissions and AI Evaluation</Typography>
+            <AiContentCheckbox checked={aiEvaluationForm.checkAiContent} disabled={Boolean(evaluatingSubmissionId)} onChange={checked=>setAiEvaluationForm(previous=>({...previous,checkAiContent:checked}))}/>
             <Grid container spacing={2} alignItems="center" sx={{ mb: 2 }}>
               <Grid item xs={12} md={4}>
                 <FormControl fullWidth>

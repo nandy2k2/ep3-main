@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
+import ScholarshipLedgerDetails from './ScholarshipLedgerDetails';
+import AdmissionProgramChoice from './AdmissionProgramChoice';
 import { Alert, Box, Button, Checkbox, Dialog, DialogContent, DialogTitle, FormControlLabel, LinearProgress, Snackbar, Stack, Step, StepLabel, Stepper, TextField, Typography } from '@mui/material';
 import { Print, Refresh, Save } from '@mui/icons-material';
 import { DataGrid, GridToolbar } from '@mui/x-data-grid';
@@ -6,12 +8,13 @@ import { Filters } from './Crm2ProgramPages';
 import MenuPageShell from './MenuPageShell';
 import ep1 from '../api/ep1';
 import global1 from './global1';
+import { ScholarshipItemsGrid } from './AdmissionScholarshipItems';
 const root = '/api/v2/crm2-admissions';
 const scope = () => ({ colid: global1.colid, user: global1.user || global1.email });
 const steps = ['Select programwise lead', 'Admit student', 'Apply fees', 'Apply scholarships', 'Confirmation'];
 const display = value => value == null ? '' : typeof value === 'object' ? JSON.stringify(value) : String(value);
 const escape = value => display(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
-const labels = { _id: 'ID', regno: 'Registration no', academicyear: 'Academic year', programcode: 'Program code', feeitem: 'Fee item', feeeitem: 'Fee item', feecategory: 'Fee category', calculatedamount: 'Scholarship amount' };
+const labels = { _id: 'ID', regno: 'Registration no', academicyear: 'Academic year', programcode: 'Program code', semester:'Semester', feeitem: 'Fee item', feeeitem: 'Fee item', feecategory: 'Fee category', feebase:'Matched applied fee amount', scholarshiptype:'Scholarship type', calculatedamount: 'Scholarship amount' };
 function ReadGrid({ rows, selected, onSelect, busy = false }) {
   const columns = useMemo(() => [...new Set(rows.flatMap(row => Object.keys(row)))].filter(field => !['__v', 'password', 'authenticatorsecret'].includes(field)).map(field => ({ field, headerName: labels[field] || field, minWidth: 160, renderCell: params => <span title={display(params.value)}>{display(params.value)}</span> })), [rows]);
   return <Box sx={{ height: 410 }}><DataGrid rows={rows} getRowId={row => row._id} columns={columns} checkboxSelection={Boolean(onSelect)} rowSelectionModel={selected || []} onRowSelectionModelChange={onSelect} disableRowSelectionOnClick loading={busy} slots={{ toolbar: GridToolbar }} /></Box>;
@@ -37,20 +40,28 @@ function LeadSelection({ onSelect, notify }) {
   </Stack>;
 }
 export default function Crm2ConfirmAdmissionPage() {
+  const ledgerDetails=useRef(null),itemsGrid=useRef(null),programChoice=useRef(null),[uploading,setUploading]=useState(false);
   const [step, setStep] = useState(0), [assignment, setAssignment] = useState(null), [automatic, setAutomatic] = useState(true), [form, setForm] = useState({ regno: '', semester: '1', section: 'A', regulation: '', password: '', meritpercentage: '' });
   const [admissionid, setAdmissionid] = useState(''), [data, setData] = useState(null), [selected, setSelected] = useState([]), [busy, setBusy] = useState(false), [notice, setNotice] = useState(null), [temporary, setTemporary] = useState(''), [preview, setPreview] = useState('');
   const notify = (message, severity = 'success') => setNotice({ message, severity });
   const run = async fn => { setBusy(true); try { await fn(); } catch (error) { notify(error.response?.data?.message || error.message, 'error'); } finally { setBusy(false); } };
   const reload = async id => { const res = await ep1.get(`${root}/details`, { params: { ...scope(), admissionid: id || admissionid } }); setData(res.data); return res.data; };
   const admit = () => run(async () => {
-    const res = await ep1.post(`${root}/admit`, { ...scope(), assignmentid: assignment._id, ...form, autoregnumber: automatic });
+    const program=programChoice.current?.getProgram();if(!program?.programcode)throw Error('Select an admission program');
+    const res = await ep1.post(`${root}/admit`, { ...scope(), assignmentid: assignment._id, ...form, programcode:program.programcode, autoregnumber: automatic });
     setAdmissionid(res.data.admissionid); setTemporary(res.data.temporarypassword || '');
     const value = await reload(res.data.admissionid); setSelected([]); setStep(value.admission.scholarshipsdone ? 4 : value.admission.feesdone ? 3 : 2);
     notify(res.data.resumed ? 'Existing admission loaded' : `Student admitted: ${res.data.regno}`);
   });
   const apply = kind => run(async () => {
-    const res = await ep1.post(`${root}/apply`, { ...scope(), admissionid, kind, ids: selected });
+    const items=kind==='scholarships'&&Array.isArray(data.scholarshipitems)?itemsGrid.current.getSelections(selected).map(({studentid,scholarshipid,sourceledgerid,fingerprint,scholarshipamount})=>({studentid,scholarshipid,sourceledgerid,fingerprint,...(scholarshipamount===undefined?{}:{scholarshipamount})})):undefined;
+    if(uploading)throw Error('Wait for the document upload to complete');
+    const res = await ep1.post(`${root}/apply`, { ...scope(), admissionid, kind, ids: selected, ...(items?{items}:{}), ...(kind==='scholarships'?{details:ledgerDetails.current?.getDetails()}:{}) });
     await reload(); setSelected([]); setStep(kind === 'fees' ? 3 : 4); notify(`${res.data.saved} ${kind} entries applied`);
+  });
+  const skipScholarships=()=>run(async()=>{
+    await ep1.post(`${root}/apply`,{...scope(),admissionid,kind:'scholarships',ids:[],items:[],skipscholarships:true});
+    await reload();setSelected([]);setStep(4);notify('Admission confirmed without applying scholarships');
   });
   const print = () => run(async () => {
     const result = await ep1.get('/api/institution', { params: { colid: global1.colid } });
@@ -63,20 +74,25 @@ export default function Crm2ConfirmAdmissionPage() {
     {step === 0 && <LeadSelection notify={notify} onSelect={value => { setAssignment(value); setStep(1); }} />}
     {assignment && <Typography fontWeight={600}>{assignment.lead?.name} | {assignment.academicyear} | {assignment.program} ({assignment.programcode})</Typography>}
     {step === 1 && <Stack spacing={2}>
+      <AdmissionProgramChoice key={assignment._id} ref={programChoice} assignment={assignment} disabled={busy}/>
       <FormControlLabel control={<Checkbox checked={automatic} onChange={event => setAutomatic(event.target.checked)} />} label="Auto-generate unique registration number" />
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0,1fr)', md: 'repeat(3,minmax(0,1fr))' }, gap: 2 }}>{Object.keys(form).map(field => <TextField key={field} label={({ regno: 'Registration no', password: 'Student password (blank: generate)', meritpercentage: 'Qualifying merit percentage (optional)' })[field] || field} type={field === 'password' ? 'password' : field === 'meritpercentage' ? 'number' : 'text'} inputProps={field === 'meritpercentage' ? { min: 0, max: 100, step: 'any' } : undefined} disabled={busy || (field === 'regno' && automatic)} value={form[field]} onChange={event => setForm(previous => ({ ...previous, [field]: event.target.value }))} />)}</Box>
       <Stack direction="row" gap={2}><Button disabled={busy} onClick={() => setStep(0)}>Back</Button><Button variant="contained" startIcon={<Save />} disabled={busy || (!automatic && !form.regno.trim())} onClick={admit}>Admit / resume admission</Button></Stack>
     </Stack>}
     {temporary && <Alert severity="warning" onClose={() => setTemporary('')}>Generated student password: {temporary}</Alert>}
     {(step === 2 || step === 3) && data && <Stack spacing={2}>
-      {step === 3 && <Typography>Percentage scholarship base: {Number(data.scholarshipbase).toFixed(2)}</Typography>}
+      {step===3&&<Stack direction="row" justifyContent="space-between" alignItems="center"><Typography variant="h6">Scholarships (optional)</Typography><Button disabled={busy||uploading} onClick={skipScholarships}>Skip scholarships and finish</Button></Stack>}
+      {step === 3 && <Typography>Applied fee total: {Number(data.scholarshipbase).toFixed(2)} · Semester: {data.student.semester} · Selected scholarship: {(data.scholarshipitems || data.scholarships).filter(row=>selected.includes(row._id)).reduce((sum,row)=>sum+Number(row.calculatedamount || 0),0).toFixed(2)}</Typography>}
       {step === 3 && data.admission.meritpercentage == null && <Alert severity="info">Qualifying merit percentage is unavailable. Merit-based scholarships are excluded.</Alert>}
-      {!data[step === 2 ? 'fees' : 'scholarships'].length && <Alert severity="info">No matching {step === 2 ? 'fees' : 'scholarships'} found.</Alert>}
-      <ReadGrid rows={data[step === 2 ? 'fees' : 'scholarships']} selected={selected} onSelect={setSelected} busy={busy} />
-      <Stack direction="row" gap={2}><Button disabled={busy} onClick={() => run(() => reload())}>Reload matches</Button><Button disabled={busy || !selected.length} variant="contained" onClick={() => apply(step === 2 ? 'fees' : 'scholarships')}>Apply selected {step === 2 ? 'fees' : 'scholarships'}</Button><Button disabled={busy} onClick={() => apply(step === 2 ? 'fees' : 'scholarships')}>{selected.length ? 'Apply and continue' : 'Continue without applying'}</Button></Stack>
+      {!(step===3?(data.scholarshipitems || data.scholarships):data.fees).length && <Alert severity="info">No matching {step === 2 ? 'fees' : 'scholarship fee items'} found.</Alert>}
+      {step===3&&Array.isArray(data.scholarshipitems)?<ScholarshipItemsGrid ref={itemsGrid} rows={data.scholarshipitems} selected={selected} onSelect={setSelected} busy={busy} onReload={()=>run(async()=>{await reload();setSelected([]);})}/>:<ReadGrid rows={data[step === 2 ? 'fees' : 'scholarships']} selected={selected} onSelect={setSelected} busy={busy} />}
+      {step===3&&!!data.scholarshipunmatched?.length&&<Alert severity="info">{data.scholarshipunmatched.map(row=>row.reason).join(' ')}</Alert>}
+      {step===3&&<ScholarshipLedgerDetails ref={ledgerDetails} disabled={busy} onUploading={setUploading}/>}
+      <Stack direction="row" gap={2}><Button disabled={busy||uploading} onClick={() => run(() => reload())}>Reload matches</Button><Button disabled={busy || uploading || !selected.length} variant="contained" onClick={() => apply(step === 2 ? 'fees' : 'scholarships')}>Apply selected {step === 2 ? 'fees' : 'scholarships'}</Button><Button disabled={busy||uploading} onClick={() => apply(step === 2 ? 'fees' : 'scholarships')}>{selected.length ? 'Apply and continue' : 'Continue without applying'}</Button></Stack>
     </Stack>}
     {step === 4 && data && <Stack spacing={2}>
       <Alert severity="success">Admission confirmed: {data.student.name} — {data.student.regno}</Alert>
+      {data.admission.scholarshipsskipped&&<Typography>Scholarships skipped.</Typography>}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0,1fr)', md: 'repeat(3,minmax(0,1fr))' }, gap: 2 }}>{['name', 'regno', 'email', 'phone', 'academicyear', 'program', 'programcode', 'semester', 'section', 'gender', 'category'].map(field => <Box key={field}><Typography variant="caption">{labels[field] || field}</Typography><Typography sx={{ overflowWrap: 'anywhere' }}>{data.student[field] || '-'}</Typography></Box>)}</Box>
       <ReadGrid rows={data.ledger} />
       <Typography>Ledger balance: {data.ledger.reduce((sum, row) => sum + Number(row.balance || 0), 0).toFixed(2)}</Typography>

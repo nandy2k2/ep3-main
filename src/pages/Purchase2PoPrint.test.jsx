@@ -1,8 +1,12 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server.node';
-import { Purchase2PoPrint, amountInWords, printablePoLine, purchase2PrintCss } from './Purchase2PrintTemplates';
+import { Purchase2PoPrint, Purchase2VendorComparisonPrint, amountInWords, printablePoLine, purchase2PrintCss } from './Purchase2PrintTemplates';
 import { resolvePoDelivery } from '../utils/purchase2Delivery';
 jest.mock('react-dom/server', () => jest.requireActual('react-dom/server.node'));
+test('comparative statement prints vendors, L1, item costs and payment terms in landscape',()=>{
+ const html=renderToStaticMarkup(<Purchase2VendorComparisonPrint institution={{institutionname:'Test Institute'}} comparison={{pr:{prnumber:'PR/2026/0001',departmentname:'Science'},totals:[{id:'v1',vendor:'Vendor One',total:118,complete:true,l1:true,paymentterms:'30 days'}],rows:[{id:'i1',itemname:'Paper',itemcode:'A4',quantity:1,unit:'Ream',l1vendors:['v1'],offers:[{vendorid:'v1',price:100,discountamount:0,gst:18,gstamount:18,total:118}]}]}}/>);
+ for(const text of ['COMPARATIVE STATEMENT','Test Institute','Vendor One','Overall L1','30 days','PR/2026/0001','118.00','item-table','print-sheet landscape'])expect(html).toContain(text);
+});
 test('PO print displays resolved receiving store, financial columns and figures/words consistently', () => {
   const delivery = resolvePoDelivery({ storeid: 'store-id' }, [{ _id: 'store-id', storename: 'Central Receiving Store', address: 'Campus Road, Building A', contactperson: 'Store Manager', phone: '9000000000', email: 'store@example.com' }]);
   const html = renderToStaticMarkup(<Purchase2PoPrint header={{ poid: 'PO-2026-101', vendor: 'Office Supplies Ltd', terms: 'Delivery within 7 days', ...delivery }} items={[{ itemcode: 'PAPER-A4', itemname: 'A4 printing paper', description: 'Premium white paper', unit: 'Ream', quantity: 2, price: 100, gst: 18, discount: 10 }]} institution={{ institutionname: 'Example Institution', address: 'Campus address' }} />);

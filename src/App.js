@@ -1294,8 +1294,12 @@ import {
 import ConductExamSubmitQuestionPaperPage from "./pages/ConductExamSubmitQuestionPaperPage";
 import QuestionPaperIndentPage, { QuestionPaperIndentInvitationPage } from "./pages/QuestionPaperIndentPages";
 import Crm2Page, { Crm2InteractionsPage } from "./pages/Crm2Pages";
+import Crm2MailPage from './pages/Crm2MailPages';
+import { Crm2CampaignWizardPage, Crm2CampaignReportPage } from './pages/Crm2CampaignPages';
+import EmailTrackingConfigurationPage from './pages/EmailTrackingConfigurationPage';
 import LeadLoginPortal from './pages/LeadLoginPortal';
 import CounselorDashboard from './pages/CounselorDashboard';
+import Crm2UpdateInteraction from './pages/Crm2UpdateInteraction';
 import ConductExamSubmitQuestionsPatternwisePage from "./pages/ConductExamSubmitQuestionsPatternwisePage";
 import ConductExamSubmitMathematicalPatternPage from "./pages/ConductExamSubmitMathematicalPatternPage";
 import ConductExamSubmitTemplatewisePaperPage from "./pages/ConductExamSubmitTemplatewisePaperPage";
@@ -1337,8 +1341,12 @@ import HrLeaveAllLeavesPage from "./pages/HrLeaveAllLeavesPage";
 import HrEmployeeAttendancePage from "./pages/HrEmployeeAttendancePage";
 import HrBiometricAttendancePage from "./pages/HrBiometricAttendancePage";
 import Crm2MergeLeadsPage from './pages/Crm2MergeLeadsPage';
+import Crm2MergeLeadWizard from './pages/Crm2MergeLeadWizard';
 import AdmissionScholarshipMasterPage from './pages/AdmissionScholarshipMasterPage';
+import ApplyAdmissionScholarshipPage from './pages/ApplyAdmissionScholarshipPage';
+import AdhocScholarshipPage from './pages/AdhocScholarshipPage';
 import Crm2ConfirmAdmissionPage from './pages/Crm2ConfirmAdmissionPage';
+import { PartnerPaymentConfigurationPage, PartnerPaymentReportPage } from './pages/Crm2PartnerPaymentPages';
 import HrEmployeeAttendanceMatrixPage from "./pages/HrEmployeeAttendanceMatrixPage";
 import HrEmployeeAttendanceApprovalPage from "./pages/HrEmployeeAttendanceApprovalPage";
 import { HrEmployeeHoursPage, HrShiftAllocationPage, HrShiftTimingPage } from "./pages/HrShiftPages";
@@ -1625,6 +1633,7 @@ import ConfigurationSetupPage from "./pages/ConfigurationSetupPage";
 import AiConfigurationPage from "./pages/AiConfigurationPage";
 import OllamaConfigurationPage from "./pages/OllamaConfigurationPage";
 import EpaathsalaAiPage from "./pages/EpaathsalaAiPage";
+import PingWhatsappConfigurationPage from './pages/PingWhatsappConfigurationPage';
 import ColourSchemePage from "./pages/ColourSchemePage";
 import AiCodingPageBuilder from "./pages/AiCodingPageBuilder";
 import MyAiCodingPage from "./pages/MyAiCodingPage";
@@ -2093,6 +2102,9 @@ import Analyticsds from "./pages/Analyticsds";
 import Publiclandingpageds from "./pages/Publiclandingpageds";
 import CommunicationSettings from "./pages/CommunicationSettings";
 import { BhashWhatsappConfigurationPage, SendDirectWhatsappPage, SendWhatsappPage, WhatsappTemplatesPage } from "./pages/BhashWhatsappPages";
+import SendWhatsappPingPage from "./pages/SendWhatsappPingPage";
+import AdmissionUserMappingPage from "./pages/AdmissionUserMappingPage";
+import AdmissionApplicationManagement2Page from "./pages/AdmissionApplicationManagement2Page";
 import Sourceds from "./pages/Sourceds";
 
 import Dashchattest4a from "./pages/Dashchattest4a";
@@ -2471,6 +2483,14 @@ import Dashmcashbook from './pages/Dashmcashbook';
 import Dashmcashbookadmin from './pages/Dashmcashbookadmin';
 import { CashBookCrudPage, FeeBookCrudPage } from './pages/FeeCashBookCrudPages';
 import MFeesConfigPage from './pages/MFeesConfigPage';
+import FeesConfigurationWizard from './pages/FeesConfigurationWizard';
+import RolewiseDashboard from './pages/RolewiseDashboard';
+import PracticalScheduling from './pages/PracticalScheduling';
+import {Purchase2PriorityLimitations} from './pages/Purchase2PrTools';
+import {Purchase2VendorCatalogPage,Purchase2VendorComparisonPage} from './pages/Purchase2VendorCatalogPages';
+import StudentOnlineFees3aPage from './pages/StudentOnlineFees3aPage';
+import Crm2LeadEditorPage from './pages/Crm2LeadEditorPage';
+import Crm2AdminDashboard, { Crm2SeatCapacity } from './pages/Crm2AdminDashboard';
 import FeeApprovalPage from './pages/FeeApprovalPage';
 import FeeApprovalRolesPage from './pages/FeeApprovalRolesPage';
 import FeeApplicationPage from './pages/FeeApplicationPage';
@@ -2529,6 +2549,7 @@ import StudentLedgerCounterPaymentPage from './pages/StudentLedgerCounterPayment
 import CounterFee2PaymentPage from './pages/CounterFee2PaymentPage';
 import CounterFee3PaymentPage from './pages/CounterFee3PaymentPage';
 import CounterFee4PaymentPage from './pages/CounterFee4PaymentPage';
+import CounterFee4aPaymentPage from './pages/CounterFee4aPaymentPage';
 import CounterFee5PaymentPage from './pages/CounterFee5PaymentPage';
 import CounterFee2ReceiptPage from './pages/CounterFee2ReceiptPage';
 import CounterFee2Receipt3Page from './pages/CounterFee2Receipt3Page';
@@ -2884,6 +2905,7 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/lead-login" element={<LeadLoginPortal />} />
         <Route path="/counsellor-dashboard" element={<CounselorDashboard key="counselor" />} />
+        <Route path="/crm2-update-interaction" element={<Crm2UpdateInteraction />} />
         <Route path="/telecaller-dashboard" element={<CounselorDashboard key="telecaller" telecaller />} />
         <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
         <Route path="/terms-of-service" element={<TermsOfServicePage />} />
@@ -3710,6 +3732,7 @@ function App() {
         <Route path="/studentonlinefeepayment" element={<StudentOnlineFeePaymentPage />} />
         <Route path="/studentonlinefeepayment2" element={<StudentOnlineFeePayment2Page />} />
         <Route path="/student-online-fees-3" element={<StudentOnlineFees3Page />} />
+        <Route path="/student-online-fees-3a" element={<StudentOnlineFees3aPage />} />
         <Route path="/late-fee-policy" element={<LateFinePolicyPage />} />
         <Route path="/late-fees-ledger" element={<LateFeesLedgerPage />} />
         <Route path="/studentonlinefeepayment3" element={<StudentOnlineFeePaymentCashfreePage />} />
@@ -3744,6 +3767,9 @@ function App() {
         <Route path="/purchase2-indent-print" element={<Purchase2IndentPrintPage />} />
         <Route path="/purchase2-store-request-review" element={<Purchase2StoreRequestReviewPage />} />
         <Route path="/purchase2-store-pr-request" element={<Purchase2StorePrRequestPage />} />
+        <Route path="/purchase2-priority-limitations" element={<Purchase2PriorityLimitations />} />
+        <Route path="/purchase2-vendor-item-catalog" element={<Purchase2VendorCatalogPage />} />
+        <Route path="/purchase2-vendor-comparison" element={<Purchase2VendorComparisonPage />} />
         <Route path="/purchase2-store-item-user" element={<Purchase2StoreItemUserPage />} />
         <Route path="/purchase2-po-assignment" element={<Purchase2PoAssignmentPage />} />
         <Route path="/purchase2-local-po" element={<Purchase2LocalPoPage />} />
@@ -4317,11 +4343,20 @@ function App() {
         <Route path="/admission-entrance-report" element={<AdmissionEntranceReportPage />} />
         <Route path="/student-course-group-exam" element={<StudentCourseGroupExamPage />} />
         <Route path="/crm-management" element={<CrmManagementPage />} />
+        <Route path="/email-settings" element={<Crm2MailPage settings />} />
+        <Route path="/email-tracking-configuration" element={<EmailTrackingConfigurationPage />} />
+        <Route path="/crm2-email-lead-intake" element={<Crm2MailPage />} />
+        <Route path="/crm2-email-lead-intake-2" element={<Crm2MailPage key="email-intake-2" criteriaChoice />} />
+        <Route path="/crm2-campaign-wizard" element={<Crm2CampaignWizardPage />} />
+        <Route path="/crm2-my-campaigns" element={<Crm2CampaignWizardPage counsellor />} />
+        <Route path="/crm2-campaign-report" element={<Crm2CampaignReportPage />} />
+        <Route path="/crm2-lead-input-history" element={<Crm2MailPage history />} />
         <Route path="/crm2-source-master" element={<Crm2Page key="source" entity="source" />} />
         <Route path="/crm2-pipeline-master" element={<Crm2Page key="pipeline" entity="pipeline" />} />
         <Route path="/crm2-type-master" element={<Crm2Page key="type" entity="type" />} />
         <Route path="/crm2-category-master" element={<Crm2Page key="category" entity="category" />} />
         <Route path="/crm2-leadrating-master" element={<Crm2Page key="leadrating" entity="leadrating" />} />
+        <Route path="/crm2-leadgroup-master" element={<Crm2Page key="leadgroup" entity="leadgroup" />} />
         <Route path="/crm2-case-master" element={<Crm2Page key="case" entity="case" />} />
         <Route path="/crm2-distributiontype-master" element={<Crm2Page key="distributiontype" entity="distributiontype" />} />
         <Route path="/crm2-leads" element={<Crm2Page key="leads" entity="leads" />} />
@@ -4333,13 +4368,24 @@ function App() {
         <Route path="/crm2-my-leads" element={<Crm2Page entity="leads" mode="my" />} />
         <Route path="/crm2-agent-lead-add" element={<Crm2Page entity="leads" mode="agent" />} />
         <Route path="/crm2-merge-leads" element={<Crm2MergeLeadsPage />} />
+        <Route path="/crm2-merge-lead-wizard" element={<Crm2MergeLeadWizard />} />
         <Route path="/crm2-confirm-admission" element={<Crm2ConfirmAdmissionPage />} />
         <Route path="/admission-scholarship-master" element={<AdmissionScholarshipMasterPage />} />
+        <Route path="/admission-scholarship-apply" element={<ApplyAdmissionScholarshipPage />} />
+        <Route path="/admission-scholarship-adhoc" element={<AdhocScholarshipPage />} />
         <Route path="/crm2-mediumofinstruction-master" element={<Crm2Page key="mediumofinstruction" entity="mediumofinstruction" />} />
         <Route path="/crm2-quota-master" element={<Crm2Page key="quota" entity="quota" />} />
         <Route path="/crm2-document-master" element={<Crm2Page key="document" entity="document" />} />
         <Route path="/crm2-admissionoffice-master" element={<Crm2Page key="admissionoffice" entity="admissionoffice" />} />
         <Route path="/crm2-agent-master" element={<Crm2Page key="agent" entity="agent" />} />
+        <Route path="/crm2-publisher-master" element={<Crm2Page key="publisher" entity="publisher" />} />
+        <Route path="/crm2-agent-payment-configuration" element={<PartnerPaymentConfigurationPage key="agent-rate" kind="agent" />} />
+        <Route path="/crm2-publisher-payment-configuration" element={<PartnerPaymentConfigurationPage key="publisher-rate" kind="publisher" />} />
+        <Route path="/crm2-agent-payment" element={<PartnerPaymentReportPage key="agent-payment" kind="agent" />} />
+        <Route path="/crm2-seat-capacity" element={<Crm2SeatCapacity />} />
+        <Route path="/crm2-admin-dashboard" element={<Crm2AdminDashboard />} />
+        <Route path="/crm2-publisher-payment" element={<PartnerPaymentReportPage key="publisher-payment" kind="publisher" />} />
+        <Route path="/crm2-publisher-leads" element={<PartnerPaymentReportPage key="publisher-leads" kind="publisher" mine />} />
         <Route path="/crm2-counselor-program-mapping" element={<Crm2ProgramPage mode="mapping" />} />
         <Route path="/crm2-lead-program-assignment" element={<Crm2ProgramPage mode="assignment" />} />
         <Route path="/crm2-programwise-leads" element={<Crm2ProgramPage mode="my" />} />
@@ -4474,6 +4520,11 @@ function App() {
         <Route path="/casnewmasterreport" element={<CasNewMasterReportPage />} />
         <Route path="/studentemailmessage" element={<StudentEmailMessagePage />} />
         <Route path="/mfeesconfig" element={withMenu("Fee configuration regulation", <MFeesConfigPage />)} />
+        <Route path="/fees-configuration-wizard" element={<FeesConfigurationWizard />} />
+        <Route path="/rolewise-dashboard" element={<RolewiseDashboard />} />
+        <Route path="/conduct-exam-practical-scheduling" element={<PracticalScheduling />} />
+        <Route path="/conduct-exam-practical-scheduling-from-examroll" element={<PracticalScheduling fromExamroll />} />
+        <Route path="/crm2-lead-editor" element={<Crm2LeadEditorPage />} />
         <Route path="/feeapproval" element={withMenu("Fee Approval", <FeeApprovalPage />)} />
         <Route path="/feeapprovalroles" element={withMenu("Fee Approval Roles", <FeeApprovalRolesPage />)} />
         <Route path="/feeapplication" element={<FeeApplicationPage />} />
@@ -4535,6 +4586,7 @@ function App() {
         <Route path="/counterfee2" element={<CounterFee2PaymentPage />} />
         <Route path="/counterfee3" element={<CounterFee3PaymentPage />} />
         <Route path="/counterfee4" element={<CounterFee4PaymentPage />} />
+        <Route path="/counterfee4a" element={<CounterFee4aPaymentPage />} />
         <Route path="/counterfee5" element={<CounterFee5PaymentPage />} />
         <Route path="/feesreceiptnote" element={<FeesReceiptNotePage />} />
         <Route path="/counterfee2receipt" element={<CounterFee2ReceiptPage />} />
@@ -4558,6 +4610,8 @@ function App() {
         <Route path="/admission-ai-agent-logs" element={<AdmissionAiAgentLogsPage />} />
         <Route path="/dynamic-admission-applications" element={withMenu("Admission Applications", <DynamicAdmissionApplicationsPage />)} />
         <Route path="/admission-application-management" element={<AdmissionApplicationManagementPage />} />
+        <Route path="/admission-application-management-2" element={<AdmissionApplicationManagement2Page />} />
+        <Route path="/admission-user-mapping" element={<AdmissionUserMappingPage />} />
         <Route path="/admission-application-full" element={<AdmissionApplicationFullPage />} />
         <Route path="/admission-application-comments" element={<AdmissionApplicationCommentsPage />} />
         <Route path="/subject-wise-admission" element={withMenu("Subject Wise Admission", <SubjectWiseAdmissionApplicationsPage />)} />
@@ -4678,6 +4732,7 @@ function App() {
         <Route path="/aiconfiguration" element={<AiConfigurationPage />} />
         <Route path="/ollamaconfiguration" element={<OllamaConfigurationPage />} />
         <Route path="/epaathsala-ai" element={<EpaathsalaAiPage />} />
+        <Route path="/ping-whatsapp-configuration" element={<PingWhatsappConfigurationPage />} />
         <Route path="/colour-scheme" element={<ColourSchemePage />} />
         <Route path="/ai-coding-page-builder" element={<AiCodingPageBuilder />} />
         <Route path="/my-ai-coding" element={<MyAiCodingPage />} />
@@ -4791,6 +4846,7 @@ function App() {
         <Route path="/student-exam-registration" element={<StudentExamRegistrationPage />} />
         <Route path="/student-exam-dynamic-form" element={<StudentExamDynamicFormPage />} />
         <Route path="/student-exam-form-2" element={<StudentExamDynamicFormPage puPrintMode />} />
+        <Route path="/student-exam-form-3" element={<StudentExamDynamicFormPage puPrintMode programwiseMode formActiveOnly examForm3 />} />
         <Route path="/student-programwise-exam-form" element={<StudentProgramwiseExamFormPage />} />
         <Route path="/student-programwise-exam-form-2" element={<StudentProgramwiseExamForm2Page />} />
         <Route path="/student-programwise-mastercode" element={<StudentProgramwiseMastercodePage />} />
@@ -5659,6 +5715,8 @@ function App() {
         <Route path="/bhash-whatsapp-configuration" element={<BhashWhatsappConfigurationPage />} />
         <Route path="/whatsapp-templates" element={<WhatsappTemplatesPage />} />
         <Route path="/send-whatsapp" element={<SendWhatsappPage />} />
+        <Route path="/send-whatsapp-ping" element={<SendWhatsappPingPage />} />
+        <Route path="/send-direct-whatsapp-ping" element={<SendWhatsappPingPage direct />} />
         <Route path="/send-direct-whatsapp" element={<SendDirectWhatsappPage />} />
 
         <Route path="/dashmmvac" element={<Dashmmvac />} />

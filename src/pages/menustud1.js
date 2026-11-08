@@ -797,6 +797,7 @@ function DefaultStudentListItems({ open }) {
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Pay fees online Cashfree" />}
 </ListItem>
 
+           <ListItem button component={RouterLink} to="/student-online-fees-3a"><ListItemIcon><PersonIcon /></ListItemIcon>{open && <ListItemText primary="Online fees 3a" />}</ListItem>
            <ListItem button component={RouterLink} to="/student-online-fees-3">
 <ListItemIcon><AccountBalanceWalletIcon /></ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px", whiteSpace: "normal"}} primary="Online fees 3" />}
@@ -1204,6 +1205,10 @@ function DefaultStudentListItems({ open }) {
           <ListItem button component={RouterLink} to="/student-exam-form-2">
 <ListItemIcon><PersonIcon /></ListItemIcon>
 {open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Exam form 2" />}
+</ListItem>
+          <ListItem button component={RouterLink} to="/student-exam-form-3">
+<ListItemIcon><PersonIcon /></ListItemIcon>
+{open && <ListItemText primaryTypographyProps={{fontSize: "14px"}} primary="Exam form 3" />}
 </ListItem>
           <ListItem button component={RouterLink} to="/student-programwise-exam-form">
 <ListItemIcon>

@@ -51,6 +51,10 @@ const ledgerColumns = [
   { field: "cashbook", headerName: "Cash Book", minWidth: 140 },
   { field: "feecategory", headerName: "Category", minWidth: 130 },
   { field: "semester", headerName: "Semester", minWidth: 110 },
+  { field: "careofname", headerName: "Care-of name", minWidth: 180 },
+  { field: "careofemail", headerName: "Care-of email", minWidth: 220 },
+  { field: "reference", headerName: "Reference", minWidth: 200 },
+  { field: "documentlink", headerName: "Document", minWidth: 140, renderCell: params => /^https?:\/\//i.test(params.value || '') ? <a href={params.value} target="_blank" rel="noopener noreferrer">View document</a> : '' },
   { field: "status", headerName: "Status", minWidth: 120 },
   { field: "classdate", headerName: "Entry Date", minWidth: 130, valueGetter: (params) => shortDate(params.row.classdate) },
   { field: "paiddate", headerName: "Paid Date", minWidth: 130, valueGetter: (params) => shortDate(params.row.paiddate) }

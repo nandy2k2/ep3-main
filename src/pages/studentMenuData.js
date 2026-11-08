@@ -47,6 +47,7 @@ export const studentDefaultMenuGroups = [
     { path: "/studentonlinefeepayment", title: "Pay fees online" },
     { path: "/studentonlinefeepayment2", title: "Pay fees online 2" },
     { path: '/student-online-fees-3', title: 'Online fees 3' },
+    { path: '/student-online-fees-3a', title: 'Online fees 3a' },
     { path: "/studentonlinefeepayment3", title: "Pay fees online Cashfree" },
     { path: "/studentmyonlinepaymentreport", title: "My online payments" },
     { path: "/studentmyonlinepaymentreport2", title: "My online payments 2" },
@@ -119,6 +120,613 @@ export const studentDefaultMenuGroups = [
     { path: "/sudokugame", title: "Sudoku game" }
   ] }
 ];
+
+const additionalStudentGroups = [
+  {
+    "group": "Central Ticketing",
+    "items": [
+      {
+        "path": "/central-ticket-raise",
+        "title": "Raise ticket"
+      }
+    ]
+  },
+  {
+    "group": "Convocation New",
+    "items": [
+      {
+        "path": "/convocation-new-student-dress",
+        "title": "Convocation dress"
+      },
+      {
+        "path": "/convocation-new-student-registration",
+        "title": "Convocation registration"
+      }
+    ]
+  },
+  {
+    "group": "Profile",
+    "items": [
+      {
+        "path": "/student-signature-upload",
+        "title": "Signature upload"
+      },
+      {
+        "path": "/studentlocationpublish",
+        "title": "Publish coordinates"
+      },
+      {
+        "path": "/studentlocationsearch",
+        "title": "Location search"
+      }
+    ]
+  },
+  {
+    "group": "Seminars",
+    "items": [
+      {
+        "path": "/student-seminars",
+        "title": "My seminars"
+      }
+    ]
+  },
+  {
+    "group": "Publications",
+    "items": [
+      {
+        "path": "/student-publications",
+        "title": "My publications"
+      }
+    ]
+  },
+  {
+    "group": "NEP LMS",
+    "items": [
+      {
+        "path": "/studentneplmscoursematerial",
+        "title": "Course material"
+      },
+      {
+        "path": "/neplms-ai-coding-platform",
+        "title": "AI Coding platform"
+      },
+      {
+        "path": "/studentneplmscoursegroupworkspace",
+        "title": "Course group workspace"
+      },
+      {
+        "path": "/studentneplmsmindmaps",
+        "title": "Mind Maps"
+      },
+      {
+        "path": "/student-event-attendance-request",
+        "title": "Event attendance request"
+      },
+      {
+        "path": "/studentneplmsenrollmentotpattendance",
+        "title": "Enrollment OTP Attendance"
+      },
+      {
+        "path": "/studentprereading",
+        "title": "Pre reading material"
+      }
+    ]
+  },
+  {
+    "group": "Online examination",
+    "items": [
+      {
+        "path": "/student-online-exam",
+        "title": "Online examination"
+      },
+      {
+        "path": "/student-online-exam-2",
+        "title": "Online exam 2"
+      },
+      {
+        "path": "/student-online-exam-live-2",
+        "title": "Online examination 2 live"
+      },
+      {
+        "path": "/student-online-exam-marks-view",
+        "title": "Marks view"
+      },
+      {
+        "path": "/student-online-exam-marks-view-co-bloom",
+        "title": "Marks view CO Bloom"
+      },
+      {
+        "path": "/student-course-group-exam",
+        "title": "Course group exam"
+      }
+    ]
+  },
+  {
+    "group": "Sports and Cultural",
+    "items": [
+      {
+        "path": "/studentculturalactivity",
+        "title": "Cultural activity"
+      },
+      {
+        "path": "/studentsportsactivity",
+        "title": "Sports activity"
+      },
+      {
+        "path": "/student-sports-ncc-nss-application",
+        "title": "Sports NCC NSS application"
+      }
+    ]
+  },
+  {
+    "group": "Alumni interaction",
+    "items": [
+      {
+        "path": "/student-alumni-connect",
+        "title": "Alumni connect"
+      }
+    ]
+  },
+  {
+    "group": "Fees payment",
+    "items": [
+      {
+        "path": "/student-late-fee-waiver",
+        "title": "Late fee waiver"
+      },
+      {
+        "path": "/studentdetailedledger",
+        "title": "Detailed ledger"
+      },
+      {
+        "path": "/studentcounterfee2receipt",
+        "title": "Counter fee receipt"
+      },
+      {
+        "path": "/studentfeesbalancereport",
+        "title": "Fees balance report"
+      }
+    ]
+  },
+  {
+    "group": "Scholarship",
+    "items": [
+      {
+        "path": "/studentscholarshipsuggestion",
+        "title": "Scholarship suggestion"
+      }
+    ]
+  },
+  {
+    "group": "Placement new",
+    "items": [
+      {
+        "path": "/student-placement-skills",
+        "title": "My skills"
+      },
+      {
+        "path": "/student-placement-sip-jobs",
+        "title": "SIP jobs"
+      },
+      {
+        "path": "/student-placement-jobs",
+        "title": "Placement jobs"
+      },
+      {
+        "path": "/student-placement-interest",
+        "title": "Placement interest"
+      },
+      {
+        "path": "/student-placement-internship-pool",
+        "title": "Internship jobs"
+      },
+      {
+        "path": "/student-placement-internship-noc",
+        "title": "Internship NoC"
+      },
+      {
+        "path": "/student-placement-internships",
+        "title": "Internship projects"
+      },
+      {
+        "path": "/student-placement-sip",
+        "title": "My SIP"
+      },
+      {
+        "path": "/student-placement-project-stages",
+        "title": "Project stages"
+      },
+      {
+        "path": "/student-placement-stage-details",
+        "title": "Stage details"
+      },
+      {
+        "path": "/student-placement-project-report",
+        "title": "SIP report"
+      },
+      {
+        "path": "/student-placement-practice-test",
+        "title": "Placement Practice test"
+      },
+      {
+        "path": "/student-psychometric-test",
+        "title": "Psychometric test"
+      }
+    ]
+  },
+  {
+    "group": "Skill development",
+    "items": [
+      {
+        "path": "/student-skill-development-zone",
+        "title": "Skill development"
+      }
+    ]
+  },
+  {
+    "group": "Certificates",
+    "items": [
+      {
+        "path": "/student-mooc-value-added-courses",
+        "title": "Add on course certificates"
+      }
+    ]
+  },
+  {
+    "group": "PhD",
+    "items": [
+      {
+        "path": "/student-phd-thesis-assignment",
+        "title": "Thesis assignment application"
+      },
+      {
+        "path": "/student-phd-thesis",
+        "title": "Thesis submission"
+      },
+      {
+        "path": "/student-phd-progress-report",
+        "title": "Progress report"
+      },
+      {
+        "path": "/student-phd-guide-messaging",
+        "title": "Guide messaging"
+      },
+      {
+        "path": "/student-phd-noc",
+        "title": "Download NoC"
+      }
+    ]
+  },
+  {
+    "group": "Examination",
+    "items": [
+      {
+        "path": "/student-exam-form-2",
+        "title": "Exam form 2"
+      },
+      {
+        "path": "/student-exam-form-3",
+        "title": "Exam form 3"
+      },
+      {
+        "path": "/student-programwise-mastercode",
+        "title": "Programwise mastercode"
+      },
+      {
+        "path": "/student-admit-card-3",
+        "title": "Download admit card 3"
+      }
+    ]
+  },
+  {
+    "group": "Appeal",
+    "items": [
+      {
+        "path": "/student-exam-appeal",
+        "title": "Exam appeal"
+      }
+    ]
+  },
+  {
+    "group": "Settings",
+    "items": [
+      {
+        "path": "/student-view-circular",
+        "title": "Circulars"
+      }
+    ]
+  },
+  {
+    "group": "Virtual lab",
+    "items": [
+      {
+        "path": "/twobitadder",
+        "title": "Two bit adder"
+      },
+      {
+        "path": "/fourbitaddersubtractor",
+        "title": "Four bit adder subtractor"
+      },
+      {
+        "path": "/codl",
+        "title": "Characterization of digital logic"
+      },
+      {
+        "path": "/insertionsort",
+        "title": "Insertion sort"
+      },
+      {
+        "path": "/selectionsort",
+        "title": "Selection sort"
+      },
+      {
+        "path": "/binaryarith",
+        "title": "Binary arithmetic"
+      },
+      {
+        "path": "/queuevisual",
+        "title": "Queue visualization"
+      },
+      {
+        "path": "/binaryarithmetics",
+        "title": "Binary arithmetic 2"
+      },
+      {
+        "path": "/notgate",
+        "title": "NOT gate 1"
+      },
+      {
+        "path": "/notgate2",
+        "title": "NOT gate 2"
+      },
+      {
+        "path": "/andgate",
+        "title": "AND gate"
+      },
+      {
+        "path": "/andgate2",
+        "title": "AND gate 2"
+      },
+      {
+        "path": "/orgate",
+        "title": "OR gate"
+      },
+      {
+        "path": "/orgate2",
+        "title": "OR gate 2"
+      },
+      {
+        "path": "/nandgate",
+        "title": "NAND gate"
+      },
+      {
+        "path": "/nandgate2",
+        "title": "NAND gate 2"
+      },
+      {
+        "path": "/norgate",
+        "title": "NOR gate"
+      },
+      {
+        "path": "/norgate2",
+        "title": "NOR gate 2"
+      },
+      {
+        "path": "/xorgate",
+        "title": "XOR gate"
+      },
+      {
+        "path": "/halfsubtractorcircuit",
+        "title": "Half subtractor circuit"
+      },
+      {
+        "path": "/xnorgate",
+        "title": "XNOR gate"
+      },
+      {
+        "path": "/xnorgate2",
+        "title": "XNOR gate 2"
+      },
+      {
+        "path": "/xorgate2",
+        "title": "XOR gate 2"
+      },
+      {
+        "path": "/fullsubcircuitverify",
+        "title": "Full subtractor circuit verify"
+      },
+      {
+        "path": "/halfsubcircuitverify",
+        "title": "Half subtractor circuit"
+      },
+      {
+        "path": "/bcdtoexcessconverter",
+        "title": "BCD to excess converter"
+      },
+      {
+        "path": "/bitserial",
+        "title": "Bit serial"
+      },
+      {
+        "path": "/graytobinaryconverter",
+        "title": "Gray to binary converter"
+      },
+      {
+        "path": "/stephanslaw",
+        "title": "Stephans law"
+      },
+      {
+        "path": "/opticalfibre",
+        "title": "Optical fibre"
+      },
+      {
+        "path": "/transformeroilstrength",
+        "title": "Transformer oil strength"
+      },
+      {
+        "path": "/phasesequence",
+        "title": "Phase sequence"
+      },
+      {
+        "path": "/dcshuntmotor",
+        "title": "DC Shunt motor simulation"
+      },
+      {
+        "path": "/skeletonexp",
+        "title": "Skeleton experiment 1"
+      },
+      {
+        "path": "/titration",
+        "title": "Titration"
+      },
+      {
+        "path": "/skeletonpart2",
+        "title": "Skeleton experiment 2"
+      },
+      {
+        "path": "/infraredspectros",
+        "title": "Infra red spectroscopy with Salt Plates"
+      }
+    ]
+  },
+  {
+    "group": "Virtual Lab Games",
+    "items": [
+      {
+        "path": "/infraredspectros",
+        "title": "Infra red spectroscopy with Salt Plates"
+      },
+      {
+        "path": "/digitaltriradiigame",
+        "title": "Digital Triradii Game"
+      },
+      {
+        "path": "/transformeroilgame",
+        "title": "Transformer Oil Game"
+      },
+      {
+        "path": "/titrationgame",
+        "title": "Titration Game"
+      },
+      {
+        "path": "/bcdtoexcessgames",
+        "title": "BCD to Excess Converter Game"
+      },
+      {
+        "path": "/halfsubcircuitverifygame",
+        "title": "Half sub circuit Game"
+      },
+      {
+        "path": "/fullsubcircuitverifygame",
+        "title": "Full sub circuit verify Game"
+      },
+      {
+        "path": "/fullsubtractorcircuitgame",
+        "title": "Full subtractor circuit Game"
+      },
+      {
+        "path": "/graytobinaryconvertedgame",
+        "title": "Gray to Binary Converter Game"
+      },
+      {
+        "path": "/halfsubtractorcircuitgame",
+        "title": "Half subtractor circuit Game"
+      },
+      {
+        "path": "/infraredgame",
+        "title": "Infra Red Game"
+      },
+      {
+        "path": "/andgategame",
+        "title": "AND GATE Game"
+      },
+      {
+        "path": "/bitserialgame",
+        "title": "Bit Serial Game"
+      },
+      {
+        "path": "/fingerprintpatterngames",
+        "title": "Finger Print Pattern Game"
+      },
+      {
+        "path": "/nandgategame",
+        "title": "NAND Gate Game"
+      },
+      {
+        "path": "/norgategame",
+        "title": "NOR Gate Game"
+      },
+      {
+        "path": "/notgategame",
+        "title": "NOT Gate Game"
+      },
+      {
+        "path": "/orgategame",
+        "title": "OR Gate Game"
+      },
+      {
+        "path": "/skeletonexpgame",
+        "title": "Skeleton exp Game"
+      },
+      {
+        "path": "/stefanslawgame",
+        "title": "Stefan's law Game"
+      },
+      {
+        "path": "/subhalfadder1game",
+        "title": "Sub half adder Game"
+      },
+      {
+        "path": "/xnorgategame",
+        "title": "XNOR gate Game"
+      },
+      {
+        "path": "/xorgategame",
+        "title": "XOR gate Game"
+      },
+      {
+        "path": "/finddiff",
+        "title": "Difference game"
+      },
+      {
+        "path": "/pacmangame",
+        "title": "Pac man"
+      },
+      {
+        "path": "/racegame",
+        "title": "Race game"
+      },
+      {
+        "path": "/wordguessing",
+        "title": "Word guessing"
+      },
+      {
+        "path": "/imgpuzzle",
+        "title": "Image puzzle"
+      },
+      {
+        "path": "/betteraimgame",
+        "title": "Better aim game"
+      },
+      {
+        "path": "/towerofhanoi",
+        "title": "Tower of Hanoi"
+      },
+      {
+        "path": "/ultimatebattlegame",
+        "title": "Ultimate battle game"
+      }
+    ]
+  }
+];
+
+for (const additional of additionalStudentGroups) {
+  const existing = studentDefaultMenuGroups.find(group => group.group === additional.group);
+  if (existing) {
+    const paths = new Set(existing.items.map(item => item.path));
+    existing.items.push(...additional.items.filter(item => !paths.has(item.path)));
+  } else studentDefaultMenuGroups.push(additional);
+}
 
 export const studentMenuFlatItems = studentDefaultMenuGroups.flatMap((group, groupIndex) =>
   group.items.map((item, itemIndex) => ({

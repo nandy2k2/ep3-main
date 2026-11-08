@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import Purchase2DeadlineAlerts from './Purchase2DeadlineAlerts';
 import {
   Alert,
   Autocomplete,
@@ -185,6 +186,7 @@ function DashboardPage({ type }) {
 
   return (
     <MenuPageShell title={config.title}>
+      {type==='purchase2'&&<Purchase2DeadlineAlerts/>}
       <Box sx={{ p: 3, bgcolor: "#f6f7fb", minHeight: "100vh" }}>
         <style>{`@media print {.no-print{display:none!important}.print-area{box-shadow:none!important;border:0!important} body{background:white!important;color:#000!important}}`}</style>
         <Paper className="no-print" elevation={0} sx={{ p: 2.5, mb: 2, border: "1px solid #e5e7eb", borderRadius: 2, background: "linear-gradient(135deg, #0f172a, #1d4ed8)" }}>

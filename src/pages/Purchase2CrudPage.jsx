@@ -18,6 +18,7 @@ import { Add, ArrowBack, Delete, Download, Edit, Refresh, Save, Search, UploadFi
 import { useNavigate, useParams } from "react-router-dom";
 import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
+import Purchase2BulkPrPrintButton from './Purchase2BulkPrPrintButton';
 import global1 from "./global1";
 import { calculatePoLine } from "../utils/purchase2Amounts";
 import PlacementCoordinatorShell from "./PlacementCoordinatorShell";
@@ -978,6 +979,7 @@ export default function Purchase2CrudPage() {
           </Button>
           <Button variant="outlined" color="error" startIcon={<Delete />} disabled={!selectedRows.length || saving} onClick={bulkDelete}>Bulk delete</Button>
           <Button variant="text" startIcon={<Refresh />} onClick={() => loadRows()}>Refresh</Button>
+          {modelKey==='storeprrequestds2'&&<Purchase2BulkPrPrintButton rows={rows.filter(row=>selectedRows.includes(row._id))}/>}
         </Stack>
       </Paper>
 

@@ -31,7 +31,7 @@ const columns = [
   { field: "balance", headerName: "Balance Payable", minWidth: 160, type: "number", valueFormatter: (p) => currency(p.value) }
 ];
 
-export default function StudentOnlineFeePayment2Page({ lateFineMode = false }) {
+export default function StudentOnlineFeePayment2Page({ lateFineMode = false, semesterLateFine = false }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [fees, setFees] = useState([]);
@@ -44,7 +44,7 @@ export default function StudentOnlineFeePayment2Page({ lateFineMode = false }) {
   const [messageSeverity, setMessageSeverity] = useState("success");
   const [error, setError] = useState("");
   const [lateFine, setLateFine] = useState({ total: 0, applied: [] });
-  const paymentRoot = lateFineMode ? '/api/v2/studentonlinepayment3' : '/api/v2/studentonlinepayment';
+  const paymentRoot = semesterLateFine ? '/api/v2/studentonlinepayment3a' : lateFineMode ? '/api/v2/studentonlinepayment3' : '/api/v2/studentonlinepayment';
   const colid = useMemo(() => global1.colid, []);
   const regno = useMemo(() => global1.regno || global1.user || "", []);
   const selectedGateway = useMemo(() => gateways.find((gateway) => gateway._id === selectedGatewayId), [gateways, selectedGatewayId]);
@@ -137,7 +137,7 @@ export default function StudentOnlineFeePayment2Page({ lateFineMode = false }) {
         name: global1.name || session.payment.student || regno,
         user: global1.user || "",
         gateway: selectedGateway.gatewayname,
-        frontendcallbackurl: `${window.location.origin}${lateFineMode ? '/student-online-fees-3' : '/studentonlinefeepayment2'}`
+        frontendcallbackurl: `${window.location.origin}${semesterLateFine ? '/student-online-fees-3a' : lateFineMode ? '/student-online-fees-3' : '/studentonlinefeepayment2'}`
       });
       const paymentUrl = payRes.data?.data?.paymenturl || payRes.data?.paymenturl || payRes.data?.data?.paymentUrl || payRes.data?.paymentUrl;
       if (!paymentUrl) throw new Error("Gateway did not return a payment URL.");
@@ -150,10 +150,10 @@ export default function StudentOnlineFeePayment2Page({ lateFineMode = false }) {
   };
 
   return (
-    <MenuPageShell title={lateFineMode ? 'Online fees 3' : 'Pay fees online 2'} menuType="student">
+    <MenuPageShell title={lateFineMode ? (semesterLateFine ? 'Online fees 3a' : 'Online fees 3') : 'Pay fees online 2'} menuType="student">
       <Box sx={{ p: { xs: 2, md: 3 } }}>
         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
-          <Box><Typography variant="h5" fontWeight={900}>{lateFineMode ? 'Online fees 3' : 'Pay Past Due Fees'}</Typography><Typography color="text.secondary">All past due fees are selected automatically.</Typography></Box>
+          <Box><Typography variant="h5" fontWeight={900}>{lateFineMode ? (semesterLateFine ? 'Online fees 3a' : 'Online fees 3') : 'Pay Past Due Fees'}</Typography><Typography color="text.secondary">All past due fees are selected automatically.</Typography></Box>
           <Stack direction="row" spacing={1}><Button variant="outlined" startIcon={<Refresh />} onClick={loadData} disabled={loading || paying}>Refresh</Button><Button variant="outlined" startIcon={<ArrowBack />} onClick={() => navigate("/studentdashboard")}>Dashboard</Button></Stack>
         </Stack>
         {!lateFineMode && message && <Alert severity={messageSeverity} sx={{ mb: 2 }}>{message}</Alert>}

@@ -98,6 +98,15 @@ export const applyLoginSession = async (responseData, options = {}) => {
     // Country configuration is optional.
   }
 
+  let configuredDashboard = null;
+  if (!responseLoginExpired && subscriptiondeactivated !== 'Yes') {
+    try {
+      const result = await ep1.get('/api/v2/rolewise-dashboard/landing', { params: { token: responseData.token }, timeout: 5000 });
+      const page = result.data?.pagelink;
+      if (typeof page === 'string' && /^\/(?!\/)[^\s\\]*$/.test(page)) configuredDashboard = page;
+    } catch { /* Optional dashboard configuration must not prevent login. */ }
+  }
+
   if (normalizedRole === "student") {
     try {
       const yearRes = await ep1.get("/api/v1/getcurrentyearbyprg", {
@@ -114,13 +123,15 @@ export const applyLoginSession = async (responseData, options = {}) => {
       global1.lmsyear = "2024-25";
     }
     persistGlobalSession();
-    return "/studentdashboard";
+    return configuredDashboard || "/studentdashboard";
   }
 
   if (responseData.token) {
     try { await ep1.post('/api/v2/crm2-counselor-dashboard/login', { token: responseData.token }, { timeout: 5000 }); }
     catch { /* Sign-in history must not prevent login when unavailable. */ }
   }
+
+  if (configuredDashboard) return configuredDashboard;
 
   if (normalizedRole === "all") {
     if (responseLoginExpired) return "/billing-user-extension";

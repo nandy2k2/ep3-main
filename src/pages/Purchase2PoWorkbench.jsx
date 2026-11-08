@@ -6,6 +6,7 @@ import ep1 from '../api/ep1';
 import global1 from './global1';
 import MenuPageShell from './MenuPageShell';
 import Purchase2PoAmountsEditor from './Purchase2PoAmountsEditor';
+import Purchase2DeadlineAlerts from './Purchase2DeadlineAlerts';
 import { resolvePoDelivery } from '../utils/purchase2Delivery';
 const scope = () => ({ colid: global1.colid, name: global1.name, user: global1.user || global1.email });
 const auth = () => ({ Authorization: `Bearer ${global1.token}` });
@@ -50,7 +51,7 @@ export default function Purchase2PoWorkbench({ admin = false, helpers }) {
   });
   const vendor = vendors.find(row => String(row._id) === String(header.vendorid)) || null, store = stores.find(row => String(row._id) === String(header.storeid)) || null;
   const delivery = resolvePoDelivery(header, stores), patch = (field,value) => setHeader(previous => ({ ...previous, [field]: value }));
-  return <MenuPageShell title={admin ? 'Purchase order workbench - Admin' : 'Purchase order workbench'}><Stack spacing={2} sx={{ p: 2 }}>
+  return <MenuPageShell title={admin ? 'Purchase order workbench - Admin' : 'Purchase order workbench'}><Stack spacing={2} sx={{ p: 2 }}><Purchase2DeadlineAlerts/>
     {busy && <LinearProgress />}<Stack direction="row" spacing={1} useFlexGap flexWrap="wrap"><Button startIcon={<Add />} disabled={busy} onClick={reset}>New PO draft</Button><Button startIcon={<Refresh />} disabled={busy} onClick={() => execute(load)}>Refresh</Button><Chip label={header.poid || 'New draft'} /><Chip label={`${header.postatus || 'Draft'} · ${header.approvalStatus || 'Draft'}`} /></Stack>
     <Tabs value={tab} onChange={(_, value) => setTab(value)} variant="scrollable">{['Draft','Submitted','Approved','Rejected','All'].map(value => <Tab value={value} label={value} key={value} />)}</Tabs>
     <Box sx={{ height: 310 }}><DataGrid rows={rows.filter(row => tab === 'All' || row.postatus === tab)} columns={[{ field: 'actions', headerName: 'Open', width: 95, renderCell: params => <Button onClick={() => open(params.row)}>Open</Button> }, ...['poid','prnumber','vendor','storename','postatus','approvalStatus','actualAmount'].map(field => ({ field, headerName: field, minWidth: 150, flex: field === 'vendor' ? 1 : undefined }))]} getRowId={row => row._id} slots={{ toolbar: GridToolbar }} disableRowSelectionOnClick /></Box>

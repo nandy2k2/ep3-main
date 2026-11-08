@@ -52,6 +52,18 @@ const steps = [
     description: "Manually add, edit, bulk upload, and delete coursewise exam dates and slots."
   },
   {
+    title: 'Practical scheduling',
+    path: '/conduct-exam-practical-scheduling',
+    icon: <Today />,
+    description: 'Schedule practical batches, select students, and create examroll and fee entries.'
+  },
+  {
+    title: 'Practical scheduling from examroll',
+    path: '/conduct-exam-practical-scheduling-from-examroll',
+    icon: <Today />,
+    description: 'Select existing examroll entries and update practical dates, slots and batches.'
+  },
+  {
     title: "Exam Scheduler Report",
     path: "/conduct-exam-course-scheduler-report",
     icon: <Summarize />,

@@ -179,6 +179,12 @@ return '';
 }
  },
 {
+field:'careofname',headerName:'Care-of name',width:200,editable:false
+},
+{field:'careofemail',headerName:'Care-of email',width:240,editable:false},
+{field:'reference',headerName:'Reference',width:220,editable:false},
+{field:'documentlink',headerName:'Document',width:160,editable:false,renderCell:params=>/^https?:\/\//i.test(params.value || '')?<a href={params.value} target="_blank" rel="noopener noreferrer">View document</a>:''},
+{
 field:'classdate',
 headerName:'Due date',
 type:'date',

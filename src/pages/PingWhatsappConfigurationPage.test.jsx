@@ -1,0 +1,20 @@
+import React from 'react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import Page from './PingWhatsappConfigurationPage';
+import ep1 from '../api/ep1';
+jest.mock('../api/ep1', () => ({ get: jest.fn(), post: jest.fn() }));
+jest.mock('./global1', () => ({ colid: 42, email: 'admin@example.com' }));
+jest.mock('./MenuPageShell', () => ({ children }) => <div>{children}</div>);
+jest.mock('@mui/x-data-grid', () => ({ DataGrid: () => null, GridToolbar: () => null }));
+test('loads and saves Ping WhatsApp configuration with Phone ID, API ID and Active', async () => {
+  ep1.get.mockResolvedValue({ data: { data: [] } }); ep1.post.mockResolvedValue({ data: { success: true } });
+  render(<Page />);
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Load' })).toBeEnabled());
+  fireEvent.change(screen.getByLabelText('Phone ID'), { target: { value: '001234' } });
+  fireEvent.change(screen.getByLabelText('API ID'), { target: { value: 'API-1' } });
+  fireEvent.mouseDown(screen.getByLabelText('Active'));
+  fireEvent.click(await screen.findByRole('option', { name: 'No' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+  await waitFor(() => expect(ep1.post).toHaveBeenCalledWith('/api/v2/ping-whatsapp-configuration', expect.objectContaining({ phoneid: '001234', apiid: 'API-1', active: 'No', colid: 42 })));
+  await screen.findByText('Configuration saved');
+});

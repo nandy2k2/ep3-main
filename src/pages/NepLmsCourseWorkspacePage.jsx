@@ -34,6 +34,7 @@ import * as XLSX from "xlsx";
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import MenuPageShell from "./MenuPageShell";
+import { AssignmentEvaluationPanel, AiContentReport } from './AssignmentAiContentReview';
 import {
   deleteSequentialContent,
   generateSequentialContentFile,
@@ -1617,6 +1618,7 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
   ];
 
   const submissionColumns = [
+    { field: 'aicontentreview', headerName: 'AI content assessment', width: 260, sortable: false, renderCell: ({row}) => <AiContentReport report={row.aicontentreview}/> },
     { field: "student", headerName: "Student", width: 180 },
     { field: "regno", headerName: "Reg No", width: 130 },
     { field: "email", headerName: "Email", width: 220 },
@@ -3088,6 +3090,10 @@ export default function NepLmsCourseWorkspacePage({ courseGroupMode = false }) {
           {gradingForm.id && (
             <Paper sx={{ p: 2, mb: 2 }}>
               <Typography variant="h6" sx={{ mb: 2 }}>Add Marks</Typography>
+              <AssignmentEvaluationPanel key={gradingForm.id} submission={assignmentSubmissions.find(row=>row._id===gradingForm.id) || { _id:gradingForm.id }} fullmarks={gradingForm.fullmarks} ollamaConfigs={ollamaConfigs} onEvaluated={updated=>{
+                setAssignmentSubmissions(previous=>previous.map(row=>row._id===updated._id?updated:row));
+                setGradingForm(previous=>previous.id===updated._id?({...previous,marks:updated.marks,fullmarks:updated.fullmarks,facultycomments:updated.facultycomments || ''}):previous);
+              }}/>
               <Grid container spacing={2} alignItems="center">
                 <Grid item xs={12} md={3}>
                   <TextField fullWidth label="Student" value={gradingForm.student} InputProps={{ readOnly: true }} />

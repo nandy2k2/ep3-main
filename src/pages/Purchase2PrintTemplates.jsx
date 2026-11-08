@@ -167,10 +167,12 @@ function Totals({ items, header = {} }) {
   );
 }
 
+function PrAttachmentLinks({attachments=[]}){return attachments.length?<div><strong>Supporting documents</strong>{attachments.map(file=><div key={file.url}><a href={file.url} target="_blank" rel="noreferrer">{file.filename||'Attachment'}</a></div>)}</div>:null;}
 export function Purchase2IndentPrint({ header = {}, items = [], institution = {} }) {
   return (
     <PrintShell>
       <Header title="MATERIAL INDENT / INDENT REQUEST" institution={institution} />
+      <PrAttachmentLinks attachments={header.attachments}/>
       <InfoGrid items={[
         { label: "Indent No", value: pick(header, ["indentNumber", "indentno", "requestno", "reqid", "_id"]) },
         { label: "Date", value: formatDate(pick(header, ["reqdate", "requestdate", "createdAt"])) },
@@ -205,6 +207,7 @@ export function Purchase2PrPrint({ header = {}, items = [], institution = {} }) 
   return (
     <PrintShell>
       <Header title="PURCHASE REQUISITION" institution={institution} />
+      <PrAttachmentLinks attachments={header.attachments}/>
       <InfoGrid items={[
         { label: "PR No", value: pick(header, ["prnumber", "prno", "requestno"]) },
         { label: "PR Date", value: formatDateTime(pick(header, ["reqdate", "requestdate", "createdAt"])) },
@@ -465,7 +468,14 @@ const css = `
 `;
 
 export const purchase2PrintCss = css;
+export function Purchase2VendorComparisonPrint({comparison={},institution={}}){
+ const {pr={},rows=[],totals=[]}=comparison;
+ return <PrintShell landscape><Header title="COMPARATIVE STATEMENT (CS)" institution={institution}/><InfoGrid items={[{label:'PR Number',value:pr.prnumber},{label:'Department',value:pr.departmentname},{label:'Priority',value:pr.priority},{label:'Date',value:formatDate(new Date())}]}/><table className="item-table"><thead><tr><th>Item / code</th><th>Qty / UOM</th>{totals.map(v=><th key={v.id}>{v.vendor}</th>)}</tr></thead><tbody>{rows.map(item=><tr key={item.id}><td>{item.itemname}<br/>{item.itemcode}</td><td>{item.quantity} {item.unit}</td>{totals.map(v=>{const offer=item.offers.find(o=>o.vendorid===v.id),l1=item.l1vendors.includes(v.id);return <td key={v.id} style={{background:l1?'#e5f4e9':undefined}}>{offer?<><div>Rate: {formatCurrency(offer.price)}</div><div>Discount: {formatCurrency(offer.discountamount)}</div><div>GST {offer.gst}%: {formatCurrency(offer.gstamount)}</div><strong>Total: {formatCurrency(offer.total)} {l1?'(L1)':''}</strong></>:'Not quoted'}</td>;})}</tr>)}<tr><th colSpan={2}>Overall total</th>{totals.map(v=><td key={v.id} style={{background:v.l1?'#e5f4e9':undefined}}><strong>{v.complete?formatCurrency(v.total):'Incomplete quote'} {v.l1?'(Overall L1)':''}</strong></td>)}</tr><tr><th colSpan={2}>Payment terms</th>{totals.map(v=><td key={v.id}>{v.paymentterms||'-'}</td>)}</tr></tbody></table><Remarks>L1 includes discounts and taxes. Overall L1 considers only complete quotations. Tied lowest offers are marked L1.</Remarks><Signatures labels={['Prepared by','Reviewed by','Approved by']}/></PrintShell>;
+}
+export function Purchase2BulkPrPrint({requisitions=[],institution={}}){return <>{requisitions.map((pr,i)=><div key={pr.header?._id||i} style={{breakBefore:i?'page':'auto',pageBreakBefore:i?'always':'auto'}}><Purchase2PrPrint {...pr} institution={institution}/></div>)}</>;}
 const templates = {
+  vendorComparison: Purchase2VendorComparisonPrint,
+  bulkPr: Purchase2BulkPrPrint,
   indent: Purchase2IndentPrint,
   pr: Purchase2PrPrint,
   po: Purchase2PoPrint,
@@ -475,11 +485,11 @@ const templates = {
   grn: Purchase2GrnPrint
 };
 
-export function openPurchase2PrintWindow(type, props = {}) {
+export function openPurchase2PrintWindow(type, props = {}, existingWindow = null) {
   const Template = templates[type];
   if (!Template) return;
   const html = ReactDOMServer.renderToStaticMarkup(<Template {...props} />);
-  const win = window.open("", "_blank", "width=1100,height=800");
+  const win = existingWindow || window.open("", "_blank", "width=1100,height=800");
   if (!win) return;
   win.document.write(`
     <!doctype html>

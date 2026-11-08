@@ -9,13 +9,13 @@ jest.mock('./Crm2Pages', () => {
   const { useCrm2Dashboard } = require('./Crm2DashboardContext');
   return { Crm2Content: ({ mode, autoLoad, initialLead, initialTab }) => { const scope = useCrm2Dashboard(); return initialLead ? <div>Full lead {initialLead.name} · {initialTab}</div> : <div>Leads {scope.academicyear} {scope.view || 'all'} {mode} {String(autoLoad)}</div>; } };
 });
-jest.mock('./CounselorAdmittedReport', () => () => <div>Admitted read-only report</div>);
+jest.mock('./CounselorAdmittedReport', () => ({ view, pipeline, day }) => view ? <div>Filtered report: {view} {pipeline || day}</div> : <div>Admitted read-only report</div>);
 jest.mock('./CounselorTaskReport', () => {
   const { useCrm2Dashboard } = require('./Crm2DashboardContext');
   return () => { const scope = useCrm2Dashboard(); return <div>Tasks {scope.academicyear}<button onClick={() => scope.onOpenLead('111111111111111111111111')}>Open task lead</button></div>; };
 });
 beforeEach(() => {
-  ep1.get.mockImplementation(async (url, config) => ({ data: url.includes('/lead/') ? { data: { _id: '111111111111111111111111', name: 'Ann' } } : config.params.academicyear ? { data: { academicyear: config.params.academicyear, newleads: 2, pending: 3, admitted: 4, total: 9, since: '2026-10-25T00:00:00Z' } } : { years: ['2026-27','2027-28'] } }));
+  ep1.get.mockImplementation(async (url, config) => ({ data: url.includes('/lead/') ? { data: { _id: '111111111111111111111111', name: 'Ann' } } : config.params.academicyear ? { data: { academicyear: config.params.academicyear, newleads: 2, pending: 3, admitted: 4, total: 9, since: '2026-10-25T00:00:00Z', pipelines: [{ _id: 'Interested', count: 6 }], followupsToday: 2, followupsTomorrow: 1 } } : { years: ['2026-27','2027-28'] } }));
 });
 async function chooseYear(year) {
   fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Academic year' }));
@@ -52,4 +52,13 @@ test('summary cards open year-scoped original details in a modal without a secon
   fireEvent.click(screen.getByRole('button', { name: 'Open task lead' }));
   await screen.findByText('Full lead Ann · Lead tasks');
   expect(screen.getAllByRole('dialog', { hidden: true })).toHaveLength(2);
+});
+test.each([
+  ['Interested: 6 leads', 'Filtered report: pipeline Interested'],
+  ['Follow-ups today: 2', 'Filtered report: followup today'],
+  ['Follow-ups tomorrow: 1', 'Filtered report: followup tomorrow']
+])('opens the matching lead list from %s', async (button, report) => {
+  render(<CounselorDashboard />); await chooseYear('2026-27');
+  fireEvent.click(await screen.findByRole('button', { name: button }));
+  expect(within(screen.getByRole('dialog')).getByText(report)).toBeInTheDocument();
 });

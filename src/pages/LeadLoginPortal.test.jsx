@@ -44,3 +44,21 @@ test('expired sessions return to lead login instead of staff login', async () =>
   await screen.findByRole('button', { name: 'Log in' });
   await waitFor(() => expect(sessionStorage.getItem('crm2LeadPortalToken')).toBeNull());
 });
+
+test('saves a pasted link or an AWS upload as the lead profile photo', async () => {
+  sessionStorage.setItem('crm2LeadPortalToken', 'lead-token');
+  const awsUrl = 'https://example.s3.amazonaws.com/lead.jpg';
+  ep1.request.mockImplementation(async config => config.url.endsWith('/upload')
+    ? { data: { url: awsUrl } }
+    : { data: { data: config.method === 'post' ? { ...lead, ...config.data } : lead, fields } });
+  render(<MemoryRouter><LeadLoginPortal /></MemoryRouter>);
+  const link = await screen.findByLabelText('Photo link');
+  fireEvent.change(link, { target: { value: 'https://example.com/lead.jpg' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
+  await waitFor(() => expect(ep1.request).toHaveBeenCalledWith(expect.objectContaining({ method: 'post', data: expect.objectContaining({ photo: 'https://example.com/lead.jpg' }) })));
+  const fileInput = screen.getByText('Upload photo to AWS').querySelector('input');
+  fireEvent.change(fileInput, { target: { files: [new File(['test'], 'lead.jpg', { type: 'image/jpeg' })] } });
+  await screen.findByDisplayValue(awsUrl);
+  fireEvent.click(screen.getByRole('button', { name: 'Save profile' }));
+  await waitFor(() => expect(ep1.request).toHaveBeenLastCalledWith(expect.objectContaining({ method: 'post', data: expect.objectContaining({ photo: awsUrl }) })));
+});

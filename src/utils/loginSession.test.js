@@ -11,3 +11,11 @@ test.each(['counselor','Counselor','counsellor'])('%s lands directly on counselo
 test('telecaller lands on the restricted telecaller dashboard', async () => {
   expect(await applyLoginSession({ status: 'Success', colid: 42, user: 'me@example.com', name: 'Me', role: 'telecaller', token: 'signed' })).toBe('/telecaller-dashboard');
 });
+test('configured role dashboard takes priority over the default landing', async () => {
+  ep1.get.mockImplementation(async path => ({ data: path === '/api/v2/rolewise-dashboard/landing' ? { pagelink: '/crm2-admin-dashboard' } : { data: { active: 'Yes', classes: [] } } }));
+  expect(await applyLoginSession({status:'Success',colid:42,user:'me@example.com',role:'counselor',token:'signed'})).toBe('/crm2-admin-dashboard');
+});
+test('external dashboard links cannot override login routing', async () => {
+  ep1.get.mockImplementation(async path => ({ data: path === '/api/v2/rolewise-dashboard/landing' ? { pagelink: '//external.example' } : { data: { active: 'Yes', classes: [] } } }));
+  expect(await applyLoginSession({status:'Success',colid:42,user:'me@example.com',role:'telecaller',token:'signed'})).toBe('/telecaller-dashboard');
+});

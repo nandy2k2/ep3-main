@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Accordion, AccordionDetails, AccordionSummary, Alert, Autocomplete, Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogContent, DialogTitle, FormControlLabel, Grid, IconButton, InputAdornment, LinearProgress, Paper, Snackbar, Stack, Step, StepButton, Stepper, Tab, Tabs, TextField, Typography } from "@mui/material";
-import { Add, Close, Delete, Download, Edit, Save, UploadFile, Visibility, VisibilityOff, Forum, Assignment, NoteAdd, ExpandMore } from "@mui/icons-material";
+import { Add, Close, Delete, Download, Edit, Save, UploadFile, Visibility, VisibilityOff, Forum, Assignment, NoteAdd, ExpandMore, Email, Phone, Person, Groups, School, Info } from "@mui/icons-material";
 import Crm2Interactions from "./Crm2Interactions";
+import { creationModeField } from './crm2CreationMode';
+import LeadPhotoAvatar from './LeadPhotoAvatar';
+import Crm2CampaignHistory from './Crm2CampaignHistory';
+import { LeadInputHistory } from './Crm2MailPages';
 import Crm2Applications from './Crm2Applications';
 import { useCrm2Dashboard } from './Crm2DashboardContext';
 import AiImageFieldExtractor from "./AiImageFieldExtractor";
@@ -14,19 +18,22 @@ import * as XLSX from "xlsx";
 import MenuPageShell from "./MenuPageShell";
 import global1 from "./global1";
 import ep1 from "../api/ep1";
+import { PartnerReportContent } from './Crm2PartnerPaymentPages';
 
 const root = "/api/v2/crm2";
-export const crm2Masters = { source: "Source", pipeline: "Pipeline", type: "Type", category: "CRM category", leadrating: "Lead rating", case: "Case", distributiontype: "Distribution type", mediumofinstruction: "Medium of Instruction", quota: "Quota", document: "Document", admissionoffice: "Admission office", interactionmode: "Interaction mode", agent: "Agent" };
+export const crm2Masters = { source: "Source", pipeline: "Pipeline", type: "Type", category: "CRM category", leadrating: "Lead rating", leadgroup: "Lead group", case: "Case", distributiontype: "Distribution type", mediumofinstruction: "Medium of Instruction", quota: "Quota", document: "Document", admissionoffice: "Admission office", interactionmode: "Interaction mode", agent: "Agent", publisher: 'Publisher' };
 const crmMasterFields = { category: "crmcategory", mediumofinstruction: "Mediumofinstruction", agent: "agentname" };
 const agentFields = ["name", "email", "phone", "pan", "gst", "address", "state", "country", "status", "order"];
-const crmDetailMasters = ["source", "pipeline", "type", "category", "leadrating", "case", "distributiontype"];
+const publisherFields = ['name','email','status','order'];
+const admissionOfficeFields = ['name','description','address','country','state','city','pincode','latitude','longitude','status','order'];
+const crmDetailMasters = ["source", "pipeline", "leadgroup", "type", "category", "leadrating", "case", "distributiontype"];
 export const orderFamilyFields = items => [...items].sort((a, b) => {
   const rank = field => ({ country: 0, state: 1, city: 2 }[field] ?? 3);
   return rank(a.field) - rank(b.field);
 });
-const label = value => ({ academicyear: "Academic year", admissionyear: "Admission year", regno: "Registration No", counsellorname: "Counsellor name", counselloremail: "Counsellor email", customFields: "Custom fields (JSON)", dob: "Date of birth", birthdate: "Birth date", fathername: "Father's name", mothername: "Mother's name", leadrating: "Lead rating", distributiontype: "Distribution type" }[value] || value.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, v => v.toUpperCase()));
+const label = value => ({ academicyear: "Academic year", admissionyear: "Admission year", regno: "Registration No", counsellorname: "Counsellor name", counselloremail: "Counsellor email", customFields: "Custom fields (JSON)", dob: "Date of birth", birthdate: "Birth date", fathername: "Father's name", mothername: "Mother's name", leadrating: "Lead rating", leadgroup: "Lead group", distributiontype: "Distribution type" }[value] || value.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, v => v.toUpperCase()));
 const scope = () => ({ colid: global1.colid, user: global1.user || global1.email });
-export const leadStages = ['Identity', 'CRM Details', 'Family & Address', 'Education & Work', 'Additional Details', 'Subjectwise Education', 'Documents', 'Programs interested', 'Applications', 'Interactions', 'Lead tasks', 'Lead notes'];
+export const leadStages = ['Identity', 'Family & Address', 'CRM Details', 'Education & Work', 'Additional Details', 'Subjectwise Education', 'Documents', 'Programs interested', 'Applications', 'Interactions', 'Lead tasks', 'Lead notes'];
 const leadSections = leadStages.slice(7);
 export const leadStageTime = value => value && !Number.isNaN(new Date(value).getTime()) ? new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(new Date(value)) : '';
 const messageOf = err => err.response?.data?.message || err.message;
@@ -44,7 +51,7 @@ function useStableEvent(handler) {
   return useCallback((...args) => ref.current(...args), []);
 }
 
-function RemoteChoice({ title, endpoint, field, value, onChange, onAdd, freeSolo = false, refresh = 0, params = {}, disabled = false }) {
+export function RemoteChoice({ title, endpoint, field, value, onChange, onAdd, freeSolo = false, refresh = 0, params = {}, disabled = false }) {
   const dashboard = useCrm2Dashboard();
   const paramsKey = JSON.stringify(params);
   const [open, setOpen] = useState(false), [search, setSearch] = useState("");
@@ -106,6 +113,50 @@ function PasswordInput({ value, onChange }) {
   return <Stack spacing={1}><TextField size="small" fullWidth type={visible ? "text" : "password"} autoComplete="new-password" label="Password (write-only, optional)" value={value || ""} onChange={e => onChange(e.target.value)} InputProps={{ endAdornment: <InputAdornment position="end"><IconButton title={visible ? "Hide password" : "Show password"} onClick={() => setVisible(v => !v)}>{visible ? <VisibilityOff /> : <Visibility />}</IconButton></InputAdornment> }} /><Button onClick={generate}>Generate password</Button>{error && <Alert severity="error">{error}</Alert>}</Stack>;
 }
 
+export const LeadOverviewPanel = React.memo(function LeadOverviewPanel({ lead, onSection }) {
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [campaignOpen, setCampaignOpen] = useState(false);
+  if (!lead?._id) return null;
+  const programs = (lead.programsinterested || []).map(row => row.programcode ? `${row.program || row.programcode} (${row.programcode})` : row.program).filter(Boolean);
+  const created = lead.dateadded || lead.createdAt;
+  const leadNumber = String(lead._id).slice(-6).toUpperCase();
+  const sectionSx = { minWidth: 210, px: 2.25, py: 0.5, borderLeft: { xs: 0, md: '1px solid' }, borderColor: 'divider' };
+  const actionButtonSx = { minWidth: 0, px: 1.25, borderColor: 'primary.light' };
+  return <Paper variant="outlined" sx={{ p: 2.5, borderStyle: 'dashed', borderRadius: 2, overflowX: 'auto' }}>
+    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2, minWidth: 1080 }}>
+      <Typography variant="h6" sx={{ fontWeight: 800 }}>Lead #{leadNumber}</Typography>
+      <Button onClick={() => setHistoryOpen(true)}>Lead history</Button>
+      <Button onClick={() => setCampaignOpen(true)}>Campaign history and response</Button>
+      <Dialog open={campaignOpen} onClose={() => setCampaignOpen(false)} fullWidth maxWidth="lg"><DialogTitle>Campaign history and response<Button onClick={() => setCampaignOpen(false)} sx={{ float: 'right' }}>Close</Button></DialogTitle><DialogContent>{campaignOpen && <Crm2CampaignHistory leadId={lead._id} />}</DialogContent></Dialog>
+      <Dialog open={historyOpen} onClose={() => setHistoryOpen(false)} fullWidth maxWidth="lg"><DialogTitle>Lead history<Button onClick={() => setHistoryOpen(false)} sx={{ float: 'right' }}>Close</Button></DialogTitle><DialogContent><LeadInputHistory lead={lead} /></DialogContent></Dialog>
+      <Typography variant="body2" color="text.secondary">Quick actions and lead summary</Typography>
+    </Stack>
+    <Box sx={{ display: 'grid', gridTemplateColumns: '1.15fr 1.2fr 1.2fr 1.3fr 1.25fr 1.15fr', minWidth: 1080 }}>
+      <Box sx={{ minWidth: 220, pr: 2.25 }}>
+        <Stack direction="row" alignItems="center" spacing={1.25}>
+          <LeadPhotoAvatar photo={lead.photo} name={lead.name} />
+          <Box sx={{ minWidth: 0 }}>
+            <Typography variant="h6" sx={{ fontWeight: 800, fontSize: 18, overflowWrap: 'anywhere' }}>{lead.name || 'Unnamed lead'}</Typography>
+            <Button size="small" startIcon={<Edit />} onClick={() => onSection('Identity')}>Edit photo</Button>
+          </Box>
+        </Stack>
+        <Stack direction="row" spacing={0.75} sx={{ my: 1.5 }}>
+          <Button title="Interactions" aria-label="Interactions" variant="outlined" sx={actionButtonSx} onClick={() => onSection('Interactions')}><Forum fontSize="small" /></Button>
+          <Button title="Lead tasks" aria-label="Lead tasks" variant="outlined" sx={actionButtonSx} onClick={() => onSection('Lead tasks')}><Assignment fontSize="small" /></Button>
+          <Button title="Email lead" aria-label="Email lead" component="a" href={lead.email ? `mailto:${lead.email}` : undefined} disabled={!lead.email} variant="outlined" sx={actionButtonSx}><Email fontSize="small" /></Button>
+          <Button title="Call lead" aria-label="Call lead" component="a" href={lead.phone ? `tel:${lead.phone}` : undefined} disabled={!lead.phone} variant="outlined" sx={actionButtonSx}><Phone fontSize="small" /></Button>
+        </Stack>
+        <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap"><Chip size="small" label={lead.leadrating || 'No rating'} /><Chip size="small" variant="outlined" label={lead.type || 'No inquiry type'} /></Stack>
+      </Box>
+      <Box sx={sectionSx}><Typography sx={{ fontWeight: 750, mb: 1 }}>Contact details</Typography><Typography>{lead.phone || 'Not provided'}</Typography><Typography sx={{ mt: 1, overflowWrap: 'anywhere' }}>{lead.email || 'Not provided'}</Typography><Button size="small" startIcon={<Edit />} sx={{ mt: 1 }} onClick={() => onSection('Identity')}>Modify</Button></Box>
+      <Box sx={sectionSx}><Stack direction="row" alignItems="center" justifyContent="space-between"><Typography sx={{ fontWeight: 750 }}>Program choices</Typography><Button size="small" aria-label="Edit program choices" onClick={() => onSection('Programs interested')}>Modify</Button></Stack>{programs.length ? programs.slice(0, 3).map(value => <Typography key={value} sx={{ mt: 1 }}>{value}</Typography>) : <Typography color="text.secondary" sx={{ mt: 1 }}>No program selected</Typography>}{programs.length > 3 && <Typography variant="caption">+{programs.length - 3} more</Typography>}</Box>
+      <Box sx={sectionSx}><Typography sx={{ fontWeight: 750, mb: 1 }}>Primary counselor</Typography><Typography sx={{ fontWeight: 650 }}>{lead.counsellorname || 'Not assigned'}</Typography><Typography sx={{ mt: 0.5, overflowWrap: 'anywhere' }}>{lead.counselloremail || ''}</Typography><Button size="small" startIcon={<Edit />} sx={{ mt: 1 }} onClick={() => onSection('CRM Details')}>Modify</Button></Box>
+      <Box sx={sectionSx}><Button fullWidth startIcon={<Person />} sx={{ justifyContent: 'flex-start', mb: 1 }} onClick={() => onSection('Identity')}>Personal information</Button><Button fullWidth startIcon={<Groups />} sx={{ justifyContent: 'flex-start', mb: 1 }} onClick={() => onSection('Additional Details')}>Additional information</Button><Button fullWidth startIcon={<School />} sx={{ justifyContent: 'flex-start', mb: 1 }} onClick={() => onSection('Applications')}>Applications</Button><Button fullWidth startIcon={<Info />} sx={{ justifyContent: 'flex-start' }} onClick={() => onSection('Lead notes')}>Lead notes</Button></Box>
+      <Box sx={sectionSx}><Stack spacing={1.1}><Box><Typography variant="caption" color="text.secondary">Source</Typography><Typography sx={{ fontWeight: 650 }}>{lead.source || '-'}</Typography></Box><Box><Typography variant="caption" color="text.secondary">Campaign</Typography><Typography sx={{ fontWeight: 650 }}>{lead.campaign || '-'}</Typography></Box><Box><Typography variant="caption" color="text.secondary">Created at</Typography><Typography sx={{ fontWeight: 650 }}>{created ? new Date(created).toLocaleString('en-GB') : '-'}</Typography></Box><Box><Typography variant="caption" color="text.secondary">Creation mode</Typography><Typography sx={{ fontWeight: 650 }}>{lead.addedby || '-'}</Typography></Box></Stack></Box>
+    </Box>
+  </Paper>;
+});
+
 function LeadDocuments({ documents, append, remove, onActivity, onAdd, refresh, busy }) {
   const [document, setDocument] = useState(null), [title, setTitle] = useState(""), [url, setUrl] = useState("");
   const add = data => { append({ documentname: document.name, title: title || data.title || document.name, url: data.url, uploadedat: new Date().toISOString() }); setTitle(""); setUrl(""); };
@@ -119,33 +170,51 @@ function LeadDocuments({ documents, append, remove, onActivity, onAdd, refresh, 
   </Stack>;
 }
 
-export function Crm2Content({ entity, mode = '', autoLoad = false, initialLead = null, initialTab = 'CRM Details', detailOnly = false }) {
+export function Crm2Content({ entity, mode = '', autoLoad = false, initialLead = null, initialTab = 'CRM Details', detailOnly = false, overviewModal = false, onLeadUpdated, editorPage = false }) {
   const dashboard = useCrm2Dashboard();
   const requestScope = () => ({ ...scope(), ...(mode ? { leadmode: mode } : {}), ...(dashboard ? { dashboardyear: dashboard.academicyear, dashboardview: dashboard.view || '', token: global1.token } : {}) });
   const leads = entity === "leads";
-  const masterFields = entity === "agent" ? agentFields : ["name", "description", "status", "order"];
-  const [metadata, setMetadata] = useState([]), [form, setForm] = useState(initialLead || {}), [tab, setTab] = useState(initialLead?.wizardcompleted?.length && initialTab === 'CRM Details' && leadStages.includes(initialLead.stage) ? initialLead.stage : initialTab);
+  const masterFields = entity === "agent" ? agentFields : entity === 'publisher' ? publisherFields : entity === 'admissionoffice' ? admissionOfficeFields : ["name", "description", "status", "order"];
+  const [metadata, setMetadata] = useState([]), [form, setForm] = useState(initialLead || {}), [tab, setTab] = useState(!overviewModal && initialLead?.wizardcompleted?.length && initialTab === 'CRM Details' && leadStages.includes(initialLead.stage) ? initialLead.stage : initialTab);
   const [rows, setRows] = useState([]), [total, setTotal] = useState(0), [selected, setSelected] = useState([]);
   const [requestBusy, setBusy] = useState(false), [loaded, setLoaded] = useState(false), [progress, setProgress] = useState(null);
   const [notice, setNotice] = useState(null), [search, setSearch] = useState(""), [status, setStatus] = useState("");
   const [filters, setFilters] = useState([]), [page, setPage] = useState({ page: 0, pageSize: 25 });
   const [dateField, setDateField] = useState('dateadded'), [dateFrom, setDateFrom] = useState(''), [dateTo, setDateTo] = useState('');
   const [embedded, setEmbedded] = useState(""), [refresh, setRefresh] = useState(0);
+  const [overviewSection, setOverviewSection] = useState('');
   const [uploadCount, setUploadCount] = useState(0);
   const [bulkField, setBulkField] = useState(""), [bulkValue, setBulkValue] = useState(null);
   const [transferOpen, setTransferOpen] = useState(false);
   const [leadExists, setLeadExists] = useState('');
   const [saveError, setSaveError] = useState('');
   const [autoAssign, setAutoAssign] = useState(false);
+  const [autoMatched,setAutoMatched]=useState(false);
+  const [addressDone,setAddressDone]=useState(false);
   const [checkedIdentity, setCheckedIdentity] = useState(null);
   const [identityDone, setIdentityDone] = useState(false);
   const identityReady = !!form._id || !!(checkedIdentity && checkedIdentity.email === form.email && checkedIdentity.phone === form.phone);
-  const completedStages = form._id ? (form.wizardcompleted?.length ? form.wizardcompleted : leadStages) : identityDone ? ['Identity'] : [];
+  const completedStages = form._id ? (form.wizardcompleted?.length ? form.wizardcompleted : leadStages) : identityDone ? (addressDone ? ['Identity','Family & Address'] : ['Identity']) : [];
   const stageAllowed = stage => leadSections.includes(stage) ? !!form._id : identityReady && leadStages.slice(0, leadStages.indexOf(stage)).every(step => completedStages.includes(step));
-  const [activeTab, setActiveTab] = useState(dashboard ? 'All' : 'Yes');
+  const showAllLeads = !!dashboard || !mode;
+  const [activeTab, setActiveTab] = useState(showAllLeads ? 'All' : 'Yes');
   const busy = requestBusy || uploadCount > 0;
   const uploadActivity = useCallback(delta => setUploadCount(value => Math.max(0, value + delta)), []);
   const toast = (text, severity = "success") => setNotice({ text, severity });
+  const assignmentKey = JSON.stringify({country:form.country,state:form.state,city:form.city,programsinterested:form.programsinterested});
+  useEffect(()=>{
+    setAutoMatched(false);
+    if(!autoAssign)return undefined;
+    const controller=new AbortController();
+    const timer=setTimeout(async()=>{try{
+      const result=await ep1.post(`${root}/auto-counselor-preview`,{...requestScope(),lead:JSON.parse(assignmentKey)},{signal:controller.signal});
+      if(controller.signal.aborted)return;
+      if(result.data.data){setForm(previous=>({...previous,...result.data.data}));setAutoMatched(true);}
+      else toast(result.data.message,'warning');
+    }catch(err){if(!controller.signal.aborted)toast(messageOf(err),'error');}},250);
+    return()=>{clearTimeout(timer);controller.abort();};
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[autoAssign,assignmentKey]);
   useEffect(() => {
     let cancelled = false;
     ep1.get(`${root}/metadata`, { params: scope() }).then(res => { if (!cancelled) setMetadata(res.data.fields || []); }).catch(err => toast(messageOf(err), "error"));
@@ -181,16 +250,18 @@ export function Crm2Content({ entity, mode = '', autoLoad = false, initialLead =
       }
       if (leads && !form._id && stage === 'Identity') {
         if (!String(form.name || '').trim()) throw new Error('Enter the lead name before continuing');
-        setIdentityDone(true); setTab('CRM Details'); return;
+        setIdentityDone(true); setTab('Family & Address'); return;
       }
+      if (leads && !form._id && stage === 'Family & Address') { setAddressDone(true); setTab('CRM Details'); return; }
       if (leads && !stageAllowed(stage)) throw new Error('Save the previous stage before continuing');
-      const payload = { ...form, ...(!form._id && dashboard ? { academicyear: dashboard.academicyear } : {}), ...requestScope(), id: form._id, ...(leads ? { wizardstep: stage } : {}), ...(!mode && leads ? { autoassign: autoAssign } : {}) };
+      const payload = { ...form, ...(!form._id && dashboard ? { academicyear: dashboard.academicyear } : {}), ...requestScope(), id: form._id, ...(leads ? { wizardstep: stage } : {}), ...(mode !== 'agent' && leads ? { autoassign: autoAssign } : {}) };
       if (mode && (!payload.user || !payload.colid)) throw new Error('Your user session is unavailable. Please sign in again.');
       if (typeof payload.customFields === "string") payload.customFields = payload.customFields.trim() ? JSON.parse(payload.customFields) : {};
       const res = await ep1.post(`${root}${listEndpoint}/save`, payload, { timeout: 45000 });
       if (res.data?.success === false || (leads && !res.data?.data?._id)) throw new Error(res.data?.message || 'The server did not return the saved lead. Please try again or contact support.');
       setForm(leads ? res.data.data : {}); setRefresh(v => v + 1);
-      if (leads && advance) setTab(leadStages[Math.min(leadStages.indexOf(stage) + 1, leadStages.length - 1)]);
+      if (leads) onLeadUpdated?.(res.data.data);
+      if (leads && advance && !overviewModal) setTab(leadStages[Math.min(leadStages.indexOf(stage) + 1, leadStages.length - 1)]);
       toast(res.data.assignmentwarning || res.data.message || (leads && !form._id ? "Lead created. Add the remaining information in the tabs below." : "Saved"), res.data.assignmentwarning ? 'warning' : 'success');
       if (loaded || !leads) await load();
     } catch (err) {
@@ -231,12 +302,12 @@ export function Crm2Content({ entity, mode = '', autoLoad = false, initialLead =
     const field = crmMasterFields[kind] || kind;
     return <RemoteChoice title={crm2Masters[kind]} endpoint={`/masters/${kind}`} value={form[field] ? { name: form[field] } : null} refresh={refresh} onAdd={() => openAdd(kind)} onChange={value => change(field, value?.name || "")} />;
   };
-  const filterFields = [...metadata.filter(item => item.field !== "password" && !["Map", "Mixed"].includes(item.type)), ...crmDetailMasters.map(kind => crmMasterFields[kind] || kind).filter(field => !metadata.some(item => item.field === field)).map(field => ({ field, type: "String" })), { field: "counsellorname", type: "String" }, { field: "counselloremail", type: "String" }];
+  const filterFields = [...metadata.filter(item => item.field !== "password" && !["Map", "Mixed"].includes(item.type)), ...crmDetailMasters.map(kind => crmMasterFields[kind] || kind).filter(field => !metadata.some(item => item.field === field)).map(field => ({ field, type: "String" })), { field: "counsellorname", type: "String" }, { field: "counselloremail", type: "String" }, ...(leads ? [creationModeField] : [])];
   const renderFilter = (filter, index) => {
     const update = value => setFilters(previous => previous.map((item, i) => i === index ? { ...item, value } : item));
     const kind = Object.keys(crm2Masters).find(kind => (crmMasterFields[kind] || kind) === filter.field);
     if (kind) return <RemoteChoice title="Filter value" endpoint={`/masters/${kind}`} freeSolo value={filter.value} onAdd={() => openAdd(kind)} onChange={value => update(typeof value === "string" ? value : value?.name || "")} />;
-    const field = metadata.find(item => item.field === filter.field);
+    const field = filter.field === 'addedby' ? creationModeField : metadata.find(item => item.field === filter.field);
     if (field?.options?.length) return <Autocomplete options={field.options} value={filter.value || null} onChange={(_, value) => update(value || "")} renderInput={params => <TextField {...params} size="small" label="Filter value" />} />;
     if (field?.type === "String") return <RemoteChoice title="Filter value" endpoint="/field-options" field={filter.field} freeSolo value={filter.value} onChange={value => update(value || "")} />;
     return <TextField fullWidth size="small" label="Filter value" type={field?.type === "Number" ? "number" : field?.type === "Date" ? "date" : "text"} InputLabelProps={field?.type === "Date" ? { shrink: true } : undefined} value={filter.value} onChange={e => update(e.target.value)} />;
@@ -251,6 +322,8 @@ export function Crm2Content({ entity, mode = '', autoLoad = false, initialLead =
     if (mode === 'agent' && ['agentname', 'agentemail'].includes(field)) return <TextField fullWidth size="small" label={fieldLabel(field)} value={field === 'agentname' ? global1.name || '' : global1.user || global1.email || ''} InputProps={{ readOnly: true }} />;
     if (field === "agentname") return <RemoteChoice title="Agent name" endpoint="/masters/agent" refresh={refresh} value={form.agentemail ? { name: form.agentname, email: form.agentemail } : null} onAdd={() => openAdd("agent")} onChange={agent => setForm(previous => ({ ...previous, agentname: agent?.name || "", agentemail: agent?.email || "" }))} />;
     if (field === "agentemail") return <TextField fullWidth size="small" label="Agent email" value={value || ""} InputProps={{ readOnly: true }} />;
+    if (field === 'publisher') return <RemoteChoice title="Publisher" endpoint="/masters/publisher" refresh={refresh} value={form.publisheremail?{name:form.publisher,email:form.publisheremail}:null} onAdd={()=>openAdd('publisher')} onChange={person=>setForm(previous=>({...previous,publisher:person?.name || '',publisheremail:person?.email || ''}))}/>;
+    if (field === 'publisheremail') return <TextField fullWidth size="small" label="Publisher email" value={value || ''} InputProps={{readOnly:true}}/>;
     if (field === "admissionoffice") return <RemoteChoice title="Admission office" endpoint="/masters/admissionoffice" refresh={refresh} value={value ? { _id: form.admissionofficeid, name: value } : null} onAdd={() => openAdd("admissionoffice")} onChange={office => setForm(previous => ({ ...previous, admissionoffice: office?.name || "", admissionofficeid: office?._id || "" }))} />;
     if (field === "admissionofficeid" || field === "campuscounseloremail") return <TextField size="small" fullWidth label={fieldLabel(field)} value={value || ""} InputProps={{ readOnly: true }} />;
     if (field === "campuscounsellor") return <RemoteChoice title="Campus counsellor" endpoint="/counsellors" value={form.campuscounseloremail ? { name: value, email: form.campuscounseloremail } : null} onAdd={() => openAdd("counsellor")} onChange={person => setForm(previous => ({ ...previous, campuscounsellor: person?.name || "", campuscounseloremail: person?.email || "" }))} />;
@@ -265,11 +338,19 @@ export function Crm2Content({ entity, mode = '', autoLoad = false, initialLead =
     return <RemoteChoice title={fieldLabel(field)} endpoint="/field-options" field={field} freeSolo value={value || ""} onChange={selected => change(field, selected || "")} />;
   };
   const removeEvent = useStableEvent(remove);
-  const openLead = useStableEvent((lead, interaction = false) => { if (!busy) { setForm(lead); setTab(typeof interaction === 'string' ? interaction : interaction ? "Interactions" : lead.wizardcompleted?.length && leadStages.includes(lead.stage) ? lead.stage : "CRM Details"); window.scrollTo({ top: 0, behavior: "smooth" }); } });
+  const navigateEditor = lead => {
+    const params = new URLSearchParams();
+    if(lead?._id)params.set('id',lead._id);
+    if(mode==='my')params.set('mode','my');
+    if(dashboard?.academicyear)params.set('dashboardyear',dashboard.academicyear);
+    window.location.assign(`/crm2-lead-editor?${params}`);
+  };
+  const openLead = useStableEvent((lead, interaction = false) => { if (!busy) { if(leads && mode !== 'agent' && !interaction && !overviewModal && !editorPage){navigateEditor(lead);return;} setForm(lead); setTab(typeof interaction === 'string' ? interaction : interaction ? "Interactions" : lead.wizardcompleted?.length && leadStages.includes(lead.stage) ? lead.stage : "CRM Details"); window.scrollTo({ top: 0, behavior: "smooth" }); } });
   const rowClick = useStableEvent((params, event) => { if (leads && !event.target.closest('button,a,input,[role="checkbox"]')) openLead(params.row); });
   const interactionSaved = lead => {
     setForm(previous => previous._id === lead._id ? { ...previous, pipeline: lead.pipeline, followupdate: lead.followupdate } : previous);
     setRows(previous => previous.map(row => row._id === lead._id ? { ...row, pipeline: lead.pipeline, followupdate: lead.followupdate } : row));
+    onLeadUpdated?.({ ...form, pipeline: lead.pipeline, followupdate: lead.followupdate });
   };
   const applyBulk = async () => {
     setBusy(true);
@@ -283,40 +364,60 @@ export function Crm2Content({ entity, mode = '', autoLoad = false, initialLead =
   };
   const pageEvent = useStableEvent(value => { setPage(value); if (loaded) load(value); });
   const columns = useMemo(() => {
-    const result = leads ? ["name", "email", "phone", "source", "pipeline", "type", "crmcategory", "category", "active", "followupdate", "leadrating", "case", "distributiontype", "counsellorname", "counselloremail", "academicyear", "agentname", "agentemail", "admissionstatus", "admissionoffice", "admissionofficeid", "campusvisitdate", "campuscounsellor", "campuscounseloremail"].map(field => ({ field, headerName: fieldLabel(field), minWidth: 160, flex: field === "name" ? 1 : undefined })) : (entity === "agent" ? agentFields : ["name", "description", "status", "order"]).map(field => ({ field, headerName: fieldLabel(field), minWidth: 150, flex: field === "description" ? 1 : undefined }));
+    const result = leads ? ["name", "email", "phone", "source", "pipeline", "leadgroup", "type", "crmcategory", "category", "active", "followupdate", "leadrating", "case", "distributiontype", "counsellorname", "counselloremail", "academicyear", "agentname", "agentemail", "admissionstatus", "admissionoffice", "admissionofficeid", "campusvisitdate", "campuscounsellor", "campuscounseloremail"].map(field => ({ field, headerName: fieldLabel(field), minWidth: 160, flex: field === "name" ? 1 : undefined })) : (entity === "agent" ? agentFields : entity === 'admissionoffice' ? admissionOfficeFields : ["name", "description", "status", "order"]).map(field => ({ field, headerName: fieldLabel(field), minWidth: 150, flex: field === "description" ? 1 : undefined }));
     result.push({ field: "actions", headerName: "Actions", width: leads ? 230 : 110, sortable: false, renderCell: params => <><IconButton title="Edit" disabled={busy} onClick={() => openLead(params.row)}><Edit /></IconButton>{leads && <><IconButton title="Interactions" disabled={busy} onClick={() => openLead(params.row, true)}><Forum /></IconButton><IconButton title="Lead tasks" disabled={busy} onClick={() => openLead(params.row, 'Lead tasks')}><Assignment /></IconButton><IconButton title="Lead notes" disabled={busy} onClick={() => openLead(params.row, 'Lead notes')}><NoteAdd /></IconButton></>}<IconButton title="Delete" disabled={busy} onClick={() => removeEvent([params.row._id])}><Delete /></IconButton></> });
     if (leads) result.splice(3, 0, { field: 'admitted', headerName: 'Admitted', minWidth: 130 });
+    if (leads) result.splice(4,0,{field:'publisher',headerName:'Publisher',minWidth:170},{field:'publisheremail',headerName:'Publisher email',minWidth:210});
+    if (entity === 'publisher') result.splice(1,0,{field:'email',headerName:'Publisher email',minWidth:220});
     if (leads) result.splice(4, 0, { field: 'stage', headerName: 'Stage', minWidth: 180 }, { field: 'stagetime', headerName: 'Stage time', minWidth: 190, valueGetter: params => leadStageTime(params.row?.stagetime) }, { field: 'dateadded', headerName: 'Date added', minWidth: 180, valueGetter: params => { const value = params.row?.dateadded || params.row?.createdAt; return value ? new Date(value).toLocaleString() : ''; } }, { field: 'addedby', headerName: 'Added by', minWidth: 140 }, { field: 'telecallername', headerName: 'Telecaller name', minWidth: 180 }, { field: 'telecalleremail', headerName: 'Telecaller email', minWidth: 210 });
-    return leads ? [result[result.length - 1], ...result.slice(0, -1)] : result;
+    return leads ? [result[result.length - 1], { field: 'photo', headerName: 'Photo', width: 78, sortable: false, filterable: false, renderCell: ({ row }) => <LeadPhotoAvatar photo={row.photo} name={row.name} size={34} /> }, ...result.slice(0, -1)] : result;
   }, [leads, entity, busy, removeEvent, openLead]);
   return <>
     <Stack spacing={2}>
+      {mode==='agent' && <Paper sx={{p:2}}><Typography variant="h6" sx={{mb:2}}>My conversions and payments</Typography><PartnerReportContent kind="agent" mine hideLeads/></Paper>}
       {busy && <LinearProgress />}
-      <Paper sx={{ p: 2 }}>
-        <Stack direction="row" justifyContent="space-between" sx={{ mb: 2 }}><Typography variant="h6">{form._id ? "Edit" : "Add"} {leads ? "lead" : crm2Masters[entity].toLowerCase()}</Typography>{!detailOnly && <Button startIcon={<Add />} disabled={busy || uploadCount > 0} onClick={() => { setForm({}); setCheckedIdentity(null); setIdentityDone(false); setSaveError(''); setAutoAssign(false); setTab("Identity"); }}>New</Button>}</Stack>
+      {leads && !overviewModal && mode !== 'agent' && form._id && <LeadOverviewPanel lead={form} onSection={(section) => {
+        setTab(section);
+        setOverviewSection(section);
+      }} />}
+      <Paper sx={{ p: 2, display: overviewModal && leadSections.includes(initialTab) ? 'none' : undefined }}>
+        <Stack direction="row" justifyContent="space-between" sx={{ mb: 2 }}><Typography variant="h6">{form._id ? "Edit" : "Add"} {leads ? "lead" : crm2Masters[entity].toLowerCase()}</Typography>{!detailOnly && <Button startIcon={<Add />} disabled={busy || uploadCount > 0} onClick={() => { if(leads && mode !== 'agent'){navigateEditor(null);return;} setForm({}); setCheckedIdentity(null); setIdentityDone(false); setSaveError(''); setAutoAssign(false); setTab("Identity"); }}>New</Button>}</Stack>
         {leads && form.stage && <Stack direction="row" spacing={2} sx={{ mb: 2 }}><Chip label={`Stage: ${form.stage}`} color="primary" variant="outlined" /><Typography>{leadStageTime(form.stagetime)}</Typography></Stack>}
         {saveError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSaveError('')}>{saveError}</Alert>}
+        {entity === 'agent' && <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid item xs={12} md={4}><PasswordInput value={form.password || ''} onChange={value => change('password', value)} /></Grid>
+          <Grid item xs={12} md={4}><RemoteChoice title="Source (optional)" endpoint="/masters/source" value={form.source ? { name: form.source } : null} onAdd={() => openAdd('source')} onChange={value => change('source', value?.name || '')} /></Grid>
+          <Grid item xs={12} md={4}><RemoteChoice title="Counselor (optional)" endpoint="/counsellors" value={form.counselloremail ? { name: form.counsellorname, email: form.counselloremail } : null} onAdd={() => openAdd('counsellor')} onChange={value => setForm(previous => ({ ...previous, counsellorname: value?.name || '', counselloremail: value?.email || '' }))} /></Grid>
+          <Grid item xs={12} md={4}><TextField fullWidth size="small" label="Counselor email" value={form.counselloremail || ''} InputProps={{ readOnly: true }} /></Grid>
+        </Grid>}
         {leads && identityReady && <AiImageFieldExtractor key={form._id || "new"} title="Extract lead details from document photos" fields={metadata.filter(item => ["Identity", "Family & Address", "Education & Work"].includes(item.group) && !["password", "photo", "customFields", ...(!form._id ? ['email', 'phone'] : [])].includes(item.field)).map(item => ({ name: item.field, label: fieldLabel(item.field) }))} context="Extract lead profile details from identity documents such as Aadhaar or education documents. Do not invent an email or phone if not visible. Do not extract document identification numbers into unrelated fields." onApply={values => setForm(previous => ({ ...previous, ...Object.fromEntries(metadata.filter(item => values[item.field] !== undefined && values[item.field] !== "" && !["password", "photo", "customFields", ...(!previous._id ? ['email', 'phone'] : [])].includes(item.field)).map(item => [item.field, values[item.field]])) }))} />}
+        {entity==='publisher' && <Grid container spacing={2} sx={{mb:2}}><Grid item xs={12} md={6}><RemoteChoice title="Publisher user" endpoint="/publisher-users" value={form.email?{name:form.name,email:form.email}:null} onAdd={()=>setEmbedded('/mbuser')} onChange={person=>setForm(previous=>({...previous,name:person?.name || '',email:person?.email || ''}))}/></Grid><Grid item xs={12} md={6}><TextField fullWidth size="small" label="Password" value="Linked User account" InputProps={{readOnly:true}} helperText="Uses the existing Publisher User login password; credentials are not duplicated."/></Grid></Grid>}
         {(!leads || !identityReady) ? <Grid container spacing={2}>
-          {(leads ? ["email", "phone"] : masterFields).map(field => <Grid item xs={12} md={leads ? 4 : 3} key={field}>{field === "status" ? <Autocomplete options={["Active", "Inactive"]} value={form.status || "Active"} onChange={(_, value) => change(field, value || "Active")} renderInput={params => <TextField {...params} size="small" label="Status" />} /> : <TextField size="small" fullWidth label={field === "pan" || field === "gst" ? field.toUpperCase() : label(field)} type={field === "order" ? "number" : field === "email" ? "email" : "text"} value={form[field] ?? ""} onChange={e => change(field, e.target.value)} />}</Grid>)}
+          {(leads ? ["email", "phone"] : masterFields).map(field => <Grid item xs={12} md={leads ? 4 : 3} key={field}>{entity === 'admissionoffice' && ['country','state','city'].includes(field) ? <RemoteChoice title={label(field)} endpoint="/config/address-options" field={field} params={{country:form.country || '',state:form.state || ''}} disabled={field === 'state' ? !form.country : field === 'city' ? !form.country || !form.state : false} value={form[field] || null} onAdd={()=>setEmbedded('/crm2-address-master')} onChange={selected=>setForm(previous=>({...previous,[field]:typeof selected==='string'?selected:selected?.name || '',...(field==='country'?{state:'',city:''}:field==='state'?{city:''}:{})}))}/> : field === "status" ? <Autocomplete options={["Active", "Inactive"]} value={form.status || "Active"} onChange={(_, value) => change(field, value || "Active")} renderInput={params => <TextField {...params} size="small" label="Status" />} /> : <TextField size="small" fullWidth label={field === "pan" || field === "gst" ? field.toUpperCase() : label(field)} type={["order","latitude","longitude"].includes(field) ? "number" : field === "email" ? "email" : "text"} inputProps={field==='latitude'?{min:-90,max:90,step:'any'}:field==='longitude'?{min:-180,max:180,step:'any'}:undefined} InputProps={{readOnly:entity==='publisher'&&['name','email'].includes(field)}} value={form[field] ?? ""} onChange={e => change(field, e.target.value)} />}</Grid>)}
         </Grid> : <>
           <Typography sx={{ mb: 1 }}>{form.name} · {form.email} · {form.phone}</Typography>
           <Box sx={{ overflowX: 'auto', py: 2 }}><Stepper nonLinear activeStep={groups.indexOf(tab)} sx={{ minWidth: 800 }}>{groups.map(group => <Step key={group} completed={completedStages.includes(group)}><StepButton disabled={busy || !stageAllowed(group)} onClick={() => setTab(group)}>{group}</StepButton></Step>)}</Stepper></Box>
           {!leadSections.includes(tab) && <Grid container spacing={2} sx={{ mt: 1 }}>
             {tab === "Subjectwise Education" && <Crm2Education value={form.education || []} onChange={value => change("education", value)} />}
-            {tab === "Documents" ? <LeadDocuments documents={form.documents || []} onActivity={uploadActivity} onAdd={() => openAdd("document")} refresh={refresh} busy={busy || uploadCount > 0} append={document => setForm(previous => ({ ...previous, documents: [...(previous.documents || []), document] }))} remove={index => setForm(previous => ({ ...previous, documents: previous.documents.filter((_, i) => i !== index) }))} /> : tab === "CRM Details" ? <>{crmDetailMasters.map(kind => <Grid item xs={12} md={4} key={kind}>{masterChoice(kind)}</Grid>)}
-              <Grid item xs={12} md={4}>{mode === 'my' ? <TextField size="small" fullWidth label="Counsellor name" value={global1.name || ''} InputProps={{ readOnly: true }} /> : <RemoteChoice title="Counsellor name" endpoint="/counsellors" disabled={!mode && autoAssign} value={form.counselloremail ? { name: form.counsellorname, email: form.counselloremail } : null} onAdd={() => openAdd("counsellor")} onChange={value => setForm(previous => ({ ...previous, counsellorname: value?.name || "", counselloremail: value?.email || "" }))} />}</Grid>
-              <Grid item xs={12} md={4}><TextField size="small" fullWidth label="Counsellor email" value={mode === 'my' ? global1.user || global1.email || '' : form.counselloremail || ""} InputProps={{ readOnly: true }} /></Grid>
+            {tab === "Documents" ? <LeadDocuments documents={form.documents || []} onActivity={uploadActivity} onAdd={() => openAdd("document")} refresh={refresh} busy={busy || uploadCount > 0} append={document => setForm(previous => ({ ...previous, documents: [...(previous.documents || []), document] }))} remove={index => setForm(previous => ({ ...previous, documents: previous.documents.filter((_, i) => i !== index) }))} /> : tab === "CRM Details" ? <>{mode !== 'agent' && <Grid item xs={12}><FormControlLabel control={<Checkbox checked={autoAssign} disabled={busy} onChange={e=>setAutoAssign(e.target.checked)}/>} label="Auto assign counselor by program priority and address"/>{autoAssign && <Crm2ProgramsInterested value={form.programsinterested || []} onChange={value=>change('programsinterested',value)}/>}</Grid>}{crmDetailMasters.map(kind => <Grid item xs={12} md={4} key={kind}>{masterChoice(kind)}</Grid>)}
+              <Grid item xs={12} md={4}>{mode === 'my' && !autoAssign && !form.counselloremail ? <TextField size="small" fullWidth label="Counsellor name" value={global1.name || ''} InputProps={{ readOnly: true }} /> : <RemoteChoice title="Counsellor name" endpoint="/counsellors" disabled={autoAssign && autoMatched} value={form.counselloremail ? { name: form.counsellorname, email: form.counselloremail } : null} onAdd={() => openAdd("counsellor")} onChange={value => setForm(previous => ({ ...previous, counsellorname: value?.name || "", counselloremail: value?.email || "" }))} />}</Grid>
+              <Grid item xs={12} md={4}><TextField size="small" fullWidth label="Counsellor email" value={mode === 'my' && !autoAssign && !form.counselloremail ? global1.user || global1.email || '' : form.counselloremail || ""} InputProps={{ readOnly: true }} /></Grid>
               <Grid item xs={12} md={4}><TextField size="small" fullWidth label="Date added" value={form.dateadded || form.createdAt ? new Date(form.dateadded || form.createdAt).toLocaleString() : ''} InputProps={{ readOnly: true }} /></Grid>
               <Grid item xs={12} md={4}><TextField size="small" fullWidth label="Added by" value={form.addedby || (mode === 'agent' ? 'Agent' : 'Counselor')} InputProps={{ readOnly: true }} /></Grid>
-              {metadata.filter(item => item.group === "CRM Details").map(item => <Grid item xs={12} md={4} key={item.field}>{renderField(item)}</Grid>)}
+              {metadata.filter(item => item.group === "CRM Details" && item.field !== 'leadgroup').map(item => <Grid item xs={12} md={4} key={item.field}>{renderField(item)}</Grid>)}
             </> : (tab === 'Family & Address' ? orderFamilyFields(metadata.filter(item => item.group === tab)) : metadata.filter(item => item.group === tab)).map(item => <Grid item xs={12} md={item.type === "Map" ? 12 : 4} key={item.field}>{renderField(item)}</Grid>)}
           </Grid>}
         </>}
-        {leads && !mode && identityReady && !['Interactions','Applications','Lead tasks','Lead notes'].includes(tab) && <FormControlLabel sx={{ display: 'flex', mt: 2 }} control={<Checkbox checked={autoAssign} disabled={busy} onChange={event => setAutoAssign(event.target.checked)} />} label="Auto assign counselor by program priority and Country / State / City" />}
+
         {(!leads || !leadSections.includes(tab)) && <Button sx={{ mt: 2 }} variant="contained" startIcon={busy || uploadCount ? <CircularProgress size={16} color="inherit" /> : <Save />} disabled={busy || uploadCount > 0 || ((!leads || identityReady) && !form.name) || (leads && (!form.email || !form.phone))} onClick={() => save(leads ? tab : undefined)}>{uploadCount ? "Uploading..." : requestBusy ? leads && !identityReady ? 'Checking duplicates...' : 'Saving...' : leads && !identityReady ? "Check duplicates & continue" : leads ? !form._id && tab === 'Identity' ? 'Continue to CRM details' : 'Save & continue' : 'Save'}</Button>}
       </Paper>
-      {leads && identityReady && leadSections.map((section, index) => <Accordion key={section} expanded={tab === section} disabled={busy || !form._id || !stageAllowed(section)} onChange={(_, expanded) => setTab(expanded ? section : groups[0])} sx={{ border: '1px solid', borderColor: 'divider', boxShadow: 'none', '&:before': { display: 'none' } }}>
+      {leads && (!overviewModal || ['Lead tasks', 'Lead notes'].includes(initialTab)) && mode !== 'agent' && form._id && <Grid container spacing={2}>
+        <Grid item xs={12} lg={6}><Box id="crm2-lead-tasks" sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, height: '100%', scrollMarginTop: 96 }}><Crm2LeadRecords key={`${form._id}-tasks`} kind="tasks" lead={form} mode={mode} compact /></Box></Grid>
+        <Grid item xs={12} lg={6}><Box id="crm2-lead-notes" sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, height: '100%', scrollMarginTop: 96 }}><Crm2LeadRecords key={`${form._id}-notes`} kind="notes" lead={form} mode={mode} compact /></Box></Grid>
+      </Grid>}
+      {leads && mode === 'agent' && form._id && <Paper><Crm2Interactions key={form._id} lead={form} leadmode={mode} Choice={RemoteChoice} onAdd={openAdd} notify={toast} onSaved={interactionSaved} refresh={refresh} /></Paper>}
+      {leads && form._id && !overviewModal && <Accordion><AccordionSummary expandIcon={<ExpandMore />}><Typography variant="h6">Lead history</Typography></AccordionSummary><AccordionDetails><LeadInputHistory lead={form} /></AccordionDetails></Accordion>}
+      {leads && identityReady && leadSections.filter(section => !['Lead tasks','Lead notes'].includes(section) && !(mode === 'agent' && section === 'Interactions') && (!overviewModal || section === initialTab)).map((section, index) => <Accordion key={section} expanded={tab === section} disabled={busy || !form._id || !stageAllowed(section)} onChange={(_, expanded) => setTab(expanded ? section : groups[0])} sx={{ border: '1px solid', borderColor: 'divider', boxShadow: 'none', '&:before': { display: 'none' } }}>
         <AccordionSummary expandIcon={<ExpandMore />}><Stack direction="row" alignItems="center" spacing={2}>{index === 0 ? <Assignment color="primary" /> : index === 1 ? <UploadFile color="primary" /> : index === 2 ? <Forum color="primary" /> : <NoteAdd color="primary" />}<Typography variant="h6">{section === 'Programs interested' ? 'Programs Interested' : section === 'Lead tasks' ? 'Lead Tasks' : section === 'Lead notes' ? 'Lead Notes' : section}</Typography><Chip size="small" label={completedStages.includes(section) ? 'Saved' : stageAllowed(section) && form._id ? 'Ready' : 'Locked'} /></Stack></AccordionSummary>
         <AccordionDetails>{tab === section && form._id && stageAllowed(section) && <Stack spacing={2}>
           {section === 'Programs interested' && <Crm2ProgramsInterested value={form.programsinterested || []} onChange={value => change('programsinterested', value)} />}
@@ -326,8 +427,8 @@ export function Crm2Content({ entity, mode = '', autoLoad = false, initialLead =
           <Button startIcon={<Save />} variant="contained" disabled={busy} sx={{ alignSelf: 'flex-start' }} onClick={() => save(section)}>{section === leadStages.at(-1) ? 'Save & finish' : 'Save & continue'}</Button>
         </Stack>}</AccordionDetails>
       </Accordion>)}
-      {!detailOnly && <><Paper sx={{ p: 2 }}>
-        {leads && <Tabs value={activeTab} onChange={(_, value) => { setActiveTab(value); setSelected([]); setRows([]); const first = { ...page, page: 0 }; setPage(first); load(first, value); }} sx={{ mb: 2 }}>{dashboard && <Tab value="All" label="All assigned leads" disabled={busy} />}<Tab value="Yes" label="Leads with Active Yes" disabled={busy} /><Tab value="No" label="Leads with Active No" disabled={busy} /></Tabs>}
+      {!detailOnly && !editorPage && <><Paper sx={{ p: 2 }}>
+        {leads && <Tabs value={activeTab} onChange={(_, value) => { setActiveTab(value); setSelected([]); setRows([]); const first = { ...page, page: 0 }; setPage(first); load(first, value); }} sx={{ mb: 2 }}>{showAllLeads && <Tab value="All" label={dashboard ? 'All assigned leads' : 'All leads'} disabled={busy} />}<Tab value="Yes" label="Leads with Active Yes" disabled={busy} /><Tab value="No" label="Leads with Active No" disabled={busy} /></Tabs>}
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
           <TextField size="small" label={leads ? "Search name, email or phone" : "Search name or description"} value={search} onChange={e => setSearch(e.target.value)} sx={{ minWidth: 280 }} />
           {!leads && <Autocomplete sx={{ width: 180 }} options={["Active", "Inactive"]} value={status || null} onChange={(_, value) => setStatus(value || "")} renderInput={params => <TextField {...params} size="small" label="Status" />} />}
@@ -338,7 +439,7 @@ export function Crm2Content({ entity, mode = '', autoLoad = false, initialLead =
         </Stack>
         {leads && !dashboard && <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 2 }}><Autocomplete sx={{ width: 210 }} options={['dateadded','createdAt','updatedAt','followupdate','campusvisitdate']} getOptionLabel={field => ({ dateadded: 'Date added', createdAt: 'Created date', updatedAt: 'Updated date', followupdate: 'Follow-up date', campusvisitdate: 'Campus visit date' }[field])} value={dateField} onChange={(_, value) => setDateField(value || 'dateadded')} renderInput={params => <TextField {...params} size="small" label="Date range field" />} /><TextField size="small" label="From date" type="date" InputLabelProps={{ shrink: true }} value={dateFrom} onChange={event => setDateFrom(event.target.value)} /><TextField size="small" label="To date" type="date" InputLabelProps={{ shrink: true }} value={dateTo} onChange={event => setDateTo(event.target.value)} /></Stack>}
         {leads && <Stack spacing={1} sx={{ mt: 2 }}>{filters.map((filter, index) => <Grid container spacing={1} key={index}>
-          <Grid item xs={12} md={4}><Autocomplete options={filterFields} value={filterFields.find(item => item.field === filter.field) || null} getOptionLabel={item => fieldLabel(item.field)} onChange={(_, value) => setFilters(previous => previous.map((item, i) => i === index ? { field: value?.field || "", value: "" } : item))} renderInput={params => <TextField {...params} size="small" label="Filter field" />} /></Grid>
+          <Grid item xs={12} md={4}><Autocomplete options={filterFields} value={filterFields.find(item => item.field === filter.field) || null} getOptionLabel={item => item.label || fieldLabel(item.field)} onChange={(_, value) => setFilters(previous => previous.map((item, i) => i === index ? { field: value?.field || "", value: "" } : item))} renderInput={params => <TextField {...params} size="small" label="Filter field" />} /></Grid>
           <Grid item xs={10} md={7}>{renderFilter(filter, index)}</Grid>
           <Grid item xs={2} md={1}><IconButton title="Remove filter" onClick={() => setFilters(previous => previous.filter((_, i) => i !== index))}><Close /></IconButton></Grid>
         </Grid>)}<Button startIcon={<Add />} sx={{ alignSelf: "flex-start" }} onClick={() => setFilters(previous => [...previous, { field: "academicyear", value: "" }])}>Add filter</Button></Stack>}
@@ -348,6 +449,16 @@ export function Crm2Content({ entity, mode = '', autoLoad = false, initialLead =
       <Box sx={{ height: 560 }}><Crm2ResultsGrid rows={rows} columns={columns} getRowId={rowId} loading={busy} checkboxSelection disableRowSelectionOnClick rowSelectionModel={selected} onRowSelectionModelChange={setSelected}
         paginationMode="server" rowCount={total} paginationModel={page} pageSizeOptions={gridPageSizes} onPaginationModelChange={pageEvent} onRowClick={rowClick} slots={gridSlots} /></Box></>}
     </Stack>
+    <Dialog open={Boolean(overviewSection)} fullWidth maxWidth="xl" onClose={() => setOverviewSection('')}>
+      <DialogTitle>{overviewSection}<IconButton title="Close" sx={{ float: 'right' }} onClick={() => setOverviewSection('')}><Close /></IconButton></DialogTitle>
+      <DialogContent dividers sx={{ minHeight: '60vh' }}>
+        {overviewSection && form._id && <Crm2Content key={`${form._id}-${overviewSection}`} entity="leads" mode={mode} initialLead={form} initialTab={overviewSection} detailOnly overviewModal onLeadUpdated={updated => {
+          setForm(previous => ({ ...previous, ...updated }));
+          setRows(previous => previous.map(row => row._id === updated._id ? { ...row, ...updated } : row));
+          onLeadUpdated?.(updated);
+        }} />}
+      </DialogContent>
+    </Dialog>
     <Dialog open={Boolean(leadExists)} onClose={() => setLeadExists('')}><DialogTitle>Lead exists</DialogTitle><DialogContent><Typography>{leadExists}</Typography><Button onClick={() => setLeadExists('')}>Close</Button></DialogContent></Dialog>
     {transferOpen && <LeadBulkActionDialog action="transfer" mode="master" ids={selected} notify={toast} onClose={() => setTransferOpen(false)} onSaved={() => load()} />}
     <Snackbar open={Boolean(notice)} sx={{ zIndex: theme => theme.zIndex.modal + 200 }} autoHideDuration={7000} onClose={() => setNotice(null)} anchorOrigin={{ vertical: "bottom", horizontal: "center" }}><Alert onClose={() => setNotice(null)} severity={notice?.severity || "success"} variant="filled">{notice?.text}</Alert></Snackbar>

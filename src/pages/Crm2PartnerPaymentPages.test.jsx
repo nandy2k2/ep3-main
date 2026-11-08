@@ -1,0 +1,31 @@
+import React from 'react';
+import {fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {PartnerPaymentConfigurationPage,PartnerReportContent} from './Crm2PartnerPaymentPages';
+import ep1 from '../api/ep1';
+jest.mock('../api/ep1',()=>({get:jest.fn(),post:jest.fn()}));
+jest.mock('./global1',()=>({colid:42,email:'pub@test.com',token:'session-token'}));
+jest.mock('./MenuPageShell',()=>({children})=><div>{children}</div>);
+jest.mock('@mui/x-data-grid',()=>({GridToolbar:()=>null,DataGrid:({rows})=><div>{rows.map((row,index)=><span key={index}>{row.name || row.program}</span>)}</div>}));
+jest.mock('recharts',()=>({ResponsiveContainer:({children})=><div>{children}</div>,BarChart:()=>null,Bar:()=>null,CartesianGrid:()=>null,XAxis:()=>null,YAxis:()=>null,Tooltip:()=>null}));
+beforeEach(()=>{ep1.get.mockReset();ep1.post.mockReset();});
+test('publisher view automatically loads own leads and conversion/payment summary with session identity',async()=>{
+  ep1.get.mockImplementation(url=>Promise.resolve({data:url.endsWith('/options')?{partners:[],years:['2026-27']}:{summary:{totalLeads:2,admitted:1,conversionPercentage:50,totalPayment:1500},programs:[{id:'P1',program:'Science'}],leads:[{_id:'l1',name:'My lead'}]}}));
+  render(<PartnerReportContent kind="publisher" mine/>);
+  await screen.findByText('My lead');expect(screen.getByText('50%')).toBeInTheDocument();expect(screen.getByText('₹ 1,500.00')).toBeInTheDocument();
+  expect(ep1.get).toHaveBeenCalledWith('/api/v2/crm2-partner-payments/publisher/report',expect.objectContaining({params:expect.objectContaining({mine:'true',colid:42,token:'session-token',academicyear:''})}));
+  expect(screen.queryByRole('combobox',{name:'Publisher'})).not.toBeInTheDocument();
+});
+test('configuration auto-fills partner email, id and program code and saves the selected rate',async()=>{
+  ep1.get.mockImplementation(url=>Promise.resolve({data:url.endsWith('/options')?{partners:[{_id:'agent1',name:'Agent One',email:'agent@test.com'}],years:['2026-27']}:url.endsWith('/programs')?{data:[{_id:'p1',program:'Science',programcode:'P1'}]}:{data:[]}}));
+  ep1.post.mockResolvedValue({data:{saved:1}});
+  render(<PartnerPaymentConfigurationPage kind="agent"/>);
+  await waitFor(()=>expect(ep1.get).toHaveBeenCalled());
+  fireEvent.mouseDown(screen.getByRole('combobox',{name:'Agent'}));fireEvent.click(await screen.findByRole('option',{name:'Agent One · agent@test.com'}));
+  expect(screen.getByLabelText('Agent email')).toHaveValue('agent@test.com');expect(screen.getByLabelText('Agent ID')).toHaveValue('agent1');
+  fireEvent.mouseDown(screen.getByRole('combobox',{name:'Academic year'}));fireEvent.click(await screen.findByRole('option',{name:'2026-27'}));
+  fireEvent.mouseDown(screen.getByRole('combobox',{name:'Program'}));fireEvent.click(await screen.findByRole('option',{name:'Science (P1)'}));
+  expect(screen.getByLabelText('Program code')).toHaveValue('P1');fireEvent.change(screen.getByLabelText('Amount per admitted lead'),{target:{value:'1500'}});
+  fireEvent.click(screen.getByRole('button',{name:'Save'}));
+  await waitFor(()=>expect(ep1.post).toHaveBeenCalledWith('/api/v2/crm2-partner-payments/agent/configurations/save',expect.objectContaining({rows:[expect.objectContaining({partnerid:'agent1',programcode:'P1',academicyear:'2026-27',amount:'1500'})]})));
+  await screen.findByText('Payment configuration saved');
+});

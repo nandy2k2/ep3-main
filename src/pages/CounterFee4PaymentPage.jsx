@@ -25,6 +25,7 @@ import PaymentIcon from "@mui/icons-material/Payment";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import MenuPageShell from "./MenuPageShell";
 import CounterFee4ReceiptView from "./CounterFee4ReceiptView";
+import CashDenominationEditor from './CashDenominationEditor';
 import ep1 from "../api/ep1";
 import global1 from "./global1";
 import { preventFutureDateProps, todayDate } from "./feesReceiptUtils";
@@ -77,7 +78,8 @@ function referenceForMode(paymode, details) {
   return "";
 }
 
-export default function CounterFee4PaymentPage() {
+export default function CounterFee4PaymentPage({cashDenominations=false}) {
+  const [confirmedCash,setConfirmedCash]=useState(null);
   const [userFields, setUserFields] = useState([]);
   const [userOptions, setUserOptions] = useState({});
   const [studentFilters, setStudentFilters] = useState([{ ...emptyFilter }]);
@@ -227,6 +229,9 @@ export default function CounterFee4PaymentPage() {
   };
 
   const paySelected = async () => {
+    if(cashDenominations && paymode==='Cash' && (confirmedCash===null || Math.abs(confirmedCash-amountReceived)>0.001)) {
+      setError('Confirm cash denominations matching the selected paid amount before posting payment');return;
+    }
     const items = selectedRows.map((row) => ({ id: row._id, amountreceived: toNumber(amounts[row._id]) })).filter((item) => item.amountreceived > 0);
     if (!selectedStudent) {
       setError("Select a student first");
@@ -336,11 +341,11 @@ export default function CounterFee4PaymentPage() {
   };
 
   return (
-    <MenuPageShell title="Counter Fee 4">
+    <MenuPageShell title={cashDenominations?'Counter Fee 4a':'Counter Fee 4'}>
       <Box p={3}>
         <Stack direction={{ xs: "column", md: "row" }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
           <Box>
-            <Typography variant="h5" fontWeight={900}>Counter Fee 4</Typography>
+            <Typography variant="h5" fontWeight={900}>{cashDenominations?'Counter Fee 4a':'Counter Fee 4'}</Typography>
             <Typography color="text.secondary">Search a student with existing or custom fields, then collect selected past-due fees.</Typography>
           </Box>
           <Button variant="outlined" onClick={() => window.location.assign("/dashdashfacnew")}>Back</Button>
@@ -409,7 +414,12 @@ export default function CounterFee4PaymentPage() {
           <Grid container spacing={1.5}>
             <Grid item xs={12} md={3}><TextField fullWidth size="small" label="Receipt Date" type="date" value={paiddate} onChange={(e) => setPaiddate(e.target.value)} {...preventFutureDateProps} /></Grid>
             <Grid item xs={12} md={3}><FormControl fullWidth size="small"><InputLabel>Payment Mode</InputLabel><Select label="Payment Mode" value={paymode} onChange={(e) => { setPaymode(e.target.value); setPaymentDetails({}); }}>{["Cash", "Cheque", "NEFT", "RTGS", "Card", "UPI"].map((mode) => <MenuItem key={mode} value={mode}>{mode}</MenuItem>)}</Select></FormControl></Grid>
-            {(modeFields[paymode] || []).map(renderModeField)}
+            {(cashDenominations && paymode==='Cash' ? [] : modeFields[paymode] || []).map(renderModeField)}
+            {cashDenominations && paymode==='Cash' && <Grid item xs={12}><CashDenominationEditor key={`${selectedStudent?._id||selectedStudent?.regno||''}-${selection.join(',')}`} onInvalidate={()=>setConfirmedCash(null)} disabled={busy||!selectedRows.length} onConfirm={(total,denominations)=>{
+              if(total>selectedBalance){setError('Cash total exceeds the selected fee balance');return;}
+              let remaining=total;const next={};for(const row of selectedRows){const value=Math.min(remaining,Math.max(0,toNumber(row.balance)));next[row._id]=value;remaining=Math.round((remaining-value)*100)/100;}
+              setAmounts(next);setConfirmedCash(total);setPaymentDetails(previous=>({...previous,denominations:denominations.map(r=>`${r.denomination} x ${r.notes} = ${Number(r.denomination)*Number(r.notes)}`).join('; ')}));setError('');
+            }}/></Grid>}
             <Grid item xs={12}><TextField fullWidth multiline minRows={2} size="small" label="Transaction Remarks" value={transactionRemarks} onKeyDown={(e) => e.stopPropagation()} onChange={(e) => setTransactionRemarks(e.target.value)} /></Grid>
           </Grid>
         </Paper>
