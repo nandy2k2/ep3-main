@@ -1342,6 +1342,8 @@ import HrEmployeeAttendancePage from "./pages/HrEmployeeAttendancePage";
 import HrBiometricAttendancePage from "./pages/HrBiometricAttendancePage";
 import Crm2MergeLeadsPage from './pages/Crm2MergeLeadsPage';
 import Crm2MergeLeadWizard from './pages/Crm2MergeLeadWizard';
+import Crm2CampusQueueManagement from './pages/Crm2CampusQueueManagement';
+import Crm2CampusQueuePage, { CampusQueueScreen } from './pages/Crm2CampusQueuePages';
 import AdmissionScholarshipMasterPage from './pages/AdmissionScholarshipMasterPage';
 import ApplyAdmissionScholarshipPage from './pages/ApplyAdmissionScholarshipPage';
 import AdhocScholarshipPage from './pages/AdhocScholarshipPage';
@@ -2880,7 +2882,7 @@ function HomeRouteClass() {
 function AdminNavbarGate() {
   const location = useLocation();
   const embedded = new URLSearchParams(location.search).get("embedded") === "1";
-  return embedded || ["/question-paper-indent-invitation", "/skill-development-payment-link", '/lead-login'].includes(location.pathname) ? null : <AdminNavbar />;
+  return embedded || ["/question-paper-indent-invitation", "/skill-development-payment-link", '/lead-login', '/crm2-campus-queue-screen'].includes(location.pathname) ? null : <AdminNavbar />;
 }
 
 function App() {
@@ -4369,6 +4371,14 @@ function App() {
         <Route path="/crm2-agent-lead-add" element={<Crm2Page entity="leads" mode="agent" />} />
         <Route path="/crm2-merge-leads" element={<Crm2MergeLeadsPage />} />
         <Route path="/crm2-merge-lead-wizard" element={<Crm2MergeLeadWizard />} />
+        <Route path="/crm2-campus-queue-management" element={<Crm2CampusQueueManagement />} />
+        <Route path="/crm2-queue-counter-master" element={<Crm2CampusQueuePage mode="counters" />} />
+        <Route path="/crm2-select-queue-counter" element={<Crm2CampusQueuePage mode="booking" />} />
+        <Route path="/crm2-queue-counter-admin" element={<Crm2CampusQueuePage mode="admin" />} />
+        <Route path="/crm2-campus-queue" element={<Crm2CampusQueuePage mode="issue" />} />
+        <Route path="/crm2-queue-counsellor" element={<Crm2CampusQueuePage mode="counselor" />} />
+        <Route path="/crm2-campus-queue-display" element={<Crm2CampusQueuePage mode="display" />} />
+        <Route path="/crm2-campus-queue-screen" element={<CampusQueueScreen />} />
         <Route path="/crm2-confirm-admission" element={<Crm2ConfirmAdmissionPage />} />
         <Route path="/admission-scholarship-master" element={<AdmissionScholarshipMasterPage />} />
         <Route path="/admission-scholarship-apply" element={<ApplyAdmissionScholarshipPage />} />

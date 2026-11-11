@@ -883,6 +883,21 @@ export function menuitemsall() {
         </AccordionDetails>
       </Accordion>
       <Accordion>
+        <AccordionSummary aria-controls="panel-crm2-campus-queue-content" id="panel-crm2-campus-queue-header">
+          <BusinessIcon sx={{ marginRight: 1 }} />
+          {open && <Typography sx={{ fontSize: 14 }}>CRM 2 Campus Queue</Typography>}
+        </AccordionSummary>
+        <AccordionDetails>
+          <ListItem button component={RouterLink} to="/crm2-campus-queue-management"><ListItemIcon><PersonIcon /></ListItemIcon>{open && <ListItemText primary="Campus Queue Management" />}</ListItem>
+          <ListItem button component={RouterLink} to="/crm2-queue-counter-master"><ListItemIcon><PersonIcon /></ListItemIcon>{open && <ListItemText primary="Queue counter master" />}</ListItem>
+          <ListItem button component={RouterLink} to="/crm2-select-queue-counter"><ListItemIcon><PersonIcon /></ListItemIcon>{open && <ListItemText primary="Select queue counter" />}</ListItem>
+          <ListItem button component={RouterLink} to="/crm2-queue-counter-admin"><ListItemIcon><PersonIcon /></ListItemIcon>{open && <ListItemText primary="Queue counter admin" />}</ListItem>
+          <ListItem button component={RouterLink} to="/crm2-campus-queue"><ListItemIcon><PersonIcon /></ListItemIcon>{open && <ListItemText primary="Campus queue" />}</ListItem>
+          <ListItem button component={RouterLink} to="/crm2-queue-counsellor"><ListItemIcon><PersonIcon /></ListItemIcon>{open && <ListItemText primary="Queue counsellor" />}</ListItem>
+          <ListItem button component={RouterLink} to="/crm2-campus-queue-display"><ListItemIcon><PersonIcon /></ListItemIcon>{open && <ListItemText primary="Campus queue display" />}</ListItem>
+        </AccordionDetails>
+      </Accordion>
+      <Accordion>
         <AccordionSummary aria-controls="panel-crm2-campaign-content" id="panel-crm2-campaign-header">
           <BusinessIcon sx={{ marginRight: 1 }} />
           {open && <Typography sx={{ fontSize: 14 }}>CRM 2 Campaign</Typography>}
